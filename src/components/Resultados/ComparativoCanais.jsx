@@ -9,8 +9,9 @@
 import { Lightbulb } from 'lucide-react'
 import { CFG, num, fmtDate, inRange } from '../../lib/dashboardData'
 import { fmtMoney, fmtMoneyShort, getDaysInMonth } from './resultadosHelpers'
+import { useI18n, localeAtual } from '../../i18n'
 
-const fmtInt = n => Number(n || 0).toLocaleString('pt-BR')
+const fmtInt = n => Number(n || 0).toLocaleString(localeAtual())
 
 const CHANNELS = [
   { id: 'meta',   label: 'Meta Ads',   icon: '📱', textCls: 'text-rl-blue',   barCls: 'bg-rl-blue' },
@@ -39,6 +40,7 @@ function channelTotals(rows, channel, names, from, to) {
 }
 
 function ChannelCard({ ch, data, bestCpa }) {
+  const { t } = useI18n()
   const cpa = data.conv > 0 && data.spend > 0 ? data.spend / data.conv : 0
   const isBest = cpa > 0 && bestCpa > 0 && cpa === bestCpa
 
@@ -50,7 +52,7 @@ function ChannelCard({ ch, data, bestCpa }) {
         </span>
         {isBest && (
           <span className="text-xs font-bold text-rl-green bg-rl-green/10 px-2 py-0.5 rounded-full shrink-0">
-            melhor custo/conv
+            {t('resultados.canais.melhorCusto')}
           </span>
         )}
       </div>
@@ -58,22 +60,22 @@ function ChannelCard({ ch, data, bestCpa }) {
       {data.spend > 0 || data.conv > 0 ? (
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <div className="text-xs text-rl-muted uppercase tracking-wider">Gasto</div>
+            <div className="text-xs text-rl-muted uppercase tracking-wider">{t('resultados.canais.gasto')}</div>
             <div className="text-base font-bold text-rl-text leading-tight mt-0.5">{fmtMoney(data.spend)}</div>
           </div>
           <div>
-            <div className="text-xs text-rl-muted uppercase tracking-wider">Conversões</div>
+            <div className="text-xs text-rl-muted uppercase tracking-wider">{t('resultados.canais.conversoes')}</div>
             <div className={`text-base font-bold leading-tight mt-0.5 ${ch.textCls}`}>{fmtInt(data.conv)}</div>
           </div>
           <div>
-            <div className="text-xs text-rl-muted uppercase tracking-wider">Custo / conv.</div>
+            <div className="text-xs text-rl-muted uppercase tracking-wider">{t('resultados.canais.custoConv')}</div>
             <div className="text-base font-bold text-rl-gold leading-tight mt-0.5">
               {cpa > 0 ? fmtMoney(cpa) : '—'}
             </div>
           </div>
         </div>
       ) : (
-        <p className="text-xs text-rl-muted py-1">Sem investimento neste canal no mês.</p>
+        <p className="text-xs text-rl-muted py-1">{t('resultados.canais.semInvestimento')}</p>
       )}
     </div>
   )
@@ -109,11 +111,12 @@ function RatioBar({ label, metaPct }) {
 // Participação atual na verba — usada sozinha quando não dá pra calcular a
 // proporção de ouro (algum canal sem conversão no mês).
 function SplitBar({ data, totalSpend }) {
+  const { t } = useI18n()
   const metaPct = totalSpend > 0 ? (data.meta.spend / totalSpend) * 100 : 0
   return (
     <div className="mt-4 mb-4">
-      <div className="text-xs text-rl-muted uppercase tracking-wider mb-1.5">Participação no investimento</div>
-      <RatioBar label="Hoje" metaPct={metaPct} />
+      <div className="text-xs text-rl-muted uppercase tracking-wider mb-1.5">{t('resultados.canais.participacao')}</div>
+      <RatioBar label={t('resultados.canais.hoje')} metaPct={metaPct} />
     </div>
   )
 }
@@ -124,6 +127,7 @@ function SplitBar({ data, totalSpend }) {
 // resultado). Nesse modelo, a alocação ótima é proporcional a conv²/gasto,
 // que equivale a volume (conversões) × eficiência (1/CPA).
 function GoldenSplit({ data, totalSpend }) {
+  const { t } = useI18n()
   const m = data.meta, g = data.google
 
   const wMeta   = (m.conv * m.conv) / m.spend
@@ -160,30 +164,30 @@ function GoldenSplit({ data, totalSpend }) {
   return (
     <div className="mt-4 flex-1 flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-xs text-rl-muted uppercase tracking-wider">Proporção de ouro</span>
-        <span className="text-xs text-rl-muted">volume ÷ custo/conv · retorno decrescente</span>
+        <span className="text-xs text-rl-muted uppercase tracking-wider">{t('resultados.canais.proporcaoOuro')}</span>
+        <span className="text-xs text-rl-muted">{t('resultados.canais.proporcaoSub')}</span>
       </div>
-      <RatioBar label="Hoje"  metaPct={curMeta * 100} />
-      <RatioBar label="Ideal" metaPct={idealMeta * 100} />
+      <RatioBar label={t('resultados.canais.hoje')}  metaPct={curMeta * 100} />
+      <RatioBar label={t('resultados.canais.ideal')} metaPct={idealMeta * 100} />
 
       <div className="flex items-start gap-2 pt-3 mt-auto border-t border-rl-border/60">
         <Lightbulb size={14} className="text-rl-gold shrink-0 mt-0.5" />
         <p className="text-xs text-rl-text leading-relaxed">
           {nearIdeal ? (
-            <>A divisão atual já está praticamente na proporção de ouro — mantenha e otimize dentro de cada canal.</>
+            <>{t('resultados.canais.quaseIdeal')}</>
           ) : (
             <>
-              Mover <b>~{fmtMoneyShort(move)}</b> de {from} para <b>{to}</b> aproxima da divisão ideal
+              {t('resultados.canais.mover')} <b>~{fmtMoneyShort(move)}</b> {t('resultados.canais.moverDe', { de: from })} <b>{to}</b> {t('resultados.canais.moverFim')}
               {gain >= 1 && (
-                <> — projeção de <b>+{Math.round(gain)} {Math.round(gain) === 1 ? 'conversão' : 'conversões'}/mês</b></>
+                <>{t('resultados.canais.projecao')}<b>{t('resultados.canais.conversoesMes', { count: Math.round(gain) })}</b></>
               )}.
             </>
           )}
           {farStretch && (
-            <span className="text-rl-muted"> A divisão ideal levaria o {stretchChannel} a ~{stretch.toFixed(0)}× o gasto atual — escale em etapas e reavalie o custo a cada passo.</span>
+            <span className="text-rl-muted">{t('resultados.canais.escalar', { canal: stretchChannel, x: stretch.toFixed(0) })}</span>
           )}
           {lows.length > 0 && (
-            <span className="text-rl-muted"> Amostra pequena {lows.map(([n, c]) => `no ${n} (${c} conv)`).join(' e ')} — trate como direção, não como regra.</span>
+            <span className="text-rl-muted">{t('resultados.canais.amostraPequena', { itens: lows.map(([n, c]) => t('resultados.canais.amostraItem', { canal: n, n: c })).join(t('resultados.canais.e')) })}</span>
           )}
         </p>
       </div>
@@ -194,6 +198,7 @@ function GoldenSplit({ data, totalSpend }) {
 // Uma frase só com a leitura que importa pra decisão: pra onde a verba rende
 // mais. Substitui a comparação lado a lado em barras.
 function Insight({ data }) {
+  const { t } = useI18n()
   const mHas = data.meta.conv > 0
   const gHas = data.google.conv > 0
 
@@ -209,10 +214,10 @@ function Insight({ data }) {
     const expensive = cheaperIsMeta ? 'Google Ads' : 'Meta Ads'
     const diff = Math.round((Math.max(mCpa, gCpa) / Math.min(mCpa, gCpa) - 1) * 100)
     text = diff < 5
-      ? 'Os dois canais convertem a um custo parecido neste mês.'
-      : `${cheaper} converte ${diff}% mais barato que ${expensive} neste mês — considere realocar verba.`
+      ? t('resultados.canais.parecido')
+      : t('resultados.canais.maisBarato', { barato: cheaper, diff, caro: expensive })
   } else if (mHas || gHas) {
-    text = `Só ${mHas ? 'Meta Ads' : 'Google Ads'} teve conversões neste mês.`
+    text = t('resultados.canais.so', { canal: mHas ? 'Meta Ads' : 'Google Ads' })
   } else {
     return null
   }
@@ -229,6 +234,7 @@ function Insight({ data }) {
 
 export default function ComparativoCanais({ dash, projectId, year, month, monthLabel }) {
   const { raw = {}, accounts = {}, loading, error } = dash || {}
+  const { t } = useI18n()
 
   const names = new Set(
     Object.entries(accounts)
@@ -249,19 +255,19 @@ export default function ComparativoCanais({ dash, projectId, year, month, monthL
 
   if (loading) {
     return <div className="glass-card p-5 h-full">{header}
-      <p className="text-xs text-rl-muted">Carregando dados das contas de anúncio…</p>
+      <p className="text-xs text-rl-muted">{t('resultados.canais.carregando')}</p>
     </div>
   }
   if (error) {
     return <div className="glass-card p-5 h-full">{header}
-      <p className="text-xs text-rl-red">Erro ao carregar tráfego: {String(error)}</p>
+      <p className="text-xs text-rl-red">{t('resultados.canais.erro', { erro: String(error) })}</p>
     </div>
   }
   if (!names.size) {
     return <div className="glass-card p-5 h-full">{header}
       <p className="text-xs text-rl-muted">
-        Nenhuma conta de anúncio vinculada a este cliente. Vincule uma conta na seção
-        <b className="text-rl-text"> Resultados de Tráfego</b>, acima, para ver a comparação por canal.
+        {t('resultados.canais.semContas1')}
+        <b className="text-rl-text">{t('resultados.canais.semContas2')}</b>{t('resultados.canais.semContas3')}
       </p>
     </div>
   }
@@ -284,7 +290,7 @@ export default function ComparativoCanais({ dash, projectId, year, month, monthL
 
       {totalSpend === 0 ? (
         <p className="text-xs text-rl-muted py-4 text-center border border-dashed border-rl-border rounded-xl">
-          Nenhum gasto registrado nas contas deste cliente em {monthLabel}.
+          {t('resultados.canais.semGasto', { mes: monthLabel })}
         </p>
       ) : (
         <>

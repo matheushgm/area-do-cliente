@@ -6,77 +6,87 @@
 // `viaFerramentas: true` — o navegador da Jornada manda pra Ferramentas
 // passando o tool id, e a FerramentasModule abre direto naquele tool.
 
-export const PHASES = [
+import { t } from '../../i18n'
+
+const FASES_BASE = [
   {
     id: 'preparacao',
     number: 1,
-    title: 'Preparação',
-    desc: 'Conheça o negócio, o público e o objetivo — a base de tudo.',
     color: 'rl-blue',
     bgClass: 'bg-rl-blue/5',
     borderClass: 'border-rl-blue/30',
     accent: '#2563EB',
-    badge: 'Base universal',
     modules: [
-      { id: 'dados',        label: 'Dados do Cliente',        emoji: '🗂',  desc: 'Informações cadastrais, contratuais e do negócio.' },
-      { id: 'produtos',     label: 'Produto / Serviço',        emoji: '📦',  desc: 'O que o cliente vende, ICP por linha de receita.' },
-      { id: 'icp',          label: 'Personas',                 emoji: '🎯',  desc: 'Sonhos, dores, objeções e hábitos do cliente ideal.' },
-      { id: 'kickoff',      label: 'Kickoff',                  emoji: '🧭',  desc: 'Diagnóstico inicial em 9 pilares e veredito de oferta matadora.' },
-      { id: 'roi',          label: 'Calculadora de ROI',       emoji: '📊',  desc: 'Leads, MQLs, SQLs e vendas necessários pra atingir o ROI alvo.' },
+      { id: 'dados',        emoji: '🗂' },
+      { id: 'produtos',     emoji: '📦' },
+      { id: 'icp',          emoji: '🎯' },
+      { id: 'kickoff',      emoji: '🧭' },
+      { id: 'roi',          emoji: '📊' },
     ],
   },
   {
     id: 'criacao',
     number: 2,
-    title: 'Criação',
-    desc: 'Construa os ativos que vão gerar demanda.',
     color: 'rl-purple',
     bgClass: 'bg-rl-purple/5',
     borderClass: 'border-rl-purple/30',
     accent: '#7C3AED',
-    badge: 'Ativos',
     modules: [
-      { id: 'mecanismo_unico', label: 'Mecanismo Único',          emoji: '✨', desc: 'Playbook de diferenciação em 6 seções + posicionamento com IA.', viaFerramentas: true },
-      { id: 'oferta',          label: 'Oferta Matadora',          emoji: '⚡', desc: 'Estrutura de oferta com bônus, garantia e gatilhos.' },
-      { id: 'promessa',        label: 'Criação de Promessa',      emoji: '🎯', desc: 'Estrutura a grande promessa do produto/serviço.', viaFerramentas: true },
-      { id: 'campaign',        label: 'Campanha',                 emoji: '📅', desc: 'Planejamento de campanhas por canal e estágio do funil.' },
-      { id: 'estrategiav2',    label: 'Estratégia',               emoji: '🗺', desc: 'Mapa de concorrência e oportunidades de diferenciação.' },
-      { id: 'criativos',       label: 'Criação de anúncios',      emoji: '🎬', desc: 'Geração de criativos estáticos e roteiros de vídeo.' },
-      { id: 'landingpage',     label: 'Criação de landing page',  emoji: '📄', desc: 'Estrutura de landing page dobra a dobra com IA.' },
-      { id: 'metalab',         label: 'Laboratório de Meta Ads',  emoji: '🧪', desc: 'Protocolo de testes em 3 fases (criativos, públicos, ganchos).' },
-      { id: 'googleads',       label: 'Google Ads com IA',        emoji: '🔍', desc: 'Grupos de palavras-chave + geração de copy de anúncio.' },
+      { id: 'mecanismo_unico', emoji: '✨', viaFerramentas: true },
+      { id: 'oferta',          emoji: '⚡' },
+      { id: 'promessa',        emoji: '🎯', viaFerramentas: true },
+      { id: 'campaign',        emoji: '📅' },
+      { id: 'estrategiav2',    emoji: '🗺' },
+      { id: 'criativos',       emoji: '🎬' },
+      { id: 'landingpage',     emoji: '📄' },
+      { id: 'metalab',         emoji: '🧪' },
+      { id: 'googleads',       emoji: '🔍' },
     ],
   },
   {
     id: 'no_ar',
     number: 3,
-    title: 'Campanhas no ar',
-    desc: 'Execução, controle e acompanhamento em tempo real.',
     color: 'rl-gold',
     bgClass: 'bg-rl-gold/5',
     borderClass: 'border-rl-gold/30',
     accent: '#D97706',
-    badge: 'Execução',
     modules: [
-      { id: 'debriefing', label: 'Central de anúncios', emoji: '📣', desc: 'Rastreamento dos criativos no ar + status por anúncio.' },
-      { id: 'resultados', label: 'Resultados',          emoji: '📈', desc: 'Performance B2B / B2C com link pro cliente preencher.' },
+      { id: 'debriefing', emoji: '📣' },
+      { id: 'resultados', emoji: '📈' },
     ],
   },
   {
     id: 'primeiros_resultados',
     number: 4,
-    title: 'Primeiros resultados',
-    desc: 'Valide a satisfação e o resultado percebido pelo cliente.',
     color: 'rl-green',
     bgClass: 'bg-rl-green/5',
     borderClass: 'border-rl-green/30',
     accent: '#059669',
-    badge: 'Validação',
     modules: [
-      { id: 'nps', label: 'NPS', emoji: '⭐', desc: 'Pesquisa de satisfação por marco do contrato.' },
+      { id: 'nps', emoji: '⭐' },
     ],
   },
 ]
+
+// Textos no idioma de quem lê: title/desc/badge da fase e label/desc do módulo são
+// getters que leem o dicionário `jornada` na hora (ids e flags não mudam).
+function comTextos(fase) {
+  const base = `jornada.fases.${fase.id}`
+  Object.defineProperties(fase, {
+    title: { get: () => t(`${base}.titulo`), enumerable: true },
+    desc:  { get: () => t(`${base}.desc`), enumerable: true },
+    badge: { get: () => t(`${base}.selo`), enumerable: true },
+  })
+  for (const mod of fase.modules) {
+    Object.defineProperties(mod, {
+      label: { get: () => t(`${base}.modulos.${mod.id}.rotulo`), enumerable: true },
+      desc:  { get: () => t(`${base}.modulos.${mod.id}.desc`), enumerable: true },
+    })
+  }
+  return fase
+}
+
+export const PHASES = FASES_BASE.map(comTextos)
 
 // ─── Status por módulo ────────────────────────────────────────────────────────
 // Retorna 'concluido' | 'andamento' | 'pendente' baseado no que existe no

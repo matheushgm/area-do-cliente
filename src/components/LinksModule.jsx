@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Instagram, Globe, HardDrive, Link2, Plus, X, ExternalLink, CheckCircle2, Eye, EyeOff } from 'lucide-react'
+import { useI18n } from '../i18n'
 
 const BTN = 'flex items-center justify-center w-10 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all'
 
 // ─── Link field row ────────────────────────────────────────────────────────────
 function LinkField({ icon: Icon, iconColor, label, value, onChange, placeholder, hidden, onToggleHidden }) {
+  const { t } = useI18n()
   return (
     <div>
       <label className="label-field flex items-center gap-1.5">
@@ -24,7 +26,7 @@ function LinkField({ icon: Icon, iconColor, label, value, onChange, placeholder,
             <button
               type="button"
               onClick={onToggleHidden}
-              title={hidden ? 'Mostrar na header' : 'Ocultar da header'}
+              title={hidden ? t('links.mostrarHeader') : t('links.ocultarHeader')}
               className={BTN}
             >
               {hidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -34,7 +36,7 @@ function LinkField({ icon: Icon, iconColor, label, value, onChange, placeholder,
               target="_blank"
               rel="noopener noreferrer"
               className={BTN}
-              title="Abrir link"
+              title={t('links.abrir')}
             >
               <ExternalLink className="w-4 h-4" />
             </a>
@@ -47,6 +49,7 @@ function LinkField({ icon: Icon, iconColor, label, value, onChange, placeholder,
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function LinksModule({ project, onSave }) {
+  const { t } = useI18n()
   const saved = project.links || {}
 
   const [instagram,        setInstagram]        = useState(saved.instagram        || '')
@@ -122,15 +125,15 @@ export default function LinksModule({ project, onSave }) {
         <div>
           <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
             <Link2 className="w-5 h-5 text-rl-cyan" />
-            Links Importantes
+            {t('links.titulo')}
           </h2>
           <p className="text-sm text-rl-muted mt-0.5">
-            Centralize os links essenciais do cliente para acesso rápido
+            {t('links.subtitulo')}
           </p>
         </div>
         {totalLinks > 0 && (
           <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-rl-cyan/10 text-rl-cyan border border-rl-cyan/20">
-            {totalLinks} link{totalLinks !== 1 ? 's' : ''}
+            {t('links.contagem', { count: totalLinks })}
           </span>
         )}
       </div>
@@ -138,7 +141,7 @@ export default function LinksModule({ project, onSave }) {
       {/* Fixed fields */}
       <div className="glass-card p-5 space-y-4">
         <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-1">
-          Redes & Plataformas
+          {t('links.redes')}
         </p>
 
         <LinkField
@@ -147,7 +150,7 @@ export default function LinksModule({ project, onSave }) {
           label="Instagram"
           value={instagram}
           onChange={setInstagram}
-          placeholder="https://instagram.com/empresa"
+          placeholder={t('links.phInstagram')}
           hidden={hiddenFromHeader.includes('instagram')}
           onToggleHidden={() => toggleHidden('instagram')}
         />
@@ -155,10 +158,10 @@ export default function LinksModule({ project, onSave }) {
         <LinkField
           icon={Globe}
           iconColor="text-rl-blue"
-          label="Website"
+          label={t('links.website')}
           value={website}
           onChange={setWebsite}
-          placeholder="https://www.empresa.com.br"
+          placeholder={t('links.phWebsite')}
           hidden={hiddenFromHeader.includes('website')}
           onToggleHidden={() => toggleHidden('website')}
         />
@@ -179,14 +182,14 @@ export default function LinksModule({ project, onSave }) {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">
-            Outros Links
+            {t('links.outros')}
           </p>
           <button
             onClick={addOutro}
             className="flex items-center gap-1.5 text-xs text-rl-purple hover:text-rl-purple/80 font-medium transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            Adicionar link
+            {t('links.adicionar')}
           </button>
         </div>
 
@@ -196,16 +199,17 @@ export default function LinksModule({ project, onSave }) {
             className="glass-card p-5 border-dashed flex items-center justify-center gap-2 text-rl-muted text-sm cursor-pointer hover:border-rl-purple/40 hover:text-rl-text transition-all"
           >
             <Plus className="w-4 h-4" />
-            Clique para adicionar um link personalizado
+            {t('links.cliqueAdicionar')}
           </div>
         )}
 
         {outros.map((outro, i) => (
           <div key={i} className="glass-card p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-rl-muted font-medium">Link {i + 1}</p>
+              <p className="text-xs text-rl-muted font-medium">{t('links.linkN', { n: i + 1 })}</p>
               <button
                 onClick={() => removeOutro(i)}
+                title={t('comum.remover')}
                 className="p-1 rounded text-rl-muted/50 hover:text-red-400 transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
@@ -213,12 +217,12 @@ export default function LinksModule({ project, onSave }) {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="label-field">Descrição</label>
+                <label className="label-field">{t('links.descricao')}</label>
                 <input
                   type="text"
                   value={outro.label}
                   onChange={(e) => updateOutro(i, 'label', e.target.value)}
-                  placeholder="Ex: Notion, Trello, CRM..."
+                  placeholder={t('links.phDescricao')}
                   className="input-field"
                 />
               </div>
@@ -237,7 +241,7 @@ export default function LinksModule({ project, onSave }) {
                       <button
                         type="button"
                         onClick={() => toggleOutroHidden(i)}
-                        title={outro.hidden ? 'Mostrar na header' : 'Ocultar da header'}
+                        title={outro.hidden ? t('links.mostrarHeader') : t('links.ocultarHeader')}
                         className={BTN}
                       >
                         {outro.hidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -247,7 +251,7 @@ export default function LinksModule({ project, onSave }) {
                         target="_blank"
                         rel="noopener noreferrer"
                         className={BTN}
-                        title="Abrir link"
+                        title={t('links.abrir')}
                       >
                         <ExternalLink className="w-4 h-4" />
                       </a>
@@ -268,7 +272,7 @@ export default function LinksModule({ project, onSave }) {
             className="btn-primary flex items-center gap-2"
           >
             <CheckCircle2 className="w-4 h-4" />
-            Salvar Links
+            {t('links.salvar')}
           </button>
         </div>
       )}

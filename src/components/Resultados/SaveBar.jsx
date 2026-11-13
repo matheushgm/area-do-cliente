@@ -1,34 +1,37 @@
 import { Loader2, CheckCircle2, AlertTriangle, Save } from 'lucide-react'
+import { useI18n } from '../../i18n'
 
-const hhmm = (d) => d ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''
+const hhmm = (d, locale) => d ? d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) : ''
 
 // Estado + botão "Salvar" dos formulários públicos de Resultados.
 // `pendingEdit`: há uma linha aberta com campos ainda não confirmados.
 export function SaveStatus({ status, savedAt, pendingEdit }) {
+  const { t, locale } = useI18n()
   if (status === 'saving') return (
     <span className="flex items-center gap-1.5 text-xs text-rl-muted">
-      <Loader2 className="w-3 h-3 animate-spin" /> Salvando...
+      <Loader2 className="w-3 h-3 animate-spin" /> {t('comum.salvando')}
     </span>
   )
   if (status === 'error') return (
     <span className="flex items-center gap-1.5 text-xs text-red-400 font-medium">
-      <AlertTriangle className="w-3 h-3" /> Não salvou. Toque em Salvar
+      <AlertTriangle className="w-3 h-3" /> {t('resultados.save.naoSalvou')}
     </span>
   )
   if (status === 'dirty' || pendingEdit) return (
     <span className="flex items-center gap-1.5 text-xs text-rl-gold font-medium">
-      <span className="w-1.5 h-1.5 rounded-full bg-rl-gold" /> {pendingEdit && status !== 'dirty' ? 'Linha aberta, confirme antes de salvar' : 'Alterações não salvas'}
+      <span className="w-1.5 h-1.5 rounded-full bg-rl-gold" /> {pendingEdit && status !== 'dirty' ? t('resultados.save.linhaAberta') : t('resultados.save.naoSalvas')}
     </span>
   )
   if (status === 'saved') return (
     <span className="flex items-center gap-1.5 text-xs text-rl-green">
-      <CheckCircle2 className="w-3 h-3" /> Salvo{savedAt ? ` às ${hhmm(savedAt)}` : ''}
+      <CheckCircle2 className="w-3 h-3" /> {savedAt ? t('resultados.save.salvoAs', { hora: hhmm(savedAt, locale) }) : t('comum.salvo')}
     </span>
   )
   return null
 }
 
 export function SaveButton({ status, onClick, className = '' }) {
+  const { t } = useI18n()
   const busy = status === 'saving'
   return (
     <button
@@ -38,7 +41,7 @@ export function SaveButton({ status, onClick, className = '' }) {
       className={`btn-primary flex items-center justify-center gap-1.5 text-sm disabled:opacity-60 ${className}`}
     >
       {busy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-      {status === 'error' ? 'Tentar salvar de novo' : 'Salvar'}
+      {status === 'error' ? t('resultados.save.tentarDeNovo') : t('comum.salvar')}
     </button>
   )
 }

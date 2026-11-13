@@ -22,19 +22,23 @@ import { hydrateMecanismo, buildPitch } from './mecanismoShared'
 import { Label, Field, DynamicStringList, DynamicTable } from './Fields'
 import MecanismoWizardShell from './MecanismoWizardShell'
 import { StepPitchPreview } from './WizardSteps'
+import { useI18n } from '../../i18n'
+import { instrucaoDeIdioma } from '../../lib/claude'
 
+// Rótulo = mecanismo.secoes.<id>, traduzido no render.
 const SECOES = [
-  { id: 'pesquisa',  label: 'Pesquisa de mercado',     Icon: Search,     color: 'rl-blue' },
-  { id: 'cliente',   label: 'Mapeamento do cliente',    Icon: Users,      color: 'rl-cyan' },
-  { id: 'problema',  label: 'Mecanismo do problema',    Icon: Skull,      color: 'rl-red' },
-  { id: 'solucao',   label: 'Mecanismo da solução',     Icon: Lightbulb,  color: 'rl-gold' },
-  { id: 'montagem',  label: 'Montagem final',           Icon: FileText,   color: 'rl-purple' },
-  { id: 'validacao', label: 'Validação',                Icon: CheckSquare, color: 'rl-green' },
+  { id: 'pesquisa',  Icon: Search,     color: 'rl-blue' },
+  { id: 'cliente',   Icon: Users,      color: 'rl-cyan' },
+  { id: 'problema',  Icon: Skull,      color: 'rl-red' },
+  { id: 'solucao',   Icon: Lightbulb,  color: 'rl-gold' },
+  { id: 'montagem',  Icon: FileText,   color: 'rl-purple' },
+  { id: 'validacao', Icon: CheckSquare, color: 'rl-green' },
 ]
 
 export default function MecanismoUnicoModule({ project }) {
   const { updateProject } = useApp()
   const { toast, showToast } = useToast()
+  const { t, lang } = useI18n()
 
   const [data, setData] = useState(() => hydrateMecanismo(project.mecanismoUnico))
   const [open, setOpen]   = useState({ pesquisa: true })
@@ -76,7 +80,8 @@ export default function MecanismoUnicoModule({ project }) {
   }
 
   // ── Montagem final calculada ───────────────────────────────────────────────
-  const pitch = useMemo(() => buildPitch(data), [data])
+  // lang nas dependências: os rótulos do pitch seguem o idioma da tela.
+  const pitch = useMemo(() => buildPitch(data), [data, lang]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── IA: refina o pitch ─────────────────────────────────────────────────────
   async function handleGenerateAI() {
@@ -95,7 +100,7 @@ Regras:
 - Não use travessões (—). Use vírgulas, dois-pontos ou ponto-final.
 - Conversational, direto, sem jargão vazio.
 - Cada bloco com 2-4 frases.
-- Saída em markdown com \`## Por que falhou\`, \`## Por que vai funcionar\`, \`## Promessa\`.`
+- Saída em markdown com \`## Por que falhou\`, \`## Por que vai funcionar\`, \`## Promessa\`.` + instrucaoDeIdioma({ rotulos: true })
 
       const instruction = [
         '## Dados preenchidos no playbook',
@@ -123,7 +128,7 @@ Regras:
         '',
         '## Pitch montado automaticamente (use como base, mas refine)',
         '',
-        pitch || '(monte do zero)',
+        buildPitch(data, { pt: true }) || '(monte do zero)',
         '',
         'Refine seguindo o formato do system. Mantenha tudo verdadeiro com base nos dados.',
       ].join('\n')
@@ -141,10 +146,10 @@ Regras:
         onChunk:    (text) => setAiStreaming(text),
       })
       persist({ ...data, aiAnalysis: fullText })
-      showToast('Pitch refinado pela IA!')
+      showToast(t('mecanismo.toast.pitchRefinado'))
     } catch (e) {
       console.error('[MecanismoUnico AI]', e)
-      showToast('Erro ao gerar com IA. Tente novamente.', 'error')
+      showToast(t('mecanismo.toast.erroIA'), 'error')
     } finally {
       setAiLoading(false)
       setAiStreaming('')
@@ -177,7 +182,7 @@ Uma sentença de posicionamento (10-20 palavras), seguida de 2-3 parágrafos jus
 ## Próximos passos pra validar
 3 ações concretas pra testar o posicionamento principal nos próximos 30 dias.
 
-Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use travessões (—); use vírgula, dois-pontos ou ponto-final. Cada bloco com substância (não pode ser vazio nem genérico). Se algum dado estiver faltando, assuma o melhor cenário e diga "supondo X".`
+Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use travessões (—); use vírgula, dois-pontos ou ponto-final. Cada bloco com substância (não pode ser vazio nem genérico). Se algum dado estiver faltando, assuma o melhor cenário e diga "supondo X".` + instrucaoDeIdioma({ rotulos: true })
 
       const instruction = [
         '## Pesquisa de mercado',
@@ -222,10 +227,10 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
         onChunk:    (text) => setPosStreaming(text),
       })
       persist({ ...data, positioningAI: fullText })
-      showToast('Posicionamento gerado!')
+      showToast(t('mecanismo.toast.posGerado'))
     } catch (e) {
       console.error('[MecanismoUnico positioning]', e)
-      showToast('Erro ao gerar posicionamento. Tente novamente.', 'error')
+      showToast(t('mecanismo.toast.erroPos'), 'error')
     } finally {
       setPosLoading(false)
       setPosStreaming('')
@@ -244,7 +249,7 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
     <div className="space-y-6">
       <VideoGuide
         videoId="DIftYYJlf_g"
-        label="Como preencher o módulo de Mecanismo Único"
+        label={t('mecanismo.videoGuia')}
         defaultOpen
       />
 
@@ -254,26 +259,26 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
           <Sparkles className="w-5 h-5 text-rl-purple" />
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-black text-rl-text leading-tight">Mecanismo Único</h2>
+          <h2 className="text-xl font-black text-rl-text leading-tight">{t('mecanismo.titulo')}</h2>
           <p className="text-sm text-rl-subtle mt-0.5 max-w-2xl">
-            Construa o &ldquo;por que ISSO vai funcionar pra mim&rdquo; que diferencia o cliente de todos os concorrentes. 6 seções guiadas que viram um pitch pronto.
+            {t('mecanismo.descricao')}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={copyClientLink}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/30 transition-all"
-            title="Copiar link para o cliente preencher sozinho"
+            title={t('mecanismo.linkTitle')}
           >
             {linkCopied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Link2 className="w-3.5 h-3.5" />}
-            {linkCopied ? 'Link copiado!' : 'Link do Cliente'}
+            {linkCopied ? t('mecanismo.linkCopiado') : t('mecanismo.linkCliente')}
           </button>
           <button
             onClick={handleExportPDF}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/30 transition-all"
-            title="Abre uma janela de impressão com tudo o que foi preenchido"
+            title={t('mecanismo.pdfTitle')}
           >
-            <FileDown className="w-3.5 h-3.5" /> Exportar PDF
+            <FileDown className="w-3.5 h-3.5" /> {t('mecanismo.exportarPdf')}
           </button>
         </div>
       </div>
@@ -281,8 +286,8 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
       {/* Seletor de visão — guiado (passo-a-passo) ou seções (tudo na tela) */}
       <div className="flex items-center gap-1 p-1 rounded-xl bg-rl-surface border border-rl-border w-fit">
         {[
-          { id: 'guiado', label: 'Passo a passo', Icon: Footprints, hint: 'Uma pergunta por tela, com exemplos' },
-          { id: 'secoes', label: 'Tudo na tela',  Icon: LayoutList, hint: 'As 6 seções em acordeão' },
+          { id: 'guiado', label: t('mecanismo.visoes.guiado'), Icon: Footprints, hint: t('mecanismo.visoes.guiadoHint') },
+          { id: 'secoes', label: t('mecanismo.visoes.secoes'), Icon: LayoutList, hint: t('mecanismo.visoes.secoesHint') },
         ].map((v) => {
           const active = view === v.id
           return (
@@ -303,14 +308,14 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
       {/* Quote-blocks de introdução */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="rounded-xl border border-rl-red/30 bg-rl-red/5 p-4">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-rl-red mb-1">Parte 1</p>
-          <p className="text-sm font-bold text-rl-text">Mecanismo do problema</p>
-          <p className="text-xs text-rl-subtle mt-1">Por que falhou até agora</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-rl-red mb-1">{t('mecanismo.parte', { n: 1 })}</p>
+          <p className="text-sm font-bold text-rl-text">{t('mecanismo.secoes.problema')}</p>
+          <p className="text-xs text-rl-subtle mt-1">{t('mecanismo.parte1Desc')}</p>
         </div>
         <div className="rounded-xl border border-rl-green/30 bg-rl-green/5 p-4">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-rl-green mb-1">Parte 2</p>
-          <p className="text-sm font-bold text-rl-text">Mecanismo da solução</p>
-          <p className="text-xs text-rl-subtle mt-1">Por que vai funcionar agora</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-rl-green mb-1">{t('mecanismo.parte', { n: 2 })}</p>
+          <p className="text-sm font-bold text-rl-text">{t('mecanismo.secoes.solucao')}</p>
+          <p className="text-xs text-rl-subtle mt-1">{t('mecanismo.parte2Desc')}</p>
         </div>
       </div>
 
@@ -326,7 +331,7 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
               onClick={() => setView('secoes')}
               className="btn-secondary flex items-center gap-1.5 text-sm"
             >
-              <LayoutList className="w-4 h-4" /> Ver tudo na tela
+              <LayoutList className="w-4 h-4" /> {t('mecanismo.verTudo')}
             </button>
           }
         />
@@ -347,8 +352,8 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
                 <Icon className={`w-4 h-4 text-${s.color}`} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold">Seção {SECOES.indexOf(s) + 1}</p>
-                <h3 className="text-sm font-bold text-rl-text">{s.label}</h3>
+                <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold">{t('mecanismo.secao', { n: SECOES.indexOf(s) + 1 })}</p>
+                <h3 className="text-sm font-bold text-rl-text">{t(`mecanismo.secoes.${s.id}`)}</h3>
               </div>
               {isOpen
                 ? <ChevronUp className="w-4 h-4 text-rl-muted" />
@@ -373,8 +378,8 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
       <div className="glass-card p-5 border-2 border-rl-purple/30 space-y-4">
         <div className="flex items-center gap-2">
           <Trophy className="w-4 h-4 text-rl-gold" />
-          <h3 className="text-sm font-bold text-rl-text">Pitch montado (ao vivo)</h3>
-          <span className="text-[10px] text-rl-muted ml-auto">atualiza conforme você preenche</span>
+          <h3 className="text-sm font-bold text-rl-text">{t('mecanismo.pitchAoVivo')}</h3>
+          <span className="text-[10px] text-rl-muted ml-auto">{t('mecanismo.pitchAtualiza')}</span>
         </div>
         {pitch ? (
           <div className="rounded-xl bg-rl-surface/50 border border-rl-border p-4">
@@ -382,7 +387,7 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
           </div>
         ) : (
           <p className="text-sm text-rl-muted text-center py-6 italic">
-            Preencha a seção &ldquo;Montagem final&rdquo; pra ver o pitch aparecer aqui.
+            {t('mecanismo.pitchVazio')}
           </p>
         )}
         <div className="flex items-center justify-end gap-2 flex-wrap">
@@ -392,7 +397,7 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
               disabled={aiLoading}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
             >
-              <RotateCcw className="w-3.5 h-3.5" /> Regerar com IA
+              <RotateCcw className="w-3.5 h-3.5" /> {t('mecanismo.regerarIA')}
             </button>
           )}
           {!data.aiAnalysis && (
@@ -402,8 +407,8 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
               className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {aiLoading
-                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Refinando...</>
-                : <><Sparkles className="w-3.5 h-3.5" /> Refinar com IA</>
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('mecanismo.refinando')}</>
+                : <><Sparkles className="w-3.5 h-3.5" /> {t('mecanismo.refinarIA')}</>
               }
             </button>
           )}
@@ -419,7 +424,7 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
               : <Sparkles className="w-4 h-4 text-rl-purple" />
             }
             <h3 className="text-sm font-bold text-rl-text">
-              Pitch refinado pela IA
+              {t('mecanismo.pitchRefinado')}
             </h3>
           </div>
           <div className="border-t border-rl-border/60 pt-4">
@@ -441,14 +446,14 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
         <div className="flex items-center gap-2 flex-wrap">
           <Target className="w-4 h-4 text-rl-blue" />
           <h3 className="text-sm font-bold text-rl-text">
-            Construir posicionamento com IA
+            {t('mecanismo.posTitulo')}
           </h3>
           <span className="text-[10px] text-rl-muted ml-auto">
-            usa todas as respostas das 6 seções
+            {t('mecanismo.posUsa')}
           </span>
         </div>
         <p className="text-xs text-rl-subtle leading-relaxed">
-          A IA analisa tudo que você preencheu e devolve <strong>um posicionamento principal recomendado</strong>, com justificativa, mais 2-3 <strong>ângulos alternativos</strong> pra você testar e os próximos passos pra validar.
+          {t('mecanismo.posDesc1')}<strong>{t('mecanismo.posDescPrincipal')}</strong>{t('mecanismo.posDesc2')}<strong>{t('mecanismo.posDescAngulos')}</strong>{t('mecanismo.posDesc3')}
         </p>
 
         {!data.positioningAI && !posLoading && (
@@ -457,7 +462,7 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
             disabled={posLoading}
             className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-xl bg-rl-blue text-white shadow-glow hover:bg-rl-blue/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <Target className="w-4 h-4" /> Construir posicionamento
+            <Target className="w-4 h-4" /> {t('mecanismo.construirPos')}
           </button>
         )}
 
@@ -465,7 +470,7 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
           <div className="rounded-xl bg-rl-surface/50 border border-rl-blue/20 p-4">
             <div className="flex items-center gap-2 mb-3">
               <Loader2 className="w-4 h-4 text-rl-blue animate-spin" />
-              <span className="text-xs font-semibold text-rl-blue">Construindo posicionamento...</span>
+              <span className="text-xs font-semibold text-rl-blue">{t('mecanismo.construindoPos')}</span>
             </div>
             {posStreaming && <MarkdownView content={posStreaming} />}
           </div>
@@ -486,7 +491,7 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
                 disabled={posLoading}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Regerar
+                <RotateCcw className="w-3.5 h-3.5" /> {t('mecanismo.regerar')}
               </button>
             </div>
           </>
@@ -500,35 +505,36 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
 
 // ─── Seção 1: Pesquisa de mercado ─────────────────────────────────────────────
 function SecaoPesquisa({ data, set }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-5 pt-4">
       <p className="text-xs text-rl-subtle italic">
-        Antes de criar o mecanismo, entenda o que o mercado já oferece.
+        {t('mecanismo.pesquisaIntro')}
       </p>
 
       <DynamicTable
-        title="Seus concorrentes"
-        hint="Liste 3-5 concorrentes diretos e o que cada um entrega."
+        title={t('mecanismoPassos.campos.seusConcorrentes')}
+        hint={t('mecanismo.pesquisaConcorrentesHint')}
         columns={[
-          { id: 'nome',   label: 'Concorrente', placeholder: 'Ex: Fulano' },
-          { id: 'oferta', label: 'O que oferece', placeholder: 'Ex: Curso online + comunidade' },
+          { id: 'nome',   label: t('mecanismoPassos.campos.concorrente'), placeholder: t('mecanismoPassos.campos.concorrentePh') },
+          { id: 'oferta', label: t('mecanismoPassos.campos.oQueOferece'), placeholder: t('mecanismoPassos.campos.oQueOferecePh') },
         ]}
         rows={data.concorrentes}
         onChange={(rows) => set('concorrentes', rows)}
       />
 
       <DynamicStringList
-        title="O que é padrão no mercado?"
-        hint="O que todo mundo oferece igual (calls semanais, método em X passos, suporte WhatsApp...)"
-        placeholder="Ex: Calls semanais"
+        title={t('mecanismoPassos.campos.padraoMercado')}
+        hint={t('mecanismo.pesquisaPadraoHint')}
+        placeholder={t('mecanismoPassos.campos.padraoMercadoPh')}
         items={data.padroesMercado}
         onChange={(items) => set('padroesMercado', items)}
       />
 
       <DynamicStringList
-        title="Promessas que todo mundo faz"
-        hint='Frases batidas que você vê em todo lugar do seu nicho.'
-        placeholder='Ex: "Escale seu faturamento"'
+        title={t('mecanismoPassos.campos.promessasComuns')}
+        hint={t('mecanismoPassos.campos.promessasComunsHint')}
+        placeholder={t('mecanismoPassos.campos.promessasComunsPh')}
         items={data.promessasComuns}
         onChange={(items) => set('promessasComuns', items)}
       />
@@ -536,7 +542,7 @@ function SecaoPesquisa({ data, set }) {
       <div className="flex items-start gap-2 p-3 rounded-xl bg-rl-gold/5 border border-rl-gold/30">
         <AlertTriangle className="w-4 h-4 text-rl-gold mt-0.5 shrink-0" />
         <p className="text-xs text-rl-text leading-snug">
-          <strong>Alerta:</strong> se você oferece as mesmas coisas que listou acima, você é igual aos outros. Use isso pra criar contraste nas próximas seções.
+          <strong>{t('mecanismoPassos.campos.alerta')}</strong> {t('mecanismo.pesquisaAlerta')}
         </p>
       </div>
     </div>
@@ -545,27 +551,28 @@ function SecaoPesquisa({ data, set }) {
 
 // ─── Seção 2: Mapeamento do cliente ───────────────────────────────────────────
 function SecaoCliente({ data, set }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-5 pt-4">
       <p className="text-xs text-rl-subtle italic">
-        Entenda o que seu cliente já tentou e por que ele acha que não funcionou.
+        {t('mecanismo.clienteIntro')}
       </p>
 
       <DynamicTable
-        title="O que ele já tentou antes de você?"
+        title={t('mecanismoPassos.campos.jaTentou')}
         hint=""
         columns={[
-          { id: 'tentou',    label: 'O que tentou',  placeholder: 'Ex: Curso online' },
-          { id: 'resultado', label: 'Resultado',     placeholder: 'Ex: Não aplicou' },
+          { id: 'tentou',    label: t('mecanismoPassos.campos.oQueTentou'), placeholder: t('mecanismoPassos.campos.oQueTentouPh') },
+          { id: 'resultado', label: t('mecanismoPassos.campos.resultado'), placeholder: t('mecanismoPassos.campos.resultadoPh') },
         ]}
         rows={data.tentativas}
         onChange={(rows) => set('tentativas', rows)}
       />
 
       <DynamicStringList
-        title="Por que ELE acha que não funcionou?"
-        hint='Use as palavras dele (não as suas). Ex: "Não tive tempo de aplicar"'
-        placeholder='Ex: "Era muito complexo"'
+        title={t('mecanismoPassos.campos.porqueNaoFuncionou')}
+        hint={t('mecanismo.clienteJustificativasHint')}
+        placeholder={t('mecanismoPassos.campos.porqueNaoFuncionouPh')}
         items={data.justificativas}
         onChange={(items) => set('justificativas', items)}
       />
@@ -575,6 +582,7 @@ function SecaoCliente({ data, set }) {
 
 // ─── Seção 3: Mecanismo do problema ───────────────────────────────────────────
 function SecaoProblema({ data, set, setNested }) {
+  const { t } = useI18n()
   const viloesSelected = new Set(data.viloes || [])
   const provasSelected = new Set(data.provas || [])
 
@@ -594,13 +602,13 @@ function SecaoProblema({ data, set, setNested }) {
     <div className="space-y-5 pt-4">
       <div className="p-3 rounded-xl bg-rl-purple/5 border border-rl-purple/30">
         <p className="text-xs text-rl-text">
-          <strong>Regra de ouro:</strong> o cliente NUNCA é culpado. A culpa é de algo que ele NÃO SABIA.
+          <strong>{t('mecanismoPassos.campos.regraDeOuro')}</strong> {t('mecanismo.problemaRegra')}
         </p>
       </div>
 
       <div>
-        <Label>Passo 1 — Escolha o vilão</Label>
-        <p className="text-[11px] text-rl-muted mb-2">Quem ou o que você pode culpar pelo fracasso?</p>
+        <Label>{t('mecanismo.problemaPasso1')}</Label>
+        <p className="text-[11px] text-rl-muted mb-2">{t('mecanismoPassos.campos.quemCulpar')}</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {VILOES.map((v) => {
             const checked = viloesSelected.has(v.id)
@@ -626,21 +634,21 @@ function SecaoProblema({ data, set, setNested }) {
           })}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-          <Field label="Meu vilão principal">
+          <Field label={t('mecanismoPassos.campos.vilaoPrincipal')}>
             <input
               type="text"
               value={data.vilaoPrincipal || ''}
               onChange={(e) => set('vilaoPrincipal', e.target.value)}
-              placeholder="Resuma em uma frase"
+              placeholder={t('mecanismoPassos.campos.vilaoPrincipalPh')}
               className="input-field w-full"
             />
           </Field>
-          <Field label="Por que isso é vilão?">
+          <Field label={t('mecanismoPassos.campos.porqueVilao')}>
             <input
               type="text"
               value={data.vilaoJustificativa || ''}
               onChange={(e) => set('vilaoJustificativa', e.target.value)}
-              placeholder="A razão lógica"
+              placeholder={t('mecanismoPassos.campos.porqueVilaoPh')}
               className="input-field w-full"
             />
           </Field>
@@ -648,39 +656,39 @@ function SecaoProblema({ data, set, setNested }) {
       </div>
 
       <div>
-        <Label>Passo 2 — Conexão lógica</Label>
+        <Label>{t('mecanismo.problemaPasso2')}</Label>
         <p className="text-[11px] text-rl-muted mb-2">
-          [VILÃO] → causou [PROBLEMA] → que levou a [FRACASSO]
+          {t('mecanismoPassos.campos.cadeia')}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <input
             type="text"
             value={data.conexao?.vilao || ''}
             onChange={(e) => setNested('conexao', 'vilao', e.target.value)}
-            placeholder="Vilão"
+            placeholder={t('mecanismoPassos.campos.vilao')}
             className="input-field w-full"
           />
           <input
             type="text"
             value={data.conexao?.problema || ''}
             onChange={(e) => setNested('conexao', 'problema', e.target.value)}
-            placeholder="Problema causado"
+            placeholder={t('mecanismoPassos.campos.problemaCausado')}
             className="input-field w-full"
           />
           <input
             type="text"
             value={data.conexao?.fracasso || ''}
             onChange={(e) => setNested('conexao', 'fracasso', e.target.value)}
-            placeholder="Fracasso final"
+            placeholder={t('mecanismoPassos.campos.fracassoFinal')}
             className="input-field w-full"
           />
         </div>
       </div>
 
       <div>
-        <Label>Passo 3 — A prova</Label>
+        <Label>{t('mecanismo.problemaPasso3')}</Label>
         <p className="text-[11px] text-rl-muted mb-2">
-          Qual tipo de prova torna sua explicação crível?
+          {t('mecanismoPassos.campos.qualProva')}
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
           {TIPOS_PROVA.map((p) => {
@@ -705,7 +713,7 @@ function SecaoProblema({ data, set, setNested }) {
           value={data.provaTexto || ''}
           onChange={(e) => set('provaTexto', e.target.value)}
           rows={2}
-          placeholder='Ex: "9 em cada 10 scripts da internet foram escritos por quem nunca vendeu acima de R$5.000"'
+          placeholder={t('mecanismoPassos.campos.provaPh')}
           className="input-field w-full resize-none"
         />
       </div>
@@ -715,26 +723,27 @@ function SecaoProblema({ data, set, setNested }) {
 
 // ─── Seção 4: Mecanismo da solução ────────────────────────────────────────────
 function SecaoSolucao({ data, set, setNested }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-5 pt-4">
       <p className="text-xs text-rl-subtle italic">
-        Agora explique por que SEU método vai funcionar.
+        {t('mecanismo.solucaoIntro')}
       </p>
 
       <DynamicTable
-        title="Passo 1 — Defina o que é diferente"
-        hint='Complete: "Diferente de... eu..."'
+        title={t('mecanismo.solucaoPasso1')}
+        hint={t('mecanismoPassos.campos.completeDiferente')}
         columns={[
-          { id: 'deles', label: 'Diferente de...', placeholder: 'Ex: cursos que dão teoria' },
-          { id: 'voce',  label: 'Eu...',          placeholder: 'Ex: implemento do seu lado' },
+          { id: 'deles', label: t('mecanismoPassos.campos.diferenteDe'), placeholder: t('mecanismoPassos.campos.diferenteDePh') },
+          { id: 'voce',  label: t('mecanismoPassos.campos.eu'), placeholder: t('mecanismoPassos.campos.euPh') },
         ]}
         rows={data.diferentes}
         onChange={(rows) => set('diferentes', rows)}
       />
 
       <div>
-        <Label>Passo 2 — Dê um nome ao mecanismo</Label>
-        <p className="text-[11px] text-rl-muted mb-2">Escolha um formato pro nome:</p>
+        <Label>{t('mecanismo.solucaoPasso2')}</Label>
+        <p className="text-[11px] text-rl-muted mb-2">{t('mecanismo.solucaoFormato')}</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
           {FORMATOS_NOME.map((f) => {
             const active = data.formatoNome === f.id
@@ -750,17 +759,17 @@ function SecaoSolucao({ data, set, setNested }) {
                 }`}
               >
                 <div className="font-bold">{f.label}</div>
-                <div className="text-[10px] text-rl-muted">Ex: {f.exemplo}</div>
+                <div className="text-[10px] text-rl-muted">{t('mecanismoPassos.campos.exemploCurto', { texto: f.exemplo })}</div>
               </button>
             )
           })}
         </div>
-        <Field label="Nome final do mecanismo">
+        <Field label={t('mecanismoPassos.campos.nomeFinal')}>
           <input
             type="text"
             value={data.nomeMecanismo || ''}
             onChange={(e) => set('nomeMecanismo', e.target.value)}
-            placeholder='Ex: "Método do Closer Interno"'
+            placeholder={t('mecanismoPassos.campos.nomeFinalPh')}
             className="input-field w-full"
             maxLength={80}
           />
@@ -768,17 +777,17 @@ function SecaoSolucao({ data, set, setNested }) {
       </div>
 
       <div>
-        <Label>Passo 3 — Explique por que funciona</Label>
-        <p className="text-[11px] text-rl-muted mb-2">Use uma ou mais técnicas:</p>
+        <Label>{t('mecanismo.solucaoPasso3')}</Label>
+        <p className="text-[11px] text-rl-muted mb-2">{t('mecanismo.solucaoTecnicas')}</p>
         <div className="space-y-3">
-          {TECNICAS.map((t) => (
-            <div key={t.id}>
-              <p className="text-[11px] font-bold text-rl-text mb-1">{t.label}</p>
+          {TECNICAS.map((tc) => (
+            <div key={tc.id}>
+              <p className="text-[11px] font-bold text-rl-text mb-1">{tc.label}</p>
               <textarea
-                value={(data.tecnicas || {})[t.id] || ''}
-                onChange={(e) => setNested('tecnicas', t.id, e.target.value)}
+                value={(data.tecnicas || {})[tc.id] || ''}
+                onChange={(e) => setNested('tecnicas', tc.id, e.target.value)}
                 rows={2}
-                placeholder={t.placeholder}
+                placeholder={tc.placeholder}
                 className="input-field w-full resize-none"
               />
             </div>
@@ -791,77 +800,78 @@ function SecaoSolucao({ data, set, setNested }) {
 
 // ─── Seção 5: Montagem final ──────────────────────────────────────────────────
 function SecaoMontagem({ data, set, setNested }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-5 pt-4">
       <p className="text-xs text-rl-subtle italic">
-        Junte tudo no esqueleto do pitch final.
+        {t('mecanismo.montagemIntro')}
       </p>
 
       <div className="space-y-3">
-        <Field label="Eu ajudo:">
+        <Field label={t('mecanismoPassos.campos.euAjudo')}>
           <textarea
             value={data.euAjudo || ''}
             onChange={(e) => set('euAjudo', e.target.value)}
             rows={2}
-            placeholder="Ex: Donos de agências que faturam entre R$50k e R$200k/mês e ainda são o principal vendedor"
+            placeholder={t('mecanismoPassos.campos.euAjudoPh')}
             className="input-field w-full resize-none"
           />
         </Field>
-        <Field label="A conseguir:">
+        <Field label={t('mecanismoPassos.campos.aConseguir')}>
           <textarea
             value={data.aConseguir || ''}
             onChange={(e) => set('aConseguir', e.target.value)}
             rows={2}
-            placeholder="Ex: Contratar o primeiro closer que bate meta em 45 dias sem o dono participar"
+            placeholder={t('mecanismoPassos.campos.aConseguirPh')}
             className="input-field w-full resize-none"
           />
         </Field>
-        <Field label="Através do (nome do mecanismo):">
+        <Field label={t('mecanismoPassos.campos.atravesDo')}>
           <input
             type="text"
             value={data.atravesDo || data.nomeMecanismo || ''}
             onChange={(e) => set('atravesDo', e.target.value)}
-            placeholder={data.nomeMecanismo || 'Ex: Método do Closer Interno'}
+            placeholder={data.nomeMecanismo || t('mecanismoPassos.campos.atravesDoPh')}
             className="input-field w-full"
           />
         </Field>
       </div>
 
       <div className="border-t border-rl-border/60 pt-4">
-        <Label>Parte 1 — Por que falhou até agora</Label>
+        <Label>{t('mecanismoPassos.campos.parte1')}</Label>
         <div className="space-y-2 mt-2">
           <textarea
             value={data.porqueFalhou?.problema || ''}
             onChange={(e) => setNested('porqueFalhou', 'problema', e.target.value)}
             rows={2}
-            placeholder="Você não conseguiu... até agora porque..."
+            placeholder={t('mecanismoPassos.campos.falhouProblemaPh')}
             className="input-field w-full resize-none"
           />
           <textarea
             value={data.porqueFalhou?.razao || ''}
             onChange={(e) => setNested('porqueFalhou', 'razao', e.target.value)}
             rows={2}
-            placeholder="Isso acontece porque..."
+            placeholder={t('mecanismoPassos.campos.falhouRazaoPh')}
             className="input-field w-full resize-none"
           />
           <textarea
             value={data.porqueFalhou?.prova || ''}
             onChange={(e) => setNested('porqueFalhou', 'prova', e.target.value)}
             rows={2}
-            placeholder="[PROVA]: ..."
+            placeholder={t('mecanismoPassos.campos.falhouProvaPh')}
             className="input-field w-full resize-none"
           />
         </div>
       </div>
 
       <div className="border-t border-rl-border/60 pt-4">
-        <Label>Parte 2 — Por que vai funcionar</Label>
+        <Label>{t('mecanismoPassos.campos.parte2')}</Label>
         <div className="space-y-2 mt-2">
           <textarea
             value={data.porqueFunciona?.explicacao || ''}
             onChange={(e) => setNested('porqueFunciona', 'explicacao', e.target.value)}
             rows={2}
-            placeholder="O [NOME DO MECANISMO]... funciona porque..."
+            placeholder={t('mecanismoPassos.campos.funcionaExplicacaoPh')}
             className="input-field w-full resize-none"
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -869,14 +879,14 @@ function SecaoMontagem({ data, set, setNested }) {
               value={data.porqueFunciona?.diferente || ''}
               onChange={(e) => setNested('porqueFunciona', 'diferente', e.target.value)}
               rows={2}
-              placeholder="Diferente de..."
+              placeholder={t('mecanismoPassos.campos.funcionaDiferentePh')}
               className="input-field w-full resize-none"
             />
             <textarea
               value={data.porqueFunciona?.voce || ''}
               onChange={(e) => setNested('porqueFunciona', 'voce', e.target.value)}
               rows={2}
-              placeholder="...eu..."
+              placeholder={t('mecanismoPassos.campos.funcionaVocePh')}
               className="input-field w-full resize-none"
             />
           </div>
@@ -884,23 +894,23 @@ function SecaoMontagem({ data, set, setNested }) {
       </div>
 
       <div className="border-t border-rl-border/60 pt-4">
-        <Label>Promessa final</Label>
+        <Label>{t('mecanismoPassos.campos.promessaFinal')}</Label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-          <Field label="Em (prazo)">
+          <Field label={t('mecanismoPassos.campos.prazo')}>
             <input
               type="text"
               value={data.promessaPrazo || ''}
               onChange={(e) => set('promessaPrazo', e.target.value)}
-              placeholder="Ex: 45 dias"
+              placeholder={t('mecanismoPassos.campos.prazoPh')}
               className="input-field w-full"
             />
           </Field>
-          <Field label="...você terá">
+          <Field label={t('mecanismoPassos.campos.resultadoPromessa')}>
             <input
               type="text"
               value={data.promessaResultado || ''}
               onChange={(e) => set('promessaResultado', e.target.value)}
-              placeholder="Ex: seu closer batendo meta sem você"
+              placeholder={t('mecanismoPassos.campos.resultadoPromessaPh')}
               className="input-field w-full"
             />
           </Field>
@@ -912,6 +922,7 @@ function SecaoMontagem({ data, set, setNested }) {
 
 // ─── Seção 6: Validação ───────────────────────────────────────────────────────
 function SecaoValidacao({ data, set, count, veredito }) {
+  const { t } = useI18n()
   function setCriterio(id, val) {
     set('validacao', { ...(data.validacao || {}), [id]: val })
   }
@@ -919,7 +930,7 @@ function SecaoValidacao({ data, set, count, veredito }) {
   return (
     <div className="space-y-5 pt-4">
       <p className="text-xs text-rl-subtle italic">
-        Marque cada critério. Mecanismo aprovado quando responder SIM em todos os 7.
+        {t('mecanismo.validacaoIntro')}
       </p>
 
       <div className="space-y-2">
@@ -942,7 +953,7 @@ function SecaoValidacao({ data, set, count, veredito }) {
                       : 'bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text'
                   }`}
                 >
-                  Sim
+                  {t('mecanismoPassos.campos.sim')}
                 </button>
                 <button
                   type="button"
@@ -953,7 +964,7 @@ function SecaoValidacao({ data, set, count, veredito }) {
                       : 'bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text'
                   }`}
                 >
-                  Não
+                  {t('mecanismoPassos.campos.nao')}
                 </button>
               </div>
             </div>
@@ -969,7 +980,7 @@ function SecaoValidacao({ data, set, count, veredito }) {
         }}
       >
         <p className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: veredito.color }}>
-          Veredito ({count}/7)
+          {t('mecanismoPassos.campos.veredito', { count })}
         </p>
         <p className="text-sm font-bold" style={{ color: veredito.color }}>
           {veredito.label}
@@ -977,33 +988,33 @@ function SecaoValidacao({ data, set, count, veredito }) {
       </div>
 
       <div>
-        <Label>Teste do amigo</Label>
+        <Label>{t('mecanismoPassos.campos.testeAmigo')}</Label>
         <p className="text-[11px] text-rl-muted mb-2">
-          Imagina contar o mecanismo pra um amigo no bar. Qual seria a reação?
+          {t('mecanismoPassos.campos.testeAmigoHint')}
         </p>
         <div className="space-y-2">
-          {TESTE_AMIGO.map((t) => {
-            const active = data.testeAmigo === t.id
+          {TESTE_AMIGO.map((ta) => {
+            const active = data.testeAmigo === ta.id
             return (
               <button
-                key={t.id}
+                key={ta.id}
                 type="button"
-                onClick={() => set('testeAmigo', active ? '' : t.id)}
+                onClick={() => set('testeAmigo', active ? '' : ta.id)}
                 className={`w-full text-left px-4 py-3 rounded-xl border transition-all flex items-center justify-between ${
                   active
-                    ? t.id === 'aprovado'
+                    ? ta.id === 'aprovado'
                       ? 'bg-rl-green/10 border-rl-green/50 text-rl-green'
                       : 'bg-rl-red/10 border-rl-red/50 text-rl-red'
                     : 'bg-rl-surface border-rl-border text-rl-text hover:border-rl-purple/30'
                 }`}
               >
-                <span className="text-sm">{t.label}</span>
+                <span className="text-sm">{ta.label}</span>
                 <span className={`text-[10px] font-bold uppercase tracking-wider ${
                   active
-                    ? t.id === 'aprovado' ? 'text-rl-green' : 'text-rl-red'
+                    ? ta.id === 'aprovado' ? 'text-rl-green' : 'text-rl-red'
                     : 'text-rl-muted'
                 }`}>
-                  → {t.resultado}
+                  → {ta.resultado}
                 </span>
               </button>
             )

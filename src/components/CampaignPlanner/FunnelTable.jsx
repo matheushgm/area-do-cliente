@@ -1,5 +1,6 @@
 import { STAGE_KEYS, FUNNEL_GRID } from './campaignHelpers'
 import StageSection from './StageSection'
+import { useI18n } from '../../i18n'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Funil de um canal (ou de uma conta de anúncio) como tabela: uma linha por
@@ -12,13 +13,14 @@ export default function FunnelTable({
   stages, derived, parentMonthly, daysLeft,
   onUpdateStage, onAddCampaign, onUpdateCampaign, onDeleteCampaign,
 }) {
+  const { t } = useI18n()
   return (
     <div>
       <div className={`${FUNNEL_GRID} !hidden sm:!grid px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-rl-muted`}>
-        <span>Etapa / campanha</span>
+        <span>{t('campanhas.tabela.etapaCampanha')}</span>
         <span className="text-right">%</span>
-        <span className="text-right">Valor</span>
-        <span className="text-right hidden sm:block">Por dia</span>
+        <span className="text-right">{t('campanhas.tabela.valor')}</span>
+        <span className="text-right hidden sm:block">{t('campanhas.tabela.porDia')}</span>
         <span />
       </div>
       <div className="divide-y divide-rl-border/60 border-y border-rl-border/60">

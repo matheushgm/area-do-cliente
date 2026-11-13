@@ -3,6 +3,7 @@ import MoneyInput from '../UI/MoneyInput'
 import PercentInput from '../UI/PercentInput'
 import { calcularServico } from './precificacaoMath'
 import { fmtMoney } from '../Resultados/resultadosHelpers'
+import { useI18n } from '../../i18n'
 
 // Colaborador em branco com defaults razoáveis (encargos 75%, carga 160h).
 function blankColaborador() {
@@ -21,6 +22,7 @@ function blankColaborador() {
 // nem de persistência (essas responsabilidades ficam no PrecificacaoItemModal).
 // A mão de obra é composta por N colaboradores, cada um custeado à parte.
 export default function PrecificacaoServicoForm({ values, onChange }) {
+  const { t } = useI18n()
   const set = (field) => (v) => onChange(field, v)
 
   const colaboradores = Array.isArray(values.colaboradores) ? values.colaboradores : []
@@ -48,14 +50,14 @@ export default function PrecificacaoServicoForm({ values, onChange }) {
   return (
     <div className="space-y-4">
       <Field
-        label="Nome do serviço"
-        hint="Como esse serviço vai aparecer na lista."
+        label={t('precificacao.servico.nome')}
+        hint={t('precificacao.servico.nomeAjuda')}
       >
         <input
           type="text"
           value={values.nome || ''}
           onChange={(e) => set('nome')(e.target.value)}
-          placeholder="Ex: Tráfego pago — pacote mensal"
+          placeholder={t('precificacao.servico.nomePlaceholder')}
           maxLength={80}
           className="input-field w-full"
         />
@@ -65,14 +67,14 @@ export default function PrecificacaoServicoForm({ values, onChange }) {
       <div>
         <div className="flex items-center justify-between mb-1">
           <label className="text-xs font-bold text-rl-text uppercase tracking-wide flex items-center gap-1.5">
-            <Users className="w-3.5 h-3.5 text-rl-gold" /> Colaboradores no serviço
+            <Users className="w-3.5 h-3.5 text-rl-gold" /> {t('precificacao.servico.colaboradores')}
           </label>
           <span className="text-[11px] text-rl-muted">
-            {colaboradores.length} colaborador{colaboradores.length !== 1 ? 'es' : ''}
+            {t('precificacao.servico.contagemColab', { count: colaboradores.length })}
           </span>
         </div>
         <p className="text-[11px] text-rl-muted mb-2">
-          Adicione cada pessoa que trabalha neste serviço. O custo de cada uma é calculado à parte e somado na mão de obra.
+          {t('precificacao.servico.colaboradoresAjuda')}
         </p>
 
         <div className="space-y-3">
@@ -89,7 +91,7 @@ export default function PrecificacaoServicoForm({ values, onChange }) {
                   type="text"
                   value={c.nome || ''}
                   onChange={(e) => updateColab(c.id, 'nome', e.target.value)}
-                  placeholder={`Nome do colaborador (ex: Gestor de tráfego)`}
+                  placeholder={t('precificacao.servico.nomeColabPlaceholder')}
                   maxLength={80}
                   className="input-field w-full text-sm"
                 />
@@ -98,7 +100,7 @@ export default function PrecificacaoServicoForm({ values, onChange }) {
                     type="button"
                     onClick={() => removeColab(c.id)}
                     className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all shrink-0"
-                    title="Remover colaborador"
+                    title={t('precificacao.servico.removerColab')}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -106,18 +108,18 @@ export default function PrecificacaoServicoForm({ values, onChange }) {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Salário mensal" hint="Bruto, antes dos encargos.">
+                <Field label={t('precificacao.servico.salario')} hint={t('precificacao.servico.salarioAjuda')}>
                   <MoneyInput
                     value={c.salarioMensal}
                     onChange={(v) => updateColab(c.id, 'salarioMensal', v)}
                     maxWidth="max-w-none"
                   />
                 </Field>
-                <Field label="Encargos (%)" hint="INSS, FGTS, férias, 13º — típico 70-100%.">
+                <Field label={t('precificacao.servico.encargos')} hint={t('precificacao.servico.encargosAjuda')}>
                   <PercentInput
                     value={c.encargosPct}
                     onChange={(v) => updateColab(c.id, 'encargosPct', v)}
-                    placeholder="Ex: 75"
+                    placeholder={t('precificacao.campos.exemplo', { valor: 75 })}
                     max={200}
                     maxWidth="max-w-none"
                   />
@@ -125,23 +127,23 @@ export default function PrecificacaoServicoForm({ values, onChange }) {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Carga horária mensal" hint="Horas no mês (padrão 160h).">
+                <Field label={t('precificacao.servico.carga')} hint={t('precificacao.servico.cargaAjuda')}>
                   <input
                     type="number"
                     min="1"
                     value={c.cargaHorariaMensal ?? ''}
                     onChange={(e) => updateColab(c.id, 'cargaHorariaMensal', e.target.value === '' ? '' : Number(e.target.value))}
-                    placeholder="Ex: 160"
+                    placeholder={t('precificacao.campos.exemplo', { valor: 160 })}
                     className="input-field w-full"
                   />
                 </Field>
-                <Field label="Horas dedicadas" hint="Horas desta pessoa neste serviço.">
+                <Field label={t('precificacao.servico.horas')} hint={t('precificacao.servico.horasAjuda')}>
                   <input
                     type="number"
                     min="0"
                     value={c.horasDedicadas ?? ''}
                     onChange={(e) => updateColab(c.id, 'horasDedicadas', e.target.value === '' ? '' : Number(e.target.value))}
-                    placeholder="Ex: 20"
+                    placeholder={t('precificacao.campos.exemplo', { valor: 20 })}
                     className="input-field w-full"
                   />
                 </Field>
@@ -149,7 +151,7 @@ export default function PrecificacaoServicoForm({ values, onChange }) {
 
               <div className="flex items-center justify-between pt-1 border-t border-rl-border/60">
                 <span className="text-[10px] uppercase tracking-wide text-rl-muted font-semibold">
-                  Custo deste colaborador
+                  {t('precificacao.servico.custoColab')}
                 </span>
                 <span className="text-sm font-bold text-rl-text tabular-nums">
                   {fmtMoney(custoPorColab[c.id] || 0)}
@@ -164,13 +166,13 @@ export default function PrecificacaoServicoForm({ values, onChange }) {
           onClick={addColab}
           className="mt-2 w-full flex items-center justify-center gap-1.5 text-sm font-semibold px-3 py-2.5 rounded-xl border border-dashed border-rl-border text-rl-muted hover:text-rl-gold hover:border-rl-gold/40 transition-all"
         >
-          <Plus className="w-4 h-4" /> Adicionar colaborador
+          <Plus className="w-4 h-4" /> {t('precificacao.servico.adicionarColab')}
         </button>
       </div>
 
       <Field
-        label="Custos fixos rateados (opcional)"
-        hint="Ferramentas, aluguel, software — o que mais entra neste serviço além de mão de obra."
+        label={t('precificacao.servico.fixos')}
+        hint={t('precificacao.servico.fixosAjuda')}
       >
         <MoneyInput
           value={values.custosFixos}
@@ -181,25 +183,25 @@ export default function PrecificacaoServicoForm({ values, onChange }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field
-          label="Imposto sobre o faturamento (%)"
-          hint="Ex: Simples Nacional 6%/11%/15,5% — sobre o preço de venda."
+          label={t('precificacao.campos.imposto')}
+          hint={t('precificacao.campos.impostoAjuda')}
         >
           <PercentInput
             value={values.impostoPct}
             onChange={set('impostoPct')}
-            placeholder="Ex: 6"
+            placeholder={t('precificacao.campos.exemplo', { valor: 6 })}
             maxWidth="max-w-none"
           />
         </Field>
 
         <Field
-          label="Margem de lucro desejada (%)"
-          hint="Lucro líquido que sobra depois de custos e impostos."
+          label={t('precificacao.campos.margem')}
+          hint={t('precificacao.campos.margemAjuda')}
         >
           <PercentInput
             value={values.margemPct}
             onChange={set('margemPct')}
-            placeholder="Ex: 30"
+            placeholder={t('precificacao.campos.exemplo', { valor: 30 })}
             maxWidth="max-w-none"
           />
         </Field>

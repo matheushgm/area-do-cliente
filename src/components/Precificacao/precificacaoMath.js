@@ -10,6 +10,8 @@
 // `margem%` do preço de venda como lucro líquido — que é o que o cliente
 // realmente quer dizer com "margem de lucro de X%".
 
+import { t } from '../../i18n'
+
 function n(val) {
   const x = Number(val)
   return Number.isFinite(x) ? x : 0
@@ -60,7 +62,7 @@ export function calcularServico(inputs = {}) {
 
   let erro = null
   if (fator <= 0) {
-    erro = 'Imposto + margem somam 100% ou mais — reduza algum dos dois pra calcular um preço viável.'
+    erro = t('precificacao.erros.impostoMargem')
   }
 
   const precoVenda     = !erro && custoTotal > 0 ? custoTotal / fator : 0
@@ -94,7 +96,7 @@ export function calcularProduto(inputs = {}) {
 
   let erro = null
   if (fator <= 0) {
-    erro = 'Imposto + margem somam 100% ou mais — reduza algum dos dois pra calcular um preço viável.'
+    erro = t('precificacao.erros.impostoMargem')
   }
 
   const precoVenda     = !erro && custoTotal > 0 ? custoTotal / fator : 0
@@ -152,9 +154,9 @@ export function calcularSaas(inputs = {}) {
   // ── Erros de viabilidade ─────────────────────────────────────────────────
   let erro = null
   if (fator <= 0) {
-    erro = 'Imposto + margem da mensalidade somam 100% ou mais — reduza algum dos dois pra calcular um preço viável.'
+    erro = t('precificacao.erros.impostoMargemMensalidade')
   } else if (temImplantacao && custoImplantacao > 0 && fatorImplant <= 0) {
-    erro = 'Imposto + margem da implantação somam 100% ou mais — reduza algum dos dois.'
+    erro = t('precificacao.erros.impostoMargemImplantacao')
   }
 
   // ── Preços derivados ─────────────────────────────────────────────────────

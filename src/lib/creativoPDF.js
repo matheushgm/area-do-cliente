@@ -5,8 +5,13 @@
 // Sistema monocromático azul + neutros frios (Design system verta): azul-marca
 // #2A25F0 é a única cor "alta"; todo o resto é ink ou papel.
 import { exportRoteirosVideoPDF } from './roteiroVideoPDF'
-import { printDocument, todayLong } from './printDoc'
+import { printDocument } from './printDoc'
 import { escapeHtml as esc } from './utils'
+import { t, localeAtual } from '../i18n'
+
+// Rótulos fixos do PDF no idioma de quem gera; o texto do criativo vai como está.
+const L = (k, v) => t(`criativos.pdf.${k}`, v)
+const hojeLongo = () => new Date().toLocaleDateString(localeAtual(), { day: '2-digit', month: 'long', year: 'numeric' })
 
 const CSS = `
   body { color: #0B0B14; }
@@ -101,7 +106,7 @@ function adHtml(chunk, i, total, isVideo, companyName, today) {
   closeList()
   return `
   <section class="ad">
-    <div class="ad-head"><h2>${isVideo ? 'Roteiro' : 'Anúncio'} ${i + 1}</h2>${total > 1 ? `<span>${i + 1} de ${total}</span>` : ''}</div>
+    <div class="ad-head"><h2>${isVideo ? L('roteiroN', { n: i + 1 }) : L('anuncioN', { n: i + 1 })}</h2>${total > 1 ? `<span>${L('nDeTotal', { n: i + 1, total })}</span>` : ''}</div>
     ${out.join('\n    ')}
     <div class="ad-foot"><span>Verta × ${esc(companyName)}</span><span>${esc(today)}</span></div>
   </section>`
@@ -112,26 +117,26 @@ function coverHtml({ companyName, type, adTypeLabels, quantity, customNote, toda
   <section class="cover">
     <div class="brand">
       <div class="brand-mark">V</div>
-      <div><div class="brand-name">Verta</div><div class="brand-sub">Ferramenta interna</div></div>
+      <div><div class="brand-name">Verta</div><div class="brand-sub">${L('ferramentaInterna')}</div></div>
     </div>
     <div class="hero">
-      <div class="hero-kicker">Criativos</div>
-      <div class="hero-title">${type === 'video' ? 'de vídeo' : 'estáticos'}</div>
+      <div class="hero-kicker">${L('criativos')}</div>
+      <div class="hero-title">${type === 'video' ? L('deVideo') : L('estaticos')}</div>
       <hr class="hero-rule">
-      <div class="hero-sub">Anúncios gerados com IA — Verta</div>
+      <div class="hero-sub">${L('geradosComIa')}</div>
     </div>
     <div class="info">
-      <div class="info-label">Cliente</div>
+      <div class="info-label">${L('cliente')}</div>
       <div class="info-value">${esc(companyName)}</div>
       <div class="info-grid">
-        <div><div class="info-label">Tipo</div><div class="info-value">${type === 'video' ? 'Vídeo (roteiro)' : 'Estático (imagem)'}</div></div>
-        <div><div class="info-label">Quantidade</div><div class="info-value">${quantity} criativo${quantity !== 1 ? 's' : ''}</div></div>
+        <div><div class="info-label">${L('tipo')}</div><div class="info-value">${type === 'video' ? L('videoRoteiro') : L('estaticoImagem')}</div></div>
+        <div><div class="info-label">${L('quantidade')}</div><div class="info-value">${L('nCriativos', { count: quantity })}</div></div>
       </div>
-      <div class="info-label">Tipos de anúncio</div>
+      <div class="info-label">${L('tiposAnuncio')}</div>
       <div class="info-note">${esc((adTypeLabels || []).join(' · ') || '—')}</div>
-      ${customNote ? `<div class="info-label">Direção criativa</div><div class="info-note">“${esc(customNote)}”</div>` : ''}
+      ${customNote ? `<div class="info-label">${L('direcaoCriativa')}</div><div class="info-note">“${esc(customNote)}”</div>` : ''}
     </div>
-    <div class="cover-foot">Gerado em ${esc(today)}<small>Confidencial — uso exclusivo</small></div>
+    <div class="cover-foot">${L('geradoEm', { data: esc(today) })}<small>${L('confidencial')}</small></div>
   </section>`
 }
 
@@ -178,11 +183,11 @@ export function exportCreativoSinglePDF({ content, type, index, companyName }) {
   if (ehRoteiroDeVideo({ type, content }) && exportRoteirosVideoPDF(content, { companyName, index })) return
 
   const isVideo = type === 'video'
-  const today = todayLong()
+  const today = hojeLongo()
   printDocument({
     title: `Criativo-${isVideo ? 'Video' : 'Estatico'}-${index + 1}-${slug(companyName)}`,
     css: CSS,
-    body: adHtml(content, index, 1, isVideo, companyName || 'Cliente', today),
+    body: adHtml(content, index, 1, isVideo, companyName || L('cliente'), today),
   })
 }
 
@@ -198,11 +203,11 @@ export function exportCreativoSetPDF({ creative, companyName }) {
   ) return
 
   const isVideo = type === 'video'
-  const today = todayLong()
-  const name = companyName || 'Cliente'
+  const today = hojeLongo()
+  const name = companyName || L('cliente')
   const ads = splitIntoAds(content)
   const coverDate = createdAt
-    ? new Date(createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+    ? new Date(createdAt).toLocaleDateString(localeAtual(), { day: '2-digit', month: 'long', year: 'numeric' })
     : today
   printDocument({
     title: `Criativos-${isVideo ? 'Video' : 'Estatico'}-${createdAt ? new Date(createdAt).toISOString().slice(0, 10) : today}-${slug(companyName)}`,

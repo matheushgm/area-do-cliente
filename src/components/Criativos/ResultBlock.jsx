@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Copy, CheckCheck } from 'lucide-react'
 import CreativeCard from './CreativeCard'
 import { DIVISA_DE_BLOCO } from './CreativeResultBlock'
+import { useI18n } from '../../i18n'
 
 // Divide o texto em blocos de anúncio pelos cabeçalhos ## ROTEIRO N / ## ANÚNCIO N.
 // Tudo que precede o primeiro cabeçalho, ou que é tabela/insight final, vai para análise.
@@ -139,6 +140,7 @@ export function removeAdFromContent(content, adIndex) {
 }
 
 export default function ResultBlock({ content, type, companyName, onChunkChange, createdAt }) {
+  const { t } = useI18n()
   const [allCopied, setAllCopied] = useState(false)
 
   function copyAll() {
@@ -154,11 +156,11 @@ export default function ResultBlock({ content, type, companyName, onChunkChange,
       {/* Toolbar */}
       <div className="flex items-center justify-between">
         <span className="text-xs text-rl-muted">
-          {adChunks.length} anúncio{adChunks.length !== 1 ? 's' : ''} gerado{adChunks.length !== 1 ? 's' : ''}
+          {t('criativos.resultado.nAnuncios', { count: adChunks.length })}
         </span>
         <button onClick={copyAll} className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all">
           {allCopied ? <CheckCheck className="w-3.5 h-3.5 text-rl-green" /> : <Copy className="w-3.5 h-3.5" />}
-          {allCopied ? 'Tudo copiado!' : 'Copiar tudo'}
+          {allCopied ? t('criativos.resultado.tudoCopiado') : t('criativos.resultado.copiarTudo')}
         </button>
       </div>
 

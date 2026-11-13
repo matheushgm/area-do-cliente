@@ -22,6 +22,7 @@ import {
 } from './debriefingData'
 import { linkDaLeva, linkDaRevisao, podeIrPraRevisao } from '../../lib/copyLevas'
 import CentralAprovacaoModal from './CentralAprovacaoModal'
+import { useI18n } from '../../i18n'
 
 const ATTACHMENT_BUCKET = 'attachments'
 
@@ -38,6 +39,7 @@ const STATUS_ICON = {
 export default function DebriefingModule({ project }) {
   const { updateProject } = useApp()
   const { toast, showToast } = useToast()
+  const { t, lang } = useI18n()
 
   const persisted = project.debriefing || EMPTY
   const [editingAd, setEditingAd] = useState(null) // ad obj | {} | null
@@ -80,7 +82,9 @@ export default function DebriefingModule({ project }) {
   }, [ads, etapa, filterTipo, filterFunil, filterStatus])
 
   // Blocos por mês de criação, do mais recente pro mais antigo ("Sem data" no fim)
-  const grupos = useMemo(() => agruparPorMes(visibleAds), [visibleAds])
+  // `lang` refaz o rótulo do mês ("Outubro 2026" / "October 2026") ao trocar o idioma.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const grupos = useMemo(() => agruparPorMes(visibleAds), [visibleAds, lang])
   // Meses recolhidos (chave yyyy-mm ou 'sem-data'); todos nascem abertos.
   const [recolhidos, setRecolhidos] = useState(() => new Set())
   const chaveDoMes = (grupo) => grupo.chave || 'sem-data'
@@ -172,7 +176,7 @@ export default function DebriefingModule({ project }) {
     persist({ ...persisted, ads: next })
     setEditingAd(null)
     abrirPastasDe([ad])
-    showToast(exists ? 'Anúncio atualizado!' : 'Anúncio cadastrado!')
+    showToast(exists ? t('central.anuncioAtualizado') : t('central.anuncioCadastrado'))
   }
 
   // Grupo de anúncios: entram todos de uma vez, já com os arquivos no Storage.
@@ -181,11 +185,11 @@ export default function DebriefingModule({ project }) {
     setShowGrupo(false)
     setEtapa('design')
     abrirPastasDe(novos)
-    showToast(`${novos.length} ${novos.length === 1 ? 'anúncio criado' : 'anúncios criados'} em "${grupo.nome}"`)
+    showToast(t('central.grupoCriado', { count: novos.length, nome: grupo.nome }))
   }
 
   function handleDelete(id) {
-    if (!window.confirm('Excluir esse anúncio da central?')) return
+    if (!window.confirm(t('central.confirmarExcluir'))) return
     const target = (persisted.ads || []).find((x) => x.id === id)
     // Remove os arquivos do Storage (best-effort) pra não deixar lixo
     for (const arq of arquivosDoAd(target)) {
@@ -193,7 +197,7 @@ export default function DebriefingModule({ project }) {
     }
     const next = (persisted.ads || []).filter((x) => x.id !== id)
     persist({ ...persisted, ads: next })
-    showToast('Anúncio removido.')
+    showToast(t('central.anuncioRemovido'))
   }
 
   // Atualiza um campo único de um anúncio (edição inline na tabela).
@@ -235,8 +239,8 @@ export default function DebriefingModule({ project }) {
     setPastaDestino('')
     const n = ids.length
     showToast(pasta
-      ? `${n} ${n === 1 ? 'anúncio movido' : 'anúncios movidos'} para "${pasta}"`
-      : `${n} ${n === 1 ? 'anúncio saiu' : 'anúncios saíram'} da pasta`)
+      ? t('central.movidos', { count: n, pasta })
+      : t('central.sairamDaPasta', { count: n }))
   }
 
   // Renomear vale pro projeto todo: a pasta é o mesmo nome em qualquer mês.
@@ -247,7 +251,7 @@ export default function DebriefingModule({ project }) {
     const ids = (persisted.ads || []).filter((ad) => normalizarPasta(ad.pasta) === antiga).map((ad) => ad.id)
     updateAds(ids, { pasta: nome })
     mudarPastasAbertas((abertas) => new Set([...abertas].map((c) => (c.endsWith(`|${antiga}`) ? c.slice(0, -antiga.length) + nome : c))))
-    showToast(`Pasta renomeada para "${nome}"`)
+    showToast(t('central.pastaRenomeada', { nome }))
   }
 
   // ── Link público de aprovação (mesmo client_share_token de /campanhas etc.) ─
@@ -263,8 +267,8 @@ export default function DebriefingModule({ project }) {
     if (!token) return
     const url = `${window.location.origin}/aprovacao/${token}`
     navigator.clipboard.writeText(url)
-      .then(() => showToast('Link de aprovação copiado!'))
-      .catch(() => showToast('Link: ' + url))
+      .then(() => showToast(t('central.linkAprovacaoCopiado')))
+      .catch(() => showToast(t('central.link', { url })))
   }
 
   // Fila do designer: copy aprovada pelo cliente, peça ainda não produzida.
@@ -291,7 +295,7 @@ export default function DebriefingModule({ project }) {
         className={`border-b border-rl-border/40 hover:bg-rl-surface/40 cursor-pointer transition-colors ${selecionados.has(ad.id) ? 'bg-rl-purple/5' : ''}`}
       >
         <td className="pl-3 py-2.5 w-8" onClick={(e) => e.stopPropagation()}>
-          <Caixa marcada={selecionados.has(ad.id)} onChange={() => selecionar([ad.id], !selecionados.has(ad.id))} label={`Selecionar ${ad.nome || 'anúncio'}`} />
+          <Caixa marcada={selecionados.has(ad.id)} onChange={() => selecionar([ad.id], !selecionados.has(ad.id))} label={t('central.selecionar', { nome: ad.nome || t('central.anuncio') })} />
         </td>
         <Td className="whitespace-nowrap text-rl-subtle">{dtStr}</Td>
         {/* Nome comprido (títulos de roteiro) quebrava a linha
@@ -304,7 +308,7 @@ export default function DebriefingModule({ project }) {
             {(ad.version || 1) > 1 && (
               <span
                 className="font-sans shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-purple/10 text-rl-purple border border-rl-purple/30"
-                title={`${ad.versionHistory?.length || 0} versão(ões) anterior(es) no histórico`}
+                title={t('central.versoesAnteriores', { count: ad.versionHistory?.length || 0 })}
               >
                 v{ad.version}
               </span>
@@ -312,15 +316,15 @@ export default function DebriefingModule({ project }) {
             {ad.copy && (
               <span
                 className="font-sans shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-blue/10 text-rl-blue border border-rl-blue/30"
-                title="Tem copy escrita (veio de Criação de anúncios). Abra o anúncio pra ler o texto."
+                title={t('central.copyTagDica')}
               >
-                copy
+                {t('central.copyTag')}
               </span>
             )}
             {ad.grupo?.nome && ad.grupo.nome !== ad.pasta && (
               <span
                 className="font-sans shrink-0 max-w-[110px] truncate text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-surface text-rl-subtle border border-rl-border"
-                title={`Subido junto no grupo "${ad.grupo.nome}"`}
+                title={t('central.subidoNoGrupo', { nome: ad.grupo.nome })}
               >
                 {ad.grupo.nome}
               </span>
@@ -331,7 +335,7 @@ export default function DebriefingModule({ project }) {
           <InlineSelect
             value={ad.tipo || ''}
             onChange={(v) => updateAd(ad.id, { tipo: v })}
-            options={TIPOS_ANUNCIO.map((t) => ({ value: t.id, label: t.label }))}
+            options={TIPOS_ANUNCIO.map((tp) => ({ value: tp.id, label: tp.label }))}
             color="#7C3AED"
             bgColor="rgba(124,58,237,0.10)"
             borderColor="rgba(124,58,237,0.30)"
@@ -346,7 +350,7 @@ export default function DebriefingModule({ project }) {
               // Só copy (sem peça): passa pela revisão do time antes do cliente.
               if (isAprovacao) { setAprovacaoCopy({ ids: [ad.id] }); return }
               updateAd(ad.id, { aprovacao: { status: 'pendente', enviadoEm: new Date().toISOString() } })
-              showToast('Anúncio enviado pra aprovação do cliente!')
+              showToast(t('central.enviadoAprovacao'))
             }}
           />
         </Td>
@@ -376,12 +380,12 @@ export default function DebriefingModule({ project }) {
             )}
             {ad.status === 'em_andamento' && ad.startedAt && (
               <span className="text-[9px] text-rl-muted whitespace-nowrap">
-                desde {fmtDateBR(ad.startedAt)}
+                {t('central.desde', { data: fmtDateBR(ad.startedAt) })}
               </span>
             )}
             {ad.status === 'finalizado' && ad.finishedAt && (
               <span className="text-[9px] text-rl-muted whitespace-nowrap">
-                fim {fmtDateBR(ad.finishedAt)}
+                {t('central.fim', { data: fmtDateBR(ad.finishedAt) })}
               </span>
             )}
           </div>
@@ -391,7 +395,7 @@ export default function DebriefingModule({ project }) {
             value={ad.campanhaId || ''}
             onChange={(v) => updateAd(ad.id, { campanhaId: v })}
             options={[
-              { value: '', label: '— sem campanha —' },
+              { value: '', label: t('central.semCampanha') },
               ...campaigns.map((c) => ({
                 value: c.id,
                 label: `[${c.stageLabel}] ${c.name}${c.channel ? ' · ' + c.channel : ''}`,
@@ -400,7 +404,7 @@ export default function DebriefingModule({ project }) {
             color="#0F172A"
             bgColor="#F8FAFC"
             borderColor="#E2E8F0"
-            textPlaceholder="— sem campanha —"
+            textPlaceholder={t('central.semCampanha')}
           />
         </Td>
         <Td>
@@ -408,13 +412,13 @@ export default function DebriefingModule({ project }) {
             value={ad.funilId || ''}
             onChange={(v) => updateAd(ad.id, { funilId: v })}
             options={[
-              { value: '', label: '— sem funil —' },
+              { value: '', label: t('central.semFunil') },
               ...FUNNELS.map((f) => ({ value: f.id, label: `${f.icon} ${f.label}` })),
             ]}
             color="#2563EB"
             bgColor="rgba(37,99,235,0.08)"
             borderColor="rgba(37,99,235,0.25)"
-            textPlaceholder="— sem funil —"
+            textPlaceholder={t('central.semFunil')}
           />
         </Td>
         <Td>
@@ -426,12 +430,12 @@ export default function DebriefingModule({ project }) {
                 onClick={(e) => {
                   e.stopPropagation()
                   copiarLink(linkDaRevisao(ad.copyAprovacao.token))
-                  showToast('Link da revisão interna copiado!')
+                  showToast(t('central.linkRevisaoCopiado'))
                 }}
                 className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
-                title={`Copiar o link da revisão interna da leva "${ad.copyAprovacao.levaNome || ''}"`}
+                title={t('central.copiarLinkRevisao', { nome: ad.copyAprovacao.levaNome || '' })}
               >
-                <Link2 className="w-3 h-3" /> Link interno
+                <Link2 className="w-3 h-3" /> {t('central.linkInterno')}
               </button>
             )}
             {isAprovacao && ad.copyAprovacao?.status === 'pendente' && ad.copyAprovacao?.token && (
@@ -439,12 +443,12 @@ export default function DebriefingModule({ project }) {
                 onClick={(e) => {
                   e.stopPropagation()
                   copiarLink(linkDaLeva(ad.copyAprovacao.token))
-                  showToast('Link do cliente copiado!')
+                  showToast(t('central.linkClienteCopiado'))
                 }}
                 className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
-                title={`Copiar o link da leva "${ad.copyAprovacao.levaNome || ''}"`}
+                title={t('central.copiarLinkLeva', { nome: ad.copyAprovacao.levaNome || '' })}
               >
-                <Link2 className="w-3 h-3" /> Link da leva
+                <Link2 className="w-3 h-3" /> {t('central.linkDaLeva')}
               </button>
             )}
             {ad.url ? (
@@ -455,7 +459,7 @@ export default function DebriefingModule({ project }) {
                 onClick={(e) => e.stopPropagation()}
                 className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
               >
-                <ExternalLink className="w-3 h-3" /> Link
+                <ExternalLink className="w-3 h-3" /> {t('central.linkCurto')}
               </a>
             ) : (
               !arquivos.length && <span className="text-rl-muted italic text-xs">—</span>
@@ -466,7 +470,7 @@ export default function DebriefingModule({ project }) {
               <button
                 onClick={(e) => { e.stopPropagation(); setVerArquivos({ anexos: arquivos, indice: 0 }) }}
                 className="inline-flex items-center gap-1 text-xs text-rl-blue font-semibold hover:underline whitespace-nowrap"
-                title={arquivos.map((a) => `${FORMATOS[a.formato]?.label || 'Arquivo'}: ${a.name}`).join('\n')}
+                title={arquivos.map((a) => `${FORMATOS[a.formato]?.label || t('central.arquivo')}: ${a.name}`).join('\n')}
               >
                 <Paperclip className="w-3 h-3" /> {resumoArquivos(arquivos)}
               </button>
@@ -487,14 +491,14 @@ export default function DebriefingModule({ project }) {
             <button
               onClick={(e) => { e.stopPropagation(); setEditingAd(ad) }}
               className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
-              title="Editar"
+              title={t('comum.editar')}
             >
               <Pencil className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); handleDelete(ad.id) }}
               className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
-              title="Excluir"
+              title={t('comum.excluir')}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -519,7 +523,7 @@ export default function DebriefingModule({ project }) {
               marcada={nSel > 0 && nSel === ids.length}
               parcial={nSel > 0 && nSel < ids.length}
               onChange={() => selecionar(ids, nSel < ids.length)}
-              label={`Selecionar a ${sg.rotulo}`}
+              label={t('central.selecionarSemana', { semana: sg.rotulo })}
             />
           </td>
           <td colSpan={10} className="py-1.5 pr-3">
@@ -528,7 +532,7 @@ export default function DebriefingModule({ project }) {
                 type="button"
                 onClick={() => alternarSemana(sg.chave)}
                 aria-expanded={aberta}
-                aria-label={aberta ? `Recolher a ${sg.rotulo}` : `Expandir a ${sg.rotulo}`}
+                aria-label={aberta ? t('central.recolherSemana', { semana: sg.rotulo }) : t('central.expandirSemana', { semana: sg.rotulo })}
                 className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-rl-surface transition-all"
               >
                 <ChevronDown className={`w-3.5 h-3.5 text-rl-muted transition-transform duration-150 ${aberta ? '' : '-rotate-90'}`} />
@@ -538,16 +542,16 @@ export default function DebriefingModule({ project }) {
                 <span className="text-xs text-rl-subtle tabular-nums">{sg.periodo}</span>
               </button>
               <span className="text-xs text-rl-muted tabular-nums">
-                {sg.ads.length} {sg.ads.length === 1 ? 'criativo' : 'criativos'}
+                {t('central.nCriativos', { count: sg.ads.length })}
               </span>
               {livres.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setAprovacaoCopy({ ids: livres.map((a) => a.id) })}
                   className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/10 transition-all"
-                  title="Cria uma leva: o time revisa primeiro e o cliente só recebe o que for aprovado"
+                  title={t('central.enviarLevaDica')}
                 >
-                  <ShieldCheck className="w-3 h-3" /> Enviar {livres.length} pra aprovação
+                  <ShieldCheck className="w-3 h-3" /> {t('central.enviarNAprovacao', { count: livres.length })}
                 </button>
               )}
             </span>
@@ -575,7 +579,7 @@ export default function DebriefingModule({ project }) {
                 marcada={nSel > 0 && nSel === idsP.length}
                 parcial={nSel > 0 && nSel < idsP.length}
                 onChange={() => selecionar(idsP, nSel < idsP.length)}
-                label={`Selecionar a pasta ${pg.rotulo}`}
+                label={t('central.selecionarPasta', { nome: pg.rotulo })}
               />
             </td>
             <td colSpan={10} className={`py-1.5 pr-3 ${dentroDaSemana ? 'pl-5' : ''}`}>
@@ -614,14 +618,14 @@ export default function DebriefingModule({ project }) {
                   </button>
                 )}
                 <span className="text-xs text-rl-muted tabular-nums">
-                  {pg.ads.length} {pg.ads.length === 1 ? 'criativo' : 'criativos'}
+                  {t('central.nCriativos', { count: pg.ads.length })}
                 </span>
                 {pg.pasta && renomeando?.chave !== chaveP && (
                   <button
                     type="button"
                     onClick={() => { cancelouRenomeio.current = false; setRenomeando({ chave: chaveP, valor: pg.pasta }) }}
                     className="p-1 rounded text-rl-muted opacity-0 group-hover/pasta:opacity-100 hover:text-rl-purple transition-all"
-                    title="Renomear pasta (vale pra todos os meses)"
+                    title={t('central.renomearPasta')}
                   >
                     <Pencil className="w-3 h-3" />
                   </button>
@@ -643,9 +647,9 @@ export default function DebriefingModule({ project }) {
           <Megaphone className="w-5 h-5 text-rl-purple" />
         </div>
         <div className="flex-1">
-          <h2 className="text-xl font-black text-rl-text leading-tight">Central de anúncios</h2>
+          <h2 className="text-xl font-black text-rl-text leading-tight">{t('central.titulo')}</h2>
           <p className="text-sm text-rl-subtle mt-0.5 max-w-2xl">
-            Lista de criativos rodando — com link, tipo, campanha, funil e observações. Use pra análise pós-veiculação e pra organizar o pipeline de produção.
+            {t('central.subtitulo')}
           </p>
         </div>
       </div>
@@ -691,11 +695,10 @@ export default function DebriefingModule({ project }) {
           <Palette className="w-4 h-4 text-rl-purple shrink-0" />
           <span className="text-sm text-rl-text">
             <strong className="font-bold">{paraEditar.length}</strong>{' '}
-            {paraEditar.length === 1 ? 'criativo aprovado' : 'criativos aprovados'} pelo cliente
-            {' '}esperando o designer produzir a peça.
+            {t('central.filaDesigner', { count: paraEditar.length })}
           </span>
           <span className="ml-auto text-[11px] font-semibold text-rl-purple shrink-0">
-            {filterStatus === 'aprovado_edicao' ? 'mostrar todos' : 'ver a fila'}
+            {filterStatus === 'aprovado_edicao' ? t('central.mostrarTodos') : t('central.verFila')}
           </span>
         </button>
       )}
@@ -704,14 +707,14 @@ export default function DebriefingModule({ project }) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 text-xs text-rl-muted">
-            <Filter className="w-3.5 h-3.5" /> Filtros:
+            <Filter className="w-3.5 h-3.5" /> {t('central.filtros')}
           </div>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             className="input-field text-xs py-1.5 pl-3 pr-8 w-auto"
           >
-            <option value="">Todos os status</option>
+            <option value="">{t('central.todosStatus')}</option>
             {STATUS_OPTIONS.map((s) => (
               <option key={s.id} value={s.id}>{s.label}</option>
             ))}
@@ -721,9 +724,9 @@ export default function DebriefingModule({ project }) {
             onChange={(e) => setFilterTipo(e.target.value)}
             className="input-field text-xs py-1.5 pl-3 pr-8 w-auto"
           >
-            <option value="">Todos os tipos</option>
-            {TIPOS_ANUNCIO.map((t) => (
-              <option key={t.id} value={t.id}>{t.label}</option>
+            <option value="">{t('central.todosTipos')}</option>
+            {TIPOS_ANUNCIO.map((tp) => (
+              <option key={tp.id} value={tp.id}>{tp.label}</option>
             ))}
           </select>
           <select
@@ -731,7 +734,7 @@ export default function DebriefingModule({ project }) {
             onChange={(e) => setFilterFunil(e.target.value)}
             className="input-field text-xs py-1.5 pl-3 pr-8 w-auto"
           >
-            <option value="">Todos os funis</option>
+            <option value="">{t('central.todosFunis')}</option>
             {FUNNELS.map((f) => (
               <option key={f.id} value={f.id}>{f.label}</option>
             ))}
@@ -741,11 +744,11 @@ export default function DebriefingModule({ project }) {
               onClick={() => { setFilterTipo(''); setFilterFunil(''); setFilterStatus('') }}
               className="text-[10px] text-rl-muted hover:text-rl-red transition-colors flex items-center gap-1"
             >
-              <X className="w-3 h-3" /> Limpar
+              <X className="w-3 h-3" /> {t('comum.limpar')}
             </button>
           )}
           <span className="text-xs text-rl-muted ml-1">
-            {visibleAds.length} {visibleAds.length === 1 ? 'anúncio' : 'anúncios'}
+            {t('central.nAnuncios', { count: visibleAds.length })}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -755,23 +758,23 @@ export default function DebriefingModule({ project }) {
             onClick={isAprovacao ? () => setAprovacaoCopy({ ids: selecionadosVisiveis.map((ad) => ad.id) }) : handleShareAprovacao}
             className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl border border-rl-border text-rl-subtle hover:text-rl-purple hover:border-rl-purple/40 transition-all"
             title={isAprovacao
-              ? 'Levas de copy: o time revisa no link interno e o cliente só recebe o que for aprovado'
-              : 'Copiar o link em que o cliente aprova ou reprova os criativos'}
+              ? t('central.linkAprovacaoDicaCopy')
+              : t('central.linkAprovacaoDica')}
           >
-            <Link2 className="w-4 h-4" /> Link de aprovação
+            <Link2 className="w-4 h-4" /> {t('central.linkAprovacao')}
           </button>
           <button
             onClick={() => setShowTest(true)}
             className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl border border-rl-purple/40 text-rl-purple hover:bg-rl-purple/10 transition-all"
           >
-            <FlaskConical className="w-4 h-4" /> Subir teste no Meta
+            <FlaskConical className="w-4 h-4" /> {t('central.subirTeste')}
           </button>
           <div className="relative">
             <button
               onClick={() => setMenuNovo((v) => !v)}
               className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
             >
-              <Plus className="w-4 h-4" /> Novo anúncio
+              <Plus className="w-4 h-4" /> {t('central.novoAnuncio')}
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${menuNovo ? 'rotate-180' : ''}`} />
             </button>
             {menuNovo && (
@@ -780,14 +783,14 @@ export default function DebriefingModule({ project }) {
                 <div className="absolute right-0 z-20 mt-1 w-72 rounded-xl border border-rl-border bg-rl-surface shadow-2xl p-1">
                   <MenuItem
                     Icon={Plus}
-                    titulo="Anúncio único"
-                    texto="Um criativo, com link do Drive ou arquivo."
+                    titulo={t('central.anuncioUnico')}
+                    texto={t('central.anuncioUnicoTexto')}
                     onClick={() => { setMenuNovo(false); setEditingAd({}) }}
                   />
                   <MenuItem
                     Icon={Layers}
-                    titulo="Grupo de anúncios"
-                    texto="Vários criativos prontos de uma vez: posts separados (feed + story) ou carrossel."
+                    titulo={t('central.grupoAnuncios')}
+                    texto={t('central.grupoAnunciosTexto')}
                     onClick={() => { setMenuNovo(false); setShowGrupo(true) }}
                   />
                 </div>
@@ -801,15 +804,15 @@ export default function DebriefingModule({ project }) {
       {selecionadosVisiveis.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap px-4 py-2.5 rounded-xl border border-rl-purple/30 bg-rl-purple/5">
           <span className="text-sm font-semibold text-rl-text">
-            {selecionadosVisiveis.length} {selecionadosVisiveis.length === 1 ? 'selecionado' : 'selecionados'}
+            {t('central.nSelecionados', { count: selecionadosVisiveis.length })}
           </span>
-          <span className="text-xs text-rl-muted ml-2">Mover para a pasta</span>
+          <span className="text-xs text-rl-muted ml-2">{t('central.moverParaPasta')}</span>
           <input
             list="central-pastas"
             value={pastaDestino}
             onChange={(e) => setPastaDestino(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && normalizarPasta(pastaDestino)) moverParaPasta(pastaDestino) }}
-            placeholder="Escolha ou digite uma pasta nova"
+            placeholder={t('central.pastaPlaceholder')}
             className="input-field text-xs py-1.5 px-3 w-64"
             maxLength={60}
           />
@@ -821,14 +824,14 @@ export default function DebriefingModule({ project }) {
             disabled={!normalizarPasta(pastaDestino)}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-rl-purple text-white hover:bg-rl-purple/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <FolderOpen className="w-3.5 h-3.5" /> Mover
+            <FolderOpen className="w-3.5 h-3.5" /> {t('central.mover')}
           </button>
           {selecionadosVisiveis.some((ad) => normalizarPasta(ad.pasta)) && (
             <button
               onClick={() => moverParaPasta('')}
               className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-rl-border text-rl-subtle hover:text-rl-text transition-all"
             >
-              Tirar da pasta
+              {t('central.tirarDaPasta')}
             </button>
           )}
           {isAprovacao && selecionadosVisiveis.some(podeIrPraRevisao) && (
@@ -837,14 +840,14 @@ export default function DebriefingModule({ project }) {
               className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-rl-purple/40 text-rl-purple hover:bg-rl-purple/10 transition-all"
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              Enviar {selecionadosVisiveis.filter(podeIrPraRevisao).length} pra aprovação
+              {t('central.enviarNAprovacao', { count: selecionadosVisiveis.filter(podeIrPraRevisao).length })}
             </button>
           )}
           <button
             onClick={() => setSelecionados(new Set())}
             className="ml-auto text-xs text-rl-muted hover:text-rl-text flex items-center gap-1 transition-colors"
           >
-            <X className="w-3 h-3" /> Limpar seleção
+            <X className="w-3 h-3" /> {t('central.limparSelecao')}
           </button>
         </div>
       )}
@@ -856,10 +859,10 @@ export default function DebriefingModule({ project }) {
         <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-10 text-center">
           <p className="text-sm text-rl-muted">
             {hasFilters
-              ? 'Nenhum anúncio bate com os filtros atuais.'
+              ? t('central.nenhumComFiltros')
               : isAprovacao
-                ? 'Nada aqui ainda. Em Criação de anúncios, clique em "Enviar pra aprovação" que as copies aparecem nesta aba.'
-                : 'Nenhuma peça pronta ainda. Assim que o designer anexar o criativo, ele aparece aqui.'}
+                ? t('central.vazioAprovacao')
+                : t('central.vazioDesign')}
           </p>
         </div>
       ) : (
@@ -878,7 +881,7 @@ export default function DebriefingModule({ project }) {
                           type="button"
                           onClick={() => alternarMes(chaveDoMes(grupo))}
                           aria-expanded={!recolhidos.has(chaveDoMes(grupo))}
-                          aria-label={recolhidos.has(chaveDoMes(grupo)) ? 'Expandir mês' : 'Recolher mês'}
+                          aria-label={recolhidos.has(chaveDoMes(grupo)) ? t('central.expandirMes') : t('central.recolherMes')}
                           className="w-5 h-5 rounded flex items-center justify-center text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
                         >
                           <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${recolhidos.has(chaveDoMes(grupo)) ? '-rotate-90' : ''}`} />
@@ -887,7 +890,7 @@ export default function DebriefingModule({ project }) {
                           {grupo.rotulo}
                         </span>
                         <span className="text-xs text-rl-muted tabular-nums">
-                          {grupo.ads.length} {grupo.ads.length === 1 ? 'criativo' : 'criativos'}
+                          {t('central.nCriativos', { count: grupo.ads.length })}
                         </span>
                       </span>
                     </td>
@@ -900,18 +903,18 @@ export default function DebriefingModule({ project }) {
                           marcada={grupo.ads.length > 0 && grupo.ads.every((a) => selecionados.has(a.id))}
                           parcial={grupo.ads.some((a) => selecionados.has(a.id))}
                           onChange={() => selecionar(grupo.ads.map((a) => a.id), !grupo.ads.every((a) => selecionados.has(a.id)))}
-                          label={`Selecionar ${grupo.rotulo}`}
+                          label={t('central.selecionar', { nome: grupo.rotulo })}
                         />
                       </th>
-                      <Th className="w-24">Data</Th>
-                      <Th className="min-w-[220px]">Nome</Th>
-                      <Th>Tipo</Th>
-                      <Th>Aprovação</Th>
-                      <Th>Status</Th>
-                      <Th>Campanha</Th>
-                      <Th>Funil</Th>
-                      <Th>{isAprovacao ? 'Link do cliente' : 'Link'}</Th>
-                      <Th>Obs.</Th>
+                      <Th className="w-24">{t('central.colunas.data')}</Th>
+                      <Th className="min-w-[220px]">{t('central.colunas.nome')}</Th>
+                      <Th>{t('central.colunas.tipo')}</Th>
+                      <Th>{t('central.colunas.aprovacao')}</Th>
+                      <Th>{t('central.colunas.status')}</Th>
+                      <Th>{t('central.colunas.campanha')}</Th>
+                      <Th>{t('central.colunas.funil')}</Th>
+                      <Th>{isAprovacao ? t('central.colunas.linkCliente') : t('central.colunas.link')}</Th>
+                      <Th>{t('central.colunas.obs')}</Th>
                       <Th className="w-20"></Th>
                     </tr>
                   )}
@@ -1022,16 +1025,18 @@ function MenuItem({ Icon, titulo, texto, onClick }) {
 // aprovação também mostra quando quem está com o cliente é a COPY, não a peça.
 const COPY_BADGE = {
   // Revisão interna (levas da Central): o time aprova antes do cliente ver.
-  revisao:   { label: 'Em revisão interna', cls: 'border-rl-purple/30 bg-rl-purple/10 text-rl-purple' },
-  reprovado_interno: { label: 'Reprovada na revisão', cls: 'border-red-500/30 bg-red-500/10 text-red-500' },
-  pendente:  { label: 'Copy com o cliente', cls: 'border-rl-gold/30 bg-rl-gold/10 text-rl-gold' },
-  aprovado:  { label: 'Copy aprovada',      cls: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500' },
+  // Rótulo em central.copyBadge.<chave> (a chave é o copyAprovacao.status gravado).
+  revisao:   { cls: 'border-rl-purple/30 bg-rl-purple/10 text-rl-purple' },
+  reprovado_interno: { cls: 'border-red-500/30 bg-red-500/10 text-red-500' },
+  pendente:  { cls: 'border-rl-gold/30 bg-rl-gold/10 text-rl-gold' },
+  aprovado:  { cls: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500' },
   // O cliente ajustou o texto antes de aprovar: a copy do anúncio já é a dele.
-  aprovado_editado: { label: 'Copy aprovada c/ alterações', cls: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500' },
-  reprovado: { label: 'Copy reprovada',     cls: 'border-red-500/30 bg-red-500/10 text-red-500' },
+  aprovado_editado: { cls: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500' },
+  reprovado: { cls: 'border-red-500/30 bg-red-500/10 text-red-500' },
 }
 
 function AprovacaoCell({ ad, onEnviar, mostrarCopy = false }) {
+  const { t } = useI18n()
   const info = ad.aprovacao ? APROVACAO_BY_ID[ad.aprovacao.status] : null
 
   // Na aba de aprovação o que importa é a resposta do cliente sobre a COPY —
@@ -1045,14 +1050,14 @@ function AprovacaoCell({ ad, onEnviar, mostrarCopy = false }) {
     const revisor = ad.copyAprovacao.revisao?.por?.nome
     const tooltip = st === 'reprovado' || st === 'reprovado_interno'
       ? [
-          st === 'reprovado_interno' && revisor ? `Reprovada por ${revisor}` : null,
-          `Motivo: ${ad.copyAprovacao.motivo || '—'}`,
-          `Como deveria estar: ${ad.copyAprovacao.sugestao || '—'}`,
+          st === 'reprovado_interno' && revisor ? t('central.reprovadaPor', { nome: revisor }) : null,
+          t('central.motivo', { texto: ad.copyAprovacao.motivo || '—' }),
+          t('central.comoDeveria', { texto: ad.copyAprovacao.sugestao || '—' }),
         ].filter(Boolean).join('\n')
       : copyKey === 'aprovado_editado'
-        ? 'O cliente ajustou o texto antes de aprovar. Abra o anúncio pra ver a versão dele e o original.'
+        ? t('central.clienteAjustou')
         : st === 'pendente' && revisor
-          ? `Liberada pro cliente por ${revisor}`
+          ? t('central.liberadaPor', { nome: revisor })
           : undefined
     return (
       <div className="flex flex-col items-start gap-0.5">
@@ -1060,11 +1065,11 @@ function AprovacaoCell({ ad, onEnviar, mostrarCopy = false }) {
           className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${copyBadge.cls}`}
           title={tooltip}
         >
-          {st === 'revisao' ? <ShieldCheck className="w-3 h-3" /> : <FileText className="w-3 h-3" />} {copyBadge.label}
+          {st === 'revisao' ? <ShieldCheck className="w-3 h-3" /> : <FileText className="w-3 h-3" />} {t(`central.copyBadge.${copyKey}`)}
         </span>
         {marcoCopy && (
           <span className="text-[9px] text-rl-muted whitespace-nowrap">
-            {esperando ? 'desde ' : ''}{fmtDateTimeBR(marcoCopy)}
+            {esperando ? t('central.desdePrefixo') : ''}{fmtDateTimeBR(marcoCopy)}
           </span>
         )}
         {/* Reprovada (pelo time ou pelo cliente): dá pra mandar de novo depois de corrigir. */}
@@ -1073,7 +1078,7 @@ function AprovacaoCell({ ad, onEnviar, mostrarCopy = false }) {
             onClick={(e) => { e.stopPropagation(); onEnviar() }}
             className="text-[9px] font-semibold text-rl-purple hover:underline"
           >
-            Enviar de novo
+            {t('central.enviarDeNovo')}
           </button>
         )}
       </div>
@@ -1082,7 +1087,7 @@ function AprovacaoCell({ ad, onEnviar, mostrarCopy = false }) {
 
   // Aba de aprovação sem texto: não há o que aprovar ainda.
   if (mostrarCopy && !info && !String(ad.copy || '').trim()) {
-    return <span className="text-[10px] text-rl-muted italic" title="Escreva a copy no anúncio pra mandar pra aprovação">sem copy</span>
+    return <span className="text-[10px] text-rl-muted italic" title={t('central.semCopyDica')}>{t('central.semCopy')}</span>
   }
 
   if (!info) {
@@ -1091,16 +1096,16 @@ function AprovacaoCell({ ad, onEnviar, mostrarCopy = false }) {
         onClick={(e) => { e.stopPropagation(); onEnviar() }}
         className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all whitespace-nowrap"
         title={mostrarCopy
-          ? 'Mandar a copy pra revisão do time; o cliente só recebe depois que alguém aprovar'
-          : 'Enviar esse criativo pro cliente aprovar'}
+          ? t('central.enviarDicaCopy')
+          : t('central.enviarDica')}
       >
-        <Send className="w-3 h-3" /> Enviar
+        <Send className="w-3 h-3" /> {t('comum.enviar')}
       </button>
     )
   }
 
   const tooltip = ad.aprovacao.status === 'reprovado'
-    ? `Motivo: ${ad.aprovacao.motivo || '—'}\nComo deveria estar: ${ad.aprovacao.sugestao || '—'}`
+    ? `${t('central.motivo', { texto: ad.aprovacao.motivo || '—' })}\n${t('central.comoDeveria', { texto: ad.aprovacao.sugestao || '—' })}`
     : undefined
 
   // Data/hora relevante pro status: pendente → quando enviamos; decidido → quando o cliente decidiu.
@@ -1196,22 +1201,23 @@ function InlineSelect({
 }
 
 function EmptyState({ onCreate }) {
+  const { t } = useI18n()
   return (
     <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-10 px-6 text-center space-y-3">
       <Megaphone className="w-8 h-8 text-rl-muted/40 mx-auto" />
       <div>
         <p className="text-sm font-semibold text-rl-text">
-          Nenhum anúncio cadastrado na central ainda.
+          {t('central.vazioTitulo')}
         </p>
         <p className="text-xs text-rl-muted mt-1 max-w-md mx-auto">
-          Adicione o primeiro anúncio com link, tipo, campanha e funil pra organizar o que está rodando.
+          {t('central.vazioTexto')}
         </p>
       </div>
       <button
         onClick={onCreate}
         className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
       >
-        <Plus className="w-4 h-4" /> Adicionar primeiro anúncio
+        <Plus className="w-4 h-4" /> {t('central.adicionarPrimeiro')}
       </button>
     </div>
   )

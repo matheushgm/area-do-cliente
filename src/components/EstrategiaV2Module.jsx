@@ -10,10 +10,14 @@ import {
 import { exportEstrategiaV2PDF } from '../utils/exportPDF'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { useApp } from '../context/AppContext'
+import { useI18n } from '../i18n'
+import { rotuloFunil } from '../lib/constants'
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
 const MAX_PROBLEMAS = 10
 
+// Valores gravados em estrategiaV2.funis (e lidos pelo PDF): ficam em português; a tela
+// mostra o rótulo traduzido via rotuloFunil.
 const FUNIL_OPTIONS = [
   'Funil de Webinar',
   'Funil de Aplicação',
@@ -35,11 +39,12 @@ const NIVEL_COLORS = {
   alto:  'text-red-400  bg-red-400/10  border-red-400/30',
 }
 
+// Rótulo e placeholder de cada quadrante: estrategia.swot.<key>.{label,placeholder}
 const SWOT_CONFIG = [
-  { key: 'forcas',        label: 'Forças',        icon: TrendingUp,   border: 'border-rl-green/30', bg: 'bg-rl-green/5',  text: 'text-rl-green',  placeholder: 'Ex: Produto diferenciado, equipe experiente, base de clientes fiel...' },
-  { key: 'fraquezas',     label: 'Fraquezas',     icon: AlertTriangle, border: 'border-red-400/30',  bg: 'bg-red-400/5',   text: 'text-red-400',   placeholder: 'Ex: Baixo orçamento, pouca presença digital, processo de vendas lento...' },
-  { key: 'oportunidades', label: 'Oportunidades', icon: Target,        border: 'border-rl-blue/30',  bg: 'bg-rl-blue/5',   text: 'text-rl-blue',   placeholder: 'Ex: Mercado em crescimento, concorrência fraca, nova regulação favorável...' },
-  { key: 'ameacas',       label: 'Ameaças',       icon: Shield,        border: 'border-rl-gold/30',  bg: 'bg-rl-gold/5',   text: 'text-rl-gold',   placeholder: 'Ex: Novos concorrentes, mudança de algoritmo, crise econômica...' },
+  { key: 'forcas',        icon: TrendingUp,   border: 'border-rl-green/30', bg: 'bg-rl-green/5',  text: 'text-rl-green' },
+  { key: 'fraquezas',     icon: AlertTriangle, border: 'border-red-400/30',  bg: 'bg-red-400/5',   text: 'text-red-400' },
+  { key: 'oportunidades', icon: Target,        border: 'border-rl-blue/30',  bg: 'bg-rl-blue/5',   text: 'text-rl-blue' },
+  { key: 'ameacas',       icon: Shield,        border: 'border-rl-gold/30',  bg: 'bg-rl-gold/5',   text: 'text-rl-gold' },
 ]
 
 const fmtBRL = (n) => (n ? fmtCurrency(n) : '—')
@@ -91,6 +96,7 @@ function SectionHeader({ icon: Icon, title, subtitle, color = 'text-rl-purple' }
 // ─── Componente principal ──────────────────────────────────────────────────────
 export default function EstrategiaV2Module({ project, onSave }) {
   const { updateProject } = useApp()
+  const { t } = useI18n()
   const saved = project.estrategiaV2 || {}
 
   const [mesesPlano,     setMesesPlano]     = useState(() => {
@@ -149,7 +155,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
   const removeConcorrente = useCallback((id) => {
     setConcorrentes(prev => {
       const next = prev.filter(c => c.id !== id)
-      setActiveTab(t => Math.min(t, Math.max(0, next.length - 1)))
+      setActiveTab(tab => Math.min(tab, Math.max(0, next.length - 1)))
       return next
     })
   }, [])
@@ -193,7 +199,6 @@ export default function EstrategiaV2Module({ project, onSave }) {
   // ── Budget helpers ─────────────────────────────────────────────────────
   const totalBudget = campaignPlan?.orcamentoTotal || campaignPlan?.totalBudget || 0
 
-  const MES_LABELS = ['Mês 1', 'Mês 2', 'Mês 3']
 
   return (
     <div className="space-y-8 pb-6">
@@ -202,8 +207,8 @@ export default function EstrategiaV2Module({ project, onSave }) {
       <div className="glass-card p-5">
         <SectionHeader
           icon={Trophy}
-          title="Vitórias & Metas por Mês"
-          subtitle="Registre as atividades, checkpoints e metas numéricas para cada mês do plano"
+          title={t('estrategia.meses.titulo')}
+          subtitle={t('estrategia.meses.subtitulo')}
           color="text-rl-gold"
         />
 
@@ -215,19 +220,19 @@ export default function EstrategiaV2Module({ project, onSave }) {
                 <div className="w-7 h-7 rounded-lg bg-rl-gold/15 flex items-center justify-center shrink-0">
                   <span className="text-xs font-bold text-rl-gold">{idx + 1}</span>
                 </div>
-                <span className="text-sm font-semibold text-rl-text">{MES_LABELS[idx]}</span>
+                <span className="text-sm font-semibold text-rl-text">{t('estrategia.meses.mes', { n: idx + 1 })}</span>
               </div>
 
               {/* Vitórias */}
               <div>
                 <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-rl-green mb-1.5">
                   <Trophy className="w-3 h-3" />
-                  Vitórias
+                  {t('estrategia.meses.vitorias')}
                 </label>
                 <textarea
                   value={mes.vitorias}
                   onChange={e => updateMes(idx, 'vitorias', e.target.value)}
-                  placeholder={`Ex: Lançar campanha de tráfego, atingir 1.000 leads, testar 3 criativos...`}
+                  placeholder={t('estrategia.meses.vitoriasPh')}
                   rows={4}
                   className="w-full rounded-lg border border-rl-green/30 bg-rl-green/5 px-3 py-2 text-xs text-rl-text placeholder:text-rl-muted/60 resize-none focus:outline-none focus:border-rl-green/60 focus:ring-1 focus:ring-rl-green/20 transition-colors"
                 />
@@ -237,12 +242,12 @@ export default function EstrategiaV2Module({ project, onSave }) {
               <div>
                 <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-rl-purple mb-1.5">
                   <Flag className="w-3 h-3" />
-                  Metas
+                  {t('estrategia.meses.metas')}
                 </label>
                 <textarea
                   value={mes.metas}
                   onChange={e => updateMes(idx, 'metas', e.target.value)}
-                  placeholder={`Ex: 500 leads, CPL ≤ R$10, 10 vendas, faturamento R$10.000...`}
+                  placeholder={t('estrategia.meses.metasPh')}
                   rows={4}
                   className="w-full rounded-lg border border-rl-purple/30 bg-rl-purple/5 px-3 py-2 text-xs text-rl-text placeholder:text-rl-muted/60 resize-none focus:outline-none focus:border-rl-purple/60 focus:ring-1 focus:ring-rl-purple/20 transition-colors"
                 />
@@ -256,8 +261,8 @@ export default function EstrategiaV2Module({ project, onSave }) {
       <div className="glass-card p-5">
         <SectionHeader
           icon={AlertTriangle}
-          title="Problemas Identificados no Kickoff"
-          subtitle={`Registre os principais problemas identificados. ${problemas.length}/${MAX_PROBLEMAS}`}
+          title={t('estrategia.problemas.titulo')}
+          subtitle={t('estrategia.problemas.subtitulo', { n: problemas.length, max: MAX_PROBLEMAS })}
           color="text-rl-gold"
         />
 
@@ -268,7 +273,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
             value={problemaInput}
             onChange={e => setProblemaInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addProblema()}
-            placeholder="Descreva o problema identificado..."
+            placeholder={t('estrategia.problemas.ph')}
             disabled={problemas.length >= MAX_PROBLEMAS}
             className="input-field flex-1 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
           />
@@ -278,7 +283,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
             className="btn-primary px-4 py-2 text-sm flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Plus className="w-4 h-4" />
-            Adicionar
+            {t('comum.adicionar')}
           </button>
         </div>
 
@@ -296,7 +301,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-rl-muted italic">Nenhum problema adicionado ainda.</p>
+          <p className="text-sm text-rl-muted italic">{t('estrategia.problemas.vazio')}</p>
         )}
       </div>
 
@@ -305,15 +310,15 @@ export default function EstrategiaV2Module({ project, onSave }) {
         <div className="flex items-start justify-between gap-3">
           <SectionHeader
             icon={BarChart3}
-            title="Análise SWOT"
+            title={t('estrategia.swot.titulo')}
             subtitle={swotOculto
-              ? 'Oculta — não será incluída no PDF deste cliente'
-              : 'Avalie forças, fraquezas, oportunidades e ameaças do negócio'}
+              ? t('estrategia.swot.subtituloOculta')
+              : t('estrategia.swot.subtitulo')}
             color="text-rl-blue"
           />
           <button
             onClick={() => setSwot(prev => ({ ...prev, oculto: !prev.oculto }))}
-            title={swotOculto ? 'Exibir a análise SWOT e incluí-la no PDF' : 'Ocultar a análise SWOT e removê-la do PDF'}
+            title={swotOculto ? t('estrategia.swot.exibirDica') : t('estrategia.swot.ocultarDica')}
             className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
               swotOculto
                 ? 'border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-blue/40'
@@ -321,27 +326,26 @@ export default function EstrategiaV2Module({ project, onSave }) {
             }`}
           >
             {swotOculto ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-            {swotOculto ? 'Oculta' : 'Incluir no PDF'}
+            {swotOculto ? t('estrategia.swot.oculta') : t('estrategia.swot.incluirPdf')}
           </button>
         </div>
 
         {swotOculto ? (
           <p className="text-sm text-rl-muted italic">
-            Análise SWOT desativada para este cliente. O conteúdo preenchido continua salvo — clique em
-            &ldquo;Oculta&rdquo; para reativar.
+            {t('estrategia.swot.desativada')}
           </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {SWOT_CONFIG.map(({ key, label, icon: Icon, border, bg, text, placeholder }) => (
+            {SWOT_CONFIG.map(({ key, icon: Icon, border, bg, text }) => (
               <div key={key} className={`rounded-xl border ${border} ${bg} p-4`}>
                 <div className={`flex items-center gap-2 mb-2 ${text}`}>
                   <Icon className="w-4 h-4" />
-                  <span className="text-sm font-semibold">{label}</span>
+                  <span className="text-sm font-semibold">{t(`estrategia.swot.${key}.label`)}</span>
                 </div>
                 <textarea
                   value={swot[key]}
                   onChange={e => setSwot(prev => ({ ...prev, [key]: e.target.value }))}
-                  placeholder={placeholder}
+                  placeholder={t(`estrategia.swot.${key}.placeholder`)}
                   rows={5}
                   className="w-full bg-transparent text-sm text-rl-text placeholder-rl-muted/50 resize-none outline-none leading-relaxed"
                 />
@@ -355,8 +359,8 @@ export default function EstrategiaV2Module({ project, onSave }) {
       <div className="glass-card p-5">
         <SectionHeader
           icon={Target}
-          title="Benchmark de Concorrentes"
-          subtitle="Analise a comunicação e presença digital dos concorrentes"
+          title={t('estrategia.benchmark.titulo')}
+          subtitle={t('estrategia.benchmark.subtitulo')}
           color="text-rl-purple"
         />
 
@@ -373,7 +377,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
                     : 'text-rl-muted hover:text-rl-text border-transparent hover:border-rl-border'
                 }`}
               >
-                {c.nome || `Concorrente ${i + 1}`}
+                {c.nome || t('estrategia.benchmark.concorrenteN', { n: i + 1 })}
               </button>
             ))}
           </div>
@@ -386,12 +390,12 @@ export default function EstrategiaV2Module({ project, onSave }) {
             <div className="space-y-4">
               {/* Nome */}
               <div>
-                <label className="text-xs font-semibold text-rl-muted uppercase tracking-wider block mb-1.5">Nome do Concorrente</label>
+                <label className="text-xs font-semibold text-rl-muted uppercase tracking-wider block mb-1.5">{t('estrategia.benchmark.nome')}</label>
                 <input
                   type="text"
                   value={c.nome}
                   onChange={e => updateConcorrente(c.id, { nome: e.target.value })}
-                  placeholder="Ex: Empresa XYZ"
+                  placeholder={t('estrategia.benchmark.nomePh')}
                   className="input-field w-full text-sm"
                 />
               </div>
@@ -400,7 +404,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-rl-muted uppercase tracking-wider block mb-1.5 flex items-center gap-1">
-                    <Globe className="w-3 h-3" /> Site
+                    <Globe className="w-3 h-3" /> {t('estrategia.benchmark.site')}
                   </label>
                   <input
                     type="url"
@@ -427,8 +431,8 @@ export default function EstrategiaV2Module({ project, onSave }) {
               {/* Plataformas */}
               <div className="flex flex-wrap gap-4">
                 {[
-                  { field: 'metaAds',   label: 'Faz Meta Ads?',   color: 'text-rl-blue' },
-                  { field: 'googleAds', label: 'Faz Google Ads?', color: 'text-rl-green' },
+                  { field: 'metaAds',   label: t('estrategia.benchmark.fazMeta'),   color: 'text-rl-blue' },
+                  { field: 'googleAds', label: t('estrategia.benchmark.fazGoogle'), color: 'text-rl-green' },
                 ].map(({ field, label, color }) => (
                   <label key={field} className="flex items-center gap-2.5 cursor-pointer group">
                     <div
@@ -446,7 +450,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
               {c.metaAds && (
                 <div>
                   <label className="text-xs font-semibold text-rl-muted uppercase tracking-wider block mb-1.5 flex items-center gap-1">
-                    <Link className="w-3 h-3" /> Link da Biblioteca de Anúncios (Meta)
+                    <Link className="w-3 h-3" /> {t('estrategia.benchmark.biblioteca')}
                   </label>
                   <input
                     type="url"
@@ -460,11 +464,11 @@ export default function EstrategiaV2Module({ project, onSave }) {
 
               {/* Grande promessa */}
               <div>
-                <label className="text-xs font-semibold text-rl-muted uppercase tracking-wider block mb-1.5">Grande Promessa</label>
+                <label className="text-xs font-semibold text-rl-muted uppercase tracking-wider block mb-1.5">{t('estrategia.benchmark.promessa')}</label>
                 <textarea
                   value={c.grandePromessa}
                   onChange={e => updateConcorrente(c.id, { grandePromessa: e.target.value })}
-                  placeholder="Qual é a principal promessa que eles fazem para o cliente?"
+                  placeholder={t('estrategia.benchmark.promessaPh')}
                   rows={3}
                   className="input-field w-full text-sm resize-none"
                 />
@@ -472,11 +476,11 @@ export default function EstrategiaV2Module({ project, onSave }) {
 
               {/* Comunicação */}
               <div>
-                <label className="text-xs font-semibold text-rl-muted uppercase tracking-wider block mb-1.5">Comunicação Usada</label>
+                <label className="text-xs font-semibold text-rl-muted uppercase tracking-wider block mb-1.5">{t('estrategia.benchmark.comunicacao')}</label>
                 <textarea
                   value={c.comunicacao}
                   onChange={e => updateConcorrente(c.id, { comunicacao: e.target.value })}
-                  placeholder="Como eles se comunicam? Linguagem, tom, ângulos de copy, formatos de anúncios..."
+                  placeholder={t('estrategia.benchmark.comunicacaoPh')}
                   rows={3}
                   className="input-field w-full text-sm resize-none"
                 />
@@ -488,7 +492,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
                 className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                Remover este concorrente
+                {t('estrategia.benchmark.remover')}
               </button>
             </div>
           )
@@ -500,7 +504,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
           className="mt-4 btn-secondary flex items-center gap-2 text-sm"
         >
           <Plus className="w-4 h-4" />
-          Adicionar Concorrente
+          {t('estrategia.benchmark.adicionar')}
         </button>
       </div>
 
@@ -508,8 +512,8 @@ export default function EstrategiaV2Module({ project, onSave }) {
       <div className="glass-card p-5">
         <SectionHeader
           icon={Shield}
-          title="Riscos do Projeto"
-          subtitle="Mapeie os problemas críticos e seus impactos no projeto"
+          title={t('estrategia.riscos.titulo')}
+          subtitle={t('estrategia.riscos.subtitulo')}
           color="text-red-400"
         />
 
@@ -517,8 +521,8 @@ export default function EstrategiaV2Module({ project, onSave }) {
           <div className="space-y-3 mb-4">
             {/* Header da tabela */}
             <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_110px_36px] gap-2 px-3">
-              {['Problema / Causa', 'Risco Gerado', 'Impacto', 'Nível', ''].map(h => (
-                <span key={h} className="text-[10px] font-bold text-rl-muted uppercase tracking-wider">{h}</span>
+              {[t('estrategia.riscos.problema'), t('estrategia.riscos.risco'), t('estrategia.riscos.impacto'), t('estrategia.riscos.nivel'), ''].map((h, i) => (
+                <span key={i} className="text-[10px] font-bold text-rl-muted uppercase tracking-wider">{h}</span>
               ))}
             </div>
 
@@ -527,19 +531,19 @@ export default function EstrategiaV2Module({ project, onSave }) {
                 <input
                   value={r.problema}
                   onChange={e => updateRisco(r.id, { problema: e.target.value })}
-                  placeholder="Descreva o problema..."
+                  placeholder={t('estrategia.riscos.problemaPh')}
                   className="input-field text-sm py-1.5"
                 />
                 <input
                   value={r.riscoGerado}
                   onChange={e => updateRisco(r.id, { riscoGerado: e.target.value })}
-                  placeholder="Qual risco isso gera?"
+                  placeholder={t('estrategia.riscos.riscoPh')}
                   className="input-field text-sm py-1.5"
                 />
                 <input
                   value={r.impacto}
                   onChange={e => updateRisco(r.id, { impacto: e.target.value })}
-                  placeholder="Qual é o impacto?"
+                  placeholder={t('estrategia.riscos.impactoPh')}
                   className="input-field text-sm py-1.5"
                 />
                 <select
@@ -547,9 +551,9 @@ export default function EstrategiaV2Module({ project, onSave }) {
                   onChange={e => updateRisco(r.id, { nivel: e.target.value })}
                   className={`input-field text-sm py-1.5 font-semibold border rounded-xl ${NIVEL_COLORS[r.nivel]}`}
                 >
-                  <option value="baixo">Baixo</option>
-                  <option value="medio">Médio</option>
-                  <option value="alto">Alto</option>
+                  <option value="baixo">{t('estrategia.riscos.baixo')}</option>
+                  <option value="medio">{t('estrategia.riscos.medio')}</option>
+                  <option value="alto">{t('estrategia.riscos.alto')}</option>
                 </select>
                 <button
                   onClick={() => removeRisco(r.id)}
@@ -564,7 +568,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
 
         <button onClick={addRisco} className="btn-secondary flex items-center gap-2 text-sm">
           <Plus className="w-4 h-4" />
-          Adicionar Risco
+          {t('estrategia.riscos.adicionar')}
         </button>
       </div>
 
@@ -572,16 +576,16 @@ export default function EstrategiaV2Module({ project, onSave }) {
       <div className="glass-card p-5">
         <SectionHeader
           icon={Users}
-          title="Resumo dos ICPs"
-          subtitle="Lido automaticamente do módulo de Personas"
+          title={t('estrategia.icps.titulo')}
+          subtitle={t('estrategia.icps.subtitulo')}
           color="text-rl-cyan"
         />
 
         {personas.length === 0 ? (
           <div className="text-center py-6 text-rl-muted text-sm">
             <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p>Nenhum ICP cadastrado.</p>
-            <p className="text-xs mt-1">Preencha o módulo de Personas primeiro.</p>
+            <p>{t('estrategia.icps.vazio')}</p>
+            <p className="text-xs mt-1">{t('estrategia.icps.vazioDica')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -594,16 +598,16 @@ export default function EstrategiaV2Module({ project, onSave }) {
                     <div className="w-8 h-8 rounded-full bg-rl-cyan/15 flex items-center justify-center text-sm font-bold text-rl-cyan">
                       {(p.name || 'P')[0].toUpperCase()}
                     </div>
-                    <h4 className="font-semibold text-rl-text text-sm truncate">{p.name || `Persona ${i + 1}`}</h4>
+                    <h4 className="font-semibold text-rl-text text-sm truncate">{p.name || t('estrategia.icps.personaN', { n: i + 1 })}</h4>
                   </div>
 
                   {/* Chips de atributos */}
                   <div className="space-y-2">
                     {[
-                      { key: 'resultado', label: 'Deseja', color: 'bg-rl-green/10 text-rl-green' },
-                      { key: 'objecoes',  label: 'Objeção', color: 'bg-red-400/10 text-red-400' },
-                      { key: 'medos',     label: 'Medo',    color: 'bg-rl-gold/10 text-rl-gold' },
-                      { key: 'sonhos',    label: 'Sonha',   color: 'bg-rl-purple/10 text-rl-purple' },
+                      { key: 'resultado', label: t('estrategia.icps.deseja'), color: 'bg-rl-green/10 text-rl-green' },
+                      { key: 'objecoes',  label: t('estrategia.icps.objecao'), color: 'bg-red-400/10 text-red-400' },
+                      { key: 'medos',     label: t('estrategia.icps.medo'),    color: 'bg-rl-gold/10 text-rl-gold' },
+                      { key: 'sonhos',    label: t('estrategia.icps.sonha'),   color: 'bg-rl-purple/10 text-rl-purple' },
                     ].map(({ key, label, color }) => {
                       const items = chips(key)
                       if (!items.length) return null
@@ -635,8 +639,8 @@ export default function EstrategiaV2Module({ project, onSave }) {
       <div className="glass-card p-5">
         <SectionHeader
           icon={Zap}
-          title="Tipos de Funis"
-          subtitle="Selecione os funis que serão utilizados nesta estratégia"
+          title={t('estrategia.funis.titulo')}
+          subtitle={t('estrategia.funis.subtitulo')}
           color="text-rl-purple"
         />
 
@@ -657,7 +661,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
                   ? <CheckSquare className="w-4 h-4 shrink-0 text-rl-purple" />
                   : <Square      className="w-4 h-4 shrink-0 opacity-40" />
                 }
-                {funil}
+                {rotuloFunil(funil)}
               </button>
             )
           })}
@@ -665,7 +669,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
 
         {funis.length > 0 && (
           <p className="text-xs text-rl-purple mt-3">
-            {funis.length} funil{funis.length > 1 ? 'is' : ''} selecionado{funis.length > 1 ? 's' : ''}
+            {t('estrategia.funis.selecionados', { count: funis.length })}
           </p>
         )}
       </div>
@@ -674,16 +678,16 @@ export default function EstrategiaV2Module({ project, onSave }) {
       <div className="glass-card p-5">
         <SectionHeader
           icon={Calculator}
-          title="Metas do Funil"
-          subtitle="Resultados necessários para atingir o ROI definido na Calculadora — lido automaticamente"
+          title={t('estrategia.metas.titulo')}
+          subtitle={t('estrategia.metas.subtitulo')}
           color="text-rl-purple"
         />
 
         {!roiResult ? (
           <div className="text-center py-6 text-rl-muted text-sm">
             <Calculator className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p>Calculadora de ROI não preenchida ainda.</p>
-            <p className="text-xs mt-1">Preencha o módulo de ROI para ver as metas do funil.</p>
+            <p>{t('estrategia.metas.vazio')}</p>
+            <p className="text-xs mt-1">{t('estrategia.metas.vazioDica')}</p>
           </div>
         ) : (
           <div className="space-y-5">
@@ -691,10 +695,10 @@ export default function EstrategiaV2Module({ project, onSave }) {
             {/* ROI alvo + investimento */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { label: 'ROI Desejado',    value: roiCalc?.roiDesejado != null ? `${roiCalc.roiDesejado}%` : '—', color: 'text-rl-purple', bg: 'bg-rl-purple/10 border-rl-purple/20' },
-                { label: 'Total Investido', value: fmtBRL(roiResult.totalInvestimento),   color: 'text-rl-text',   bg: 'bg-rl-surface border-rl-border' },
-                { label: 'Faturamento Alvo',value: fmtBRL(roiResult.faturamento),          color: 'text-rl-blue',   bg: 'bg-rl-blue/10 border-rl-blue/20' },
-                { label: 'Lucro Líquido',   value: fmtBRL(roiResult.lucroLiquido),
+                { label: t('estrategia.metas.roiDesejado'), value: roiCalc?.roiDesejado != null ? `${roiCalc.roiDesejado}%` : '—', color: 'text-rl-purple', bg: 'bg-rl-purple/10 border-rl-purple/20' },
+                { label: t('estrategia.metas.totalInvestido'), value: fmtBRL(roiResult.totalInvestimento),   color: 'text-rl-text',   bg: 'bg-rl-surface border-rl-border' },
+                { label: t('estrategia.metas.faturamentoAlvo'), value: fmtBRL(roiResult.faturamento),          color: 'text-rl-blue',   bg: 'bg-rl-blue/10 border-rl-blue/20' },
+                { label: t('estrategia.metas.lucroLiquido'), value: fmtBRL(roiResult.lucroLiquido),
                   color: roiResult.lucroLiquido >= 0 ? 'text-rl-green' : 'text-red-400',
                   bg:    roiResult.lucroLiquido >= 0 ? 'bg-rl-green/10 border-rl-green/20' : 'bg-red-400/10 border-red-400/20' },
               ].map(({ label, value, color, bg }) => (
@@ -708,16 +712,16 @@ export default function EstrategiaV2Module({ project, onSave }) {
             {/* Funil step-by-step */}
             <div>
               <p className="text-xs font-bold text-rl-muted uppercase tracking-wider mb-3">
-                Metas por etapa do funil — por mês
+                {t('estrategia.metas.porEtapa')}
               </p>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1">
                 {[
-                  { label: 'Leads',  value: roiResult.leadsNecessarios,  cost: roiResult.custoPorLead, costLabel: 'CPL (mídia)',  color: 'text-rl-purple', bg: 'bg-rl-purple/10 border-rl-purple/25', rate: null },
+                  { label: 'Leads',  value: roiResult.leadsNecessarios,  cost: roiResult.custoPorLead, costLabel: t('estrategia.metas.cplMidia'),  color: 'text-rl-purple', bg: 'bg-rl-purple/10 border-rl-purple/25', rate: null },
                   { label: 'MQLs',   value: roiResult.mqlsNecessarios,   cost: roiResult.custoPorMQL,  costLabel: 'C. MQL',      color: 'text-rl-blue',   bg: 'bg-rl-blue/10 border-rl-blue/25',     rate: roiCalc?.taxaLead2MQL },
                   { label: 'SQLs',   value: roiResult.sqlsNecessarios,   cost: roiResult.custoPorSQL,  costLabel: 'C. SQL',      color: 'text-rl-cyan',   bg: 'bg-rl-cyan/10 border-rl-cyan/25',     rate: roiCalc?.taxaMQL2SQL },
-                  { label: 'Vendas', value: roiResult.vendasNecessarias, cost: roiResult.cac,          costLabel: 'CAC (mídia)', color: 'text-rl-green',  bg: 'bg-rl-green/10 border-rl-green/25',   rate: roiCalc?.taxaSQL2Venda },
+                  { label: t('estrategia.metas.vendas'), value: roiResult.vendasNecessarias, cost: roiResult.cac,          costLabel: t('estrategia.metas.cacMidia'), color: 'text-rl-green',  bg: 'bg-rl-green/10 border-rl-green/25',   rate: roiCalc?.taxaSQL2Venda },
                 ].map((step, i, arr) => (
-                  <div key={step.label} className="flex sm:flex-col items-center gap-1 flex-1">
+                  <div key={i} className="flex sm:flex-col items-center gap-1 flex-1">
                     <div className={`w-full rounded-xl border px-3 py-3 ${step.bg} flex sm:flex-col gap-3 sm:gap-1 items-center sm:items-start`}>
                       <div className="sm:w-full">
                         <p className={`text-xl font-black ${step.color}`}>{fmtNum(step.value)}</p>
@@ -728,7 +732,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
                         <p className="text-[10px] text-rl-muted">{step.costLabel}</p>
                         {step.rate != null && (
                           <span className="text-[10px] text-rl-muted bg-rl-surface/80 px-1.5 py-0.5 rounded-md inline-block mt-0.5">
-                            {step.rate}% conv.
+                            {t('estrategia.metas.conv', { taxa: step.rate })}
                           </span>
                         )}
                       </div>
@@ -744,9 +748,9 @@ export default function EstrategiaV2Module({ project, onSave }) {
             {/* Linha financeira + breakeven */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1 border-t border-rl-border">
               {[
-                { label: 'Lucro Bruto',         value: fmtBRL(roiResult.lucroBruto),    color: 'text-rl-cyan' },
-                { label: 'CAC (mídia)',          value: fmtBRL(roiResult.cac),           color: 'text-rl-gold' },
-                { label: 'Breakeven (vendas)',   value: fmtNum(roiResult.vendasBreakeven), color: 'text-rl-text' },
+                { label: t('estrategia.metas.lucroBruto'),  value: fmtBRL(roiResult.lucroBruto),    color: 'text-rl-cyan' },
+                { label: t('estrategia.metas.cacMidia'),    value: fmtBRL(roiResult.cac),           color: 'text-rl-gold' },
+                { label: t('estrategia.metas.breakeven'),   value: fmtNum(roiResult.vendasBreakeven), color: 'text-rl-text' },
               ].map(({ label, value, color }) => (
                 <div key={label} className="bg-rl-surface rounded-xl px-4 py-3 border border-rl-border">
                   <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1">{label}</p>
@@ -759,10 +763,10 @@ export default function EstrategiaV2Module({ project, onSave }) {
             {roiCalc && (
               <div className="flex flex-wrap gap-2 pt-1">
                 {[
-                  { label: 'Ticket Médio', value: fmtBRL(roiCalc.ticketMedio) },
-                  { label: 'Margem Bruta', value: `${roiCalc.margemBruta}%` },
-                  { label: 'Lucro/Venda',  value: fmtBRL(roiResult.lucroPorVenda) },
-                  { label: 'Orçamento Mídia', value: fmtBRL(roiCalc.mediaOrcamento) },
+                  { label: t('estrategia.metas.ticketMedio'), value: fmtBRL(roiCalc.ticketMedio) },
+                  { label: t('estrategia.metas.margemBruta'), value: `${roiCalc.margemBruta}%` },
+                  { label: t('estrategia.metas.lucroVenda'),  value: fmtBRL(roiResult.lucroPorVenda) },
+                  { label: t('estrategia.metas.orcamentoMidia'), value: fmtBRL(roiCalc.mediaOrcamento) },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex items-center gap-2 bg-rl-surface border border-rl-border rounded-lg px-3 py-1.5">
                     <span className="text-[10px] font-bold text-rl-muted uppercase tracking-wider">{label}</span>
@@ -780,23 +784,23 @@ export default function EstrategiaV2Module({ project, onSave }) {
       <div className="glass-card p-5">
         <SectionHeader
           icon={BarChart3}
-          title="Planejamento de Campanhas"
-          subtitle="Resumo por canais — lido do módulo de Planejamento de Campanhas"
+          title={t('estrategia.campanhas.titulo')}
+          subtitle={t('estrategia.campanhas.subtitulo')}
           color="text-rl-green"
         />
 
         {!campaignPlan || !campaignPlan.channels?.length ? (
           <div className="text-center py-6 text-rl-muted text-sm">
             <BarChart3 className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p>Planejamento de campanhas não preenchido ainda.</p>
-            <p className="text-xs mt-1">Preencha o módulo de Planejamento de Campanhas primeiro.</p>
+            <p>{t('estrategia.campanhas.vazio')}</p>
+            <p className="text-xs mt-1">{t('estrategia.campanhas.vazioDica')}</p>
           </div>
         ) : (
           <div className="space-y-3">
             {/* Orçamento total */}
             <div className="flex items-center gap-3 bg-rl-green/5 border border-rl-green/20 rounded-xl px-4 py-3">
-              <span className="text-xs font-bold text-rl-muted uppercase tracking-wider">Orçamento Total</span>
-              <span className="text-lg font-bold text-rl-green">{fmtBRL(totalBudget)}<span className="text-xs font-normal text-rl-muted">/mês</span></span>
+              <span className="text-xs font-bold text-rl-muted uppercase tracking-wider">{t('estrategia.campanhas.orcamentoTotal')}</span>
+              <span className="text-lg font-bold text-rl-green">{fmtBRL(totalBudget)}<span className="text-xs font-normal text-rl-muted">{t('estrategia.campanhas.porMes')}</span></span>
             </div>
 
             {/* Canais */}
@@ -813,7 +817,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
                       </div>
                       <div className="flex items-center gap-3 text-sm">
                         <span className="text-rl-muted">{ch.percentage}%</span>
-                        <span className="font-semibold text-rl-text">{fmtBRL(chBudget)}/mês</span>
+                        <span className="font-semibold text-rl-text">{fmtBRL(chBudget)}{t('estrategia.campanhas.porMes')}</span>
                       </div>
                     </div>
 
@@ -825,12 +829,12 @@ export default function EstrategiaV2Module({ project, onSave }) {
                       return (
                         <div key={key} className="ml-6 mt-2">
                           <span className="text-[11px] font-bold text-rl-muted uppercase tracking-wider">
-                            {key === 'topo' ? 'Topo' : key === 'meio' ? 'Meio' : 'Fundo'} — {fmtBRL(stageBudget)}/mês
+                            {t(`estrategia.campanhas.${key}`)} — {fmtBRL(stageBudget)}{t('estrategia.campanhas.porMes')}
                           </span>
                           {stage.campaigns.map(camp => (
                             <div key={camp.id} className="flex justify-between items-center py-0.5 ml-2">
                               <span className="text-xs text-rl-muted">{camp.name || '—'}</span>
-                              <span className="text-xs text-rl-text">{fmtBRL(stageBudget * (camp.percentage / 100))}/mês</span>
+                              <span className="text-xs text-rl-text">{fmtBRL(stageBudget * (camp.percentage / 100))}{t('estrategia.campanhas.porMes')}</span>
                             </div>
                           ))}
                         </div>
@@ -851,7 +855,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
           className="btn-secondary flex items-center gap-2 text-sm"
         >
           <FileDown className="w-4 h-4" />
-          Exportar PDF
+          {t('estrategia.exportarPdf')}
         </button>
         <div className="flex items-center gap-3">
           <AutoSaveIndicator />
@@ -860,7 +864,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
             className="btn-primary flex items-center gap-2 text-sm"
           >
             <Save className="w-4 h-4" />
-            Salvar Estratégia
+            {t('estrategia.salvar')}
           </button>
         </div>
       </div>

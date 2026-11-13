@@ -1,5 +1,6 @@
 import { escapeHtml } from './utils'
 import { printDocument, docHeader, markdownToHtml, PAGE_CSS } from './printDoc'
+import { t, localeAtual } from '../i18n'
 // PDF do Mecanismo Único — segue o mesmo padrão de src/utils/exportPDF.js
 // e src/lib/kickoffPDF.js (HTML + window.print()). Cobre as 6 seções do
 // playbook, o pitch montado, a análise IA e o posicionamento recomendado
@@ -13,6 +14,9 @@ import {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const esc = escapeHtml
+// Rótulos do PDF no idioma de quem gera; o conteúdo preenchido e o da IA saem como estão.
+const L = (k, vars) => t(`mecanismo.pdf.${k}`, vars)
+const P = (k, vars) => t(`mecanismoPassos.pitch.${k}`, vars)
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 const MU_CSS = PAGE_CSS + `
@@ -109,14 +113,14 @@ const MU_CSS = PAGE_CSS + `
 
 // ─── Renderizadores por seção ─────────────────────────────────────────────────
 
-function renderQA(label, value, empty = '— não preenchido —') {
+function renderQA(label, value, empty = L('naoPreenchido')) {
   if (value == null || value === '' || (Array.isArray(value) && !value.length)) {
     return `<div class="qa-block"><div class="qa-label">${esc(label)}</div><div class="qa-empty">${esc(empty)}</div></div>`
   }
   return `<div class="qa-block"><div class="qa-label">${esc(label)}</div><div class="qa-value">${esc(String(value))}</div></div>`
 }
 
-function renderList(label, items, empty = '— não preenchido —') {
+function renderList(label, items, empty = L('naoPreenchido')) {
   if (!Array.isArray(items) || !items.length) {
     return `<div class="qa-block"><div class="qa-label">${esc(label)}</div><div class="qa-empty">${esc(empty)}</div></div>`
   }
@@ -128,7 +132,7 @@ function renderList(label, items, empty = '— não preenchido —') {
   `
 }
 
-function renderTable(label, rows, columns, empty = '— não preenchido —') {
+function renderTable(label, rows, columns, empty = L('naoPreenchido')) {
   if (!Array.isArray(rows) || !rows.length) {
     return `<div class="qa-block"><div class="qa-label">${esc(label)}</div><div class="qa-empty">${esc(empty)}</div></div>`
   }
@@ -144,7 +148,7 @@ function renderTable(label, rows, columns, empty = '— não preenchido —') {
   `
 }
 
-function renderChips(label, ids, byId, empty = '— nenhum selecionado —') {
+function renderChips(label, ids, byId, empty = L('nenhumSelecionado')) {
   if (!Array.isArray(ids) || !ids.length) {
     return `<div class="qa-block"><div class="qa-label">${esc(label)}</div><div class="qa-empty">${esc(empty)}</div></div>`
   }
@@ -162,26 +166,26 @@ function renderChips(label, ids, byId, empty = '— nenhum selecionado —') {
 function buildPitchHTML(d) {
   const parts = []
   const header = [
-    d.euAjudo     ? `<p><strong>Eu ajudo:</strong> ${esc(d.euAjudo)}</p>` : '',
-    d.aConseguir  ? `<p><strong>A conseguir:</strong> ${esc(d.aConseguir)}</p>` : '',
-    (d.atravesDo || d.nomeMecanismo) ? `<p><strong>Através do:</strong> ${esc(d.atravesDo || d.nomeMecanismo)}</p>` : '',
+    d.euAjudo     ? `<p><strong>${esc(P('euAjudo'))}</strong> ${esc(d.euAjudo)}</p>` : '',
+    d.aConseguir  ? `<p><strong>${esc(P('aConseguir'))}</strong> ${esc(d.aConseguir)}</p>` : '',
+    (d.atravesDo || d.nomeMecanismo) ? `<p><strong>${esc(P('atravesDo'))}</strong> ${esc(d.atravesDo || d.nomeMecanismo)}</p>` : '',
   ].filter(Boolean).join('')
   if (header) parts.push(header)
 
   const falhou = [d.porqueFalhou?.problema, d.porqueFalhou?.razao, d.porqueFalhou?.prova]
     .filter(Boolean).join(' ')
-  if (falhou) parts.push(`<h2>Por que falhou até agora</h2><p>${esc(falhou)}</p>`)
+  if (falhou) parts.push(`<h2>${esc(P('porqueFalhou'))}</h2><p>${esc(falhou)}</p>`)
 
   const funcionaParts = [
     d.porqueFunciona?.explicacao,
     (d.porqueFunciona?.diferente || d.porqueFunciona?.voce)
-      ? `Diferente de ${d.porqueFunciona?.diferente || '...'}, ${d.porqueFunciona?.voce || '...'}.`
+      ? P('diferenteDe', { deles: d.porqueFunciona?.diferente || '...', voce: d.porqueFunciona?.voce || '...' })
       : null,
   ].filter(Boolean).join(' ')
-  if (funcionaParts) parts.push(`<h2>Por que vai funcionar</h2><p>${esc(funcionaParts)}</p>`)
+  if (funcionaParts) parts.push(`<h2>${esc(P('porqueFunciona'))}</h2><p>${esc(funcionaParts)}</p>`)
 
   if (d.promessaPrazo || d.promessaResultado) {
-    parts.push(`<h2>Promessa</h2><p>Em ${esc(d.promessaPrazo || '__')}, ${esc(d.promessaResultado || '__')}.</p>`)
+    parts.push(`<h2>${esc(P('promessa'))}</h2><p>${esc(P('promessaTexto', { prazo: d.promessaPrazo || '__', resultado: d.promessaResultado || '__' }))}</p>`)
   }
 
   return parts.join('')
@@ -190,53 +194,53 @@ function buildPitchHTML(d) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function exportMecanismoUnicoPDF({ project, mecanismoUnico }) {
-  const companyName = project?.companyName || project?.company_name || 'Cliente'
+  const companyName = project?.companyName || project?.company_name || L('cliente')
   const d = mecanismoUnico || {}
 
-  const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const today = new Date().toLocaleDateString(localeAtual(), { day: '2-digit', month: 'long', year: 'numeric' })
 
   // ── Seção 1: Pesquisa ─────────────────────────────────────────────────────
   const sec1 = `
     <section class="section">
-      <div class="section-title"><span class="section-num">1</span>Pesquisa de mercado</div>
-      ${renderTable('Concorrentes mapeados', d.concorrentes, [
-        { id: 'nome',   label: 'Concorrente' },
-        { id: 'oferta', label: 'O que oferece' },
+      <div class="section-title"><span class="section-num">1</span>${esc(t('mecanismo.secoes.pesquisa'))}</div>
+      ${renderTable(L('concorrentesMapeados'), d.concorrentes, [
+        { id: 'nome',   label: t('mecanismoPassos.campos.concorrente') },
+        { id: 'oferta', label: t('mecanismoPassos.campos.oQueOferece') },
       ])}
-      ${renderList('Padrões do mercado', d.padroesMercado)}
-      ${renderList('Promessas comuns no nicho', d.promessasComuns)}
+      ${renderList(L('padroesMercado'), d.padroesMercado)}
+      ${renderList(L('promessasNicho'), d.promessasComuns)}
     </section>
   `
 
   // ── Seção 2: Cliente ──────────────────────────────────────────────────────
   const sec2 = `
     <section class="section">
-      <div class="section-title"><span class="section-num">2</span>Mapeamento do cliente</div>
-      ${renderTable('Tentativas anteriores', d.tentativas, [
-        { id: 'tentou',    label: 'O que tentou' },
-        { id: 'resultado', label: 'Resultado' },
+      <div class="section-title"><span class="section-num">2</span>${esc(t('mecanismo.secoes.cliente'))}</div>
+      ${renderTable(L('tentativas'), d.tentativas, [
+        { id: 'tentou',    label: t('mecanismoPassos.campos.oQueTentou') },
+        { id: 'resultado', label: t('mecanismoPassos.campos.resultado') },
       ])}
-      ${renderList('Justificativas do próprio cliente', d.justificativas)}
+      ${renderList(L('justificativas'), d.justificativas)}
     </section>
   `
 
   // ── Seção 3: Problema ─────────────────────────────────────────────────────
   const sec3 = `
     <section class="section">
-      <div class="section-title"><span class="section-num">3</span>Mecanismo do problema</div>
-      ${renderChips('Vilões selecionados', d.viloes, Object.fromEntries(VILOES.map((v) => [v.id, v])))}
-      ${renderQA('Vilão principal', d.vilaoPrincipal)}
-      ${renderQA('Por que é vilão', d.vilaoJustificativa)}
+      <div class="section-title"><span class="section-num">3</span>${esc(t('mecanismo.secoes.problema'))}</div>
+      ${renderChips(L('viloesSelecionados'), d.viloes, Object.fromEntries(VILOES.map((v) => [v.id, v])))}
+      ${renderQA(L('vilaoPrincipal'), d.vilaoPrincipal)}
+      ${renderQA(L('porqueVilao'), d.vilaoJustificativa)}
       <div class="qa-block">
-        <div class="qa-label">Conexão lógica (vilão → problema → fracasso)</div>
+        <div class="qa-label">${esc(L('conexao'))}</div>
         <div class="qa-value">
-          <strong>Vilão:</strong> ${esc(d.conexao?.vilao || '—')}<br>
-          <strong>Problema causado:</strong> ${esc(d.conexao?.problema || '—')}<br>
-          <strong>Fracasso final:</strong> ${esc(d.conexao?.fracasso || '—')}
+          <strong>${esc(L('vilao'))}</strong> ${esc(d.conexao?.vilao || '—')}<br>
+          <strong>${esc(L('problemaCausado'))}</strong> ${esc(d.conexao?.problema || '—')}<br>
+          <strong>${esc(L('fracassoFinal'))}</strong> ${esc(d.conexao?.fracasso || '—')}
         </div>
       </div>
-      ${renderChips('Tipos de prova selecionados', d.provas, Object.fromEntries(TIPOS_PROVA.map((p) => [p.id, p])))}
-      ${renderQA('Texto da prova', d.provaTexto)}
+      ${renderChips(L('tiposProva'), d.provas, Object.fromEntries(TIPOS_PROVA.map((p) => [p.id, p])))}
+      ${renderQA(L('textoProva'), d.provaTexto)}
     </section>
   `
 
@@ -245,19 +249,19 @@ export function exportMecanismoUnicoPDF({ project, mecanismoUnico }) {
   const tecnicasHtml = Object.entries(d.tecnicas || {})
     .filter(([, v]) => v && String(v).trim())
     .map(([techId, val]) => {
-      const tecnica = TECNICAS.find((t) => t.id === techId)
+      const tecnica = TECNICAS.find((tc) => tc.id === techId)
       return `<div class="qa-block"><div class="qa-label">${esc(tecnica?.label || techId)}</div><div class="qa-value">${esc(val)}</div></div>`
     }).join('')
   const sec4 = `
     <section class="section">
-      <div class="section-title"><span class="section-num">4</span>Mecanismo da solução</div>
-      ${renderTable('Diferenciais', d.diferentes, [
-        { id: 'deles', label: 'Diferente de...' },
-        { id: 'voce',  label: 'Eu...' },
+      <div class="section-title"><span class="section-num">4</span>${esc(t('mecanismo.secoes.solucao'))}</div>
+      ${renderTable(L('diferenciais'), d.diferentes, [
+        { id: 'deles', label: t('mecanismoPassos.campos.diferenteDe') },
+        { id: 'voce',  label: t('mecanismoPassos.campos.eu') },
       ])}
-      ${renderQA('Formato de nome escolhido', formatoNomeLabel)}
-      ${renderQA('Nome final do mecanismo', d.nomeMecanismo)}
-      ${tecnicasHtml || '<div class="qa-block"><div class="qa-label">Técnicas de "por que funciona"</div><div class="qa-empty">— não preenchido —</div></div>'}
+      ${renderQA(L('formatoNome'), formatoNomeLabel)}
+      ${renderQA(L('nomeFinal'), d.nomeMecanismo)}
+      ${tecnicasHtml || `<div class="qa-block"><div class="qa-label">${esc(L('tecnicas'))}</div><div class="qa-empty">${esc(L('naoPreenchido'))}</div></div>`}
     </section>
   `
 
@@ -265,10 +269,10 @@ export function exportMecanismoUnicoPDF({ project, mecanismoUnico }) {
   const pitchHTML = buildPitchHTML(d)
   const sec5 = `
     <section class="section">
-      <div class="section-title"><span class="section-num">5</span>Pitch montado</div>
+      <div class="section-title"><span class="section-num">5</span>${esc(L('pitchMontado'))}</div>
       ${pitchHTML
         ? `<div class="pitch-card">${pitchHTML}</div>`
-        : `<div class="qa-empty">— pitch ainda não preenchido —</div>`
+        : `<div class="qa-empty">${esc(L('pitchVazio'))}</div>`
       }
     </section>
   `
@@ -279,21 +283,21 @@ export function exportMecanismoUnicoPDF({ project, mecanismoUnico }) {
   const validacaoItems = CRITERIOS_VALIDACAO.map((c, i) => {
     const ans = (d.validacao || {})[c.id]
     const cls = ans === 'sim' ? 'validacao-yes' : ans === 'nao' ? 'validacao-no' : 'validacao-skip'
-    const tag = ans === 'sim' ? '✓ Sim' : ans === 'nao' ? '✗ Não' : '— sem resposta —'
+    const tag = ans === 'sim' ? L('sim') : ans === 'nao' ? L('nao') : L('semResposta')
     return `<div class="validacao-item ${cls}"><strong>${i + 1}. ${esc(c.label)}</strong> — ${esc(c.desc)}<br><strong>${esc(tag)}</strong></div>`
   }).join('')
-  const testeAmigoLabel = TESTE_AMIGO.find((t) => t.id === d.testeAmigo)?.label
+  const testeAmigoLabel = TESTE_AMIGO.find((ta) => ta.id === d.testeAmigo)?.label
   const sec6 = `
     <section class="section">
-      <div class="section-title"><span class="section-num">6</span>Validação</div>
+      <div class="section-title"><span class="section-num">6</span>${esc(t('mecanismo.secoes.validacao'))}</div>
       <div class="validacao-grid">${validacaoItems}</div>
       <div class="veredito-card" style="--veredito-color:${veredito.color}">
         <div>
-          <div class="veredito-label">Veredito (${count}/7)</div>
+          <div class="veredito-label">${esc(t('mecanismoPassos.campos.veredito', { count }))}</div>
           <div class="veredito-text" style="color:${veredito.color}">${esc(veredito.label)}</div>
         </div>
       </div>
-      ${testeAmigoLabel ? `<div class="qa-block" style="margin-top:14px"><div class="qa-label">Teste do amigo</div><div class="qa-value">${esc(testeAmigoLabel)}</div></div>` : ''}
+      ${testeAmigoLabel ? `<div class="qa-block" style="margin-top:14px"><div class="qa-label">${esc(t('mecanismoPassos.campos.testeAmigo'))}</div><div class="qa-value">${esc(testeAmigoLabel)}</div></div>` : ''}
     </section>
   `
 
@@ -301,7 +305,7 @@ export function exportMecanismoUnicoPDF({ project, mecanismoUnico }) {
   const aiHtml = d.aiAnalysis
     ? `
       <section class="ai-section">
-        <h1>Pitch refinado com IA</h1>
+        <h1>${esc(L('pitchIA'))}</h1>
         <div class="ai-prose">${markdownToHtml(d.aiAnalysis)}</div>
       </section>
     `
@@ -311,16 +315,16 @@ export function exportMecanismoUnicoPDF({ project, mecanismoUnico }) {
   const positioningHtml = d.positioningAI
     ? `
       <section class="ai-section">
-        <h1>Posicionamento sugerido</h1>
+        <h1>${esc(L('posicionamento'))}</h1>
         <div class="ai-prose">${markdownToHtml(d.positioningAI)}</div>
       </section>
     `
     : ''
 
   printDocument({
-    title: `Mecanismo Único — ${companyName}`,
+    title: L('tituloDoc', { empresa: companyName }),
     css: MU_CSS,
-    body: docHeader({ logo: 'Revenue Lab · Mecanismo Único', title: 'Playbook de diferenciação', subtitle: companyName, date: today }) + `
+    body: docHeader({ logo: L('logo'), title: L('subtitulo'), subtitle: companyName, date: today }) + `
   ${sec1}
   ${sec2}
   ${sec3}

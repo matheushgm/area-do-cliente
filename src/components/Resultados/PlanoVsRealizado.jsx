@@ -11,8 +11,9 @@
 
 import { Target } from 'lucide-react'
 import { fmtMoneyShort } from './resultadosHelpers'
+import { useI18n, localeAtual } from '../../i18n'
 
-const fmtInt = n => Number(n || 0).toLocaleString('pt-BR')
+const fmtInt = n => Number(n || 0).toLocaleString(localeAtual())
 
 // Classificação de status → cor. `ratio` é sempre "quanto do ideal foi atingido"
 // (1 = na meta), já normalizado pelo tipo da métrica.
@@ -23,6 +24,7 @@ function statusOf(ratio) {
 }
 
 function GoalRow({ label, real, meta, kind = 'count', better = 'high' }) {
+  const { t } = useI18n()
   const fmt = kind === 'money' ? fmtMoneyShort : fmtInt
   const hasMeta = meta != null && meta > 0
   const hasReal = real > 0
@@ -32,7 +34,7 @@ function GoalRow({ label, real, meta, kind = 'count', better = 'high' }) {
       <div className="flex items-center gap-2.5 py-1.5">
         <span className="w-1.5 h-1.5 rounded-full bg-rl-border shrink-0" />
         <span className="text-xs text-rl-muted flex-1 truncate">{label}</span>
-        <span className="text-xs text-rl-muted">sem meta</span>
+        <span className="text-xs text-rl-muted">{t('resultados.plano.semMeta')}</span>
       </div>
     )
   }
@@ -69,13 +71,13 @@ function GoalRow({ label, real, meta, kind = 'count', better = 'high' }) {
 }
 
 export default function PlanoVsRealizado({ plan, real, showMqlSql = true }) {
+  const { t } = useI18n()
   if (!plan) {
     return (
       <div className="glass-card p-5 h-full">
-        <h4 className="text-sm font-bold text-rl-text mb-2">Plano vs Realizado</h4>
+        <h4 className="text-sm font-bold text-rl-text mb-2">{t('resultados.plano.titulo')}</h4>
         <p className="text-xs text-rl-muted">
-          Preencha a <b className="text-rl-text">Calculadora de ROI</b> deste cliente para comparar
-          o resultado do mês com a meta planejada.
+          {t('resultados.plano.preencha1')}<b className="text-rl-text">{t('resultados.plano.calculadora')}</b>{t('resultados.plano.preencha2')}
         </p>
       </div>
     )
@@ -84,18 +86,18 @@ export default function PlanoVsRealizado({ plan, real, showMqlSql = true }) {
   const per = qty => (real.investido > 0 && qty > 0 ? real.investido / qty : 0)
 
   const volume = [
-    { label: 'Leads',   real: real.leads,  meta: plan.leads },
-    showMqlSql && { label: 'MQL', real: real.mql, meta: plan.mql },
-    showMqlSql && { label: 'SQL', real: real.sql, meta: plan.sql },
-    { label: 'Vendas',  real: real.vendas, meta: plan.vendas },
-    { label: 'Receita', real: real.receita, meta: plan.faturamento, kind: 'money' },
+    { label: t('resultados.campos.leads'),   real: real.leads,  meta: plan.leads },
+    showMqlSql && { label: t('resultados.campos.mql'), real: real.mql, meta: plan.mql },
+    showMqlSql && { label: t('resultados.campos.sql'), real: real.sql, meta: plan.sql },
+    { label: t('resultados.campos.vendas'),  real: real.vendas, meta: plan.vendas },
+    { label: t('resultados.campos.receita'), real: real.receita, meta: plan.faturamento, kind: 'money' },
   ].filter(Boolean)
 
   const custo = [
-    { label: 'Custo / Lead', real: per(real.leads),  meta: plan.cpl },
-    showMqlSql && { label: 'Custo / MQL', real: per(real.mql), meta: plan.cpMql },
-    showMqlSql && { label: 'Custo / SQL', real: per(real.sql), meta: plan.cpSql },
-    { label: 'CAC',          real: per(real.vendas), meta: plan.cac },
+    { label: t('resultados.campos.custoLead'), real: per(real.leads),  meta: plan.cpl },
+    showMqlSql && { label: t('resultados.campos.custoMql'), real: per(real.mql), meta: plan.cpMql },
+    showMqlSql && { label: t('resultados.campos.custoSql'), real: per(real.sql), meta: plan.cpSql },
+    { label: t('resultados.campos.cac'),          real: per(real.vendas), meta: plan.cac },
   ].filter(Boolean).map(r => ({ ...r, kind: 'money', better: 'low' }))
 
   // Leitura de uma linha só: quantas metas de volume foram batidas.
@@ -106,25 +108,25 @@ export default function PlanoVsRealizado({ plan, real, showMqlSql = true }) {
     <div className="glass-card p-5 h-full flex flex-col">
       <div className="flex items-start justify-between gap-2 mb-3">
         <div>
-          <h4 className="text-sm font-bold text-rl-text">Plano vs Realizado</h4>
-          <p className="text-xs text-rl-muted mt-0.5">meta da Calculadora de ROI</p>
+          <h4 className="text-sm font-bold text-rl-text">{t('resultados.plano.titulo')}</h4>
+          <p className="text-xs text-rl-muted mt-0.5">{t('resultados.plano.sub')}</p>
         </div>
         <span className={`text-xs font-bold px-2.5 py-1 rounded-lg shrink-0 ${
           batidas === comMeta && comMeta > 0 ? 'bg-rl-green/10 text-rl-green'
           : batidas > 0 ? 'bg-rl-gold/10 text-rl-gold'
           : 'bg-rl-red/10 text-rl-red'
         }`}>
-          {batidas}/{comMeta} metas
+          {t('resultados.plano.metas', { batidas, total: comMeta })}
         </span>
       </div>
 
-      <div className="text-xs text-rl-muted uppercase tracking-wider mb-0.5 font-semibold">Volume</div>
+      <div className="text-xs text-rl-muted uppercase tracking-wider mb-0.5 font-semibold">{t('resultados.plano.volume')}</div>
       <div className="divide-y divide-rl-border/30">
         {volume.map(v => <GoalRow key={v.label} {...v} />)}
       </div>
 
       <div className="text-xs text-rl-muted uppercase tracking-wider mb-0.5 mt-3 font-semibold">
-        Custo · quanto menor, melhor
+        {t('resultados.plano.custo')}
       </div>
       <div className="divide-y divide-rl-border/30">
         {custo.map(v => <GoalRow key={v.label} {...v} />)}
@@ -133,8 +135,8 @@ export default function PlanoVsRealizado({ plan, real, showMqlSql = true }) {
       <div className="flex items-center gap-2 pt-3 mt-auto border-t border-rl-border/60 text-xs text-rl-muted">
         <Target size={13} className="text-rl-purple shrink-0" />
         <span>
-          Verba planejada <b className="text-rl-text">{fmtMoneyShort(plan.mediaOrcamento)}</b> ·
-          investido <b className="text-rl-text">{fmtMoneyShort(real.investido)}</b>
+          {t('resultados.plano.verbaPlanejada')} <b className="text-rl-text">{fmtMoneyShort(plan.mediaOrcamento)}</b> ·
+          {t('resultados.plano.investido')} <b className="text-rl-text">{fmtMoneyShort(real.investido)}</b>
         </span>
       </div>
     </div>

@@ -5,9 +5,13 @@ import {
 } from 'lucide-react'
 import { apiFetch } from '../../lib/api'
 import { fmtBRL } from './campaignHelpers'
+import { useI18n } from '../../i18n'
 
 // Acima/abaixo do ideal dentro dessa margem, o ritmo é considerado ok.
 const TOLERANCE = 0.05
+
+// budgetMode chega de /api/campaign-budgets em pt (valor comparado abaixo); só o rótulo muda.
+const MODO_CHAVE = { CBO: 'CBO', ABO: 'ABO', 'Diário': 'diario', 'Período': 'periodo', Compartilhado: 'compartilhado' }
 
 /**
  * Pace de investimento — compara o que dá pra gastar POR DIA (disponível ÷
@@ -15,6 +19,7 @@ const TOLERANCE = 0.05
  * Meta (CBO = campanha; ABO = soma dos conjuntos), lido em /api/campaign-budgets.
  */
 export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamentoTotal, valorJaUsado, showToast }) {
+  const { t } = useI18n()
   const [loading, setLoading]   = useState(false)
   const [data, setData]         = useState(null)
   const [expanded, setExpanded] = useState(false)
@@ -33,7 +38,7 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
         showToast(body.warnings.join(' · '), 'error')
       }
     } catch (e) {
-      showToast('Pace: ' + e.message, 'error')
+      showToast(t('campanhas.pace.erro', { erro: e.message }), 'error')
     } finally {
       setLoading(false)
     }
@@ -50,20 +55,20 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
     if (Math.abs(pct) <= TOLERANCE) {
       verdict = {
         tone: 'ok',
-        label: 'Ritmo ok',
-        detail: `Nesse ritmo o período fecha em ${fmtBRL(projected)} de ${fmtBRL(orcamentoTotal)}.`,
+        label: t('campanhas.pace.ritmoOk'),
+        detail: t('campanhas.pace.ritmoOkDetalhe', { projetado: fmtBRL(projected), orcamento: fmtBRL(orcamentoTotal) }),
       }
     } else if (delta > 0) {
       verdict = {
         tone: 'down',
-        label: `Reduzir ${fmtBRL(delta)}/dia (${Math.round(pct * 100)}% acima)`,
-        detail: `Mantendo assim, o período fecha em ${fmtBRL(projected)} e estoura ${fmtBRL(Math.max(0, projected - orcamentoTotal))} do orçamento.`,
+        label: t('campanhas.pace.reduzir', { valor: fmtBRL(delta), pct: Math.round(pct * 100) }),
+        detail: t('campanhas.pace.reduzirDetalhe', { projetado: fmtBRL(projected), excesso: fmtBRL(Math.max(0, projected - orcamentoTotal)) }),
       }
     } else {
       verdict = {
         tone: 'up',
-        label: `Aumentar ${fmtBRL(-delta)}/dia (${Math.round(-pct * 100)}% abaixo)`,
-        detail: `Mantendo assim, o período fecha em ${fmtBRL(projected)} e sobram ${fmtBRL(Math.max(0, orcamentoTotal - projected))} sem investir.`,
+        label: t('campanhas.pace.aumentar', { valor: fmtBRL(-delta), pct: Math.round(-pct * 100) }),
+        detail: t('campanhas.pace.aumentarDetalhe', { projetado: fmtBRL(projected), sobra: fmtBRL(Math.max(0, orcamentoTotal - projected)) }),
       }
     }
   }
@@ -86,27 +91,27 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Gauge className="w-4 h-4 text-rl-purple" />
-          <p className="text-sm font-semibold text-rl-text">Pace de investimento</p>
+          <p className="text-sm font-semibold text-rl-text">{t('campanhas.pace.titulo')}</p>
           <span className="text-[11px] text-rl-muted">
-            orçamento diário configurado no Meta vs. ideal
+            {t('campanhas.pace.subtitulo')}
           </span>
         </div>
         <button
           onClick={handleCheck}
           disabled={!canCheck || loading}
           className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Lê o orçamento diário das campanhas ativas (CBO) e conjuntos (ABO) direto do Meta"
+          title={t('campanhas.pace.botaoTitulo')}
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Consultando Meta…' : data ? 'Atualizar' : 'Comparar pace'}
+          {loading ? t('campanhas.pace.consultando') : data ? t('campanhas.pace.atualizar') : t('campanhas.pace.comparar')}
         </button>
       </div>
 
       {!data && !loading && (
         <p className="text-[11px] text-rl-muted">
           {canCheck
-            ? 'Clique em "Comparar pace" pra ler o orçamento diário das campanhas ativas no Meta e comparar com o ideal por dia.'
-            : 'Preencha o orçamento e vincule uma conta de anúncio pra comparar o pace.'}
+            ? t('campanhas.pace.dicaComparar')
+            : t('campanhas.pace.dicaPreencher')}
         </p>
       )}
 
@@ -115,19 +120,19 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
           {/* Ideal vs. configurado */}
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg bg-rl-bg/60 border border-rl-border px-3 py-2">
-              <p className="text-[10px] text-rl-muted">Ideal por dia</p>
+              <p className="text-[10px] text-rl-muted">{t('campanhas.pace.idealPorDia')}</p>
               <p className="text-base font-bold text-rl-text">{fmtBRL(idealDaily)}</p>
-              <p className="text-[10px] text-rl-muted/60">disponível ÷ {daysLeft} {daysLeft === 1 ? 'dia' : 'dias'}</p>
+              <p className="text-[10px] text-rl-muted/60">{t('campanhas.pace.disponivelDividido', { count: daysLeft })}</p>
             </div>
             <div className="rounded-lg bg-rl-bg/60 border border-rl-border px-3 py-2">
-              <p className="text-[10px] text-rl-muted">Configurado hoje (Meta + Google)</p>
+              <p className="text-[10px] text-rl-muted">{t('campanhas.pace.configurado')}</p>
               <p className="text-base font-bold text-rl-text">{fmtBRL(configured)}</p>
               <p className="text-[10px] text-rl-muted/60">
                 {hasMeta || hasGoogle
-                  ? `Meta ${fmtBRL(data.perChannel.meta)} · Google ${fmtBRL(data.perChannel.google)} · `
+                  ? t('campanhas.pace.porCanal', { meta: fmtBRL(data.perChannel.meta), google: fmtBRL(data.perChannel.google) })
                   : ''}
-                {campaigns.length} campanha{campaigns.length === 1 ? '' : 's'} ativa{campaigns.length === 1 ? '' : 's'}
-                {hasEstimate ? ' · inclui estimativa' : ''}
+                {t('campanhas.pace.campanhasAtivas', { count: campaigns.length })}
+                {hasEstimate ? t('campanhas.pace.incluiEstimativa') : ''}
               </p>
             </div>
           </div>
@@ -149,27 +154,27 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
           {campaigns.length === 0 && (
             <div className="flex items-center gap-2 text-xs text-rl-muted">
               <AlertCircle className="w-3.5 h-3.5" />
-              Nenhuma campanha ativa encontrada nas contas vinculadas.
+              {t('campanhas.pace.semCampanhas')}
             </div>
           )}
 
           {data.googleConfigured === false && (
             <div className="flex items-center gap-2 text-[11px] text-rl-muted">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              Google Ads fora do pace: faltam as envs GOOGLE_ADS_* na Vercel (só Meta foi considerado).
+              {t('campanhas.pace.googleFora')}
             </div>
           )}
 
           {data.unchecked?.length > 0 && (
             <p className="text-[11px] text-rl-muted pl-[22px]">
-              Não verificadas: {data.unchecked.join(', ')}.
+              {t('campanhas.pace.naoVerificadas', { lista: data.unchecked.join(', ') })}
             </p>
           )}
 
           {data.unresolved?.length > 0 && (
             <div className="flex items-center gap-2 text-[11px] text-rl-gold">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              Sem acesso no Meta nem no Google: {data.unresolved.join(', ')}.
+              {t('campanhas.pace.semAcesso', { lista: data.unresolved.join(', ') })}
             </div>
           )}
 
@@ -181,7 +186,7 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
                 className="flex items-center gap-1 text-[11px] text-rl-muted hover:text-rl-text transition-colors"
               >
                 {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                {expanded ? 'Esconder campanhas' : 'Ver campanha por campanha'}
+                {expanded ? t('campanhas.pace.esconder') : t('campanhas.pace.verCampanhas')}
               </button>
               {expanded && (
                 <div className="mt-2 space-y-1">
@@ -191,8 +196,8 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
                         <p className="text-rl-text truncate">
                           {c.name}
                           {c.limited && (
-                            <span className="ml-1.5 text-[10px] text-rl-gold" title="Entregando limitada pelo orçamento: gasta o teto todo dia">
-                              limitada
+                            <span className="ml-1.5 text-[10px] text-rl-gold" title={t('campanhas.pace.limitadaTitulo')}>
+                              {t('campanhas.pace.limitada')}
                             </span>
                           )}
                         </p>
@@ -211,12 +216,12 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
                             ? 'bg-rl-purple/10 border-rl-purple/20 text-rl-purple'
                             : 'bg-rl-cyan/10 border-rl-cyan/20 text-rl-cyan'
                         }`}>
-                          {c.budgetMode}
+                          {MODO_CHAVE[c.budgetMode] ? t(`campanhas.pace.modo.${MODO_CHAVE[c.budgetMode]}`) : c.budgetMode}
                         </span>
                         <span className="font-semibold text-rl-text tabular-nums">
                           {c.sharedDuplicate
-                            ? 'já contado'
-                            : c.daily == null ? 'sem estimativa' : `${fmtBRL(c.daily)}/dia`}
+                            ? t('campanhas.pace.jaContado')
+                            : c.daily == null ? t('campanhas.pace.semEstimativa') : t('campanhas.pace.porDia', { valor: fmtBRL(c.daily) })}
                           {c.daily != null && c.estimated ? '*' : ''}
                         </span>
                       </div>
@@ -224,7 +229,7 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
                   ))}
                   {hasEstimate && (
                     <p className="text-[10px] text-rl-muted/60 pl-1">
-                      * orçamento por período (lifetime): diário estimado pelo valor ÷ dias até a data final da campanha.
+                      {t('campanhas.pace.notaEstimativa')}
                     </p>
                   )}
                 </div>

@@ -12,7 +12,8 @@
 
 import { useState, useEffect } from 'react'
 import { Edit2, Plus, Check, X, Store, TrendingUp, TrendingDown } from 'lucide-react'
-import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, weekdayShort, MONTH_NAMES } from './resultadosHelpers'
+import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, weekdayShort, nomeMes, diaMes } from './resultadosHelpers'
+import { useI18n } from '../../i18n'
 
 const UNIT_STYLE = [
   { text: 'text-rl-blue',   bg: 'bg-rl-blue/5',   border: 'border-rl-blue/20',   bar: 'rgb(var(--rl-blue))'   },
@@ -86,7 +87,7 @@ function rangeTotalOf(data, unidadeId, start, end) {
 // Não é um lançamento novo: agrupa os dias já preenchidos em semanas (1-7, 8-14,
 // 15-21, 22-fim) para mostrar o ritmo de cada unidade ao longo do mês.
 function ResumoSemanal({ unidades, month, data, semanas }) {
-  const mm = String(month + 1).padStart(2, '0')
+  const { t, locale } = useI18n()
 
   // Último dia com lançamento — semanas que passam disso ainda estão em curso e
   // a variação delas não deve ser lida como queda.
@@ -119,10 +120,10 @@ function ResumoSemanal({ unidades, month, data, semanas }) {
     <div className="rounded-2xl border border-rl-border overflow-hidden">
       <div className="px-4 py-3 border-b border-rl-border flex items-center gap-2">
         <span className="text-xs font-semibold uppercase tracking-wider text-rl-text">
-          Resumo semanal por unidade
+          {t('resultados.unidades.resumoSemanal')}
         </span>
         <span className="text-xs text-rl-muted">
-          somado dos lançamentos diários
+          {t('resultados.unidades.somado')}
         </span>
       </div>
 
@@ -131,7 +132,7 @@ function ResumoSemanal({ unidades, month, data, semanas }) {
           <thead>
             <tr className="border-b border-rl-border">
               <th rowSpan={2} className={`text-left px-4 py-2 text-rl-muted font-medium text-xs uppercase tracking-wide align-bottom ${STICKY_LEFT}`}>
-                Semana
+                {t('resultados.campos.semana')}
               </th>
               {unidades.map((u, i) => (
                 <th
@@ -139,23 +140,23 @@ function ResumoSemanal({ unidades, month, data, semanas }) {
                   colSpan={2}
                   className={`px-4 py-2 text-center text-xs font-bold uppercase tracking-wider border-l border-rl-border/50 ${styleOf(i).text}`}
                 >
-                  Unidade {u.label}
+                  {t('resultados.unidades.unidade', { nome: u.label })}
                 </th>
               ))}
               <th colSpan={2} className="px-4 py-2 text-center text-xs font-bold uppercase tracking-wider text-rl-green border-l border-rl-border/50">
-                Total da semana
+                {t('resultados.unidades.totalSemana')}
               </th>
               <th rowSpan={2} className="px-3 py-2 text-right text-xs uppercase tracking-wide text-rl-muted font-medium align-bottom border-l border-rl-border/50 whitespace-nowrap">
-                vs. semana anterior
+                {t('resultados.unidades.vsAnterior')}
               </th>
             </tr>
             <tr className="border-b border-rl-border">
               {[...unidades, { id: '__total' }].map(u => [
                 <th key={`${u.id}-q`} className="px-3 py-1.5 text-right text-xs uppercase tracking-wide text-rl-muted font-medium border-l border-rl-border/50">
-                  Qtd.
+                  {t('resultados.unidades.qtd')}
                 </th>,
                 <th key={`${u.id}-v`} className="px-3 py-1.5 text-right text-xs uppercase tracking-wide text-rl-muted font-medium">
-                  Valor
+                  {t('resultados.unidades.valor')}
                 </th>,
               ])}
             </tr>
@@ -179,29 +180,29 @@ function ResumoSemanal({ unidades, month, data, semanas }) {
                       <span className="text-xs font-semibold text-rl-text">{week.label}</span>
                       {parcial && (
                         <span className="text-[11px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-rl-gold/10 text-rl-gold font-semibold">
-                          parcial
+                          {t('resultados.unidades.parcial')}
                         </span>
                       )}
                     </div>
                     <div className="text-xs text-rl-muted">
-                      {String(week.start).padStart(2, '0')}/{mm} a {String(week.end).padStart(2, '0')}/{mm}
+                      {t('resultados.intervalo', { de: diaMes(week.start, month, true), ate: diaMes(week.end, month, true) })}
                     </div>
                   </td>
 
-                  {porUnidade.map((t, i) => [
+                  {porUnidade.map((tot, i) => [
                     <td key={`${unidades[i].id}-q`} className="px-3 py-2.5 text-right text-xs text-rl-text border-l border-rl-border/50">
-                      {t.vendas ? t.vendas.toLocaleString('pt-BR') : '—'}
+                      {tot.vendas ? tot.vendas.toLocaleString(locale) : '—'}
                     </td>,
                     <td
                       key={`${unidades[i].id}-v`}
                       className={`px-3 py-2.5 text-right text-xs font-medium ${styleOf(i).text} ${melhorPorUnidade[i] === li ? 'font-bold' : ''}`}
                     >
-                      {t.valorVendas ? fmtMoney(t.valorVendas) : '—'}
+                      {tot.valorVendas ? fmtMoney(tot.valorVendas) : '—'}
                     </td>,
                   ])}
 
                   <td className="px-3 py-2.5 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
-                    {total.vendas ? total.vendas.toLocaleString('pt-BR') : '—'}
+                    {total.vendas ? total.vendas.toLocaleString(locale) : '—'}
                   </td>
                   <td className="px-3 py-2.5 text-right text-xs font-bold text-rl-green">
                     {total.valorVendas ? fmtMoney(total.valorVendas) : '—'}
@@ -231,16 +232,17 @@ function ResumoSemanal({ unidades, month, data, semanas }) {
 
 // ROAS = receita ÷ investimento em anúncios (mês). Mesmas faixas de cor do restante dos Resultados.
 function RoasLinha({ receita, investido }) {
+  const { t, locale } = useI18n()
   const roas = investido > 0 ? receita / investido : 0
   const cor = roas >= 3 ? 'text-rl-green' : roas >= 1.5 ? 'text-rl-gold' : 'text-rl-purple'
   return (
     <div className="mt-3 pt-3 border-t border-rl-border/60 flex items-center justify-between">
       <div>
-        <div className="text-xs uppercase tracking-wider text-rl-muted">ROAS</div>
-        <div className="text-xs text-rl-muted">investido {fmtMoney(investido)}</div>
+        <div className="text-xs uppercase tracking-wider text-rl-muted">{t('resultados.campos.roas')}</div>
+        <div className="text-xs text-rl-muted">{t('resultados.unidades.investido', { valor: fmtMoney(investido) })}</div>
       </div>
       <div className={`text-xl font-bold ${roas > 0 ? cor : 'text-rl-muted'}`}>
-        {roas > 0 ? `${roas.toFixed(2).replace('.', ',')}x` : '—'}
+        {roas > 0 ? `${roas.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}x` : '—'}
       </div>
     </div>
   )
@@ -248,6 +250,7 @@ function RoasLinha({ receita, investido }) {
 
 // ─── Cartão de resumo da unidade ──────────────────────────────────────────────
 function UnitCard({ unidade, total, receitaMes, index, investido }) {
+  const { t, locale } = useI18n()
   const st     = styleOf(index)
   const ticket = total.vendas > 0 ? total.valorVendas / total.vendas : 0
   const share  = receitaMes > 0 ? (total.valorVendas / receitaMes) * 100 : 0
@@ -265,15 +268,15 @@ function UnitCard({ unidade, total, receitaMes, index, investido }) {
         {fmtMoney(total.valorVendas)}
       </div>
       <div className="text-xs text-rl-muted mt-1.5">
-        {total.vendas.toLocaleString('pt-BR')} vendas
-        {ticket > 0 && ` · ticket ${fmtMoney(ticket)}`}
+        {t('resultados.unidades.vendas', { count: total.vendas, n: total.vendas.toLocaleString(locale) })}
+        {ticket > 0 && t('resultados.unidades.ticket', { valor: fmtMoney(ticket) })}
       </div>
 
       {investido != null && <RoasLinha receita={total.valorVendas} investido={investido} />}
 
       <div className="mt-3 pt-3 border-t border-rl-border/60">
         <div className="flex items-center justify-between text-xs text-rl-muted mb-1.5">
-          <span>Participação na receita</span>
+          <span>{t('resultados.unidades.participacao')}</span>
           <span className="font-semibold text-rl-text">{share.toFixed(1)}%</span>
         </div>
         <div className="h-1.5 rounded-full bg-rl-border/50 overflow-hidden">
@@ -305,6 +308,7 @@ export default function VendasPorUnidade({
   const [form, setForm]               = useState({})        // { unidadeId: { vendas, valorVendas } }
   const [editingWeek, setEditingWeek] = useState(null)       // índice (0-based) da semana em edição
   const [weekForm, setWeekForm]       = useState({})         // { unidadeId: { vendas, valorVendas } }
+  const { t, locale } = useI18n()
 
   // Avisa o formulário pai quando há linha aberta com campos ainda não confirmados.
   useEffect(() => {
@@ -400,8 +404,8 @@ export default function VendasPorUnidade({
       {canWeekly && (
         <div className="inline-flex p-1 rounded-xl bg-rl-surface border border-rl-border">
           {[
-            { id: 'diario',  label: 'Diário' },
-            { id: 'semanal', label: 'Semanal' },
+            { id: 'diario',  label: t('resultados.modos.diario') },
+            { id: 'semanal', label: t('resultados.modos.semanal') },
           ].map(opt => (
             <button
               key={opt.id}
@@ -433,14 +437,14 @@ export default function VendasPorUnidade({
           ))}
           <div className="rounded-xl border border-rl-border bg-rl-surface/60 p-4">
             <div className="text-xs font-medium text-rl-muted mb-2">
-              Total de {MONTH_NAMES[month]}
+              {t('resultados.unidades.totalDe', { mes: nomeMes(month) })}
             </div>
             <div className="text-xl font-bold leading-tight text-rl-text tabular-nums">
               {fmtMoney(totalMes.valorVendas)}
             </div>
             <div className="text-xs text-rl-muted mt-1.5">
-              {totalMes.vendas.toLocaleString('pt-BR')} vendas
-              {totalMes.vendas > 0 && ` · ticket ${fmtMoney(totalMes.valorVendas / totalMes.vendas)}`}
+              {t('resultados.unidades.vendas', { count: totalMes.vendas, n: totalMes.vendas.toLocaleString(locale) })}
+              {totalMes.vendas > 0 && t('resultados.unidades.ticket', { valor: fmtMoney(totalMes.valorVendas / totalMes.vendas) })}
             </div>
             {investimento && <RoasLinha receita={totalMes.valorVendas} investido={investimento.total} />}
           </div>
@@ -466,7 +470,7 @@ export default function VendasPorUnidade({
                 <thead>
                   <tr className="border-b border-rl-border">
                     <th rowSpan={2} className={`text-left px-4 py-2 text-rl-muted font-medium text-xs uppercase tracking-wide align-bottom ${STICKY_LEFT}`}>
-                      Data
+                      {t('resultados.unidades.data')}
                     </th>
                     {unidades.map((u, i) => (
                       <th
@@ -474,21 +478,21 @@ export default function VendasPorUnidade({
                         colSpan={2}
                         className={`px-4 py-2 text-center text-xs font-bold uppercase tracking-wider border-l border-rl-border/50 ${styleOf(i).text}`}
                       >
-                        Unidade {u.label}
+                        {t('resultados.unidades.unidade', { nome: u.label })}
                       </th>
                     ))}
                     <th colSpan={2} className="px-4 py-2 text-center text-xs font-bold uppercase tracking-wider text-rl-green border-l border-rl-border/50">
-                      Total de vendas
+                      {t('resultados.unidades.totalVendas')}
                     </th>
                     {!readOnly && <th rowSpan={2} className={`w-10 px-2 py-2 ${STICKY_RIGHT}`} />}
                   </tr>
                   <tr className="border-b border-rl-border">
                     {[...unidades, { id: '__total' }].map(u => [
                       <th key={`${u.id}-q`} className="px-3 py-1.5 text-right text-xs uppercase tracking-wide text-rl-muted font-medium border-l border-rl-border/50">
-                        Qtd.
+                        {t('resultados.unidades.qtd')}
                       </th>,
                       <th key={`${u.id}-v`} className="px-3 py-1.5 text-right text-xs uppercase tracking-wide text-rl-muted font-medium">
-                        Valor
+                        {t('resultados.unidades.valor')}
                       </th>,
                     ])}
                   </tr>
@@ -506,7 +510,7 @@ export default function VendasPorUnidade({
                       return (
                         <tr key={day} className="border-b border-rl-border bg-rl-surface/40">
                           <td className={`px-4 py-2 text-xs font-medium text-rl-text whitespace-nowrap ${STICKY_LEFT}`}>
-                            {dayKey}/{String(month + 1).padStart(2, '0')}
+                            {diaMes(day, month, true)}
                             <span className="ml-1.5 text-rl-muted font-normal capitalize">{weekdayShort(year, month, day)}</span>
                           </td>
                           {unidades.map((u, i) => [
@@ -549,14 +553,14 @@ export default function VendasPorUnidade({
                               <button
                                 onClick={() => commit(day)}
                                 className="text-rl-green hover:text-rl-green p-1 rounded hover:bg-rl-green/10"
-                                title="Salvar"
+                                title={t('comum.salvar')}
                               >
                                 <Check size={13} />
                               </button>
                               <button
                                 onClick={() => setEditing(null)}
                                 className="text-rl-muted hover:text-rl-text p-1 rounded"
-                                title="Cancelar"
+                                title={t('comum.cancelar')}
                               >
                                 <X size={13} />
                               </button>
@@ -572,14 +576,14 @@ export default function VendasPorUnidade({
                         className={`border-b border-rl-border/30 hover:bg-rl-surface/20 transition-colors ${vazio ? 'opacity-50' : ''}`}
                       >
                         <td className={`px-4 py-2 text-xs font-medium text-rl-text whitespace-nowrap ${STICKY_LEFT}`}>
-                          {dayKey}/{String(month + 1).padStart(2, '0')}
+                          {diaMes(day, month, true)}
                             <span className="ml-1.5 text-rl-muted font-normal capitalize">{weekdayShort(year, month, day)}</span>
                         </td>
                         {unidades.map((u, i) => {
                           const v = entry?.[u.id]
                           return [
                             <td key={`${u.id}-q`} className="px-3 py-2 text-right text-xs text-rl-text border-l border-rl-border/50">
-                              {v?.vendas ? v.vendas.toLocaleString('pt-BR') : '—'}
+                              {v?.vendas ? v.vendas.toLocaleString(locale) : '—'}
                             </td>,
                             <td key={`${u.id}-v`} className={`px-3 py-2 text-right text-xs font-medium ${styleOf(i).text}`}>
                               {v?.valorVendas ? fmtMoney(v.valorVendas) : '—'}
@@ -587,7 +591,7 @@ export default function VendasPorUnidade({
                           ]
                         })}
                         <td className="px-3 py-2 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
-                          {total.vendas ? total.vendas.toLocaleString('pt-BR') : '—'}
+                          {total.vendas ? total.vendas.toLocaleString(locale) : '—'}
                         </td>
                         <td className="px-3 py-2 text-right text-xs font-bold text-rl-green">
                           {total.valorVendas ? fmtMoney(total.valorVendas) : '—'}
@@ -597,7 +601,7 @@ export default function VendasPorUnidade({
                             <button
                               onClick={() => startEdit(day)}
                               className="text-rl-muted hover:text-rl-text transition-colors p-1 rounded"
-                              title="Lançar vendas do dia"
+                              title={t('resultados.unidades.lancarDia')}
                             >
                               {vazio ? <Plus size={12} /> : <Edit2 size={12} />}
                             </button>
@@ -612,18 +616,18 @@ export default function VendasPorUnidade({
                   <tfoot>
                     <tr className="border-t-2 border-rl-border bg-rl-surface/60">
                       <td className={`px-4 py-3 text-xs font-bold text-rl-text uppercase tracking-wide whitespace-nowrap ${STICKY_LEFT}`}>
-                        Total do mês
+                        {t('resultados.totalMes')}
                       </td>
                       {unidades.map((u, i) => [
                         <td key={`${u.id}-q`} className="px-3 py-3 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
-                          {totaisPorUnidade[i].vendas.toLocaleString('pt-BR')}
+                          {totaisPorUnidade[i].vendas.toLocaleString(locale)}
                         </td>,
                         <td key={`${u.id}-v`} className={`px-3 py-3 text-right text-xs font-bold ${styleOf(i).text}`}>
                           {fmtMoney(totaisPorUnidade[i].valorVendas)}
                         </td>,
                       ])}
                       <td className="px-3 py-3 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
-                        {totalMes.vendas.toLocaleString('pt-BR')}
+                        {totalMes.vendas.toLocaleString(locale)}
                       </td>
                       <td className="px-3 py-3 text-right text-xs font-bold text-rl-green">
                         {fmtMoney(totalMes.valorVendas)}
@@ -638,8 +642,7 @@ export default function VendasPorUnidade({
 
           {!readOnly && (
             <p className="text-xs text-rl-muted">
-              O total de cada dia alimenta automaticamente as vendas e a receita da visão Diário,
-              então CAC, ticket e ROAS do mês continuam batendo.
+              {t('resultados.unidades.notaDiario')}
             </p>
           )}
         </>
@@ -652,7 +655,7 @@ export default function VendasPorUnidade({
                 <thead>
                   <tr className="border-b border-rl-border">
                     <th rowSpan={2} className={`text-left px-4 py-2 text-rl-muted font-medium text-xs uppercase tracking-wide align-bottom ${STICKY_LEFT}`}>
-                      Semana
+                      {t('resultados.campos.semana')}
                     </th>
                     {unidades.map((u, i) => (
                       <th
@@ -660,21 +663,21 @@ export default function VendasPorUnidade({
                         colSpan={2}
                         className={`px-4 py-2 text-center text-xs font-bold uppercase tracking-wider border-l border-rl-border/50 ${styleOf(i).text}`}
                       >
-                        Unidade {u.label}
+                        {t('resultados.unidades.unidade', { nome: u.label })}
                       </th>
                     ))}
                     <th colSpan={2} className="px-4 py-2 text-center text-xs font-bold uppercase tracking-wider text-rl-green border-l border-rl-border/50">
-                      Total da semana
+                      {t('resultados.unidades.totalSemana')}
                     </th>
                     {!readOnly && <th rowSpan={2} className={`w-10 px-2 py-2 ${STICKY_RIGHT}`} />}
                   </tr>
                   <tr className="border-b border-rl-border">
                     {[...unidades, { id: '__total' }].map(u => [
                       <th key={`${u.id}-q`} className="px-3 py-1.5 text-right text-xs uppercase tracking-wide text-rl-muted font-medium border-l border-rl-border/50">
-                        Qtd.
+                        {t('resultados.unidades.qtd')}
                       </th>,
                       <th key={`${u.id}-v`} className="px-3 py-1.5 text-right text-xs uppercase tracking-wide text-rl-muted font-medium">
-                        Valor
+                        {t('resultados.unidades.valor')}
                       </th>,
                     ])}
                   </tr>
@@ -687,7 +690,6 @@ export default function VendasPorUnidade({
                     const total   = sumUnits(entry, unidades)
                     const isEdit  = editingWeek === idx
                     const vazio   = total.vendas === 0 && total.valorVendas === 0
-                    const mm      = String(month + 1).padStart(2, '0')
 
                     if (isEdit) {
                       return (
@@ -695,7 +697,7 @@ export default function VendasPorUnidade({
                           <td className={`px-4 py-2 whitespace-nowrap align-top ${STICKY_LEFT}`}>
                             <div className="text-xs font-semibold text-rl-text">{week.label}</div>
                             <div className="text-xs text-rl-muted">
-                              {String(week.start).padStart(2, '0')}/{mm} a {String(week.end).padStart(2, '0')}/{mm}
+                              {t('resultados.intervalo', { de: diaMes(week.start, month, true), ate: diaMes(week.end, month, true) })}
                             </div>
                           </td>
                           {unidades.map((u, i) => [
@@ -738,14 +740,14 @@ export default function VendasPorUnidade({
                               <button
                                 onClick={() => commitWeek(idx)}
                                 className="text-rl-green hover:text-rl-green p-1 rounded hover:bg-rl-green/10"
-                                title="Salvar"
+                                title={t('comum.salvar')}
                               >
                                 <Check size={13} />
                               </button>
                               <button
                                 onClick={() => setEditingWeek(null)}
                                 className="text-rl-muted hover:text-rl-text p-1 rounded"
-                                title="Cancelar"
+                                title={t('comum.cancelar')}
                               >
                                 <X size={13} />
                               </button>
@@ -763,14 +765,14 @@ export default function VendasPorUnidade({
                         <td className={`px-4 py-2.5 whitespace-nowrap ${STICKY_LEFT}`}>
                           <div className="text-xs font-semibold text-rl-text">{week.label}</div>
                           <div className="text-xs text-rl-muted">
-                            {String(week.start).padStart(2, '0')}/{mm} a {String(week.end).padStart(2, '0')}/{mm}
+                            {t('resultados.intervalo', { de: diaMes(week.start, month, true), ate: diaMes(week.end, month, true) })}
                           </div>
                         </td>
                         {unidades.map((u, i) => {
                           const v = entry?.[u.id]
                           return [
                             <td key={`${u.id}-q`} className="px-3 py-2.5 text-right text-xs text-rl-text border-l border-rl-border/50">
-                              {v?.vendas ? v.vendas.toLocaleString('pt-BR') : '—'}
+                              {v?.vendas ? v.vendas.toLocaleString(locale) : '—'}
                             </td>,
                             <td key={`${u.id}-v`} className={`px-3 py-2.5 text-right text-xs font-medium ${styleOf(i).text}`}>
                               {v?.valorVendas ? fmtMoney(v.valorVendas) : '—'}
@@ -778,7 +780,7 @@ export default function VendasPorUnidade({
                           ]
                         })}
                         <td className="px-3 py-2.5 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
-                          {total.vendas ? total.vendas.toLocaleString('pt-BR') : '—'}
+                          {total.vendas ? total.vendas.toLocaleString(locale) : '—'}
                         </td>
                         <td className="px-3 py-2.5 text-right text-xs font-bold text-rl-green">
                           {total.valorVendas ? fmtMoney(total.valorVendas) : '—'}
@@ -788,7 +790,7 @@ export default function VendasPorUnidade({
                             <button
                               onClick={() => startEditWeek(idx)}
                               className="text-rl-muted hover:text-rl-text transition-colors p-1 rounded"
-                              title="Lançar vendas da semana"
+                              title={t('resultados.unidades.lancarSemana')}
                             >
                               {vazio ? <Plus size={12} /> : <Edit2 size={12} />}
                             </button>
@@ -803,18 +805,18 @@ export default function VendasPorUnidade({
                   <tfoot>
                     <tr className="border-t-2 border-rl-border bg-rl-surface/60">
                       <td className={`px-4 py-3 text-xs font-bold text-rl-text uppercase tracking-wide whitespace-nowrap ${STICKY_LEFT}`}>
-                        Total do mês
+                        {t('resultados.totalMes')}
                       </td>
                       {unidades.map((u, i) => [
                         <td key={`${u.id}-q`} className="px-3 py-3 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
-                          {totaisPorUnidade[i].vendas.toLocaleString('pt-BR')}
+                          {totaisPorUnidade[i].vendas.toLocaleString(locale)}
                         </td>,
                         <td key={`${u.id}-v`} className={`px-3 py-3 text-right text-xs font-bold ${styleOf(i).text}`}>
                           {fmtMoney(totaisPorUnidade[i].valorVendas)}
                         </td>,
                       ])}
                       <td className="px-3 py-3 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
-                        {totalMes.vendas.toLocaleString('pt-BR')}
+                        {totalMes.vendas.toLocaleString(locale)}
                       </td>
                       <td className="px-3 py-3 text-right text-xs font-bold text-rl-green">
                         {fmtMoney(totalMes.valorVendas)}
@@ -829,8 +831,7 @@ export default function VendasPorUnidade({
 
           {!readOnly && (
             <p className="text-xs text-rl-muted">
-              O total de cada semana alimenta automaticamente as vendas e a receita da visão Semanal,
-              então CAC, ticket e ROAS do mês continuam batendo.
+              {t('resultados.unidades.notaSemanal')}
             </p>
           )}
         </>

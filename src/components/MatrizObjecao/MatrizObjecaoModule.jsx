@@ -3,20 +3,25 @@ import { ShieldQuestion, Plus, Trash2, Link2, Check } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
 import Toast from '../UI/Toast'
+import { t as tAgora, useI18n } from '../../i18n'
 
 // Colunas da matriz — usado tanto no header da tabela quanto no parser do form.
-export const COLUMNS = [
-  { id: 'tipo',      label: 'Tipo de objeção',         placeholder: 'Ex: "Está caro"',                       hint: 'A objeção como o cliente fala' },
-  { id: 'antecipar', label: 'Como antecipar a objeção', placeholder: 'Ex: mostrar ROI antes do preço',        hint: 'O que fazer antes dela surgir' },
-  { id: 'causa',     label: 'Causa provável',          placeholder: 'Ex: não enxergou o valor entregue',      hint: 'Por que o cliente pensa isso' },
-  { id: 'resposta',  label: 'Resposta para a objeção',  placeholder: 'Ex: "Quanto custa NÃO resolver isso?"',  hint: 'O contorno na hora' },
-]
+// `id` é a chave gravada em cada linha; label/placeholder/hint são getters que
+// traduzem no idioma de agora (textos em locales/{pt,en}/matrizObjecao.js).
+export const COLUMNS = ['tipo', 'antecipar', 'causa', 'resposta'].map((id) => {
+  const col = { id }
+  for (const campo of ['label', 'placeholder', 'hint']) {
+    Object.defineProperty(col, campo, { enumerable: true, get: () => tAgora(`matrizObjecao.colunas.${id}.${campo}`) })
+  }
+  return col
+})
 
 const EMPTY = { rows: [] }
 
 export default function MatrizObjecaoModule({ project }) {
   const { updateProject } = useApp()
   const { toast, showToast } = useToast()
+  const { t } = useI18n()
 
   const persisted = project.matrizObjecao || EMPTY
   const [rows, setRows] = useState(() => (Array.isArray(persisted.rows) ? persisted.rows : []))
@@ -54,8 +59,8 @@ export default function MatrizObjecaoModule({ project }) {
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
-      showToast('Link copiado pro clipboard!')
-    }).catch(() => showToast('Link: ' + url))
+      showToast(t('matrizObjecao.linkCopiadoToast'))
+    }).catch(() => showToast(t('matrizObjecao.linkToast', { url })))
   }
 
   const filledCount = useMemo(
@@ -71,10 +76,9 @@ export default function MatrizObjecaoModule({ project }) {
           <ShieldQuestion className="w-5 h-5 text-rl-purple" />
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-black text-rl-text leading-tight">Matriz de Objeção</h2>
+          <h2 className="text-xl font-black text-rl-text leading-tight">{t('matrizObjecao.titulo')}</h2>
           <p className="text-sm text-rl-subtle mt-0.5 max-w-2xl">
-            Mapeie as objeções de venda do cliente: como antecipar, a causa provável e a melhor
-            resposta. Você pode compartilhar um link pro próprio cliente preencher junto.
+            {t('matrizObjecao.descricao')}
           </p>
         </div>
         <button
@@ -84,11 +88,11 @@ export default function MatrizObjecaoModule({ project }) {
               ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
               : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/30'
           }`}
-          title="Cria/copia o link pro cliente preencher a matriz"
+          title={t('matrizObjecao.compartilharTitle')}
         >
           {copied
-            ? <><Check className="w-4 h-4" /> Link copiado!</>
-            : <><Link2 className="w-4 h-4" /> Compartilhar com cliente</>
+            ? <><Check className="w-4 h-4" /> {t('matrizObjecao.linkCopiado')}</>
+            : <><Link2 className="w-4 h-4" /> {t('matrizObjecao.compartilhar')}</>
           }
         </button>
       </div>
@@ -112,7 +116,7 @@ export default function MatrizObjecaoModule({ project }) {
               {rows.length === 0 ? (
                 <tr>
                   <td colSpan={COLUMNS.length + 1} className="px-4 py-10 text-center text-sm text-rl-muted">
-                    Nenhuma objeção cadastrada ainda. Clique em <strong>&ldquo;Adicionar objeção&rdquo;</strong> abaixo.
+                    {t('matrizObjecao.vazioAntes')}<strong>{t('matrizObjecao.vazioBotao')}</strong>{t('matrizObjecao.vazioDepois')}
                   </td>
                 </tr>
               ) : (
@@ -133,7 +137,7 @@ export default function MatrizObjecaoModule({ project }) {
                       <button
                         onClick={() => removeRow(row.id)}
                         className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
-                        title="Remover linha"
+                        title={t('matrizObjecao.removerLinha')}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -149,14 +153,14 @@ export default function MatrizObjecaoModule({ project }) {
             onClick={addRow}
             className="w-full flex items-center justify-center gap-1.5 text-sm font-semibold px-3 py-2.5 rounded-xl border border-dashed border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all"
           >
-            <Plus className="w-4 h-4" /> Adicionar objeção
+            <Plus className="w-4 h-4" /> {t('matrizObjecao.adicionar')}
           </button>
         </div>
       </div>
 
       {rows.length > 0 && (
         <p className="text-[11px] text-rl-muted text-center">
-          {filledCount} objeç{filledCount === 1 ? 'ão' : 'ões'} cadastrada{filledCount === 1 ? '' : 's'} · salvas automaticamente
+          {t('matrizObjecao.contagem', { count: filledCount })}
         </p>
       )}
 

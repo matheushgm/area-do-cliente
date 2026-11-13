@@ -3,8 +3,10 @@ import { useState } from 'react'
 import { Copy, CheckCheck, FileDown, Pencil, Check, X } from 'lucide-react'
 import { exportCreativoSinglePDF } from '../../lib/creativoPDF'
 import MarkdownBlock from './MarkdownBlock'
+import { useI18n } from '../../i18n'
 
 export default function CreativeCard({ content, index, type, companyName, onChange, createdAt }) {
+  const { t } = useI18n()
   const [copied,    setCopied]    = useState(false)
   const [exporting, setExporting] = useState(false)
   const [editing,   setEditing]   = useState(false)
@@ -46,7 +48,7 @@ export default function CreativeCard({ content, index, type, companyName, onChan
     <div className="glass-card p-5 border border-rl-border/60">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-rl-muted uppercase tracking-wider">Criativo {index + 1}</span>
+          <span className="text-[10px] font-bold text-rl-muted uppercase tracking-wider">{t('criativos.card.criativoN', { n: index + 1 })}</span>
           {fmtDate(createdAt, { time: true }) && (
             <span className="text-[10px] text-rl-muted/70">· {fmtDate(createdAt, { time: true })}</span>
           )}
@@ -57,19 +59,19 @@ export default function CreativeCard({ content, index, type, companyName, onChan
             <>
               <button
                 onClick={saveEdit}
-                title="Salvar edição"
+                title={t('criativos.card.salvarEdicao')}
                 className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-purple/10 border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/20 transition-all"
               >
                 <Check className="w-3 h-3" />
-                Salvar
+                {t('comum.salvar')}
               </button>
               <button
                 onClick={cancelEdit}
-                title="Cancelar edição"
+                title={t('criativos.card.cancelarEdicao')}
                 className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-red-400 transition-all"
               >
                 <X className="w-3 h-3" />
-                Cancelar
+                {t('comum.cancelar')}
               </button>
             </>
           ) : (
@@ -78,17 +80,17 @@ export default function CreativeCard({ content, index, type, companyName, onChan
               {onChange && (
                 <button
                   onClick={startEdit}
-                  title="Editar anúncio"
+                  title={t('criativos.card.editarAnuncio')}
                   className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-blue transition-all"
                 >
                   <Pencil className="w-3 h-3" />
-                  Editar
+                  {t('comum.editar')}
                 </button>
               )}
               <button
                 onClick={handleExport}
                 disabled={exporting}
-                title="Exportar este anúncio em PDF"
+                title={t('criativos.card.exportarPdf')}
                 className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-purple transition-all disabled:opacity-50"
               >
                 <FileDown className="w-3 h-3" />
@@ -99,7 +101,7 @@ export default function CreativeCard({ content, index, type, companyName, onChan
                 className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-purple transition-all"
               >
                 {copied ? <CheckCheck className="w-3 h-3 text-rl-green" /> : <Copy className="w-3 h-3" />}
-                {copied ? 'Copiado!' : 'Copiar'}
+                {copied ? t('comum.copiado') : t('comum.copiar')}
               </button>
             </>
           )}

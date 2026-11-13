@@ -1,6 +1,12 @@
 // Estrutura das etapas do webinar. A Etapa 01 (Abertura) é totalmente
 // definida em dados (blocos → campos) pra render genérico; as demais etapas
 // ficam como placeholder até serem detalhadas.
+//
+// O inglês mora em webinarData.en.js, com a mesma estrutura. Os exports abaixo
+// são o português (o PDF e quem ainda não foi traduzido leem direto deles); a tela
+// pega o idioma certo por webinarNoIdioma(lang). Mexeu aqui, mexe lá.
+
+import * as EN from './webinarData.en.js'
 
 export const ETAPAS = [
   { id: 'abertura',           num: 1, label: 'Abertura',                 emoji: '🎬', built: true },
@@ -662,4 +668,23 @@ export function aberturaProgress(aberturaData = {}) {
     }
   }
   return { total, filled, percent: total ? Math.round((filled / total) * 100) : 0 }
+}
+
+// ─── Idioma ───────────────────────────────────────────────────────────────────
+// Conteúdo editorial no idioma pedido ('pt' | 'en'); idioma desconhecido = pt.
+// Ids, `value` dos radios e o texto gravado das opções 'checks' são os mesmos nos
+// dois; no inglês as opções 'checks' trazem `labels` com o rótulo exibido.
+const PT = {
+  ETAPAS, ABERTURA_BLOCOS,
+  HISTORIA_REGRAS, HISTORIA_TIPOS, HISTORIA_TRANSICOES, HISTORIA_3A_BLOCOS, HISTORIA_3B_BLOCOS,
+  CONTEUDO_NIVEIS, CONTEUDO_REGRAS, CONTEUDO_ETAPA1, CONTEUDO_TEMAS, CONTEUDO_VALIDACAO,
+  CONTEUDO_ETAPA4, CONTEUDO_ETAPA5, CONTEUDO_ETAPA6,
+  CONTEUDO_ROTEIRO_ABERTURA, CONTEUDO_ROTEIRO_PILARES, CONTEUDO_ROTEIRO_PONTOS,
+  CONTEUDO_SLIDES, CONTEUDO_ETAPA9, CONTEUDO_TRANSICOES, CONTEUDO_CHECKLIST,
+  OA_ETAPAS_LISTA, OA_BLOCOS, OA_OBJECOES_FIXAS, OA_FECHAMENTO,
+}
+const CONTEUDO_IDIOMA = { pt: PT, en: { ...EN } }
+
+export function webinarNoIdioma(lang) {
+  return CONTEUDO_IDIOMA[lang] || PT
 }

@@ -1,0 +1,21 @@
+export default {
+  titulo: 'Objection Matrix',
+  descricao: 'Map the client’s sales objections: how to get ahead of each one, its likely cause and the best response. You can share a link so the client fills it in with you.',
+  compartilharTitle: 'Creates/copies the link for the client to fill in the matrix',
+  linkCopiado: 'Link copied!',
+  linkCopiadoToast: 'Link copied to clipboard!',
+  linkToast: 'Link: {url}',
+  compartilhar: 'Share with client',
+  vazioAntes: 'No objections added yet. Click ',
+  vazioBotao: '“Add objection”',
+  vazioDepois: ' below.',
+  removerLinha: 'Remove row',
+  adicionar: 'Add objection',
+  contagem: { one: '{count} objection added · saved automatically', other: '{count} objections added · saved automatically' },
+  colunas: {
+    tipo: { label: 'Objection', placeholder: 'E.g. "It’s too expensive"', hint: 'The objection in the client’s words' },
+    antecipar: { label: 'How to get ahead of it', placeholder: 'E.g. show the ROI before the price', hint: 'What to do before it comes up' },
+    causa: { label: 'Likely cause', placeholder: 'E.g. didn’t see the value delivered', hint: 'Why the client thinks this' },
+    resposta: { label: 'Response to the objection', placeholder: 'E.g. "What does it cost NOT to fix this?"', hint: 'How to handle it in the moment' },
+  },
+}

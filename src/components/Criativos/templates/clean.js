@@ -1,3 +1,4 @@
+import { t } from '../../../i18n'
 // Template "Clean" — minimalista branco, foco no headline.
 // Renderizado em iframe de 1080×1080 antes da exportação JPG.
 
@@ -98,7 +99,7 @@ const thumbnail = `data:image/svg+xml;utf8,${encodeURIComponent(`
 export default {
   id: 'clean',
   name: 'Clean',
-  description: 'Minimalista branco, headline grande em preto, CTA pill colorido',
+  get description() { return t('criativosVisual.templates.clean') },
   thumbnail,
   html,
 }

@@ -11,79 +11,57 @@ import MecanismoUnicoModule from './MecanismoUnico/MecanismoUnicoModule'
 import MatrizObjecaoModule from './MatrizObjecao/MatrizObjecaoModule'
 import WebinarModule from './Webinar/WebinarModule'
 import PropostaComercialModule from './PropostaComercialModule'
+import { useI18n } from '../i18n'
 
 // ─── Catálogo de Ferramentas ──────────────────────────────────────────────────
+// Nome e descrição de cada tool moram em locales/<idioma>/ferramentas.js (`tools.<id>`).
 // `Component` é o módulo real renderizado quando a card é clicada. Tools com
 // `comingSoon: true` aparecem com badge "Em breve" e não são clicáveis.
 const TOOLS = [
   {
     id: 'promessa',
-    title: 'Criação de Promessa',
-    description:
-      'Estrutura uma promessa de valor matadora — específica, mensurável e crível — pro posicionamento do cliente.',
     Icon: Target,
     color: 'rl-purple',
     Component: PromessaModule,
   },
   {
     id: 'planejamento',
-    title: 'Planejamento Anual',
-    description:
-      'Defina a meta anual, distribua mês a mês e acompanhe o realizado vs planejado durante o ano.',
     Icon: TrendingUp,
     color: 'rl-green',
     Component: PlanejamentoAnualModule,
   },
   {
     id: 'planejamento_marketing',
-    title: 'Planejamento de Marketing',
-    description:
-      'A partir da meta anual, calcula o crescimento necessário mês a mês e o funil reverso (leads → MQLs → SQLs → vendas) para bater a meta.',
     Icon: LineChart,
     color: 'rl-cyan',
     Component: PlanejamentoMarketingModule,
   },
   {
     id: 'precificacao',
-    title: 'Precificação',
-    description:
-      'Calcule o preço de venda correto de serviços e produtos considerando custo, imposto e a margem de lucro que o cliente quer ganhar.',
     Icon: Calculator,
     color: 'rl-gold',
     Component: PrecificacaoModule,
   },
   {
     id: 'mecanismo_unico',
-    title: 'Mecanismo Único',
-    description:
-      'Playbook guiado pra construir o "por que ISSO vai funcionar pra mim" que diferencia o cliente dos concorrentes. 6 seções viram um pitch pronto.',
     Icon: Sparkles,
     color: 'rl-purple',
     Component: MecanismoUnicoModule,
   },
   {
     id: 'matriz_objecao',
-    title: 'Matriz de Objeção',
-    description:
-      'Mapeie as objeções de venda: tipo, como antecipar, causa provável e a melhor resposta. Com link pro cliente preencher junto.',
     Icon: ShieldQuestion,
     color: 'rl-cyan',
     Component: MatrizObjecaoModule,
   },
   {
     id: 'webinar',
-    title: 'Criação de webinar',
-    description:
-      'Monte webinars de conversão etapa por etapa: promessa, método, apresentação, conteúdo e ofertas. Crie quantos quiser.',
     Icon: Presentation,
     color: 'rl-purple',
     Component: WebinarModule,
   },
   {
     id: 'proposta',
-    title: 'Proposta comercial',
-    description:
-      'Monte o roteiro da proposta (recepção, quebra de gelo, pacto, SPIN, método, produto e preços) e exporte em PDF pra montar sua apresentação.',
     Icon: FileSignature,
     color: 'rl-cyan',
     Component: PropostaComercialModule,
@@ -92,7 +70,8 @@ const TOOLS = [
 
 // ─── Card individual ──────────────────────────────────────────────────────────
 function ToolCard({ tool, onOpen }) {
-  const { title, description, Icon, color, comingSoon } = tool
+  const { t } = useI18n()
+  const { id, Icon, color, comingSoon } = tool
   const clickable = !comingSoon
   return (
     <button
@@ -108,7 +87,7 @@ function ToolCard({ tool, onOpen }) {
     >
       {comingSoon && (
         <span className="absolute top-3 right-3 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rl-gold/10 text-rl-gold border border-rl-gold/30">
-          <Clock className="w-3 h-3" /> Em breve
+          <Clock className="w-3 h-3" /> {t('ferramentas.emBreve')}
         </span>
       )}
 
@@ -120,8 +99,8 @@ function ToolCard({ tool, onOpen }) {
         <Icon className={`w-6 h-6 text-${color}`} />
       </div>
 
-      <h3 className="text-base font-bold text-rl-text mb-1">{title}</h3>
-      <p className="text-xs text-rl-muted leading-relaxed">{description}</p>
+      <h3 className="text-base font-bold text-rl-text mb-1">{t(`ferramentas.tools.${id}.titulo`)}</h3>
+      <p className="text-xs text-rl-muted leading-relaxed">{t(`ferramentas.tools.${id}.descricao`)}</p>
     </button>
   )
 }
@@ -132,6 +111,7 @@ function ToolCard({ tool, onOpen }) {
 // pra abrir Ferramentas já no card de uma tool específica. Quando passado,
 // inicia direto na tool em vez do grid.
 export default function FerramentasModule({ project, initialToolId = null }) {
+  const { t } = useI18n()
   // null = grid de ferramentas; string = id da tool aberta
   const [activeToolId, setActiveToolId] = useState(initialToolId)
 
@@ -148,7 +128,7 @@ export default function FerramentasModule({ project, initialToolId = null }) {
           className="inline-flex items-center gap-1.5 text-xs text-rl-muted hover:text-rl-text transition-colors"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
-          Voltar para Ferramentas
+          {t('ferramentas.voltar')}
         </button>
         <Active project={project} />
       </div>
@@ -159,10 +139,9 @@ export default function FerramentasModule({ project, initialToolId = null }) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-rl-text mb-1">Ferramentas</h2>
+        <h2 className="text-xl font-bold text-rl-text mb-1">{t('ferramentas.titulo')}</h2>
         <p className="text-sm text-rl-muted">
-          Marketplace de ferramentas do dia a dia. Escolha uma para acelerar entregas internas e
-          para o cliente.
+          {t('ferramentas.subtitulo')}
         </p>
       </div>
 

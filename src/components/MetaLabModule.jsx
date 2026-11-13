@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { generateMetaLabPDF } from '../lib/metaLabPDF'
 import { useApp } from '../context/AppContext'
+import { useI18n } from '../i18n'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -15,46 +16,18 @@ const C_TOTAL = 11   // criativos a testar na Fase 01
 const P_TOTAL = 5    // públicos  a testar na Fase 02
 const G_TOTAL = 5    // ganchos   a testar na Fase 03
 
+// Rótulos e textos em locales/{pt,en}/metaLab.js (publicos.<id>, fases.<key>). Os ids
+// de público são gravados em projects_v2.meta_lab_audience_type e não mudam.
 const AUDIENCE_TYPES = [
-  { id: 'remarketing', label: 'Remarketing',      hint: 'Cliente tem público de engajamento grande (recomendado)' },
-  { id: 'lookalike',   label: 'Lookalike',         hint: 'Cliente tem lista de clientes para criar público semelhante' },
-  { id: 'interesses',  label: 'Interesses Gerais', hint: 'Início do zero, sem histórico de público' },
+  { id: 'remarketing' },
+  { id: 'lookalike' },
+  { id: 'interesses' },
 ]
 
 const PHASE_DEF = [
-  {
-    key: 'f1', num: '01', name: 'Teste de Criativos',
-    icon: Video, color: 'rl-purple',
-    days: 'Dias 1–7',    totalItems: C_TOTAL, keepMax: 3,
-    itemLabel: 'criativo', itemsLabel: 'criativos',
-    description: 'Identificar os 3 criativos com maior potencial de conversão em 7 dias.',
-    selectionDay2: ['Priorize menor CPL (se houve conversões)', 'Use CTR no link como critério (se não houve conversões)'],
-    dias2a7: 'Continue com os top criativos ajustando verba por desempenho diário. Substitua criativos de baixa performance se necessário.',
-    objective: 'Conversão ou Tráfego',
-  },
-  {
-    key: 'f2', num: '02', name: 'Teste de Públicos',
-    icon: Users, color: 'rl-blue',
-    days: 'Dias 8–14',   totalItems: P_TOTAL, keepMax: 3,
-    itemLabel: 'público', itemsLabel: 'públicos',
-    description: 'Com o criativo campeão da Fase 01, descobrir os públicos com maior probabilidade de conversão.',
-    selectionDay2: ['Menor CPL (se houve conversões)', 'CTR no link + Custo por clique (se não houve conversões)'],
-    dias2a7: 'Mantenha os top públicos, avalie CPL/ROAS diariamente. Se um público cair, substitua por outro da lista inicial ou um novo baseado no aprendizado.',
-    publicosTipos: ['Lookalikes', 'Interesses', 'Públicos Quentes', 'Regionais', 'Demográficos'],
-    objective: 'Conversão ou Tráfego',
-  },
-  {
-    key: 'f3', num: '03', name: 'Teste de Ganchos',
-    icon: Zap, color: 'rl-gold',
-    days: 'Dias 15–21', totalItems: G_TOTAL, keepMax: 2,
-    itemLabel: 'gancho', itemsLabel: 'ganchos',
-    description: 'Com criativo campeão + público campeão, testar variações de abertura de vídeo para aumentar retenção e reduzir CPL.',
-    selectionDay2: ['Menor CPL (se houve conversões)', 'Retenção nos 3 primeiros segundos + CTR (se não houve conversões)'],
-    dias2a7: 'Os 2 ganchos vencedores continuam rodando. Monitore CPL, CTR e engajamento. Se um despontar, pode duplicar e escalar.',
-    ganchosTipos: ['Novo começo de vídeo', 'Fala ou abordagem diferente', 'Pergunta chamativa', 'Expressão visual impactante', 'Dado ou estatística de impacto'],
-    objective: 'Conversão (criativo e público já validados)',
-    bigBudget: true,
-  },
+  { key: 'f1', num: '01', icon: Video, color: 'rl-purple', totalItems: C_TOTAL, keepMax: 3 },
+  { key: 'f2', num: '02', icon: Users, color: 'rl-blue',   totalItems: P_TOTAL, keepMax: 3, tipos: ['t1', 't2', 't3', 't4', 't5'] },
+  { key: 'f3', num: '03', icon: Zap,   color: 'rl-gold',   totalItems: G_TOTAL, keepMax: 2, tipos: ['t1', 't2', 't3', 't4', 't5'], bigBudget: true },
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -102,26 +75,29 @@ function calcLab(budget) {
   const phases = [f1, f2, f3].filter(Boolean).length
   const duration = phases * 7
 
-  let labType, labColor, labBorder, labBg
+  let labTipo, labColor, labBorder, labBg
   if      (f3 && f1.isStandard && f2.isStandard && f3.isStandard) {
-    labType = 'Completo';  labColor = 'text-rl-green';  labBg = 'bg-rl-green/10';  labBorder = 'border-rl-green/20'
+    labTipo = 'completo';  labColor = 'text-rl-green';  labBg = 'bg-rl-green/10';  labBorder = 'border-rl-green/20'
   } else if (f2 && f1.isStandard && f2.isStandard) {
-    labType = 'Padrão';    labColor = 'text-rl-blue';   labBg = 'bg-rl-blue/10';   labBorder = 'border-rl-blue/20'
+    labTipo = 'padrao';    labColor = 'text-rl-blue';   labBg = 'bg-rl-blue/10';   labBorder = 'border-rl-blue/20'
   } else if (f2) {
-    labType = 'Intermediário'; labColor = 'text-rl-purple'; labBg = 'bg-rl-purple/10'; labBorder = 'border-rl-purple/20'
+    labTipo = 'intermediario'; labColor = 'text-rl-purple'; labBg = 'bg-rl-purple/10'; labBorder = 'border-rl-purple/20'
   } else if (f1.conjuntos >= 5) {
-    labType = 'Reduzido';  labColor = 'text-rl-gold';   labBg = 'bg-rl-gold/10';   labBorder = 'border-rl-gold/20'
+    labTipo = 'reduzido';  labColor = 'text-rl-gold';   labBg = 'bg-rl-gold/10';   labBorder = 'border-rl-gold/20'
   } else {
-    labType = 'Mínimo';    labColor = 'text-red-400';   labBg = 'bg-red-400/10';   labBorder = 'border-red-400/20'
+    labTipo = 'minimo';    labColor = 'text-red-400';   labBg = 'bg-red-400/10';   labBorder = 'border-red-400/20'
   }
 
-  return { f1, f2, f3, total, duration, phases, labType, labColor, labBg, labBorder }
+  return { f1, f2, f3, total, duration, phases, labTipo, labColor, labBg, labBorder }
 }
 
 // ─── Phase Card ───────────────────────────────────────────────────────────────
 
 function PhaseCard({ def, plan, audienceType, isFirst }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(isFirst)
+  const tf = (k) => t(`metaLab.fases.${def.key}.${k}`)
+  const nome = tf('nome')
   const Icon = def.icon
   const colorMap = {
     'rl-purple': { text: 'text-rl-purple', bg: 'bg-rl-purple/10', border: 'border-rl-purple/20', badge: 'bg-rl-purple text-white' },
@@ -130,11 +106,9 @@ function PhaseCard({ def, plan, audienceType, isFirst }) {
   }
   const c = colorMap[def.color]
 
-  const audienceLabel = {
-    remarketing: 'Remarketing (público de engajamento)',
-    lookalike:   'Lookalike (público semelhante à base de clientes)',
-    interesses:  'Interesses gerais mistos',
-  }[audienceType] || 'A definir conforme o cliente'
+  const audienceLabel = AUDIENCE_TYPES.some((a) => a.id === audienceType)
+    ? t(`metaLab.publicos.${audienceType}.descricao`)
+    : t('metaLab.publicoADefinir')
 
   return (
     <div className={`glass-card overflow-hidden border ${c.border}`}>
@@ -149,17 +123,17 @@ function PhaseCard({ def, plan, audienceType, isFirst }) {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className={`text-[10px] font-bold ${c.text} uppercase tracking-wider`}>Fase {def.num}</span>
+              <span className={`text-[10px] font-bold ${c.text} uppercase tracking-wider`}>{t('metaLab.card.fase', { num: def.num })}</span>
               {!plan.isStandard && (
-                <span className="text-[10px] font-medium text-rl-gold bg-rl-gold/10 border border-rl-gold/20 px-1.5 py-0.5 rounded-full">Adaptado</span>
+                <span className="text-[10px] font-medium text-rl-gold bg-rl-gold/10 border border-rl-gold/20 px-1.5 py-0.5 rounded-full">{t('metaLab.card.adaptado')}</span>
               )}
             </div>
-            <p className="text-sm font-semibold text-rl-text">{def.name}</p>
+            <p className="text-sm font-semibold text-rl-text">{nome}</p>
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <div className="text-right hidden sm:block">
-            <p className="text-[10px] text-rl-muted">{def.days}</p>
+            <p className="text-[10px] text-rl-muted">{tf('dias')}</p>
             <p className="text-sm font-bold text-rl-text">{fmtCurrency(plan.totalCost)}</p>
           </div>
           {open ? <ChevronUp className="w-4 h-4 text-rl-muted" /> : <ChevronDown className="w-4 h-4 text-rl-muted" />}
@@ -169,30 +143,30 @@ function PhaseCard({ def, plan, audienceType, isFirst }) {
       {/* Body */}
       {open && (
         <div className="p-5 space-y-5">
-          <p className="text-xs text-rl-muted leading-relaxed">{def.description}</p>
+          <p className="text-xs text-rl-muted leading-relaxed">{tf('descricao')}</p>
 
           {/* Structure */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Dia 1 */}
             <div className="rounded-xl bg-rl-surface border border-rl-border p-4 space-y-2">
               <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider flex items-center gap-1.5">
-                <Play className="w-3 h-3" /> Dia 1 — Lançamento
+                <Play className="w-3 h-3" /> {t('metaLab.card.dia1')}
               </p>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-rl-subtle">Conjuntos de anúncio</span>
+                  <span className="text-xs text-rl-subtle">{t('metaLab.card.conjuntos')}</span>
                   <span className={`text-sm font-bold ${c.text}`}>{plan.conjuntos}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-rl-subtle">{def.itemsLabel} por conjunto</span>
+                  <span className="text-xs text-rl-subtle">{t('metaLab.card.porConjunto', { itens: tf('itens') })}</span>
                   <span className="text-sm font-semibold text-rl-text">{plan.itemsPerConjunto}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-rl-subtle">Verba por conjunto</span>
-                  <span className="text-sm font-semibold text-rl-text">{fmtCurrency(DAILY)}/dia</span>
+                  <span className="text-xs text-rl-subtle">{t('metaLab.card.verbaConjunto')}</span>
+                  <span className="text-sm font-semibold text-rl-text">{t('metaLab.card.porDia', { valor: fmtCurrency(DAILY) })}</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-rl-border/60 pt-1.5 mt-1.5">
-                  <span className="text-xs font-medium text-rl-text">Gasto no Dia 1</span>
+                  <span className="text-xs font-medium text-rl-text">{t('metaLab.card.gastoDia1')}</span>
                   <span className={`text-sm font-bold ${c.text}`}>{fmtCurrency(plan.dia1Cost)}</span>
                 </div>
               </div>
@@ -201,20 +175,20 @@ function PhaseCard({ def, plan, audienceType, isFirst }) {
             {/* Dias 2–7 */}
             <div className="rounded-xl bg-rl-surface border border-rl-border p-4 space-y-2">
               <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider flex items-center gap-1.5">
-                <TrendingUp className="w-3 h-3" /> Dias 2–7 — Otimização
+                <TrendingUp className="w-3 h-3" /> {t('metaLab.card.dias2a7')}
               </p>
               <div className="space-y-1.5">
-                <p className="text-[10px] text-rl-muted mb-2">No Dia 2, pause os piores e mantenha:</p>
+                <p className="text-[10px] text-rl-muted mb-2">{t('metaLab.card.pauseOsPiores')}</p>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-rl-subtle">Conjuntos mantidos</span>
-                  <span className={`text-sm font-bold ${c.text}`}>{plan.keepAfterDay1} melhores</span>
+                  <span className="text-xs text-rl-subtle">{t('metaLab.card.conjuntosMantidos')}</span>
+                  <span className={`text-sm font-bold ${c.text}`}>{t('metaLab.card.nMelhores', { count: plan.keepAfterDay1 })}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-rl-subtle">Gasto diário (dias 2–7)</span>
-                  <span className="text-sm font-semibold text-rl-text">{fmtCurrency(plan.keepAfterDay1 * DAILY)}/dia</span>
+                  <span className="text-xs text-rl-subtle">{t('metaLab.card.gastoDiario')}</span>
+                  <span className="text-sm font-semibold text-rl-text">{t('metaLab.card.porDia', { valor: fmtCurrency(plan.keepAfterDay1 * DAILY) })}</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-rl-border/60 pt-1.5 mt-1.5">
-                  <span className="text-xs font-medium text-rl-text">Total dias 2–7</span>
+                  <span className="text-xs font-medium text-rl-text">{t('metaLab.card.totalDias2a7')}</span>
                   <span className={`text-sm font-bold ${c.text}`}>{fmtCurrency(plan.dias2a7Cost)}</span>
                 </div>
               </div>
@@ -224,15 +198,15 @@ function PhaseCard({ def, plan, audienceType, isFirst }) {
           {/* Critérios de seleção */}
           <div className="rounded-xl bg-rl-surface border border-rl-border p-4">
             <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-              <Target className="w-3 h-3" /> Critério de Seleção no Dia 2
+              <Target className="w-3 h-3" /> {t('metaLab.card.criterio')}
             </p>
             <ul className="space-y-1">
-              {def.selectionDay2.map((s, i) => (
+              {['c1', 'c2'].map((s, i) => (
                 <li key={i} className="flex items-start gap-2 text-xs text-rl-subtle">
                   <span className={`mt-0.5 text-[9px] font-bold ${c.text} bg-rl-surface border ${c.border} px-1.5 py-0.5 rounded-full shrink-0`}>
-                    {i === 0 ? '1º' : '2º'}
+                    {i === 0 ? t('metaLab.card.ordinal1') : t('metaLab.card.ordinal2')}
                   </span>
-                  {s}
+                  {tf(`criterios.${s}`)}
                 </li>
               ))}
             </ul>
@@ -242,24 +216,24 @@ function PhaseCard({ def, plan, audienceType, isFirst }) {
           <div className={`rounded-xl border ${c.border} ${c.bg} p-4 space-y-3`}>
             <p className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5" style={{color: 'var(--tw-prose-body)'}}>
               <Info className={`w-3 h-3 ${c.text}`} />
-              <span className={c.text}>Como configurar no Meta Ads</span>
+              <span className={c.text}>{t('metaLab.card.comoConfigurar')}</span>
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              <ConfigItem label="Objetivo da campanha" value={def.objective} />
-              <ConfigItem label="Orçamento" value="Por conjunto de anúncios (ABO)" />
-              <ConfigItem label="Verba por conjunto/dia" value={`R$${DAILY},00`} />
-              <ConfigItem label="Nº de conjuntos (Dia 1)" value={`${plan.conjuntos} conjuntos`} />
+              <ConfigItem label={t('metaLab.card.objetivo')} value={tf('objetivo')} />
+              <ConfigItem label={t('metaLab.card.orcamento')} value={t('metaLab.card.orcamentoValor')} />
+              <ConfigItem label={t('metaLab.card.verbaDia')} value={fmtCurrency(DAILY, 2)} />
+              <ConfigItem label={t('metaLab.card.nConjuntosDia1')} value={t('metaLab.card.nConjuntos', { count: plan.conjuntos })} />
               {def.key === 'f1' && (
-                <ConfigItem label="Público (Fase 01)" value={audienceLabel} className="sm:col-span-2" />
+                <ConfigItem label={t('metaLab.card.publicoF1')} value={audienceLabel} className="sm:col-span-2" />
               )}
               {def.key === 'f2' && (
                 <>
-                  <ConfigItem label="Criativo nos conjuntos" value="Criativo campeão da Fase 01" className="sm:col-span-2" />
+                  <ConfigItem label={t('metaLab.card.criativoConjuntos')} value={t('metaLab.card.criativoCampeao')} className="sm:col-span-2" />
                   <div className="sm:col-span-2">
-                    <p className="text-rl-muted mb-1">Sugestão de públicos a testar:</p>
+                    <p className="text-rl-muted mb-1">{t('metaLab.card.sugestaoPublicos')}</p>
                     <div className="flex flex-wrap gap-1">
-                      {def.publicosTipos.map((p) => (
-                        <span key={p} className={`text-[10px] px-2 py-0.5 rounded-full border ${c.border} ${c.bg} ${c.text} font-medium`}>{p}</span>
+                      {def.tipos.map((p) => (
+                        <span key={p} className={`text-[10px] px-2 py-0.5 rounded-full border ${c.border} ${c.bg} ${c.text} font-medium`}>{tf(`tipos.${p}`)}</span>
                       ))}
                     </div>
                   </div>
@@ -267,13 +241,13 @@ function PhaseCard({ def, plan, audienceType, isFirst }) {
               )}
               {def.key === 'f3' && (
                 <>
-                  <ConfigItem label="Base" value="Vídeo campeão da Fase 01 (só muda o início)" className="sm:col-span-2" />
-                  <ConfigItem label="Público" value="Público campeão da Fase 02" className="sm:col-span-2" />
+                  <ConfigItem label={t('metaLab.card.base')} value={t('metaLab.card.baseValor')} className="sm:col-span-2" />
+                  <ConfigItem label={t('metaLab.card.publico')} value={t('metaLab.card.publicoCampeao')} className="sm:col-span-2" />
                   <div className="sm:col-span-2">
-                    <p className="text-rl-muted mb-1">Tipos de gancho a solicitar ao cliente:</p>
+                    <p className="text-rl-muted mb-1">{t('metaLab.card.tiposGancho')}</p>
                     <div className="flex flex-wrap gap-1">
-                      {def.ganchosTipos.map((g) => (
-                        <span key={g} className={`text-[10px] px-2 py-0.5 rounded-full border ${c.border} ${c.bg} ${c.text} font-medium`}>{g}</span>
+                      {def.tipos.map((g) => (
+                        <span key={g} className={`text-[10px] px-2 py-0.5 rounded-full border ${c.border} ${c.bg} ${c.text} font-medium`}>{tf(`tipos.${g}`)}</span>
                       ))}
                     </div>
                   </div>
@@ -282,16 +256,16 @@ function PhaseCard({ def, plan, audienceType, isFirst }) {
             </div>
             {/* Naming suggestion */}
             <div className="mt-2 pt-3 border-t border-current/10">
-              <p className="text-[10px] text-rl-muted mb-1.5">Sugestão de nomenclatura:</p>
+              <p className="text-[10px] text-rl-muted mb-1.5">{t('metaLab.card.nomenclatura')}</p>
               <div className="space-y-1">
                 <p className="text-[10px] font-mono bg-rl-bg/60 px-2 py-1 rounded-lg text-rl-subtle">
-                  Campanha: <span className={c.text}>[Cliente] – LAB – Fase {def.num} – {def.name}</span>
+                  {t('metaLab.card.campanha')} <span className={c.text}>{t('metaLab.card.nomeCampanha', { num: def.num, nome })}</span>
                 </p>
                 <p className="text-[10px] font-mono bg-rl-bg/60 px-2 py-1 rounded-lg text-rl-subtle">
-                  Conjunto: <span className={c.text}>[Cliente] – F{def.num} – CA01 / CA02 …</span>
+                  {t('metaLab.card.conjunto')} <span className={c.text}>{t('metaLab.card.cliente')} – F{def.num} – CA01 / CA02 …</span>
                 </p>
                 <p className="text-[10px] font-mono bg-rl-bg/60 px-2 py-1 rounded-lg text-rl-subtle">
-                  Anúncio: <span className={c.text}>[Cliente] – F{def.num} – CA01 – AD01 …</span>
+                  {t('metaLab.card.anuncio')} <span className={c.text}>{t('metaLab.card.cliente')} – F{def.num} – CA01 – AD01 …</span>
                 </p>
               </div>
             </div>
@@ -300,7 +274,7 @@ function PhaseCard({ def, plan, audienceType, isFirst }) {
           {/* Dias 2-7 note */}
           <div className="flex items-start gap-2 text-xs text-rl-muted bg-rl-surface rounded-xl p-3 border border-rl-border">
             <TrendingUp className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rl-purple" />
-            <p>{def.dias2a7}</p>
+            <p>{tf('dias2a7')}</p>
           </div>
         </div>
       )}
@@ -321,6 +295,7 @@ function ConfigItem({ label, value, className = '' }) {
 
 export default function MetaLabModule({ project }) {
   const { updateProject }           = useApp()
+  const { t }                       = useI18n()
   const [budget, setBudget]         = useState(project.metaLabBudget || 0)
   const [audienceType, setAudience] = useState(project.metaLabAudienceType || 'lookalike')
   const [saving, setSaving]         = useState(false)
@@ -350,7 +325,7 @@ export default function MetaLabModule({ project }) {
       generateMetaLabPDF({
         lab,
         audienceType,
-        companyName: project.companyName || project.company_name || 'Cliente',
+        companyName: project.companyName || project.company_name || t('metaLab.pdf.cliente'),
         budget,
       })
     } finally {
@@ -367,16 +342,16 @@ export default function MetaLabModule({ project }) {
         <div>
           <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
             <FlaskConical className="w-5 h-5 text-rl-purple" />
-            Laboratório Meta Ads
+            {t('metaLab.titulo')}
           </h2>
           <p className="text-sm text-rl-muted mt-0.5">
-            Metodologia de 21 dias para testar e validar criativos, públicos e ganchos no Meta Ads
+            {t('metaLab.subtitulo')}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {saved && (
             <span className="flex items-center gap-1.5 text-xs text-rl-green">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Salvo
+              <CheckCircle2 className="w-3.5 h-3.5" /> {t('comum.salvo')}
             </span>
           )}
           <button
@@ -387,8 +362,8 @@ export default function MetaLabModule({ project }) {
               disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {saving
-              ? <><Loader2 className="w-4 h-4 animate-spin" />Salvando...</>
-              : <><Save className="w-4 h-4" />Salvar</>
+              ? <><Loader2 className="w-4 h-4 animate-spin" />{t('comum.salvando')}</>
+              : <><Save className="w-4 h-4" />{t('comum.salvar')}</>
             }
           </button>
           {lab && (
@@ -399,8 +374,8 @@ export default function MetaLabModule({ project }) {
                 bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {exporting
-                ? <><Loader2 className="w-4 h-4 animate-spin" />Gerando...</>
-                : <><FileDown className="w-4 h-4" />Exportar PDF</>
+                ? <><Loader2 className="w-4 h-4 animate-spin" />{t('metaLab.gerando')}</>
+                : <><FileDown className="w-4 h-4" />{t('metaLab.exportarPdf')}</>
               }
             </button>
           )}
@@ -412,7 +387,7 @@ export default function MetaLabModule({ project }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {/* Budget */}
           <div>
-            <label className="label-field">Orçamento disponível para o laboratório</label>
+            <label className="label-field">{t('metaLab.orcamentoLabel')}</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-rl-muted text-sm pointer-events-none">R$</span>
               <input
@@ -436,7 +411,7 @@ export default function MetaLabModule({ project }) {
                       : 'bg-rl-surface text-rl-muted border-rl-border hover:border-rl-purple/40 hover:text-rl-text'
                   }`}
                 >
-                  R${p.toLocaleString('pt-BR')}
+                  {fmtCurrency(p)}
                 </button>
               ))}
             </div>
@@ -444,7 +419,7 @@ export default function MetaLabModule({ project }) {
 
           {/* Audience selector */}
           <div>
-            <label className="label-field">Tipo de público disponível (Fase 01)</label>
+            <label className="label-field">{t('metaLab.publicoLabel')}</label>
             <div className="space-y-2">
               {AUDIENCE_TYPES.map((a) => (
                 <button
@@ -462,8 +437,8 @@ export default function MetaLabModule({ project }) {
                     {audienceType === a.id && <div className="w-2 h-2 rounded-full bg-rl-purple" />}
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-rl-text">{a.label}</p>
-                    <p className="text-[10px] text-rl-muted mt-0.5">{a.hint}</p>
+                    <p className="text-xs font-semibold text-rl-text">{t(`metaLab.publicos.${a.id}.label`)}</p>
+                    <p className="text-[10px] text-rl-muted mt-0.5">{t(`metaLab.publicos.${a.id}.hint`)}</p>
                   </div>
                 </button>
               ))}
@@ -476,15 +451,15 @@ export default function MetaLabModule({ project }) {
       {!lab && budget > 0 && (
         <div className="glass-card p-8 text-center">
           <AlertCircle className="w-8 h-8 text-rl-gold/60 mx-auto mb-2" />
-          <p className="text-rl-muted text-sm">Orçamento insuficiente para o laboratório</p>
-          <p className="text-rl-muted/60 text-xs mt-1">Mínimo recomendado: {fmtCurrency(DAILY * 7)} (1 conjunto por 7 dias)</p>
+          <p className="text-rl-muted text-sm">{t('metaLab.orcamentoInsuficiente')}</p>
+          <p className="text-rl-muted/60 text-xs mt-1">{t('metaLab.minimoRecomendado', { valor: fmtCurrency(DAILY * 7) })}</p>
         </div>
       )}
 
       {!lab && budget === 0 && (
         <div className="glass-card p-8 text-center">
           <FlaskConical className="w-8 h-8 text-rl-muted/30 mx-auto mb-2" />
-          <p className="text-rl-muted text-sm">Informe o orçamento disponível para gerar o plano do laboratório</p>
+          <p className="text-rl-muted text-sm">{t('metaLab.informeOrcamento')}</p>
         </div>
       )}
 
@@ -497,26 +472,26 @@ export default function MetaLabModule({ project }) {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`text-xs font-bold px-3 py-1 rounded-full border ${lab.labBg} ${lab.labColor} ${lab.labBorder}`}>
-                    Laboratório {lab.labType}
+                    {t('metaLab.laboratorioTipo', { tipo: t(`metaLab.tipos.${lab.labTipo}`) })}
                   </span>
                   {lab.f3 && (
                     <span className="text-[10px] font-medium text-rl-gold bg-rl-gold/10 border border-rl-gold/20 px-2 py-0.5 rounded-full">
-                      ⭐ 3 fases
+                      {t('metaLab.tresFases')}
                     </span>
                   )}
                 </div>
                 <p className="text-xs text-rl-muted">
-                  {lab.phases} fase{lab.phases > 1 ? 's' : ''} · {lab.duration} dias · {lab.f1.conjuntos} conjuntos na Fase 01
+                  {t('metaLab.resumoLinha', { fases: t('metaLab.nFases', { count: lab.phases }), dias: lab.duration, conjuntos: lab.f1.conjuntos })}
                 </p>
               </div>
               <div className="flex items-center gap-6">
                 <div className="text-center">
-                  <p className="text-[10px] text-rl-muted">Investimento total</p>
+                  <p className="text-[10px] text-rl-muted">{t('metaLab.investimentoTotal')}</p>
                   <p className={`text-xl font-bold ${lab.labColor}`}>{fmtCurrency(lab.total)}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-[10px] text-rl-muted">Duração</p>
-                  <p className="text-xl font-bold text-rl-text">{lab.duration} dias</p>
+                  <p className="text-[10px] text-rl-muted">{t('metaLab.duracao')}</p>
+                  <p className="text-xl font-bold text-rl-text">{t('metaLab.nDias', { count: lab.duration })}</p>
                 </div>
               </div>
             </div>
@@ -537,7 +512,7 @@ export default function MetaLabModule({ project }) {
               {[lab.f1, lab.f2, lab.f3].map((f, i) => f && (
                 <div key={i} className="flex-1 flex items-center gap-1.5">
                   <div className={`w-2 h-2 rounded-full ${['bg-rl-purple','bg-rl-blue','bg-rl-gold'][i]}`} />
-                  <span className="text-[10px] text-rl-muted">Fase 0{i+1} — {fmtCurrency(f.totalCost)}</span>
+                  <span className="text-[10px] text-rl-muted">{t('metaLab.faseCusto', { num: `0${i+1}`, valor: fmtCurrency(f.totalCost) })}</span>
                 </div>
               ))}
             </div>
@@ -548,8 +523,8 @@ export default function MetaLabModule({ project }) {
                 <AlertCircle className="w-3.5 h-3.5 text-rl-gold shrink-0 mt-0.5" />
                 <p className="text-xs text-rl-gold">
                   {!lab.f2
-                    ? `Com mais R${(1925 - budget).toLocaleString('pt-BR')} você inclui a Fase 02 (teste de públicos). Orçamento mínimo: ${fmtCurrency(1925)}.`
-                    : `Com mais R${(2520 - budget).toLocaleString('pt-BR')} você inclui a Fase 03 (teste de ganchos). Orçamento mínimo: ${fmtCurrency(2520)}.`
+                    ? t('metaLab.incluaFase2', { falta: fmtCurrency(1925 - budget), minimo: fmtCurrency(1925) })
+                    : t('metaLab.incluaFase3', { falta: fmtCurrency(2520 - budget), minimo: fmtCurrency(2520) })
                   }
                 </p>
               </div>
@@ -577,13 +552,13 @@ export default function MetaLabModule({ project }) {
           <div className="glass-card p-5">
             <p className="text-sm font-semibold text-rl-text mb-3 flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-rl-green" />
-              Resumo do Investimento
+              {t('metaLab.resumoInvestimento')}
             </p>
             <div className="space-y-2">
               {[
-                { label: 'Fase 01 — Criativos', plan: lab.f1, color: 'text-rl-purple' },
-                { label: 'Fase 02 — Públicos',  plan: lab.f2, color: 'text-rl-blue' },
-                { label: 'Fase 03 — Ganchos',   plan: lab.f3, color: 'text-rl-gold' },
+                { label: t('metaLab.resumoFase.f1'), plan: lab.f1, color: 'text-rl-purple' },
+                { label: t('metaLab.resumoFase.f2'), plan: lab.f2, color: 'text-rl-blue' },
+                { label: t('metaLab.resumoFase.f3'), plan: lab.f3, color: 'text-rl-gold' },
               ].map(({ label, plan, color }) => (
                 <div key={label} className={`flex items-center justify-between rounded-lg px-3 py-2 ${plan ? 'bg-rl-surface' : 'bg-rl-surface/40 opacity-40'}`}>
                   <div className="flex items-center gap-2">
@@ -593,21 +568,21 @@ export default function MetaLabModule({ project }) {
                     }
                     <span className="text-xs text-rl-subtle">{label}</span>
                     {plan && !plan.isStandard && (
-                      <span className="text-[10px] text-rl-gold border border-rl-gold/30 px-1.5 rounded-full">adaptado</span>
+                      <span className="text-[10px] text-rl-gold border border-rl-gold/30 px-1.5 rounded-full">{t('metaLab.adaptadoMin')}</span>
                     )}
                   </div>
                   <span className={`text-sm font-bold ${plan ? color : 'text-rl-muted'}`}>
-                    {plan ? fmtCurrency(plan.totalCost) : 'não incluída'}
+                    {plan ? fmtCurrency(plan.totalCost) : t('metaLab.naoIncluida')}
                   </span>
                 </div>
               ))}
               <div className="flex items-center justify-between rounded-xl bg-rl-surface border border-rl-border px-3 py-3 mt-1">
-                <span className="text-sm font-semibold text-rl-text">Total do Laboratório</span>
+                <span className="text-sm font-semibold text-rl-text">{t('metaLab.totalLab')}</span>
                 <span className={`text-lg font-bold ${lab.labColor}`}>{fmtCurrency(lab.total)}</span>
               </div>
               {lab.total < budget && (
                 <div className="flex items-center justify-between rounded-lg bg-rl-green/5 border border-rl-green/20 px-3 py-2">
-                  <span className="text-xs text-rl-green">Saldo restante (após o lab)</span>
+                  <span className="text-xs text-rl-green">{t('metaLab.saldoRestante')}</span>
                   <span className="text-sm font-bold text-rl-green">{fmtCurrency(budget - lab.total)}</span>
                 </div>
               )}

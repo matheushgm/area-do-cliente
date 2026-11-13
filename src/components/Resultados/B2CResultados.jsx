@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus, Edit2, Check, X, Link2, CheckCircle2, FileDown } from 'lucide-react'
-import { fmtMoney, fmtPct, parseMoney, getDaysInMonth, getWeekRanges, computeRoiPlan, weekdayShort, MONTH_NAMES } from './resultadosHelpers'
+import { fmtMoney, fmtPct, parseMoney, getDaysInMonth, getWeekRanges, computeRoiPlan, weekdayShort, MONTH_NAMES, nomeMes, diaMes, semanasPdf } from './resultadosHelpers'
 import { MonthNav } from './B2BResultados'
 import { CostTile } from './ResultadosCharts'
 import GraficosEvolucao from './GraficosEvolucao'
@@ -12,11 +12,13 @@ import VendasPorUnidade from './VendasPorUnidade'
 import { getUnidades } from '../../lib/constants'
 import { investimentoPorUnidade } from '../../lib/roasPorUnidade'
 import { exportResultadosB2CPDF } from '../../utils/exportPDF'
+import { useI18n, localeAtual } from '../../i18n'
 
 // ─── Form compartilhado (dia e semana) ────────────────────────────────────────
 // B2C não tem MQL/SQL — o funil é Lead → Venda. O campo "Vendas (qtd)" é
 // opcional e existe para permitir o cálculo do CAC; sem ele, só temos CPL.
 function B2CEntryForm({ initial = {}, onSave, onCancel }) {
+  const { t } = useI18n()
   const [form, setForm] = useState({
     investido:   initial.investido   != null ? String(initial.investido).replace('.', ',')   : '',
     leads:       initial.leads       || '',
@@ -34,8 +36,8 @@ function B2CEntryForm({ initial = {}, onSave, onCancel }) {
   const roas = inv > 0 ? vend / inv : 0
 
   const campos = [
-    ['investido', 'Investido', 'R$ 0,00', 'api'], ['leads', 'Leads', '0', 'api'],
-    ['vendas', 'Vendas (qtd)', '0', 'lancado'], ['valorVendas', 'Vendas (R$)', 'R$ 0,00', 'lancado'],
+    ['investido', t('resultados.campos.investido'), 'R$ 0,00', 'api'], ['leads', t('resultados.campos.leads'), '0', 'api'],
+    ['vendas', t('resultados.campos.vendasQtd'), '0', 'lancado'], ['valorVendas', t('resultados.campos.vendasValor'), 'R$ 0,00', 'lancado'],
   ]
   return (
     <div className="space-y-3">
@@ -48,34 +50,35 @@ function B2CEntryForm({ initial = {}, onSave, onCancel }) {
           </div>
         ))}
       </div>
-      {initial.fonte === 'api' && <p className="text-xs text-rl-muted">Investido e leads vêm da API: uma mudança aqui é sobrescrita no próximo preenchimento automático.</p>}
+      {initial.fonte === 'api' && <p className="text-xs text-rl-muted">{t('resultados.form.avisoApi')}</p>}
       <div className="flex items-center gap-3 flex-wrap">
         {inv > 0 && (
           <div className="grid grid-cols-3 gap-1.5 flex-1 min-w-[240px] max-w-md">
-            <CostTile label="Custo / Lead" value={cpl} color="blue" />
-            <CostTile label="CAC" value={cac} color="gold" />
+            <CostTile label={t('resultados.campos.custoLead')} value={cpl} color="blue" />
+            <CostTile label={t('resultados.campos.cac')} value={cac} color="gold" />
             <div className="rounded-lg border border-rl-green/25 bg-rl-green/8 text-rl-green px-2 py-1.5 text-center">
-              <div className="text-[11px] uppercase tracking-wider text-rl-muted leading-tight">ROAS</div>
+              <div className="text-[11px] uppercase tracking-wider text-rl-muted leading-tight">{t('resultados.campos.roas')}</div>
               <div className="text-sm font-bold leading-tight mt-0.5">{roas > 0 ? `${roas.toFixed(2)}x` : '—'}</div>
             </div>
           </div>
         )}
         <div className="flex gap-2 ml-auto">
-          <button onClick={onCancel} className="btn-secondary flex items-center gap-1 text-sm"><X size={13} /> Cancelar</button>
-          <button onClick={() => onSave(form)} className="btn-primary flex items-center gap-1.5 text-sm"><Check size={13} /> Salvar</button>
+          <button onClick={onCancel} className="btn-secondary flex items-center gap-1 text-sm"><X size={13} /> {t('comum.cancelar')}</button>
+          <button onClick={() => onSave(form)} className="btn-primary flex items-center gap-1.5 text-sm"><Check size={13} /> {t('comum.salvar')}</button>
         </div>
       </div>
     </div>
   )
 }
 
-const fmtInt = n => Number(n || 0).toLocaleString('pt-BR')
+const fmtInt = n => Number(n || 0).toLocaleString(localeAtual())
 
 // Tabela de períodos (dias ou semanas): investido e leads da API, vendas e receita lançadas,
 // custos calculados. O lançamento abre numa linha logo abaixo da linha editada.
 // `cobrarLancamento`: destaca "Lançar vendas" onde já há investimento e nenhuma venda (nas
 // semanas; no diário, dia sem venda é comum e o destaque viraria ruído).
 function TabelaPeriodos({ linhas, editando, onEditar, onSalvar, onCancelar, totais, cobrarLancamento = false }) {
+  const { t } = useI18n()
   const cel = 'px-3 py-2 text-right tabular-nums'
   const per = (d, q) => (d?.investido > 0 && q > 0 ? fmtMoney(d.investido / q) : '—')
   return (
@@ -87,11 +90,11 @@ function TabelaPeriodos({ linhas, editando, onEditar, onSalvar, onCancelar, tota
               <th className="bg-rl-surface/60" />
               <th colSpan={2} className="bg-rl-surface/60 px-3 pt-2.5 text-left"><FonteTag fonte="api" /></th>
               <th colSpan={2} className="bg-rl-surface/60 px-3 pt-2.5 text-left border-l border-rl-border"><FonteTag fonte="lancado" /></th>
-              <th colSpan={3} className="bg-rl-surface/60 px-3 pt-2.5 text-left text-rl-muted font-semibold border-l border-rl-border">Calculado</th>
+              <th colSpan={3} className="bg-rl-surface/60 px-3 pt-2.5 text-left text-rl-muted font-semibold border-l border-rl-border">{t('resultados.calculado')}</th>
               <th className="bg-rl-surface/60" />
             </tr>
             <tr className="text-xs text-rl-muted border-b border-rl-border">
-              {['Período', 'Investido', 'Leads', 'Vendas', 'Receita', 'CPL', 'CAC', 'ROAS', ''].map((h, i) => (
+              {[t('resultados.campos.periodo'), t('resultados.campos.investido'), t('resultados.campos.leads'), t('resultados.campos.vendas'), t('resultados.campos.receita'), t('resultados.campos.cpl'), t('resultados.campos.cac'), t('resultados.campos.roas'), ''].map((h, i) => (
                 <th key={h + i} className={`bg-rl-surface/60 px-3 pb-2 pt-1 font-medium ${i === 0 ? 'text-left' : 'text-right'} ${i === 3 || i === 5 ? 'border-l border-rl-border' : ''}`}>{h}</th>
               ))}
             </tr>
@@ -117,15 +120,15 @@ function TabelaPeriodos({ linhas, editando, onEditar, onSalvar, onCancelar, tota
                       <td className={`${cel} text-rl-subtle`}>{d.investido > 0 && d.valorVendas > 0 ? `${(d.valorVendas / d.investido).toFixed(2)}x` : '—'}</td>
                     </>
                   ) : (
-                    <td colSpan={7} className="px-3 py-2 text-xs text-rl-muted">{futuro ? '' : 'Sem dados'}</td>
+                    <td colSpan={7} className="px-3 py-2 text-xs text-rl-muted">{futuro ? '' : t('resultados.semDados')}</td>
                   )}
                   <td className="px-3 py-1.5 text-right whitespace-nowrap">
                     {futuro ? null : semLancamento ? (
                       <button onClick={() => onEditar(key)} className="inline-flex items-center gap-1 text-xs font-semibold text-rl-purple bg-rl-purple/10 hover:bg-rl-purple/15 px-2.5 py-1 rounded-lg">
-                        <Plus size={12} /> Lançar vendas
+                        <Plus size={12} /> {t('resultados.acoes.lancarVendas')}
                       </button>
                     ) : (
-                      <button onClick={() => onEditar(editando === key ? null : key)} title={d ? 'Editar' : 'Lançar'}
+                      <button onClick={() => onEditar(editando === key ? null : key)} title={d ? t('comum.editar') : t('resultados.acoes.lancar')}
                         className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-colors">
                         {d ? <Edit2 size={13} /> : <Plus size={13} />}
                       </button>
@@ -145,7 +148,7 @@ function TabelaPeriodos({ linhas, editando, onEditar, onSalvar, onCancelar, tota
           {totais.investido > 0 && (
             <tfoot>
               <tr className="bg-rl-surface/60 font-semibold text-rl-text">
-                <td className="px-3 py-2.5">Total do mês</td>
+                <td className="px-3 py-2.5">{t('resultados.totalMes')}</td>
                 <td className={cel}>{fmtMoney(totais.investido)}</td>
                 <td className={cel}>{fmtInt(totais.leads)}</td>
                 <td className={`${cel} border-l border-rl-border/60`}>{fmtInt(totais.vendas)}</td>
@@ -180,6 +183,7 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
   const [editing, setEditing]     = useState(null)
   const [editingWeek, setEditingWeek] = useState(null)
   const [copied, setCopied] = useState(false)
+  const { t, locale } = useI18n()
 
   const monthKey  = `${year}-${String(month + 1).padStart(2, '0')}`
   const monthData = resultados.b2c?.[monthKey] || {}
@@ -316,7 +320,7 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
   // Última vez que a API preencheu algum dia/semana do mês
   const atualizadoApi = (() => {
     const ts = [...Object.values(monthData), ...Object.values(weekData)].map(d => d?.fonte === 'api' && d.atualizadoEm).filter(Boolean).sort().at(-1)
-    return ts ? new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : null
+    return ts ? new Date(ts).toLocaleDateString(locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : null
   })()
 
   const days = Array.from({ length: daysInMon }, (_, i) => i + 1)
@@ -357,36 +361,36 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
                   ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
                   : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
               }`}
-              title="Copia um link para o cliente preencher os resultados B2C"
+              title={t('resultados.acoes.tituloLinkB2c')}
             >
               {copied ? <CheckCircle2 size={14} /> : <Link2 size={14} />}
-              {copied ? 'Link copiado!' : 'Copiar link do cliente'}
+              {copied ? t('resultados.acoes.linkCopiado') : t('resultados.acoes.copiarLink')}
             </button>
           )}
 
           <button
             onClick={() => exportResultadosB2CPDF({
               companyName, resultados, year, month, mode,
-              weekRanges: weeks, unidades, plan, MONTH_NAMES,
+              weekRanges: semanasPdf(weeks), unidades, plan, MONTH_NAMES,
             })}
             className="btn-secondary flex items-center gap-2 text-sm whitespace-nowrap"
-            title="Gerar PDF do mês para o cliente"
+            title={t('resultados.acoes.tituloPdf')}
           >
             <FileDown size={15} />
-            Gerar PDF
+            {t('resultados.acoes.gerarPdf')}
           </button>
         </div>
       </div>
 
       {/* ── Funil do mês: API + lançado ──────────────────────────────────────── */}
       <FunilDoMes
-        titulo={`Funil de ${MONTH_NAMES[month]}${mode === 'semanal' ? ' (lançamentos semanais)' : ''}`}
+        titulo={`${t('resultados.funil.funilDe', { mes: nomeMes(month) })}${mode === 'semanal' ? t('resultados.funil.lancamentosSemanais') : ''}`}
         atualizado={atualizadoApi}
         etapas={[
-          { key: 'inv', label: 'Investido', valor: fmtMoney(totals.investido), sub: plan ? `plano ${fmtMoney(plan.mediaOrcamento)}` : null, fonte: 'api' },
-          { key: 'leads', label: 'Leads', valor: fmtInt(totals.leads), sub: cpl ? `${fmtMoney(cpl)} por lead` : null, fonte: 'api' },
-          { key: 'vendas', label: 'Vendas', valor: fmtInt(totals.vendas), sub: cac ? `CAC ${fmtMoney(cac)}` : null, fonte: 'lancado', conversao: totals.vendas ? `${fmtPct(totals.vendas, totals.leads)} dos leads` : null },
-          { key: 'receita', label: 'Receita', valor: fmtMoney(totals.valorVendas), sub: roas ? `ROAS ${roas.toFixed(2)}x` : null, fonte: 'lancado', conversao: ticket ? `ticket ${fmtMoney(ticket)}` : null },
+          { key: 'inv', label: t('resultados.campos.investido'), valor: fmtMoney(totals.investido), sub: plan ? t('resultados.etapas.plano', { valor: fmtMoney(plan.mediaOrcamento) }) : null, fonte: 'api' },
+          { key: 'leads', label: t('resultados.campos.leads'), valor: fmtInt(totals.leads), sub: cpl ? t('resultados.etapas.porLead', { valor: fmtMoney(cpl) }) : null, fonte: 'api' },
+          { key: 'vendas', label: t('resultados.campos.vendas'), valor: fmtInt(totals.vendas), sub: cac ? t('resultados.etapas.cac', { valor: fmtMoney(cac) }) : null, fonte: 'lancado', conversao: totals.vendas ? t('resultados.etapas.dosLeads', { pct: fmtPct(totals.vendas, totals.leads) }) : null },
+          { key: 'receita', label: t('resultados.campos.receita'), valor: fmtMoney(totals.valorVendas), sub: roas ? t('resultados.etapas.roas', { valor: roas.toFixed(2) }) : null, fonte: 'lancado', conversao: ticket ? t('resultados.etapas.ticket', { valor: fmtMoney(ticket) }) : null },
         ]}
       />
 
@@ -394,9 +398,9 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
       <div className="space-y-3">
         <div className="inline-flex p-1 rounded-xl bg-rl-surface border border-rl-border">
           {[
-            { id: 'diario',   label: 'Diário' },
-            { id: 'semanal',  label: 'Semanal' },
-            ...(unidades ? [{ id: 'unidades', label: 'Por loja' }] : []),
+            { id: 'diario',   label: t('resultados.modos.diario') },
+            { id: 'semanal',  label: t('resultados.modos.semanal') },
+            ...(unidades ? [{ id: 'unidades', label: t('resultados.modos.porLoja') }] : []),
           ].map(opt => (
             <button
               key={opt.id}
@@ -412,7 +416,7 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
           <TabelaPeriodos
             linhas={days.map(day => ({
               key: day,
-              label: `${day}/${month + 1}`,
+              label: diaMes(day, month),
               sub: weekdayShort(year, month, day),
               d: monthData[String(day).padStart(2, '0')],
               futuro: new Date(year, month, day) > today,
@@ -430,7 +434,7 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
             linhas={weeks.map((week, idx) => ({
               key: idx,
               label: week.label,
-              sub: `${week.start}/${month + 1} a ${week.end}/${month + 1}`,
+              sub: t('resultados.intervalo', { de: diaMes(week.start, month), ate: diaMes(week.end, month) }),
               d: weekData[String(idx + 1)],
               futuro: new Date(year, month, week.start) > today,
             }))}
@@ -460,9 +464,9 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
       {/* ── Evolução (diária ou semanal, conforme a aba) ──────────────────────────── */}
       {mode === 'semanal' ? (
         <GraficosEvolucao
-          titulo="Evolução semanal"
-          labels={weeks.map((_, i) => `S${i + 1}`)}
-          nomes={weeks.map(w => `${w.label} · ${w.start}/${month + 1} a ${w.end}/${month + 1}`)}
+          titulo={t('resultados.evolucao.semanal')}
+          labels={weeks.map((_, i) => t('resultados.semanaCurta', { n: i + 1 }))}
+          nomes={weeks.map(w => `${w.label} · ${t('resultados.intervalo', { de: diaMes(w.start, month), ate: diaMes(w.end, month) })}`)}
             periodos={weeks.map((_, i) => {
             const w = weekData[String(i + 1)]
             return w ? { investido: w.investido, leads: w.leads, vendas: w.vendas, receita: w.valorVendas } : null
@@ -470,9 +474,9 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
         />
       ) : (
         <GraficosEvolucao
-          titulo="Evolução diária"
+          titulo={t('resultados.evolucao.diaria')}
           labels={days.map(d => String(d))}
-          nomes={days.map(d => `${d}/${month + 1} · ${weekdayShort(year, month, d)}`)}
+          nomes={days.map(d => `${diaMes(d, month)} · ${weekdayShort(year, month, d)}`)}
           rotuloX={i => ([0, 4, 9, 14, 19, 24, 29].includes(i) ? String(i + 1) : null)}
           periodos={days.map(d => {
             const x = monthData[String(d).padStart(2, '0')]
@@ -500,7 +504,7 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
             projectId={projectId}
             year={year}
             month={month}
-            monthLabel={`${MONTH_NAMES[month]} ${year}`}
+            monthLabel={`${nomeMes(month)} ${year}`}
           />
         </div>
       </div>

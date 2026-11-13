@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useApp } from '../context/AppContext'
-import { streamClaude } from '../lib/claude'
+import { streamClaude, instrucaoDeIdioma } from '../lib/claude'
+import { useI18n } from '../i18n'
 import MarkdownEditor from './Editor/MarkdownEditor'
 import {
   Target, Sparkles, Loader2, Plus, X, Users, Package,
@@ -115,6 +116,7 @@ function Tag({ text, onRemove }) {
 }
 
 function AddItemRow({ value, onChange, onAdd, placeholder }) {
+  const { t } = useI18n()
   return (
     <div className="flex gap-2">
       <input
@@ -130,7 +132,7 @@ function AddItemRow({ value, onChange, onAdd, placeholder }) {
         className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold bg-rl-purple/10 border border-rl-purple/25 text-rl-purple hover:bg-rl-purple/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
       >
         <Plus className="w-3.5 h-3.5" />
-        Adicionar
+        {t('comum.adicionar')}
       </button>
     </div>
   )
@@ -165,6 +167,7 @@ function blocoEfetivo(block, editedData) {
 }
 
 function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegenerate }) {
+  const { t } = useI18n()
   const [copied,          setCopied]          = useState(false)
   const [isEditing,       setIsEditing]       = useState(false)
   const [confirmDelete,   setConfirmDelete]   = useState(false)
@@ -222,7 +225,7 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegene
     try {
       await onRegenerate(index, angle, (chunk) => setStreamText(chunk.replace(/—/g, '-')))
     } catch (e) {
-      setRegenError(e.message || 'Erro ao regenerar.')
+      setRegenError(e.message || t('promessa.erroRegenerar'))
     } finally {
       setIsRegenerating(false)
       setStreamText('')
@@ -247,7 +250,7 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegene
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10px] font-bold text-rl-muted uppercase tracking-wider">
-            Headline {index + 1}
+            {t('promessa.headlineN', { n: index + 1 })}
           </span>
           {angle && (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-rl-purple/10 border border-rl-purple/20 text-rl-purple font-semibold">
@@ -256,12 +259,12 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegene
           )}
           {wasEdited && !isEditing && !isRegenerating && (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-rl-gold/10 border border-rl-gold/20 text-rl-gold font-semibold">
-              Editada
+              {t('promessa.editada')}
             </span>
           )}
           {isRegenerating && (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-rl-purple/10 border border-rl-purple/20 text-rl-purple font-semibold flex items-center gap-1">
-              <Loader2 className="w-2.5 h-2.5 animate-spin" /> Gerando...
+              <Loader2 className="w-2.5 h-2.5 animate-spin" /> {t('promessa.gerando')}
             </span>
           )}
         </div>
@@ -273,13 +276,13 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegene
                 onClick={saveEdit}
                 className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-rl-purple text-white font-semibold hover:bg-rl-purple/90 transition-all"
               >
-                <Check className="w-3 h-3" /> Salvar
+                <Check className="w-3 h-3" /> {t('comum.salvar')}
               </button>
               <button
                 onClick={cancelEdit}
                 className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
               >
-                <X className="w-3 h-3" /> Cancelar
+                <X className="w-3 h-3" /> {t('comum.cancelar')}
               </button>
             </>
           ) : (
@@ -287,18 +290,18 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegene
               <button
                 onClick={handleRegenerate}
                 disabled={busy}
-                title="Gerar nova versão com IA"
+                title={t('promessa.refazerDica')}
                 className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-purple/10 border border-rl-purple/20 text-rl-purple hover:bg-rl-purple/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 <RefreshCw className={`w-3 h-3 ${isRegenerating ? 'animate-spin' : ''}`} />
-                {isRegenerating ? 'Gerando...' : 'Refazer com IA'}
+                {isRegenerating ? t('promessa.gerando') : t('promessa.refazer')}
               </button>
               <button
                 onClick={startEdit}
                 disabled={busy}
                 className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-purple hover:bg-rl-purple/5 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
-                <Pencil className="w-3 h-3" /> Editar
+                <Pencil className="w-3 h-3" /> {t('comum.editar')}
               </button>
               <button
                 onClick={handleCopy}
@@ -306,7 +309,7 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegene
                 className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-text disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 {copied ? <CheckCheck className="w-3 h-3 text-rl-green" /> : <Copy className="w-3 h-3" />}
-                {copied ? 'Copiado!' : 'Copiar'}
+                {copied ? t('comum.copiado') : t('comum.copiar')}
               </button>
               <button
                 onClick={handleDelete}
@@ -318,7 +321,7 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegene
                 }`}
               >
                 <Trash2 className="w-3 h-3" />
-                {confirmDelete ? 'Confirmar?' : 'Excluir'}
+                {confirmDelete ? t('promessa.confirmarExcluir') : t('comum.excluir')}
               </button>
             </>
           )}
@@ -334,7 +337,7 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegene
             ) : (
               <div className="flex items-center gap-2 text-xs text-rl-muted/60 h-full">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-rl-purple" />
-                Conectando à IA...
+                {t('promessa.conectando')}
               </div>
             )}
           </div>
@@ -351,13 +354,13 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegene
       {/* ── Headline / Subheadline (leitura; escondidas durante a regeneração) ── */}
       {!isRegenerating && !isEditing && (
         <div className="mb-3">
-          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1.5">Headline</p>
+          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1.5">{t('promessa.headline')}</p>
           <p className="text-sm font-semibold text-rl-text leading-relaxed">{displayHeadline}</p>
         </div>
       )}
       {!isRegenerating && !isEditing && displaySub && (
         <div className="mb-3">
-          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1.5">Subheadline</p>
+          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1.5">{t('promessa.subheadline')}</p>
           <p className="text-sm text-rl-text leading-relaxed">{displaySub}</p>
         </div>
       )}
@@ -367,13 +370,13 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegene
         <div className="mt-3 pt-3 border-t border-rl-border/40 grid grid-cols-1 sm:grid-cols-2 gap-2">
           {dor && (
             <div>
-              <p className="text-[9px] font-bold text-rl-muted uppercase tracking-wider mb-0.5">Dor/Resultado</p>
+              <p className="text-[9px] font-bold text-rl-muted uppercase tracking-wider mb-0.5">{t('promessa.dorResultado')}</p>
               <p className="text-[11px] text-rl-muted">{dor}</p>
             </div>
           )}
           {obj && (
             <div>
-              <p className="text-[9px] font-bold text-rl-muted uppercase tracking-wider mb-0.5">Objeções removidas</p>
+              <p className="text-[9px] font-bold text-rl-muted uppercase tracking-wider mb-0.5">{t('promessa.objecoesRemovidas')}</p>
               <p className="text-[11px] text-rl-muted">{obj}</p>
             </div>
           )}
@@ -392,6 +395,7 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegene
 }
 
 function ResultBlock({ content, editedBlocks, onSaveEdit, deletedBlocks, onDelete, onRegenerate }) {
+  const { t } = useI18n()
   const [allCopied, setAllCopied] = useState(false)
 
   function copyAll() {
@@ -414,16 +418,16 @@ function ResultBlock({ content, editedBlocks, onSaveEdit, deletedBlocks, onDelet
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-rl-muted">
-            {activeCount} headline{activeCount !== 1 ? 's' : ''} ativa{activeCount !== 1 ? 's' : ''}
+            {t('promessa.ativas', { count: activeCount })}
           </span>
           {editedCount > 0 && (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-rl-gold/10 border border-rl-gold/20 text-rl-gold font-semibold">
-              {editedCount} editada{editedCount !== 1 ? 's' : ''}
+              {t('promessa.editadas', { count: editedCount })}
             </span>
           )}
           {deletedCount > 0 && (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-400/10 border border-red-400/20 text-red-400 font-semibold">
-              {deletedCount} excluída{deletedCount !== 1 ? 's' : ''}
+              {t('promessa.excluidas', { count: deletedCount })}
             </span>
           )}
         </div>
@@ -432,15 +436,15 @@ function ResultBlock({ content, editedBlocks, onSaveEdit, deletedBlocks, onDelet
           className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
         >
           {allCopied ? <CheckCheck className="w-3.5 h-3.5 text-rl-green" /> : <Copy className="w-3.5 h-3.5" />}
-          {allCopied ? 'Tudo copiado!' : 'Copiar tudo'}
+          {allCopied ? t('promessa.tudoCopiado') : t('promessa.copiarTudo')}
         </button>
       </div>
 
       {activeCount === 0 && (
         <div className="glass-card p-8 text-center">
           <Trash2 className="w-8 h-8 text-rl-muted/40 mx-auto mb-2" />
-          <p className="text-sm text-rl-muted">Todas as headlines foram excluídas.</p>
-          <p className="text-xs text-rl-muted/60 mt-1">Clique em "Gerar Headlines" para criar novas.</p>
+          <p className="text-sm text-rl-muted">{t('promessa.todasExcluidas')}</p>
+          <p className="text-xs text-rl-muted/60 mt-1">{t('promessa.todasExcluidasDica')}</p>
         </div>
       )}
 
@@ -462,7 +466,7 @@ function ResultBlock({ content, editedBlocks, onSaveEdit, deletedBlocks, onDelet
       {/* Tabela final / blocos extras */}
       {otherBlocks.length > 0 && activeCount > 0 && (
         <div className="glass-card p-4">
-          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-3">Mapa de Cobertura</p>
+          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-3">{t('promessa.mapaCobertura')}</p>
           <div className="text-xs text-rl-muted whitespace-pre-wrap leading-relaxed">
             {otherBlocks.join('\n\n')}
           </div>
@@ -476,6 +480,7 @@ function ResultBlock({ content, editedBlocks, onSaveEdit, deletedBlocks, onDelet
 
 export default function PromessaModule({ project }) {
   const { updateProject } = useApp()
+  const { t } = useI18n()
 
   const personas = project.personas || []
   const produtos  = project.produtos  || []
@@ -611,7 +616,9 @@ Use exatamente este formato:
     const fullText = await streamClaude({
       model:      'claude-sonnet-4-5',
       max_tokens: 1200,
-      system:     HEADLINE_SYSTEM,
+      // Rótulos do formato (## HEADLINE, **Headline:**, **Subheadline:**, **Dor/Resultado
+      // trabalhado:**…) ficam como estão: parseBloco e a regeneração leem por eles.
+      system:     HEADLINE_SYSTEM + instrucaoDeIdioma(),
       messages:   [{ role: 'user', content: instruction }],
       onChunk,
     })
@@ -673,7 +680,7 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
       const fullText = await streamClaude({
         model:      'claude-sonnet-4-5',
         max_tokens: 8000,
-        system:     HEADLINE_SYSTEM,
+        system:     HEADLINE_SYSTEM + instrucaoDeIdioma(),
         messages:   [{ role: 'user', content: instruction }],
         onChunk:    (text) => setResult(text.replace(/—/g, '-')),
       })
@@ -696,8 +703,8 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
     return (
       <div className="glass-card p-8 text-center">
         <Users className="w-10 h-10 text-rl-muted mx-auto mb-3" />
-        <p className="text-sm font-semibold text-rl-text mb-1">Nenhuma persona cadastrada</p>
-        <p className="text-xs text-rl-muted">Cadastre pelo menos uma persona na seção "Personas" antes de criar sua promessa.</p>
+        <p className="text-sm font-semibold text-rl-text mb-1">{t('promessa.semPersona')}</p>
+        <p className="text-xs text-rl-muted">{t('promessa.semPersonaDica')}</p>
       </div>
     )
   }
@@ -709,10 +716,10 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
       <div>
         <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
           <Target className="w-5 h-5 text-rl-purple" />
-          Criação de Promessa
+          {t('promessa.titulo')}
         </h2>
         <p className="text-sm text-rl-muted mt-0.5">
-          Gere headlines e subheadlines de alta conversão baseadas nos sinais do problema e no resultado percebido da sua persona
+          {t('promessa.subtitulo')}
         </p>
       </div>
 
@@ -726,8 +733,8 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
               <Users className="w-3.5 h-3.5 text-rl-blue" />
             </div>
             <div>
-              <p className="text-xs font-bold text-rl-text">Persona</p>
-              <p className="text-[10px] text-rl-muted">Selecione qual persona será usada como base</p>
+              <p className="text-xs font-bold text-rl-text">{t('promessa.persona')}</p>
+              <p className="text-[10px] text-rl-muted">{t('promessa.personaDica')}</p>
             </div>
           </div>
           <div className="space-y-1.5">
@@ -746,7 +753,7 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
                 }`}>
                   {selectedPersonaId === p.id && <div className="w-2.5 h-2.5 rounded-full bg-rl-blue" />}
                 </div>
-                {p.name || `Persona ${personas.indexOf(p) + 1}`}
+                {p.name || t('promessa.personaN', { n: personas.indexOf(p) + 1 })}
               </button>
             ))}
           </div>
@@ -759,12 +766,12 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
               <Package className="w-3.5 h-3.5 text-rl-gold" />
             </div>
             <div>
-              <p className="text-xs font-bold text-rl-text">Produto / Serviço</p>
-              <p className="text-[10px] text-rl-muted">Selecione os produtos a serem usados como contexto</p>
+              <p className="text-xs font-bold text-rl-text">{t('promessa.produto')}</p>
+              <p className="text-[10px] text-rl-muted">{t('promessa.produtoDica')}</p>
             </div>
           </div>
           {produtos.length === 0 ? (
-            <p className="text-xs text-rl-muted/70 italic">Nenhum produto cadastrado. Adicione em "Produto / Serviço".</p>
+            <p className="text-xs text-rl-muted/70 italic">{t('promessa.semProduto')}</p>
           ) : (
             <div className="space-y-1.5">
               {produtos.map(p => (
@@ -782,9 +789,9 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
                   }`}>
                     {selectedProdutoIds.has(p.id) && <CheckCircle2 className="w-3 h-3 text-white" />}
                   </div>
-                  <span className="flex-1 truncate">{p.nome || `Produto ${produtos.indexOf(p) + 1}`}</span>
+                  <span className="flex-1 truncate">{p.nome || t('promessa.produtoN', { n: produtos.indexOf(p) + 1 })}</span>
                   <span className="text-[9px] px-1.5 py-0.5 rounded bg-rl-surface border border-rl-border text-rl-muted">
-                    {p.tipo === 'servico' ? 'Serviço' : 'Produto'}
+                    {p.tipo === 'servico' ? t('promessa.servico') : t('promessa.produtoTipo')}
                   </span>
                 </button>
               ))}
@@ -800,21 +807,21 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
             <FileText className="w-3.5 h-3.5 text-rl-purple" />
           </div>
           <div>
-            <p className="text-xs font-bold text-rl-text">Objetivo da Promessa</p>
+            <p className="text-xs font-bold text-rl-text">{t('promessa.objetivo')}</p>
             <p className="text-[10px] text-rl-muted mt-0.5">
-              Descreva o contexto estratégico e o objetivo central das headlines que serão geradas
+              {t('promessa.objetivoDica')}
             </p>
           </div>
         </div>
         <textarea
           value={objetivo}
           onChange={(e) => handleObjetivoChange(e.target.value)}
-          placeholder={`Ex: Capturar leads qualificados para uma masterclass gratuita sobre como empresas de serviços B2B geram reuniões de vendas todos os dias sem depender de indicação. Público-alvo são donos de agências e consultorias com ticket acima de R$5k.`}
+          placeholder={t('promessa.objetivoPh')}
           rows={5}
           className="w-full px-4 py-3.5 rounded-xl border border-rl-border bg-rl-surface/60 text-sm text-rl-text placeholder:text-rl-muted/50 outline-none resize-none focus:border-rl-purple/50 focus:ring-1 focus:ring-rl-purple/20 transition-colors leading-relaxed"
         />
         <p className="text-[10px] text-rl-muted mt-2">
-          Salvo automaticamente · Usado como diretriz central na geração das headlines
+          {t('promessa.objetivoRodape')}
         </p>
       </div>
 
@@ -825,22 +832,22 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
             <span className="text-sm">🔍</span>
           </div>
           <div>
-            <p className="text-xs font-bold text-rl-text">Sinais do Problema</p>
+            <p className="text-xs font-bold text-rl-text">{t('promessa.sinais')}</p>
             <p className="text-[10px] text-rl-muted mt-0.5">
-              O que seu cliente percebe e o faz buscar uma solução
-              {activePersona && <span className="text-rl-blue ml-1">· da persona "{activePersona.name}"</span>}
+              {t('promessa.sinaisDica')}
+              {activePersona && <span className="text-rl-blue ml-1">· {t('promessa.daPersona', { nome: activePersona.name })}</span>}
             </p>
           </div>
         </div>
 
         {!activePersona ? (
-          <p className="text-xs text-rl-muted/70 italic">Selecione uma persona acima para ver os sinais.</p>
+          <p className="text-xs text-rl-muted/70 italic">{t('promessa.sinaisSemPersona')}</p>
         ) : (
           <>
             {sinais.length === 0 && (
               <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-rl-gold/5 border border-rl-gold/20">
                 <AlertCircle className="w-3.5 h-3.5 text-rl-gold shrink-0" />
-                <p className="text-[11px] text-rl-gold">Nenhum sinal cadastrado ainda. Adicione abaixo ou preencha na seção "Personas".</p>
+                <p className="text-[11px] text-rl-gold">{t('promessa.sinaisVazio')}</p>
               </div>
             )}
 
@@ -856,10 +863,10 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
               value={newSinal}
               onChange={setNewSinal}
               onAdd={addSinal}
-              placeholder="Ex: Gasto muito em anúncio e não vejo retorno..."
+              placeholder={t('promessa.sinaisPh')}
             />
             <p className="text-[10px] text-rl-muted mt-1.5">
-              Ao adicionar, o sinal é salvo automaticamente na persona selecionada.
+              {t('promessa.sinaisRodape')}
             </p>
           </>
         )}
@@ -872,22 +879,22 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
             <span className="text-sm">🎯</span>
           </div>
           <div>
-            <p className="text-xs font-bold text-rl-text">Resultado Percebido</p>
+            <p className="text-xs font-bold text-rl-text">{t('promessa.resultado')}</p>
             <p className="text-[10px] text-rl-muted mt-0.5">
-              O que seu cliente espera alcançar após usar seu produto ou serviço
-              {activePersona && <span className="text-rl-blue ml-1">· da persona "{activePersona.name}"</span>}
+              {t('promessa.resultadoDica')}
+              {activePersona && <span className="text-rl-blue ml-1">· {t('promessa.daPersona', { nome: activePersona.name })}</span>}
             </p>
           </div>
         </div>
 
         {!activePersona ? (
-          <p className="text-xs text-rl-muted/70 italic">Selecione uma persona acima para ver os resultados.</p>
+          <p className="text-xs text-rl-muted/70 italic">{t('promessa.resultadoSemPersona')}</p>
         ) : (
           <>
             {resultados.length === 0 && (
               <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-rl-gold/5 border border-rl-gold/20">
                 <AlertCircle className="w-3.5 h-3.5 text-rl-gold shrink-0" />
-                <p className="text-[11px] text-rl-gold">Nenhum resultado cadastrado ainda. Adicione abaixo ou preencha na seção "Personas".</p>
+                <p className="text-[11px] text-rl-gold">{t('promessa.resultadoVazio')}</p>
               </div>
             )}
 
@@ -903,10 +910,10 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
               value={newResultado}
               onChange={setNewResultado}
               onAdd={addResultado}
-              placeholder="Ex: Ter previsibilidade de leads sem depender de indicação..."
+              placeholder={t('promessa.resultadoPh')}
             />
             <p className="text-[10px] text-rl-muted mt-1.5">
-              Ao adicionar, o resultado é salvo automaticamente na persona selecionada.
+              {t('promessa.resultadoRodape')}
             </p>
           </>
         )}
@@ -914,20 +921,20 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
 
       {/* ── Checklist de prontidão ─────────────────────────────────────────── */}
       <div className="glass-card p-4">
-        <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-3">Pronto para gerar</p>
+        <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-3">{t('promessa.prontoGerar')}</p>
         <div className="space-y-1.5">
           {[
-            { ok: !!selectedPersonaId,           label: 'Persona selecionada',                                required: true },
-            { ok: selectedProdutoIds.size > 0,   label: 'Produto / serviço selecionado',                     required: true },
-            { ok: sinais.length > 0,             label: `Sinais do problema (${sinais.length} cadastrado${sinais.length !== 1 ? 's' : ''})`, required: true },
-            { ok: resultados.length > 0,         label: `Resultados percebidos (${resultados.length} cadastrado${resultados.length !== 1 ? 's' : ''})`, required: true },
-            { ok: objetivo.trim().length > 0,    label: 'Objetivo da promessa (melhora a qualidade da geração)', required: false },
-          ].map(({ ok, label, required }) => (
-            <div key={label} className="flex items-center gap-2">
+            { k: 'persona',   ok: !!selectedPersonaId,         label: t('promessa.check.persona'),                                   required: true },
+            { k: 'produto',   ok: selectedProdutoIds.size > 0, label: t('promessa.check.produto'),                                   required: true },
+            { k: 'sinais',    ok: sinais.length > 0,           label: t('promessa.check.sinais', { count: sinais.length }),         required: true },
+            { k: 'resultado', ok: resultados.length > 0,       label: t('promessa.check.resultados', { count: resultados.length }), required: true },
+            { k: 'objetivo',  ok: objetivo.trim().length > 0,  label: t('promessa.check.objetivo'),                                  required: false },
+          ].map(({ k, ok, label, required }) => (
+            <div key={k} className="flex items-center gap-2">
               <CheckCircle2 className={`w-4 h-4 shrink-0 transition-colors ${ok ? 'text-rl-green' : required ? 'text-rl-border' : 'text-rl-border/50'}`} />
               <span className={`text-xs transition-colors ${ok ? 'text-rl-text' : required ? 'text-rl-muted' : 'text-rl-muted/60'}`}>
                 {label}
-                {!required && <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-rl-purple/10 text-rl-purple font-semibold">opcional</span>}
+                {!required && <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-rl-purple/10 text-rl-purple font-semibold">{t('promessa.opcional')}</span>}
               </span>
             </div>
           ))}
@@ -945,8 +952,8 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
         }`}
       >
         {loading
-          ? <><Loader2 className="w-4 h-4 animate-spin" />Gerando headlines...</>
-          : <><Sparkles className="w-4 h-4" />Gerar Headlines e Subheadlines</>
+          ? <><Loader2 className="w-4 h-4 animate-spin" />{t('promessa.gerandoHeadlines')}</>
+          : <><Sparkles className="w-4 h-4" />{t('promessa.gerar')}</>
         }
       </button>
 
@@ -963,7 +970,7 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <ChevronRight className="w-4 h-4 text-rl-purple" />
-            <h3 className="text-sm font-bold text-rl-text">Headlines Geradas</h3>
+            <h3 className="text-sm font-bold text-rl-text">{t('promessa.geradas')}</h3>
           </div>
           {loading
             ? (

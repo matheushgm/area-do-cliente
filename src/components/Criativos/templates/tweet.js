@@ -1,3 +1,4 @@
+import { t } from '../../../i18n'
 // Template "Tweet" — post estilo Twitter/X com avatar, nome verificado
 // e body multi-parágrafo. Suporta **negrito**, *itálico* e quebras de
 // linha (\n) no HEADLINE/SUBHEADLINE/CTA via renderRich em
@@ -158,7 +159,7 @@ const thumbnail = `data:image/svg+xml;utf8,${encodeURIComponent(`
 export default {
   id: 'tweet',
   name: 'Tweet',
-  description: 'Post estilo X/Twitter com avatar, checkmark verificado e body em paragrafos',
+  get description() { return t('criativosVisual.templates.tweet') },
   thumbnail,
   html,
 }

@@ -13,14 +13,15 @@ import Modal from '../UI/Modal'
 import MarkdownBlock from './MarkdownBlock'
 import { garantirAdsDaGeracao, montarEnvioDeLeva, linkDaLeva, copyEmLeva } from '../../lib/copyLevas'
 import { useApp } from '../../context/AppContext'
+import { useI18n, t as tSolto, localeAtual } from '../../i18n'
 
 const EMPTY = { levas: [] }
 
 const STATUS_META = {
-  pendente: { label: 'Aguardando', Icon: Clock, cls: 'text-rl-gold bg-rl-gold/10 border-rl-gold/30' },
-  aprovado: { label: 'Aprovado', Icon: CheckCircle2, cls: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30' },
-  aprovado_editado: { label: 'Aprovado c/ alterações', Icon: Pencil, cls: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30' },
-  reprovado: { label: 'Reprovado', Icon: XCircle, cls: 'text-red-500 bg-red-500/10 border-red-500/30' },
+  pendente: { chave: 'aguardando', Icon: Clock, cls: 'text-rl-gold bg-rl-gold/10 border-rl-gold/30' },
+  aprovado: { chave: 'aprovado', Icon: CheckCircle2, cls: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30' },
+  aprovado_editado: { chave: 'aprovadoEditado', Icon: Pencil, cls: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30' },
+  reprovado: { chave: 'reprovado', Icon: XCircle, cls: 'text-red-500 bg-red-500/10 border-red-500/30' },
 }
 
 // Chave de exibição: "aprovado" com `editado` (o cliente mexeu no texto antes
@@ -34,15 +35,15 @@ function fmtDateTime(iso) {
   if (!iso) return ''
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
   const hh = String(d.getHours()).padStart(2, '0')
   const mi = String(d.getMinutes()).padStart(2, '0')
-  return `${dd}/${mm}/${d.getFullYear()} às ${hh}:${mi}`
+  const data = new Intl.DateTimeFormat(localeAtual(), { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d)
+  return tSolto('criativos.aprovacao.dataHora', { data, hora: `${hh}:${mi}` })
 }
 
 export default function CopyAprovacaoModal({ project, creative, onClose, onToast }) {
   const { updateProject } = useApp()
+  const { t } = useI18n()
 
   const store = project.copyAprovacoes || EMPTY
   const levas = useMemo(
@@ -61,7 +62,7 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
 
   const [selected, setSelected] = useState(() => new Set(disponiveis.map((ad) => ad.id)))
   const [nome, setNome] = useState(
-    () => `${creative.type === 'video' ? 'Roteiros' : 'Copies'} — ${(creative.name || 'geração').slice(0, 60)}`
+    () => `${creative.type === 'video' ? t('criativos.aprovacao.roteiros') : t('criativos.aprovacao.copies')} — ${(creative.name || t('criativos.aprovacao.geracao')).slice(0, 60)}`
   )
   const [busy, setBusy] = useState(false)
   const [novaLeva, setNovaLeva] = useState(levas.length === 0)
@@ -82,9 +83,9 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
       .then(() => {
         setCopiedToken(leva.token)
         setTimeout(() => setCopiedToken(null), 2000)
-        onToast?.('Link da leva copiado!')
+        onToast?.(t('criativos.aprovacao.linkCopiado'))
       })
-      .catch(() => onToast?.('Link: ' + url))
+      .catch(() => onToast?.(t('criativos.aprovacao.link', { url })))
   }
 
   function criarLeva() {
@@ -108,7 +109,7 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
   }
 
   function excluirLeva(leva) {
-    if (!window.confirm('Excluir essa leva? O link para de funcionar para o cliente.')) return
+    if (!window.confirm(t('criativos.aprovacao.confirmarExcluir'))) return
     // Quem ainda estava aguardando resposta volta a ser rascunho na Central —
     // sem isso o anúncio ficaria preso na aba de aprovação com um link morto.
     const debriefing = project.debriefing || {}
@@ -123,7 +124,7 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
         ),
       },
     })
-    onToast?.('Leva removida.')
+    onToast?.(t('criativos.aprovacao.levaRemovida'))
   }
 
   return (
@@ -135,12 +136,10 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
           </div>
           <div>
             <h3 className="text-lg font-black text-rl-text leading-tight">
-              Enviar pra aprovação do cliente
+              {t('criativos.aprovacao.titulo')}
             </h3>
             <p className="text-xs text-rl-muted mt-0.5 max-w-lg">
-              Gera um link exclusivo desta leva. O que o cliente aprovar entra na Central de
-              anúncios como <strong className="text-rl-purple">Aprovado para Edição</strong>, na
-              fila do designer.
+              {t('criativos.aprovacao.descricaoAntes')}<strong className="text-rl-purple">{t('criativos.aprovacao.aprovadoEdicao')}</strong>{t('criativos.aprovacao.descricaoDepois')}
             </p>
           </div>
         </div>
@@ -149,7 +148,7 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
         {levas.length > 0 && (
           <div className="space-y-3">
             <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted">
-              Levas enviadas ({levas.length})
+              {t('criativos.aprovacao.levasEnviadas', { n: levas.length })}
             </p>
             {levas.map((leva) => (
               <LevaCard
@@ -170,39 +169,39 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
             onClick={() => setNovaLeva(true)}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-rl-border text-sm font-semibold text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all"
           >
-            <Link2 className="w-4 h-4" /> Gerar uma nova leva de aprovação
+            <Link2 className="w-4 h-4" /> {t('criativos.aprovacao.novaLeva')}
           </button>
         ) : (
           <div className="space-y-4">
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-rl-muted mb-1 block">
-                Nome da leva (o cliente vê)
+                {t('criativos.aprovacao.nomeLeva')}
               </label>
               <input
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
                 className="input-field w-full text-sm"
-                placeholder="Ex: Copies de agosto, funil de diagnóstico"
+                placeholder={t('criativos.aprovacao.nomePlaceholder')}
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-rl-muted">
-                  Criativos desta leva ({selected.size}/{disponiveis.length})
+                  {t('criativos.aprovacao.criativosLeva', { sel: selected.size, total: disponiveis.length })}
                 </label>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setSelected(new Set(disponiveis.map((ad) => ad.id)))}
                     className="text-[10px] text-rl-muted hover:text-rl-purple transition-colors"
                   >
-                    Selecionar todos
+                    {t('criativos.aprovacao.selecionarTodos')}
                   </button>
                   <button
                     onClick={() => setSelected(new Set())}
                     className="text-[10px] text-rl-muted hover:text-rl-purple transition-colors"
                   >
-                    Limpar
+                    {t('comum.limpar')}
                   </button>
                 </div>
               </div>
@@ -230,7 +229,7 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
                       <span className="text-xs text-rl-text leading-snug flex-1">{ad.nome}</span>
                       {pendente && (
                         <span className="text-[9px] font-bold text-rl-gold shrink-0 whitespace-nowrap">
-                          {ad.copyAprovacao?.status === 'revisao' ? 'em revisão interna' : 'já com o cliente'}
+                          {ad.copyAprovacao?.status === 'revisao' ? t('criativos.aprovacao.emRevisao') : t('criativos.aprovacao.comCliente')}
                         </span>
                       )}
                     </label>
@@ -245,7 +244,7 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
                   onClick={() => setNovaLeva(false)}
                   className="text-xs px-4 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
                 >
-                  Cancelar
+                  {t('comum.cancelar')}
                 </button>
               )}
               <button
@@ -254,7 +253,7 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
                 className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-                Gerar link e copiar
+                {t('criativos.aprovacao.gerarLink')}
               </button>
             </div>
           </div>
@@ -266,6 +265,7 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
 
 // ─── Card de uma leva já enviada ──────────────────────────────────────────────
 function LevaCard({ leva, url, copied, onCopy, onDelete }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const itens = leva.itens || []
   const cont = itens.reduce((acc, it) => {
@@ -280,8 +280,7 @@ function LevaCard({ leva, url, copied, onCopy, onDelete }) {
         <div className="min-w-0">
           <p className="text-sm font-bold text-rl-text truncate">{leva.nome}</p>
           <p className="text-[11px] text-rl-muted mt-0.5">
-            {itens.length} criativo{itens.length !== 1 ? 's' : ''} · enviada em{' '}
-            {fmtDateTime(leva.enviadoEm || leva.criadoEm)}
+            {t('criativos.aprovacao.nCriativosEnviada', { count: itens.length, data: fmtDateTime(leva.enviadoEm || leva.criadoEm) })}
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -291,7 +290,7 @@ function LevaCard({ leva, url, copied, onCopy, onDelete }) {
                 key={st}
                 className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_META[st].cls}`}
               >
-                {cont[st]} {STATUS_META[st].label.toLowerCase()}
+                {cont[st]} {t(`criativos.aprovacao.status.${STATUS_META[st].chave}`).toLowerCase()}
               </span>
             ) : null
           )}
@@ -307,20 +306,20 @@ function LevaCard({ leva, url, copied, onCopy, onDelete }) {
           className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-rl-purple/10 border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/20 transition-all"
         >
           {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-          {copied ? 'Copiado!' : 'Copiar link'}
+          {copied ? t('comum.copiado') : t('criativos.aprovacao.copiarLink')}
         </button>
         <button
           onClick={() => setOpen((o) => !o)}
           className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-lg text-rl-muted hover:text-rl-text transition-all"
         >
           {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          {open ? 'Ocultar respostas' : 'Ver respostas'}
+          {open ? t('criativos.aprovacao.ocultarRespostas') : t('criativos.aprovacao.verRespostas')}
         </button>
         <button
           onClick={onDelete}
           className="ml-auto text-[10px] text-rl-muted hover:text-red-400 transition-colors"
         >
-          Excluir leva
+          {t('criativos.aprovacao.excluirLeva')}
         </button>
       </div>
 
@@ -337,14 +336,14 @@ function LevaCard({ leva, url, copied, onCopy, onDelete }) {
                   <span
                     className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${meta.cls}`}
                   >
-                    <StIcon className="w-3 h-3" /> {meta.label}
+                    <StIcon className="w-3 h-3" /> {t(`criativos.aprovacao.status.${meta.chave}`)}
                   </span>
                 </div>
                 {st === 'reprovado' && (
                   <div className="space-y-1.5">
                     <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-2.5 py-2">
                       <p className="text-[9px] uppercase tracking-wider font-bold text-red-500">
-                        Motivo
+                        {t('criativos.aprovacao.motivo')}
                       </p>
                       <p className="text-xs text-rl-text mt-0.5 whitespace-pre-wrap">
                         {it.aprovacao?.motivo || '—'}
@@ -352,7 +351,7 @@ function LevaCard({ leva, url, copied, onCopy, onDelete }) {
                     </div>
                     <div className="rounded-lg bg-rl-surface/60 border border-rl-border px-2.5 py-2">
                       <p className="text-[9px] uppercase tracking-wider font-bold text-rl-muted">
-                        Como deveria estar
+                        {t('criativos.aprovacao.comoDeveria')}
                       </p>
                       <p className="text-xs text-rl-text mt-0.5 whitespace-pre-wrap">
                         {it.aprovacao?.sugestao || '—'}
@@ -362,18 +361,18 @@ function LevaCard({ leva, url, copied, onCopy, onDelete }) {
                 )}
                 {(st === 'aprovado' || st === 'aprovado_editado') && (
                   <p className="text-[10px] text-emerald-500 font-semibold">
-                    Na Central de anúncios como Aprovado para Edição
+                    {t('criativos.aprovacao.naCentral')}
                     {it.aprovacao?.decididoEm ? ` · ${fmtDateTime(it.aprovacao.decididoEm)}` : ''}
                   </p>
                 )}
                 {st === 'aprovado_editado' && (
                   <p className="text-[10px] text-rl-muted">
-                    O cliente ajustou o texto antes de aprovar. A copy abaixo já é a versão dele.
+                    {t('criativos.aprovacao.clienteAjustou')}
                   </p>
                 )}
                 <details className="group">
                   <summary className="text-[10px] text-rl-muted cursor-pointer hover:text-rl-text">
-                    {st === 'aprovado_editado' ? 'Ver copy aprovada (editada pelo cliente)' : 'Ver copy enviada'}
+                    {st === 'aprovado_editado' ? t('criativos.aprovacao.verCopyAprovada') : t('criativos.aprovacao.verCopyEnviada')}
                   </summary>
                   <div className="mt-2 rounded-lg bg-rl-bg/40 border border-rl-border px-3 py-2">
                     <MarkdownBlock content={it.conteudo} />
@@ -382,7 +381,7 @@ function LevaCard({ leva, url, copied, onCopy, onDelete }) {
                 {st === 'aprovado_editado' && it.conteudoOriginal && (
                   <details className="group">
                     <summary className="text-[10px] text-rl-muted cursor-pointer hover:text-rl-text">
-                      Ver texto original (como foi enviado)
+                      {t('criativos.aprovacao.verOriginal')}
                     </summary>
                     <div className="mt-2 rounded-lg bg-rl-surface/60 border border-rl-border px-3 py-2">
                       <MarkdownBlock content={it.conteudoOriginal} />

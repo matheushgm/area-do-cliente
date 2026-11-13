@@ -2,6 +2,7 @@ import Modal from './UI/Modal'
 import { fmtCurrency } from '../lib/utils'
 import { useState, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
+import { useI18n } from '../i18n'
 import {
   KanbanSquare, Plus, X, Check, Trash2, Edit2,
   Users, Link2, Maximize2, Phone, Mail, DollarSign,
@@ -33,9 +34,12 @@ function initCRM(existing) {
   return { stages: DEFAULT_STAGES, contacts: [] }
 }
 
+// O label fica em pt: vira o nome gravado das etapas padrão. A tela mostra t(`crm.categorias.<id>`).
+
 // ─── Contact Card ─────────────────────────────────────────────────────────────
 
 function ContactCard({ contact, onDelete, onDragStart }) {
+  const { t } = useI18n()
   return (
     <div
       draggable
@@ -46,6 +50,8 @@ function ContactCard({ contact, onDelete, onDragStart }) {
         <p className="text-sm font-semibold text-rl-text leading-tight">{contact.nome}</p>
         <button
           onClick={() => onDelete(contact.id)}
+          title={t('crm.removerContato')}
+          aria-label={t('crm.removerContato')}
           className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-rl-muted hover:text-red-400 transition-all shrink-0"
         >
           <X className="w-3 h-3" />
@@ -73,6 +79,7 @@ function ContactCard({ contact, onDelete, onDragStart }) {
 function AddContactForm({ onAdd, onCancel }) {
   const [form, setForm] = useState({ nome: '', email: '', telefone: '', valor: '' })
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const { t } = useI18n()
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -93,32 +100,32 @@ function AddContactForm({ onAdd, onCancel }) {
         autoFocus
         value={form.nome}
         onChange={(e) => set('nome', e.target.value)}
-        placeholder="Nome *"
+        placeholder={t('crm.form.nome')}
         className="input-field w-full text-xs py-2"
         required
       />
       <input
         value={form.email}
         onChange={(e) => set('email', e.target.value)}
-        placeholder="Email"
+        placeholder={t('crm.form.email')}
         type="email"
         className="input-field w-full text-xs py-2"
       />
       <input
         value={form.telefone}
         onChange={(e) => set('telefone', e.target.value)}
-        placeholder="Telefone"
+        placeholder={t('crm.form.telefone')}
         className="input-field w-full text-xs py-2"
       />
       <input
         value={form.valor}
         onChange={(e) => set('valor', e.target.value)}
-        placeholder="Valor (R$)"
+        placeholder={t('crm.form.valor')}
         className="input-field w-full text-xs py-2"
       />
       <div className="flex gap-2">
         <button type="submit" className="btn-primary flex-1 text-xs py-1.5 flex items-center justify-center gap-1">
-          <Check className="w-3 h-3" /> Adicionar
+          <Check className="w-3 h-3" /> {t('comum.adicionar')}
         </button>
         <button type="button" onClick={onCancel} className="btn-secondary text-xs py-1.5 px-3">
           <X className="w-3 h-3" />
@@ -133,6 +140,7 @@ function AddContactForm({ onAdd, onCancel }) {
 function StageModal({ initial, onSave, onClose }) {
   const [name,     setName]     = useState(initial?.name     || '')
   const [category, setCategory] = useState(initial?.category || 'lead_novo')
+  const { t } = useI18n()
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -145,11 +153,11 @@ function StageModal({ initial, onSave, onClose }) {
     <Modal onClose={onClose} maxWidth="sm">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-bold text-rl-text">{initial ? 'Editar etapa' : 'Nova etapa'}</h3>
+          <h3 className="font-bold text-rl-text">{initial ? t('crm.etapa.editar') : t('crm.etapa.nova')}</h3>
           <button type="button" onClick={onClose}><X className="w-4 h-4 text-rl-muted" /></button>
         </div>
         <div>
-          <label className="label-field">Nome da etapa</label>
+          <label className="label-field">{t('crm.etapa.nome')}</label>
           <input
             autoFocus
             value={name}
@@ -159,7 +167,7 @@ function StageModal({ initial, onSave, onClose }) {
           />
         </div>
         <div>
-          <label className="label-field">Categoria</label>
+          <label className="label-field">{t('crm.etapa.categoria')}</label>
           <div className="relative">
             <select
               value={category}
@@ -167,19 +175,19 @@ function StageModal({ initial, onSave, onClose }) {
               className="input-field w-full appearance-none pr-8"
             >
               {CATEGORIES.map((c) => (
-                <option key={c.id} value={c.id}>{c.label}</option>
+                <option key={c.id} value={c.id}>{t(`crm.categorias.${c.id}`)}</option>
               ))}
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rl-muted pointer-events-none" />
           </div>
           <div className={`mt-2 flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg ${CAT_MAP[category].bg} ${CAT_MAP[category].text} ${CAT_MAP[category].border} border`}>
             <span className="w-2 h-2 rounded-full" style={{ background: CAT_MAP[category].color }} />
-            {CAT_MAP[category].label}
+            {t(`crm.categorias.${category}`)}
           </div>
         </div>
         <div className="flex gap-2">
-          <button type="submit" className="btn-primary flex-1">Salvar</button>
-          <button type="button" onClick={onClose} className="btn-secondary px-4">Cancelar</button>
+          <button type="submit" className="btn-primary flex-1">{t('comum.salvar')}</button>
+          <button type="button" onClick={onClose} className="btn-secondary px-4">{t('comum.cancelar')}</button>
         </div>
       </form>
     </Modal>
@@ -191,6 +199,7 @@ function StageModal({ initial, onSave, onClose }) {
 function KanbanColumn({ stage, contacts, draggingId, onDragStart, onDrop, onAddContact, onDeleteContact, onEditStage, onDeleteStage }) {
   const [adding, setAdding] = useState(false)
   const [over,   setOver]   = useState(false)
+  const { t } = useI18n()
   const cat = CAT_MAP[stage.category] || CATEGORIES[0]
   const total = contacts.reduce((s, c) => s + (c.valor || 0), 0)
 
@@ -214,16 +223,16 @@ function KanbanColumn({ stage, contacts, draggingId, onDragStart, onDrop, onAddC
             </span>
           </div>
           <div className="flex gap-1 shrink-0">
-            <button onClick={() => onEditStage(stage)} className="p-1 rounded text-rl-muted hover:text-rl-text transition-colors">
+            <button onClick={() => onEditStage(stage)} title={t('crm.etapa.editar')} aria-label={t('crm.etapa.editar')} className="p-1 rounded text-rl-muted hover:text-rl-text transition-colors">
               <Edit2 className="w-3 h-3" />
             </button>
-            <button onClick={() => onDeleteStage(stage.id)} className="p-1 rounded text-rl-muted hover:text-red-400 transition-colors">
+            <button onClick={() => onDeleteStage(stage.id)} title={t('crm.etapa.excluir')} aria-label={t('crm.etapa.excluir')} className="p-1 rounded text-rl-muted hover:text-red-400 transition-colors">
               <Trash2 className="w-3 h-3" />
             </button>
           </div>
         </div>
         <div className={`mt-1.5 text-[10px] px-2 py-0.5 rounded-full w-fit ${cat.bg} ${cat.text} border ${cat.border}`}>
-          {cat.label}
+          {t(`crm.categorias.${cat.id}`)}
         </div>
         {total > 0 && (
           <p className="text-[11px] font-semibold text-rl-green mt-1">{fmtCurrency(total)}</p>
@@ -248,7 +257,7 @@ function KanbanColumn({ stage, contacts, draggingId, onDragStart, onDrop, onAddC
             onClick={() => setAdding(true)}
             className="w-full text-[11px] text-rl-muted hover:text-rl-text border border-dashed border-rl-border hover:border-rl-purple/40 rounded-xl py-2 transition-all flex items-center justify-center gap-1"
           >
-            <Plus className="w-3 h-3" /> Novo contato
+            <Plus className="w-3 h-3" /> {t('crm.novoContato')}
           </button>
         )}
       </div>
@@ -259,9 +268,10 @@ function KanbanColumn({ stage, contacts, draggingId, onDragStart, onDrop, onAddC
 // ─── Dashboard Metrics ────────────────────────────────────────────────────────
 
 function MetricCard({ cat, count, valor }) {
+  const { t } = useI18n()
   return (
     <div className={`glass-card p-4 border ${cat.border} flex flex-col gap-1`}>
-      <p className={`text-[10px] font-bold uppercase tracking-wider ${cat.text}`}>{cat.label}</p>
+      <p className={`text-[10px] font-bold uppercase tracking-wider ${cat.text}`}>{t(`crm.categorias.${cat.id}`)}</p>
       <p className={`text-3xl font-black ${cat.text}`}>{count}</p>
       {valor > 0 && <p className="text-[11px] text-rl-muted">{fmtCurrency(valor)}</p>}
     </div>
@@ -272,6 +282,7 @@ function MetricCard({ cat, count, valor }) {
 
 export default function CRMModule({ project }) {
   const { updateProject } = useApp()
+  const { t } = useI18n()
   const [crm, setCRM] = useState(() => initCRM(project.crmData))
   const [draggingId,  setDraggingId]  = useState(null)
   const [stageModal,  setStageModal]  = useState(null) // null | 'new' | stage object
@@ -320,7 +331,7 @@ export default function CRMModule({ project }) {
   }
 
   function handleDeleteStage(stageId) {
-    if (!window.confirm('Excluir esta etapa? Os contatos dela também serão removidos.')) return
+    if (!window.confirm(t('crm.etapa.confirmarExcluir'))) return
     save({
       stages: crm.stages.filter((s) => s.id !== stageId),
       contacts: crm.contacts.filter((c) => c.stageId !== stageId),
@@ -371,7 +382,7 @@ export default function CRMModule({ project }) {
             <KanbanSquare className="w-5 h-5 text-rl-purple" />
             CRM
           </h2>
-          <p className="text-sm text-rl-muted mt-0.5">Pipeline de vendas e gestão de contatos</p>
+          <p className="text-sm text-rl-muted mt-0.5">{t('crm.subtitulo')}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
@@ -379,14 +390,14 @@ export default function CRMModule({ project }) {
             className="btn-secondary flex items-center gap-2 text-sm"
           >
             {copied ? <Check className="w-4 h-4 text-rl-green" /> : <Link2 className="w-4 h-4" />}
-            {copied ? 'Link copiado!' : 'Compartilhar'}
+            {copied ? t('crm.linkCopiado') : t('crm.compartilhar')}
           </button>
           <button
             onClick={handleFullscreen}
             className="btn-primary flex items-center gap-2 text-sm"
           >
             <Maximize2 className="w-4 h-4" />
-            Tela Cheia
+            {t('crm.telaCheia')}
           </button>
         </div>
       </div>
@@ -425,7 +436,7 @@ export default function CRMModule({ project }) {
               onClick={() => setStageModal('new')}
               className="flex items-center gap-2 px-4 py-3 rounded-2xl border-2 border-dashed border-rl-border text-rl-muted hover:border-rl-purple/50 hover:text-rl-text transition-all text-sm whitespace-nowrap"
             >
-              <Plus className="w-4 h-4" /> Nova etapa
+              <Plus className="w-4 h-4" /> {t('crm.etapa.nova')}
             </button>
           </div>
         </div>

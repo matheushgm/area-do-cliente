@@ -8,6 +8,8 @@ import {
   NIVEIS_CONSCIENCIA,
   NIVEIS_BY_ID,
   nivelBlock,
+  rotuloNivel,
+  dicaNivel,
   distribute,
   QTD_PRESETS,
   QTD_MAX,
@@ -40,7 +42,8 @@ import {
 } from 'lucide-react'
 import Modal from './UI/Modal'
 import MarkdownBlock from './Criativos/MarkdownBlock'
-import { FUNIS, FUNIS_BY_ID } from '../lib/funis'
+import { FUNIS, FUNIS_BY_ID, rotuloFunil, metaFunil } from '../lib/funis'
+import { useI18n } from '../i18n'
 import { replaceAdInContent, removeAdFromContent } from './Criativos/ResultBlock'
 import CreativeResultBlock, { splitChunks } from './Criativos/CreativeResultBlock'
 import ContextPreview from './Criativos/ContextPreview'
@@ -433,17 +436,12 @@ ESTRUTURA OBRIGATÓRIA — um bloco por combinação dor + tipo, com a quantidad
 }
 
 // ─── Wizard de configuração: uma pergunta por vez ──────────────────────────────
-const WIZARD_STEP_TITLES = {
-  escopo: 'Para quem é este anúncio?',
-  funil: 'Em que funil este anúncio vai rodar?',
-  nivel: 'Qual o nível de consciência do mercado?',
-  tipo: 'Quantidade e ângulo dos criativos',
-  obs: 'Revisão e detalhes finais',
-}
+// Títulos dos passos: criativos.modulo.passos.<passo> (escopo, funil, nivel, tipo, obs).
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function CriativosModule({ project }) {
   const { updateProject } = useApp()
+  const { t } = useI18n()
 
   // ── Compartilhar + usuários + histórico do cliente ─────────────────────────
   const [shareOpen, setShareOpen] = useState(false)
@@ -479,17 +477,17 @@ export default function CriativosModule({ project }) {
       const data = await authFetch('/api/criativos-share-token', { projectId: project.id })
       setShareUrl(data.url)
     } catch (e) {
-      setShareError(e.message || 'Não foi possível gerar o link.')
+      setShareError(e.message || t('criativos.modulo.erroLink'))
     } finally {
       setShareBusy(false)
     }
     loadUsers()
-  }, [authFetch, loadUsers, project.id])
+  }, [authFetch, loadUsers, project.id, t])
 
   async function addUser() {
     const { name, email, password } = newUser
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setShareError('E-mail inválido.'); return }
-    if (password.trim().length < 4) { setShareError('A senha precisa ter ao menos 4 caracteres.'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setShareError(t('criativos.modulo.emailInvalido')); return }
+    if (password.trim().length < 4) { setShareError(t('criativos.modulo.senhaCurta')); return }
     setUserBusy(true); setShareError(null)
     try {
       await authFetch('/api/criativos-users', { action: 'create-user', projectId: project.id, name: name.trim(), email: email.trim(), password: password.trim() })
@@ -1049,7 +1047,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
   // ── View: History detail ───────────────────────────────────────────────────
   if (historyCreative) {
     const c = historyCreative
-    const companyName = project.companyName || project.company_name || 'Cliente'
+    const companyName = project.companyName || project.company_name || t('criativos.modulo.cliente')
 
 
     function handleRating(rating) {
@@ -1090,7 +1088,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
         <div className="flex items-start gap-3">
           <button
             onClick={() => setHistoryCreativeId(null)}
-            aria-label="Voltar ao histórico"
+            aria-label={t('criativos.modulo.voltarHistorico')}
             className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all mt-0.5 shrink-0"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -1105,11 +1103,11 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                     : 'text-rl-blue bg-rl-blue/10 border-rl-blue/30'
                 }`}
               >
-                {c.type === 'video' ? '🎬 Vídeo' : '🖼️ Estático'}
+                {c.type === 'video' ? t('criativos.modulo.badgeVideo') : t('criativos.modulo.badgeEstatico')}
               </span>
               <span className="text-xs text-rl-muted">{fmtDate(c.createdAt, { time: true, year: false }) || '—'}</span>
               <span className="text-xs font-bold text-rl-text">
-                {c.quantity} criativo{c.quantity !== 1 ? 's' : ''}
+                {t('criativos.modulo.nCriativos', { count: c.quantity })}
               </span>
             </div>
             {(c.adTypeLabels || []).length > 0 && (
@@ -1136,14 +1134,14 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
             />
             <button
               onClick={handleExport}
-              title="Exportar PDF"
+              title={t('criativos.modulo.exportarPdf')}
               className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
             >
               <FileDown className="w-4 h-4" />
             </button>
             <button
               onClick={handleDelete}
-              title="Excluir"
+              title={t('comum.excluir')}
               className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
             >
               <Trash2 className="w-4 h-4" />
@@ -1176,20 +1174,20 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
   if (view === 'select') {
     return (
       <div className="space-y-6">
-        <VideoGuide videoId="ZinesF_j2xU" label="Como usar o módulo de Criação de anúncios" />
+        <VideoGuide videoId="ZinesF_j2xU" label={t('criativos.modulo.guiaVideo')} />
 
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-bold text-rl-text mb-1">Criação de anúncios</h2>
+            <h2 className="text-xl font-bold text-rl-text mb-1">{t('criativos.modulo.titulo')}</h2>
             <p className="text-sm text-rl-muted">
-              Selecione o formato para gerar criativos usando os dados do cliente.
+              {t('criativos.modulo.subtitulo')}
             </p>
           </div>
           <button
             onClick={openShare}
             className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-rl-purple/10 border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/20 transition-all"
           >
-            <Share2 className="w-3.5 h-3.5" /> Compartilhar & usuários
+            <Share2 className="w-3.5 h-3.5" /> {t('criativos.modulo.compartilhar')}
           </button>
         </div>
 
@@ -1201,20 +1199,20 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                   <Link2 className="w-4.5 h-4.5 text-rl-purple" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-rl-text">Link de criação de anúncios</h3>
-                  <p className="text-xs text-rl-muted">O cliente entra com e-mail e senha e gera os próprios anúncios.</p>
+                  <h3 className="text-base font-bold text-rl-text">{t('criativos.modulo.linkTitulo')}</h3>
+                  <p className="text-xs text-rl-muted">{t('criativos.modulo.linkDesc')}</p>
                 </div>
               </div>
 
               {/* Link compartilhável */}
               <div className="flex items-center gap-2 rounded-lg border border-rl-border bg-rl-surface px-3 py-2">
                 {shareBusy && !shareUrl ? (
-                  <span className="text-xs text-rl-muted flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Gerando link...</span>
+                  <span className="text-xs text-rl-muted flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('criativos.modulo.gerandoLink')}</span>
                 ) : (
                   <>
                     <input readOnly value={shareUrl} className="flex-1 bg-transparent text-xs text-rl-text outline-none truncate" />
                     <button onClick={copyShareLink} className="shrink-0 flex items-center gap-1 text-xs font-semibold text-rl-purple hover:text-rl-text transition-all">
-                      {shareCopied ? <><Check className="w-3.5 h-3.5 text-rl-green" /> Copiado</> : <><Copy className="w-3.5 h-3.5" /> Copiar</>}
+                      {shareCopied ? <><Check className="w-3.5 h-3.5 text-rl-green" /> {t('criativos.modulo.copiado')}</> : <><Copy className="w-3.5 h-3.5" /> {t('comum.copiar')}</>}
                     </button>
                   </>
                 )}
@@ -1222,22 +1220,22 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
 
               {/* Usuários */}
               <div>
-                <label className="text-[11px] font-bold text-rl-text block mb-2 uppercase tracking-wide">Usuários com acesso</label>
+                <label className="text-[11px] font-bold text-rl-text block mb-2 uppercase tracking-wide">{t('criativos.modulo.usuariosAcesso')}</label>
                 <div className="space-y-1.5 mb-3">
                   {users.length === 0 && (
-                    <p className="text-xs text-rl-muted">Nenhum usuário ainda. Cadastre abaixo pra liberar o acesso.</p>
+                    <p className="text-xs text-rl-muted">{t('criativos.modulo.semUsuarios')}</p>
                   )}
                   {users.map((u) => (
                     <div key={u.id} className="flex items-center gap-2 rounded-lg border border-rl-border bg-rl-surface px-3 py-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-rl-text truncate">{u.name || u.email}</p>
-                        <p className="text-[10px] text-rl-muted truncate">{u.email} · {u.generations || 0} anúncio{u.generations !== 1 ? 's' : ''}</p>
+                        <p className="text-[10px] text-rl-muted truncate">{u.email} · {t('criativos.modulo.nAnuncios', { count: u.generations || 0 })}</p>
                       </div>
                       <button onClick={() => toggleUser(u)}
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${u.active ? 'text-rl-green bg-rl-green/10 border-rl-green/30' : 'text-rl-muted bg-rl-surface border-rl-border'}`}>
-                        {u.active ? 'Ativo' : 'Inativo'}
+                        {u.active ? t('criativos.modulo.ativo') : t('criativos.modulo.inativo')}
                       </button>
-                      <button onClick={() => deleteUser(u)} title="Remover"
+                      <button onClick={() => deleteUser(u)} title={t('comum.remover')}
                         className="p-1 rounded text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all shrink-0">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1248,17 +1246,17 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                 <div className="rounded-lg border border-rl-border bg-rl-surface/50 p-3 space-y-2">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <input value={newUser.name} onChange={(e) => setNewUser((s) => ({ ...s, name: e.target.value }))}
-                      placeholder="Nome (opcional)" className="input-field w-full text-sm" />
+                      placeholder={t('criativos.modulo.nomeOpcional')} className="input-field w-full text-sm" />
                     <input type="email" value={newUser.email} onChange={(e) => setNewUser((s) => ({ ...s, email: e.target.value }))}
-                      placeholder="E-mail do cliente" className="input-field w-full text-sm" />
+                      placeholder={t('criativos.modulo.emailCliente')} className="input-field w-full text-sm" />
                   </div>
                   <div className="flex items-center gap-2">
                     <input value={newUser.password} onChange={(e) => setNewUser((s) => ({ ...s, password: e.target.value }))}
                       onKeyDown={(e) => e.key === 'Enter' && addUser()}
-                      placeholder="Senha (mín. 4)" className="input-field flex-1 text-sm" />
+                      placeholder={t('criativos.modulo.senhaMin')} className="input-field flex-1 text-sm" />
                     <button onClick={addUser} disabled={userBusy}
                       className="btn-primary flex items-center gap-1.5 text-xs px-3 py-2 disabled:opacity-50 shrink-0">
-                      {userBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />} Adicionar
+                      {userBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />} {t('comum.adicionar')}
                     </button>
                   </div>
                 </div>
@@ -1280,17 +1278,17 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               key: 'estaticos',
               Icon: Image,
               color: 'rl-blue',
-              title: 'Criativos Estáticos',
-              desc: 'Headlines, copies e sugestões visuais para anúncios em imagem. Metodologia ADIG para Meta Ads e Google Ads.',
-              tags: ['ADIG', 'Meta Ads', 'Google Ads', 'Headlines', 'Copy'],
+              title: t('criativos.modulo.estaticosTitulo'),
+              desc: t('criativos.modulo.estaticosDesc'),
+              tags: ['ADIG', 'Meta Ads', 'Google Ads', t('criativos.modulo.tagsEstatico.headlines'), t('criativos.modulo.tagsEstatico.copy')],
             },
             {
               key: 'video',
               Icon: Video,
               color: 'rl-purple',
-              title: 'Criativos de Vídeo',
-              desc: 'Estudo do público, 10 roteiros de 30 a 60 s (topo, meio, fundo e remarketing) e a tabela do laboratório, pela habilidade de roteiro da Verta.',
-              tags: ['Reels', 'YouTube', 'Gancho', 'Roteiro', 'Remarketing'],
+              title: t('criativos.modulo.videoTitulo'),
+              desc: t('criativos.modulo.videoDesc'),
+              tags: ['Reels', 'YouTube', t('criativos.modulo.tagsVideo.gancho'), t('criativos.modulo.tagsVideo.roteiro'), t('criativos.modulo.tagsVideo.remarketing')],
             },
           ].map(({ key, Icon, color, title, desc, tags }) => (
             <button
@@ -1323,12 +1321,12 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               <h3 className="text-base font-bold text-rl-text mb-1">{title}</h3>
               <p className="text-xs text-rl-muted leading-relaxed mb-4">{desc}</p>
               <div className="flex flex-wrap gap-1.5">
-                {tags.map((t) => (
+                {tags.map((tag) => (
                   <span
-                    key={t}
+                    key={tag}
                     className={`text-[10px] px-2 py-0.5 rounded-full bg-${color}/10 text-${color} border border-${color}/20 font-medium`}
                   >
-                    {t}
+                    {tag}
                   </span>
                 ))}
               </div>
@@ -1359,7 +1357,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
 
   // ── View: Result ────────────────────────────────────────────────────────────
   if (result) {
-    const companyName = project.companyName || project.company_name || 'Cliente'
+    const companyName = project.companyName || project.company_name || t('criativos.modulo.cliente')
     const freshCreative = lastCreativeId
       ? ((project.creatives || []).find((c) => c.id === lastCreativeId) ?? null)
       : null
@@ -1377,7 +1375,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               setView('select')
               setResult(null)
             }}
-            aria-label="Voltar ao histórico"
+            aria-label={t('criativos.modulo.voltarHistorico')}
             className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all mt-0.5 shrink-0"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -1392,11 +1390,11 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                     : 'text-rl-blue bg-rl-blue/10 border-rl-blue/30'
                 }`}
               >
-                {isVideo ? '🎬 Vídeo' : '🖼️ Estático'}
+                {isVideo ? t('criativos.modulo.badgeVideo') : t('criativos.modulo.badgeEstatico')}
               </span>
               <span className="text-xs text-rl-muted">{fmtDate(generatedAt, { time: true, year: false })}</span>
               <span className="text-xs font-bold text-rl-text">
-                {qty} criativo{qty !== 1 ? 's' : ''}
+                {t('criativos.modulo.nCriativos', { count: qty })}
               </span>
             </div>
             {adTypeLabels.length > 0 && (
@@ -1432,7 +1430,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                 />
                 <button
                   onClick={() => exportCreativoSetPDF({ creative: freshCreative, companyName })}
-                  title="Exportar PDF"
+                  title={t('criativos.modulo.exportarPdf')}
                   className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
                 >
                   <FileDown className="w-4 h-4" />
@@ -1445,7 +1443,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                     setResult(null)
                     setLastCreativeId(null)
                   }}
-                  title="Excluir"
+                  title={t('comum.excluir')}
                   className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -1461,7 +1459,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all disabled:opacity-50"
             >
               <RotateCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              Regerar
+              {t('criativos.modulo.regerar')}
             </button>
           </div>
         </div>
@@ -1490,17 +1488,17 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
   // ── Peças da tela de configuração (o vídeo usa numa tela só) ────────────────
   const selectProduto = productList.length > 0 && (
     <div>
-      <label className="text-[11px] font-bold text-rl-text block mb-1">📦 Produto/serviço</label>
+      <label className="text-[11px] font-bold text-rl-text block mb-1">{t('criativos.modulo.produtoServico')}</label>
       <select
         value={selectedProductId}
         onChange={(e) => setSelectedProductId(e.target.value)}
         className="input-field w-full text-sm"
       >
-        <option value="">Todos os produtos</option>
-        <option value={NO_CONTEXT}>🚫 Não usar contexto de produto</option>
+        <option value="">{t('criativos.modulo.todosProdutos')}</option>
+        <option value={NO_CONTEXT}>{t('criativos.modulo.semProduto')}</option>
         {productList.map((p) => (
           <option key={p.id} value={p.id}>
-            {p.nome}{p.tipo === 'servico' ? ' · Serviço' : p.tipo === 'produto' ? ' · Produto' : ''}
+            {p.nome}{p.tipo === 'servico' ? t('criativos.modulo.tipoServico') : p.tipo === 'produto' ? t('criativos.modulo.tipoProduto') : ''}
           </option>
         ))}
       </select>
@@ -1508,14 +1506,14 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
   )
   const selectPersona = personaList.length > 0 && (
     <div>
-      <label className="text-[11px] font-bold text-rl-text block mb-1">👤 Persona / público</label>
+      <label className="text-[11px] font-bold text-rl-text block mb-1">{t('criativos.modulo.personaPublico')}</label>
       <select
         value={selectedPersonaId}
         onChange={(e) => setSelectedPersonaId(e.target.value)}
         className="input-field w-full text-sm"
       >
-        <option value="">Todas as personas</option>
-        <option value={NO_CONTEXT}>🚫 Não usar contexto de persona</option>
+        <option value="">{t('criativos.modulo.todasPersonas')}</option>
+        <option value={NO_CONTEXT}>{t('criativos.modulo.semPersona')}</option>
         {personaList.map((p) => (
           <option key={p.id} value={p.id}>{p.name}</option>
         ))}
@@ -1524,16 +1522,16 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
   )
   const selectOferta = ofertaList.length > 0 && (
     <div>
-      <label className="text-[11px] font-bold text-rl-text block mb-1">🎯 Oferta</label>
+      <label className="text-[11px] font-bold text-rl-text block mb-1">{t('criativos.modulo.oferta')}</label>
       <select
         value={selectedOfertaId}
         onChange={(e) => setSelectedOfertaId(e.target.value)}
         className="input-field w-full text-sm"
       >
-        <option value="">Principal{project.ofertaData?.nome ? `: ${project.ofertaData.nome}` : ''}</option>
-        <option value={NO_CONTEXT}>🚫 Não usar oferta</option>
+        <option value="">{t('criativos.modulo.ofertaPrincipal')}{project.ofertaData?.nome ? `: ${project.ofertaData.nome}` : ''}</option>
+        <option value={NO_CONTEXT}>{t('criativos.modulo.semOferta')}</option>
         {ofertaList.filter((o) => o.id !== project.ofertaData?.id).map((o, i) => (
-          <option key={o.id} value={o.id}>{o.nome || `Oferta ${i + 2}`}</option>
+          <option key={o.id} value={o.id}>{o.nome || t('criativos.modulo.ofertaN', { n: i + 2 })}</option>
         ))}
       </select>
     </div>
@@ -1547,10 +1545,10 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                   onClick={() => setInstructionOpen((v) => !v)}
                   className="w-full flex items-center gap-2.5 px-4 py-3 bg-rl-surface/60 hover:bg-rl-surface transition-colors text-left"
                 >
-                  <span className="text-xs font-semibold text-rl-muted flex-1">Solicitação</span>
+                  <span className="text-xs font-semibold text-rl-muted flex-1">{t('criativos.modulo.solicitacao')}</span>
                   {instructionOverride !== null && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rl-blue/10 border border-rl-blue/20 text-rl-blue font-medium">
-                      editado
+                      {t('criativos.modulo.editado')}
                     </span>
                   )}
                   {instructionOpen ? (
@@ -1569,13 +1567,13 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                     {instructionOverride !== null && (
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-rl-blue flex items-center gap-1">
-                          <Pencil className="w-3 h-3" /> Editado manualmente
+                          <Pencil className="w-3 h-3" /> {t('criativos.modulo.editadoManual')}
                         </p>
                         <button
                           onClick={() => setInstructionOverride(null)}
                           className="flex items-center gap-1 text-[10px] text-rl-muted hover:text-rl-blue transition-colors"
                         >
-                          <RotateCcw className="w-3 h-3" /> Restaurar automático
+                          <RotateCcw className="w-3 h-3" /> {t('criativos.modulo.restaurarAuto')}
                         </button>
                       </div>
                     )}
@@ -1592,7 +1590,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                   <span className="text-xs font-semibold text-rl-muted flex-1">System Prompt</span>
                   {(metodologiaOverride !== null || diretrizesOverride !== null) && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rl-blue/10 border border-rl-blue/20 text-rl-blue font-medium">
-                      editado
+                      {t('criativos.modulo.editado')}
                     </span>
                   )}
                   {systemOpen ? (
@@ -1609,7 +1607,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                         {/* Metodologia — editável */}
                         <div className="px-4 py-3 space-y-2">
                           <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide">
-                            {isVideo ? 'Habilidade criador-de-roteiro-de-video' : 'Metodologia'}
+                            {isVideo ? t('criativos.modulo.habilidade') : t('criativos.modulo.metodologia')}
                           </p>
                           <AutoResizeTextarea
                             value={metodologiaOverride ?? parts.metodologia}
@@ -1619,13 +1617,13 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                           {metodologiaOverride !== null && (
                             <div className="flex items-center justify-between">
                               <p className="text-xs text-rl-blue flex items-center gap-1">
-                                <Pencil className="w-3 h-3" /> Editado manualmente
+                                <Pencil className="w-3 h-3" /> {t('criativos.modulo.editadoManual')}
                               </p>
                               <button
                                 onClick={() => setMetodologiaOverride(null)}
                                 className="flex items-center gap-1 text-[10px] text-rl-muted hover:text-rl-blue transition-colors"
                               >
-                                <RotateCcw className="w-3 h-3" /> Restaurar padrão
+                                <RotateCcw className="w-3 h-3" /> {t('criativos.modulo.restaurarPadrao')}
                               </button>
                             </div>
                           )}
@@ -1633,7 +1631,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                         {/* Diretrizes — editável + linha bloqueada */}
                         <div className="px-4 py-3 space-y-2">
                           <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide">
-                            Diretrizes
+                            {t('criativos.modulo.diretrizes')}
                           </p>
                           <AutoResizeTextarea
                             value={diretrizesOverride ?? parts.diretrizes}
@@ -1647,13 +1645,13 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                           {diretrizesOverride !== null && (
                             <div className="flex items-center justify-between">
                               <p className="text-xs text-rl-blue flex items-center gap-1">
-                                <Pencil className="w-3 h-3" /> Editado manualmente
+                                <Pencil className="w-3 h-3" /> {t('criativos.modulo.editadoManual')}
                               </p>
                               <button
                                 onClick={() => setDiretrizesOverride(null)}
                                 className="flex items-center gap-1 text-[10px] text-rl-muted hover:text-rl-blue transition-colors"
                               >
-                                <RotateCcw className="w-3 h-3" /> Restaurar padrão
+                                <RotateCcw className="w-3 h-3" /> {t('criativos.modulo.restaurarPadrao')}
                               </button>
                             </div>
                           )}
@@ -1661,7 +1659,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                         {/* Estrutura — somente leitura */}
                         <div className="px-4 py-3 space-y-2">
                           <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide">
-                            {isVideo ? 'Formato que a tela lê' : 'Estrutura'}
+                            {isVideo ? t('criativos.modulo.formatoTela') : t('criativos.modulo.estrutura')}
                           </p>
                           <pre className="text-xs text-rl-muted font-mono leading-relaxed whitespace-pre-wrap bg-rl-surface/60 rounded-lg px-3 py-2.5 border border-rl-border/40">
                             {parts.estrutura(nivel)}
@@ -1690,9 +1688,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
     <div className="space-y-4">
       <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-3">
         <p className="text-[11px] text-rl-muted leading-snug">
-          A IA segue a habilidade de roteiro de vídeo da Verta: faz o estudo do público, escreve
-          10 roteiros (3 de topo, 3 de meio, 2 de fundo e 2 de remarketing) e fecha com a tabela do
-          laboratório. Você só escolhe sobre o que ela vai falar.
+          {t('criativos.modulo.videoIntro')}
         </p>
         {productList.length || personaList.length || ofertaList.length ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1702,8 +1698,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
           </div>
         ) : (
           <p className="text-[11px] text-rl-muted leading-snug">
-            Este cliente ainda não tem produto, persona nem oferta cadastrados. A IA usa os dados
-            gerais da empresa.
+            {t('criativos.modulo.semCadastro')}
           </p>
         )}
       </div>
@@ -1713,7 +1708,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
       <div className="flex items-center justify-end gap-3 pt-1">
         {loading && (
           <p className="text-[11px] text-rl-muted leading-snug text-right">
-            Leva uns 3 minutos: primeiro a IA estuda o público, depois escreve os roteiros.
+            {t('criativos.modulo.demora')}
           </p>
         )}
         <button
@@ -1723,11 +1718,11 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
         >
           {loading ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" /> Gerando...
+              <Loader2 className="w-4 h-4 animate-spin" /> {t('criativos.modulo.gerando')}
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4" /> Gerar 10 roteiros
+              <Sparkles className="w-4 h-4" /> {t('criativos.modulo.gerar10')}
             </>
           )}
         </button>
@@ -1759,7 +1754,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               : 'text-rl-muted hover:text-rl-text'
           }`}
         >
-          ✨ Visual com IA
+          {t('criativos.modulo.abaVisual')}
         </button>
         <button
           type="button"
@@ -1781,7 +1776,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               : 'text-rl-muted hover:text-rl-text'
           }`}
         >
-          🎬 Roteiros Validados
+          {t('criativos.modulo.abaRoteiros')}
         </button>
       </div>
 
@@ -1824,7 +1819,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
             setError(null)
             setStepIndex(0)
           }}
-          aria-label="Voltar à seleção de formato"
+          aria-label={t('criativos.modulo.voltarFormato')}
           className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all mt-0.5"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -1837,13 +1832,13 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               <Image className="w-5 h-5 text-rl-blue" />
             )}
             <h2 className="text-xl font-bold text-rl-text">
-              {isVideo ? 'Criativos de Vídeo' : 'Criativos Estáticos'}
+              {isVideo ? t('criativos.modulo.videoTitulo') : t('criativos.modulo.estaticosTitulo')}
             </h2>
           </div>
           <p className="text-sm text-rl-muted mt-0.5 ml-7">
             {isVideo
-              ? 'Escolha o produto, a persona e a oferta. Saem 10 roteiros prontos, do topo ao remarketing.'
-              : 'Selecione as dores da persona para gerar headlines'}
+              ? t('criativos.modulo.subVideo')
+              : t('criativos.modulo.subEstatico')}
           </p>
         </div>
       </div>
@@ -1855,16 +1850,16 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
             <Sparkles className="w-4 h-4 text-rl-purple shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-rl-text">
-                Variações do anúncio campeão: <span className="text-rl-purple">{variacaoRef.adName || 'sem nome'}</span>
+                {t('criativos.modulo.variacoesCampeao')} <span className="text-rl-purple">{variacaoRef.adName || t('criativos.modulo.semNome')}</span>
               </p>
               <p className="text-[11px] text-rl-muted mt-0.5">
-                A transcrição entra na solicitação como referência: a IA mantém o DNA da mensagem (promessa, contexto, CTA) e varia gancho, ângulo e estrutura — sem copiar frases. Escolha o produto, a persona e a oferta normalmente.
+                {t('criativos.modulo.variacoesDesc')}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setVariacaoRef(null)}
-              title="Remover referência"
+              title={t('criativos.modulo.removerReferencia')}
               className="p-1 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all shrink-0"
             >
               <X className="w-3.5 h-3.5" />
@@ -1879,10 +1874,10 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-rl-muted">
-              {WIZARD_STEP_TITLES[wizardStep]}
+              {t(`criativos.modulo.passos.${wizardStep}`)}
             </span>
             <span className="ml-auto text-[11px] font-semibold text-rl-muted tabular-nums">
-              Pergunta {stepIndex + 1} de {wizardSteps.length}
+              {t('criativos.modulo.pergunta', { n: stepIndex + 1, total: wizardSteps.length })}
             </span>
           </div>
           <div className="h-1.5 rounded-full bg-rl-surface overflow-hidden">
@@ -1898,10 +1893,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
           {wizardStep === 'escopo' && (
             <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-3">
               <p className="text-[11px] text-rl-muted leading-snug">
-                Escolha um produto e/ou uma persona específicos pra IA focar só neles.
-                Deixe em &ldquo;Todos&rdquo;/&ldquo;Todas&rdquo; pra considerar o cliente inteiro,
-                ou &ldquo;Não usar…&rdquo; pra a IA ignorar esse contexto (bom quando o criativo
-                vai rodar em outros funis).
+                {t('criativos.modulo.escopoAjuda')}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {selectProduto}
@@ -1909,7 +1901,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               </div>
               {!isVideo && selectedPersona && (
                 <p className="text-[11px] text-rl-blue leading-snug">
-                  As dores no próximo passo serão só da persona <strong>{selectedPersona.name}</strong>.
+                  {t('criativos.modulo.doresDaPersona')} <strong>{selectedPersona.name}</strong>.
                 </p>
               )}
             </div>
@@ -1919,7 +1911,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
           {wizardStep === 'funil' && (
             <div className="space-y-2.5">
               <p className="text-[11px] text-rl-muted leading-snug">
-                Define o objetivo e o CTA (assistir aula, agendar reunião, baixar material, comprar...).
+                {t('criativos.modulo.funilAjuda')}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {FUNIS.map((f) => {
@@ -1929,8 +1921,8 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                       className={`flex items-start gap-2 rounded-lg p-2.5 text-left border transition-all ${on ? 'bg-rl-blue/10 border-rl-blue/50' : 'bg-rl-surface border-rl-border hover:border-rl-blue/30'}`}>
                       <span className="text-base leading-none mt-0.5">{f.icon}</span>
                       <span className="min-w-0">
-                        <span className={`block text-xs font-bold leading-tight ${on ? 'text-rl-blue' : 'text-rl-text'}`}>{f.label}</span>
-                        <span className="block text-[10px] text-rl-muted leading-tight mt-0.5">{f.meta}</span>
+                        <span className={`block text-xs font-bold leading-tight ${on ? 'text-rl-blue' : 'text-rl-text'}`}>{rotuloFunil(f.id)}</span>
+                        <span className="block text-[10px] text-rl-muted leading-tight mt-0.5">{metaFunil(f.id)}</span>
                       </span>
                     </button>
                   )
@@ -1943,9 +1935,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
           {wizardStep === 'nivel' && (
             <div className="space-y-2.5">
               <p className="text-[11px] text-rl-muted leading-snug">
-                Em que ponto está o mercado, em relação a esta oferta? Todas as peças desta
-                geração são escritas nesse nível — é o que define o tom, a dor a atacar e o
-                quanto precisa explicar.
+                {t('criativos.modulo.nivelAjuda')}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {NIVEIS_CONSCIENCIA.map((n) => {
@@ -1957,8 +1947,8 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                         {n.num}
                       </span>
                       <span className="min-w-0">
-                        <span className={`block text-xs font-bold leading-tight ${on ? 'text-rl-purple' : 'text-rl-text'}`}>{n.label}</span>
-                        <span className="block text-[10px] text-rl-muted leading-tight mt-0.5">{n.hint}</span>
+                        <span className={`block text-xs font-bold leading-tight ${on ? 'text-rl-purple' : 'text-rl-text'}`}>{rotuloNivel(n.id)}</span>
+                        <span className="block text-[10px] text-rl-muted leading-tight mt-0.5">{dicaNivel(n.id)}</span>
                       </span>
                     </button>
                   )
@@ -1975,17 +1965,16 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                 <div className="flex items-center gap-2">
                   <span className="text-sm">🔢</span>
                   <label className="label-field !mb-0">
-                    Quantos {isVideo ? 'roteiros' : 'headlines'} gerar
+                    {isVideo ? t('criativos.modulo.quantosRoteiros') : t('criativos.modulo.quantosHeadlines')}
                   </label>
                   {blocosAtuais > 0 && (
                     <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rl-blue/15 text-rl-blue border border-rl-blue/30">
-                      {quantidade} em {blocosAtuais} bloco{blocosAtuais !== 1 ? 's' : ''}
+                      {t('criativos.modulo.emBlocos', { qtd: quantidade, count: blocosAtuais })}
                     </span>
                   )}
                 </div>
                 <p className="text-[11px] text-rl-muted leading-snug">
-                  Total desta geração, distribuído entre{' '}
-                  {isVideo ? 'os tipos de gancho selecionados abaixo' : 'as combinações de dor x tipo abaixo'}.
+                  {isVideo ? t('criativos.modulo.distribuidoVideo') : t('criativos.modulo.distribuidoEstatico')}
                 </p>
                 <div className="flex items-center gap-2 flex-wrap">
                   {QTD_PRESETS.map((q) => (
@@ -2001,7 +1990,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                       {q}
                     </button>
                   ))}
-                  <span className="text-[10px] text-rl-muted px-1">ou</span>
+                  <span className="text-[10px] text-rl-muted px-1">{t('comum.ou')}</span>
                   <input
                     type="number"
                     min={1}
@@ -2016,9 +2005,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                 </div>
                 {qtdInsuficiente && (
                   <p className="text-[11px] text-red-400 leading-snug">
-                    {quantidade} {isVideo ? 'roteiros' : 'headlines'} para {blocosAtuais} blocos deixaria
-                    bloco sem peça. Aumente para pelo menos {blocosAtuais} ou selecione menos{' '}
-                    {isVideo ? 'tipos' : 'combinações'}.
+                    {t(isVideo ? 'criativos.modulo.insuficienteVideo' : 'criativos.modulo.insuficienteEstatico', { qtd: quantidade, blocos: blocosAtuais })}
                   </p>
                 )}
               </div>
@@ -2028,11 +2015,11 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <label className="label-field">
-                      Dores
+                      {t('criativos.modulo.dores')}
                       {selectedDores.length > 0 && (
                         <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rl-purple/20 text-rl-purple border border-rl-purple/30">
-                          {selectedDores.length} selecionada{selectedDores.length !== 1 ? 's' : ''} ·{' '}
-                          {staticTotalQty} headline{staticTotalQty !== 1 ? 's' : ''}
+                          {t('criativos.modulo.nSelecionadas', { count: selectedDores.length })} ·{' '}
+                          {t('criativos.modulo.nHeadlines', { count: staticTotalQty })}
                         </span>
                       )}
                     </label>
@@ -2041,9 +2028,9 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                   <div className="space-y-2">
                     {allDores.length === 0 && (
                       <div className="rounded-xl border border-dashed border-rl-border py-8 text-center space-y-1">
-                        <p className="text-sm text-rl-muted">Nenhuma dor encontrada nas personas.</p>
+                        <p className="text-sm text-rl-muted">{t('criativos.modulo.semDores')}</p>
                         <p className="text-xs text-rl-muted">
-                          Crie personas ou adicione dores personalizadas abaixo.
+                          {t('criativos.modulo.semDoresAjuda')}
                         </p>
                       </div>
                     )}
@@ -2072,7 +2059,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                                 if (e.key === 'Escape') cancelDorEdit()
                               }}
                               rows={2}
-                              placeholder="Descreva a dor do cliente..."
+                              placeholder={t('criativos.modulo.descrevaDor')}
                               className="input-field w-full text-sm resize-none"
                             />
                             <div className="flex items-center gap-2 mt-2">
@@ -2080,13 +2067,13 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                                 onClick={confirmDorEdit}
                                 className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-rl-green/10 border border-rl-green/30 text-rl-green hover:bg-rl-green/20 transition-all"
                               >
-                                <Check className="w-3 h-3" /> Confirmar
+                                <Check className="w-3 h-3" /> {t('comum.confirmar')}
                               </button>
                               <button
                                 onClick={cancelDorEdit}
                                 className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
                               >
-                                <X className="w-3 h-3" /> Cancelar
+                                <X className="w-3 h-3" /> {t('comum.cancelar')}
                               </button>
                             </div>
                           </div>
@@ -2118,15 +2105,15 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                               <p
                                 className={`text-sm leading-snug ${selected ? 'text-rl-purple font-medium' : 'text-rl-text'}`}
                               >
-                                {dor.text || <span className="italic text-rl-muted">Dor sem texto</span>}
+                                {dor.text || <span className="italic text-rl-muted">{t('criativos.modulo.dorSemTexto')}</span>}
                               </p>
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 {dor.personaName && (
-                                  <p className="text-[10px] text-rl-muted">{dor.personaName}</p>
+                                  <p className="text-[10px] text-rl-muted">{dor.personaName === 'Personalizada' ? t('criativos.modulo.personalizada') : dor.personaName}</p>
                                 )}
                                 {isCustom && (
                                   <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-rl-blue/10 border border-rl-blue/20 text-rl-blue font-medium">
-                                    Personalizada
+                                    {t('criativos.modulo.personalizada')}
                                   </span>
                                 )}
                               </div>
@@ -2140,7 +2127,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                                   setEditingDorId(dor.id)
                                   setEditingDorText(dor.text)
                                 }}
-                                title="Editar"
+                                title={t('comum.editar')}
                                 className="p-1 rounded hover:bg-rl-surface transition-all text-rl-muted hover:text-rl-text"
                               >
                                 <Pencil className="w-3 h-3" />
@@ -2151,7 +2138,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                                     e.stopPropagation()
                                     deleteCustomDor(dor.id)
                                   }}
-                                  title="Remover"
+                                  title={t('comum.remover')}
                                   className="p-1 rounded hover:bg-red-400/10 transition-all text-rl-muted hover:text-red-400"
                                 >
                                   <X className="w-3 h-3" />
@@ -2173,15 +2160,15 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                                   >
                                     <span className="text-sm shrink-0">{type.emoji}</span>
                                     <span className="text-xs font-medium text-rl-purple flex-1 leading-tight">
-                                      {type.label}
+                                      {t(`criativos.modulo.tipos.${type.id}`)}
                                     </span>
                                     <span className="text-[10px] font-bold text-rl-purple/80 shrink-0">
-                                      {staticQtyByBlock[`${dor.id}::${typeId}`] ?? 0} headlines
+                                      {t('criativos.modulo.nHeadlines', { count: staticQtyByBlock[`${dor.id}::${typeId}`] ?? 0 })}
                                     </span>
                                     <button
                                       onClick={() => toggleDorType(dor.id, typeId)}
                                       className="p-0.5 rounded text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all shrink-0"
-                                      title="Remover"
+                                      title={t('comum.remover')}
                                     >
                                       <X className="w-3 h-3" />
                                     </button>
@@ -2197,7 +2184,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                                     }
                                     className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-dashed border-rl-border text-rl-muted hover:border-rl-blue/40 hover:text-rl-blue transition-all"
                                   >
-                                    <Plus className="w-3 h-3" /> Incluir tipo
+                                    <Plus className="w-3 h-3" /> {t('criativos.modulo.incluirTipo')}
                                   </button>
 
                                   {openTypeSelectorDorId === dor.id && (
@@ -2212,7 +2199,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                                           className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs text-rl-text hover:bg-rl-surface transition-colors"
                                         >
                                           <span>{type.emoji}</span>
-                                          <span>{type.label}</span>
+                                          <span>{t(`criativos.modulo.tipos.${type.id}`)}</span>
                                         </button>
                                       ))}
                                     </div>
@@ -2223,7 +2210,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                               {Object.keys(cfg.typeQtys || {}).length === 0 &&
                                 openTypeSelectorDorId !== dor.id && (
                                   <p className="text-[10px] text-red-400">
-                                    Selecione pelo menos um tipo para esta dor
+                                    {t('criativos.modulo.selecioneTipo')}
                                   </p>
                                 )}
                             </div>
@@ -2237,7 +2224,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                       onClick={addCustomDor}
                       className="w-full rounded-xl p-2.5 border border-dashed border-rl-border text-rl-muted hover:border-rl-blue/40 hover:text-rl-blue transition-all flex items-center justify-center gap-1.5 text-xs"
                     >
-                      <Plus className="w-3.5 h-3.5" /> Adicionar dor personalizada
+                      <Plus className="w-3.5 h-3.5" /> {t('criativos.modulo.addDor')}
                     </button>
                   </div>
                 </div>
@@ -2250,9 +2237,9 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
             <div className="space-y-4">
               {/* Resumo das escolhas */}
               <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 text-[11px] text-rl-muted space-y-0.5">
-                <p><span className="text-rl-text font-semibold">Funil:</span> {FUNIS_BY_ID[selectedFunil]?.label || '—'}</p>
-                <p><span className="text-rl-text font-semibold">Nível de consciência:</span> {nivel ? `Nível ${NIVEIS_BY_ID[nivel].num} — ${NIVEIS_BY_ID[nivel].label}` : '—'}</p>
-                <p><span className="text-rl-text font-semibold">Total:</span> {staticTotalQty} headlines em {blocosAtuais} combinação(ões)</p>
+                <p><span className="text-rl-text font-semibold">{t('criativos.modulo.resumoFunil')}</span> {selectedFunil ? rotuloFunil(selectedFunil) : '—'}</p>
+                <p><span className="text-rl-text font-semibold">{t('criativos.modulo.resumoNivel')}</span> {nivel ? t('criativos.modulo.nivelN', { num: NIVEIS_BY_ID[nivel].num, rotulo: rotuloNivel(nivel) }) : '—'}</p>
+                <p><span className="text-rl-text font-semibold">{t('criativos.modulo.resumoTotal')}</span> {t('criativos.modulo.totalHeadlines', { qtd: staticTotalQty, blocos: blocosAtuais })}</p>
               </div>
 
               {painelDoPrompt}
@@ -2260,10 +2247,10 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               {/* Detalhes específicos deste anúncio (opcional) */}
               <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-1.5">
                 <label className="label-field !mb-0">
-                  Detalhes deste anúncio <span className="text-rl-muted font-normal">(opcional)</span>
+                  {t('criativos.modulo.detalhes')} <span className="text-rl-muted font-normal">{t('criativos.modulo.opcional')}</span>
                 </label>
                 <p className="text-[11px] text-rl-muted leading-snug">
-                  Promoção, condição, prazo, produto específico, ângulo desejado... A IA incorpora em cada peça.
+                  {t('criativos.modulo.detalhesAjuda')}
                 </p>
                 <AutoResizeTextarea
                   value={extraDetails}
@@ -2283,7 +2270,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
             disabled={stepIndex === 0}
             className="flex items-center gap-1.5 text-sm px-3 py-2.5 rounded-xl text-rl-muted hover:text-rl-text transition-all disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <ArrowLeft className="w-4 h-4" /> Voltar
+            <ArrowLeft className="w-4 h-4" /> {t('comum.voltar')}
           </button>
           {wizardStep === 'obs' ? (
             <button
@@ -2298,12 +2285,11 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" /> Gerando...
+                  <Loader2 className="w-4 h-4 animate-spin" /> {t('criativos.modulo.gerando')}
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4" /> Gerar {staticTotalQty} Headline
-                  {staticTotalQty !== 1 ? 's' : ''}
+                  <Sparkles className="w-4 h-4" /> {t('criativos.modulo.gerarHeadlines', { count: staticTotalQty })}
                 </>
               )}
             </button>
@@ -2314,12 +2300,12 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               className="btn-primary flex items-center gap-2 text-sm px-6 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {wizardStep === 'funil' && !selectedFunil
-                ? 'Escolha um funil'
+                ? t('criativos.modulo.escolhaFunil')
                 : wizardStep === 'nivel' && !nivel
-                  ? 'Escolha o nível'
+                  ? t('criativos.modulo.escolhaNivel')
                   : wizardStep === 'tipo' && blocosAtuais === 0
-                    ? `Selecione ao menos ${isVideo ? 'um ângulo' : 'uma dor'}`
-                    : 'Continuar'}
+                    ? t(isVideo ? 'criativos.modulo.selecioneAngulo' : 'criativos.modulo.selecioneDor')
+                    : t('criativos.modulo.continuar')}
               <ArrowRight className="w-4 h-4" />
             </button>
           )}
@@ -2333,9 +2319,10 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
 
 // ─── Painel: histórico dos anúncios criados pelos clientes (via link) ──────────
 function ClientHistoryPanel({ history, busy, onLoad, openItem, setOpenItem }) {
+  const { t, locale } = useI18n()
   function fmt(iso) {
     try {
-      return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+      return new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
     } catch { return '' }
   }
 
@@ -2353,27 +2340,27 @@ function ClientHistoryPanel({ history, busy, onLoad, openItem, setOpenItem }) {
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="flex items-center gap-2">
           <Users className="w-4 h-4 text-rl-purple" />
-          <h3 className="text-sm font-bold text-rl-text">Anúncios dos clientes</h3>
+          <h3 className="text-sm font-bold text-rl-text">{t('criativos.modulo.anunciosClientes')}</h3>
         </div>
         <button onClick={onLoad} disabled={busy}
           className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all disabled:opacity-50">
           {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-          {history === null ? 'Carregar' : 'Atualizar'}
+          {history === null ? t('criativos.modulo.carregar') : t('criativos.modulo.atualizar')}
         </button>
       </div>
-      <p className="text-xs text-rl-muted mb-3">Gerados pelos usuários no link compartilhável, separados por usuário.</p>
+      <p className="text-xs text-rl-muted mb-3">{t('criativos.modulo.anunciosClientesDesc')}</p>
 
       {history === null ? (
-        <p className="text-xs text-rl-muted">Clique em “Carregar” para ver os anúncios criados pelos clientes.</p>
+        <p className="text-xs text-rl-muted">{t('criativos.modulo.cliqueCarregar')}</p>
       ) : groupList.length === 0 ? (
-        <p className="text-xs text-rl-muted">Nenhum anúncio criado pelos clientes ainda.</p>
+        <p className="text-xs text-rl-muted">{t('criativos.modulo.semAnunciosClientes')}</p>
       ) : (
         <div className="space-y-4">
           {groupList.map((g) => (
             <div key={g.email}>
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-xs font-bold text-rl-text">{g.name || g.email}</span>
-                <span className="text-[10px] text-rl-muted">{g.email} · {g.items.length} anúncio{g.items.length !== 1 ? 's' : ''}</span>
+                <span className="text-[10px] text-rl-muted">{g.email} · {t('criativos.modulo.nAnuncios', { count: g.items.length })}</span>
               </div>
               <div className="space-y-1.5">
                 {g.items.map((h) => {
@@ -2391,7 +2378,7 @@ function ClientHistoryPanel({ history, busy, onLoad, openItem, setOpenItem }) {
                       </button>
                       {open && (
                         <div className="px-3 pb-3 pt-1 border-t border-rl-border">
-                          {h.detalhes && <p className="text-[11px] text-rl-muted italic mb-2">Detalhes: {h.detalhes}</p>}
+                          {h.detalhes && <p className="text-[11px] text-rl-muted italic mb-2">{t('criativos.modulo.detalhesItem', { texto: h.detalhes })}</p>}
                           <MarkdownBlock content={h.content || ''} />
                         </div>
                       )}
@@ -2413,6 +2400,7 @@ function ClientHistoryPanel({ history, busy, onLoad, openItem, setOpenItem }) {
 // "Gerar variações" (onGerarVariacoes): leva a transcrição pro fluxo padrão de
 // roteiros de vídeo da aba Copy, como referência de mensagem campeã.
 function RoteirosValidadosPanel({ project, onGerarVariacoes }) {
+  const { t, locale } = useI18n()
   const [items, setItems] = useState(null) // null = não carregado
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -2436,7 +2424,7 @@ function RoteirosValidadosPanel({ project, onGerarVariacoes }) {
   useEffect(() => { load() }, [load])
 
   const remove = async (id) => {
-    if (!window.confirm('Excluir este roteiro validado?')) return
+    if (!window.confirm(t('criativos.modulo.confirmarExcluirRoteiro'))) return
     try {
       await authFetch({ action: 'delete', id })
       setItems((prev) => (prev || []).filter((x) => x.id !== id))
@@ -2451,7 +2439,7 @@ function RoteirosValidadosPanel({ project, onGerarVariacoes }) {
   }
 
   const fmt = (iso) => {
-    try { return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) }
+    try { return new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' }) }
     catch { return '' }
   }
 
@@ -2463,13 +2451,13 @@ function RoteirosValidadosPanel({ project, onGerarVariacoes }) {
             <Video className="w-4.5 h-4.5 text-rl-purple" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-rl-text">Roteiros Validados</h3>
-            <p className="text-xs text-rl-muted">Transcrições dos anúncios em vídeo que performaram — vire aprendizado para novas copies.</p>
+            <h3 className="text-sm font-bold text-rl-text">{t('criativos.modulo.roteirosTitulo')}</h3>
+            <p className="text-xs text-rl-muted">{t('criativos.modulo.roteirosDesc')}</p>
           </div>
         </div>
         <button type="button" onClick={load} disabled={busy}
           className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rl-muted hover:text-rl-text border border-rl-border">
-          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Atualizar
+          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} {t('criativos.modulo.atualizar')}
         </button>
       </div>
 
@@ -2483,8 +2471,8 @@ function RoteirosValidadosPanel({ project, onGerarVariacoes }) {
       {items && items.length === 0 && !busy && (
         <div className="text-center py-10 px-4">
           <Video className="w-8 h-8 text-rl-muted/50 mx-auto mb-3" />
-          <p className="text-sm text-rl-text font-semibold mb-1">Nenhum roteiro validado ainda</p>
-          <p className="text-xs text-rl-muted max-w-sm mx-auto">No dashboard, abra a prévia de um anúncio em vídeo e clique em <span className="font-semibold">“📝 Transcrever vídeo”</span> → <span className="font-semibold">“Salvar em Roteiros Validados”</span>.</p>
+          <p className="text-sm text-rl-text font-semibold mb-1">{t('criativos.modulo.semRoteiros')}</p>
+          <p className="text-xs text-rl-muted max-w-sm mx-auto">{t('criativos.modulo.semRoteirosAjuda1')} <span className="font-semibold">{t('criativos.modulo.transcrever')}</span> → <span className="font-semibold">{t('criativos.modulo.salvarRoteiros')}</span>.</p>
         </div>
       )}
 
@@ -2497,7 +2485,7 @@ function RoteirosValidadosPanel({ project, onGerarVariacoes }) {
                 <button type="button" onClick={() => setOpenId(open ? null : it.id)}
                   className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-rl-surface">
                   <Video className="w-4 h-4 text-rl-purple shrink-0" />
-                  <span className="text-xs font-semibold text-rl-text truncate flex-1">{it.ad_name || 'Anúncio sem nome'}</span>
+                  <span className="text-xs font-semibold text-rl-text truncate flex-1">{it.ad_name || t('criativos.modulo.anuncioSemNome')}</span>
                   <span className="text-[10px] text-rl-muted shrink-0">{fmt(it.created_at)}</span>
                   {open ? <ChevronUp className="w-3.5 h-3.5 text-rl-muted shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-rl-muted shrink-0" />}
                 </button>
@@ -2505,22 +2493,22 @@ function RoteirosValidadosPanel({ project, onGerarVariacoes }) {
                   <div className="px-3 pb-3 pt-1 border-t border-rl-border">
                     {(it.account || it.user_name) && (
                       <p className="text-[11px] text-rl-muted italic mb-2">
-                        {it.account ? `Conta: ${it.account}` : ''}{it.account && it.user_name ? ' · ' : ''}{it.user_name ? `Salvo por ${it.user_name}` : ''}
+                        {it.account ? t('criativos.modulo.conta', { conta: it.account }) : ''}{it.account && it.user_name ? ' · ' : ''}{it.user_name ? t('criativos.modulo.salvoPor', { nome: it.user_name }) : ''}
                       </p>
                     )}
                     <p className="text-[13px] leading-relaxed text-rl-text whitespace-pre-wrap">{it.transcription}</p>
                     <div className="flex items-center gap-2 mt-3 flex-wrap">
                       <button type="button" onClick={() => onGerarVariacoes(it)}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-rl-purple hover:bg-rl-purple/90">
-                        <Sparkles className="w-3.5 h-3.5" /> Gerar variações
+                        <Sparkles className="w-3.5 h-3.5" /> {t('criativos.modulo.gerarVariacoes')}
                       </button>
                       <button type="button" onClick={() => copy(it)}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-rl-muted hover:text-rl-text border border-rl-border">
-                        {copiedId === it.id ? <Check className="w-3.5 h-3.5 text-rl-green" /> : <Copy className="w-3.5 h-3.5" />} {copiedId === it.id ? 'Copiado' : 'Copiar'}
+                        {copiedId === it.id ? <Check className="w-3.5 h-3.5 text-rl-green" /> : <Copy className="w-3.5 h-3.5" />} {copiedId === it.id ? t('criativos.modulo.copiado') : t('comum.copiar')}
                       </button>
                       <button type="button" onClick={() => remove(it.id)}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-red-400 hover:text-red-300 border border-red-400/30">
-                        <Trash2 className="w-3.5 h-3.5" /> Excluir
+                        <Trash2 className="w-3.5 h-3.5" /> {t('comum.excluir')}
                       </button>
                     </div>
                   </div>
@@ -2538,6 +2526,7 @@ function RoteirosValidadosPanel({ project, onGerarVariacoes }) {
 // Abre o modal da leva. Quando a geração já tem leva enviada, o botão mostra
 // quantos criativos ainda esperam resposta (ou que o cliente já respondeu tudo).
 function AprovacaoButton({ creative, project, onClick }) {
+  const { t } = useI18n()
   const levas = (project.copyAprovacoes?.levas || []).filter((l) => l.creativeId === creative.id)
   const itens = levas.flatMap((l) => l.itens || [])
   const pendentes = itens.filter((it) => (it.aprovacao?.status || 'pendente') === 'pendente').length
@@ -2546,17 +2535,17 @@ function AprovacaoButton({ creative, project, onClick }) {
   const reprovados = itens.filter((it) => it.aprovacao?.status === 'reprovado').length
 
   const label = itens.length === 0
-    ? 'Enviar pra aprovação'
+    ? t('criativos.modulo.enviarAprovacao')
     : pendentes > 0
-      ? `${pendentes} aguardando cliente`
-      : `${aprovados} aprovado${aprovados !== 1 ? 's' : ''}`
-        + (editados ? ` (${editados} c/ alterações)` : '')
-        + (reprovados ? ` · ${reprovados} reprovado${reprovados !== 1 ? 's' : ''}` : '')
+      ? t('criativos.modulo.aguardando', { count: pendentes })
+      : t('criativos.modulo.nAprovados', { count: aprovados })
+        + (editados ? t('criativos.modulo.comAlteracoes', { count: editados }) : '')
+        + (reprovados ? t('criativos.modulo.nReprovados', { count: reprovados }) : '')
 
   return (
     <button
       onClick={onClick}
-      title="Gerar o link em que o cliente aprova as copies desta leva"
+      title={t('criativos.modulo.aprovacaoTitle')}
       className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-rl-purple/10 border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/20 transition-all"
     >
       <Send className="w-3.5 h-3.5" /> {label}

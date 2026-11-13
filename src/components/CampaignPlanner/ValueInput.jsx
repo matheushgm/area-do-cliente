@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useI18n } from '../../i18n'
 
-const fmtBR = (n) =>
-  n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmtNum = (n, locale) =>
+  n.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 /**
  * Input de valor em R$ que mantém sincronia bi-direcional com a porcentagem do
@@ -10,21 +11,24 @@ const fmtBR = (n) =>
  * pt-BR (`3.836,70`); ao focar, mostra o valor sem máscara para edição.
  */
 export default function ValueInput({ value, parentBudget, onChange, className = '', disabled = false, size }) {
+  const { lang, locale } = useI18n()
+  // Em inglês o separador decimal é o ponto e a vírgula é de milhar (`3,836.70`).
+  const decimalPonto = lang === 'en'
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState(false)
 
   // Quando não está editando, sincroniza com o valor calculado do pai (formatado BR)
   useEffect(() => {
     if (!editing) {
-      setDraft(value > 0 ? fmtBR(value) : '')
+      setDraft(value > 0 ? fmtNum(value, locale) : '')
     }
-  }, [value, editing])
+  }, [value, editing, locale])
 
   function handleChange(e) {
     const raw = e.target.value
     setDraft(raw)
     // Aceita "1.234,56" (BR) e "1234.56" (numérico) — remove pontos de milhar e troca vírgula por ponto
-    const cleaned = raw.replace(/\./g, '').replace(',', '.')
+    const cleaned = decimalPonto ? raw.replace(/,/g, '') : raw.replace(/\./g, '').replace(',', '.')
     const num = parseFloat(cleaned)
     if (isNaN(num) || !isFinite(num) || num < 0) return
     if (parentBudget <= 0) return
@@ -36,7 +40,7 @@ export default function ValueInput({ value, parentBudget, onChange, className = 
     setEditing(true)
     // Ao focar, mostra valor sem máscara (mais fácil de editar)
     if (value > 0) {
-      const plain = value.toFixed(2).replace('.', ',')
+      const plain = decimalPonto ? value.toFixed(2) : value.toFixed(2).replace('.', ',')
       setDraft(plain)
       // Selecionar tudo facilita substituição
       requestAnimationFrame(() => e.target?.select())
@@ -55,7 +59,7 @@ export default function ValueInput({ value, parentBudget, onChange, className = 
         onChange={handleChange}
         disabled={disabled || parentBudget <= 0}
         className={`input-field pl-9 pr-2.5 text-right w-full text-sm tabular-nums disabled:opacity-50 disabled:cursor-not-allowed ${size === 'sm' ? 'py-1.5' : ''}`}
-        placeholder="0,00"
+        placeholder={decimalPonto ? '0.00' : '0,00'}
       />
     </div>
   )

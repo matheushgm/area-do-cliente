@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import {
   ChevronLeft, ChevronRight, Plus, Edit2, Check, X, FileDown, Link2, CheckCircle2,
 } from 'lucide-react'
-import { fmtMoney, fmtPct, parseMoney, getWeekRanges, computeRoiPlan, MONTH_NAMES } from './resultadosHelpers'
+import { fmtMoney, fmtPct, parseMoney, getWeekRanges, computeRoiPlan, MONTH_NAMES, nomeMes, diaMes, semanasPdf } from './resultadosHelpers'
 import { CostGrid } from './ResultadosCharts'
 import GraficosEvolucao from './GraficosEvolucao'
 import FunilDoMes, { FonteTag } from './FunilDoMes'
@@ -10,9 +10,11 @@ import ComparativoCanais from './ComparativoCanais'
 import PlanoVsRealizado from './PlanoVsRealizado'
 import { exportResultadosB2BPDF } from '../../utils/exportPDF'
 import { AutofillButton, AutoBadge } from './AutofillResultados'
+import { useI18n, localeAtual } from '../../i18n'
 
 // ─── Lançamento da semana (linha que abre dentro da tabela) ─────────────────────
 function B2BWeekForm({ initial = {}, onSave, onCancel }) {
+  const { t } = useI18n()
   const fromApi = initial.fonte === 'api'
   const [form, setForm] = useState({
     investido:     initial.investido     != null ? String(initial.investido).replace('.', ',')     : '',
@@ -34,9 +36,9 @@ function B2BWeekForm({ initial = {}, onSave, onCancel }) {
   }
 
   const campos = [
-    ['investido', 'Investido', 'R$ 0,00', 'api'], ['leads', 'Leads', '0', 'api'],
-    ['mql', 'MQL', '0', 'lancado'], ['sql', 'SQL', '0', 'lancado'], ['vendas', 'Vendas', '0', 'lancado'],
-    ['receitaVendas', 'Receita de vendas', 'R$ 0,00', 'lancado'],
+    ['investido', t('resultados.campos.investido'), 'R$ 0,00', 'api'], ['leads', t('resultados.campos.leads'), '0', 'api'],
+    ['mql', t('resultados.campos.mql'), '0', 'lancado'], ['sql', t('resultados.campos.sql'), '0', 'lancado'], ['vendas', t('resultados.campos.vendas'), '0', 'lancado'],
+    ['receitaVendas', t('resultados.campos.receitaVendas'), 'R$ 0,00', 'lancado'],
   ]
   return (
     <div className="space-y-3">
@@ -49,22 +51,23 @@ function B2BWeekForm({ initial = {}, onSave, onCancel }) {
           </div>
         ))}
       </div>
-      {fromApi && <p className="text-xs text-rl-muted">Investido e leads vêm da API: uma mudança aqui é sobrescrita no próximo preenchimento automático.</p>}
+      {fromApi && <p className="text-xs text-rl-muted">{t('resultados.form.avisoApi')}</p>}
       <div className="flex items-center gap-3 flex-wrap">
         {preview.investido > 0 && <div className="flex-1 min-w-[280px] max-w-xl"><CostGrid {...preview} compact /></div>}
         <div className="flex gap-2 ml-auto">
-          <button onClick={onCancel} className="btn-secondary flex items-center gap-1 text-sm"><X size={13} /> Cancelar</button>
-          <button onClick={() => onSave(form)} className="btn-primary flex items-center gap-1.5 text-sm"><Check size={13} /> Salvar semana</button>
+          <button onClick={onCancel} className="btn-secondary flex items-center gap-1 text-sm"><X size={13} /> {t('comum.cancelar')}</button>
+          <button onClick={() => onSave(form)} className="btn-primary flex items-center gap-1.5 text-sm"><Check size={13} /> {t('resultados.form.salvarSemana')}</button>
         </div>
       </div>
     </div>
   )
 }
 
-const fmtInt = n => Number(n || 0).toLocaleString('pt-BR')
+const fmtInt = n => Number(n || 0).toLocaleString(localeAtual())
 
 // ─── B2B Month Navigator ────────────────────────────────────────────────────────
 export function MonthNav({ year, month, setYear, setMonth }) {
+  useI18n() // redesenha o nome do mês na troca de idioma
   const prev = () => {
     if (month === 0) { setMonth(11); setYear(y => y - 1) }
     else setMonth(m => m - 1)
@@ -76,7 +79,7 @@ export function MonthNav({ year, month, setYear, setMonth }) {
   return (
     <div className="flex items-center gap-3">
       <button onClick={prev} className="btn-secondary p-2"><ChevronLeft size={16} /></button>
-      <h3 className="text-base font-semibold text-rl-text min-w-[140px] text-center">{MONTH_NAMES[month]} {year}</h3>
+      <h3 className="text-base font-semibold text-rl-text min-w-[140px] text-center">{nomeMes(month)} {year}</h3>
       <button onClick={next} className="btn-secondary p-2"><ChevronRight size={16} /></button>
     </div>
   )
@@ -121,6 +124,7 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
   const [month, setMonth] = useState(today.getMonth())
   const [editing, setEditing] = useState(null)
   const [copied, setCopied]   = useState(false)
+  const { t, locale } = useI18n()
 
   // ── Copy share link ─────────────────────────────────────────────────────────
   const copyLink = () => {
@@ -190,7 +194,7 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
   // Última vez que a API preencheu alguma semana do mês
   const atualizadoApi = (() => {
     const ts = Object.values(monthData).map(w => w?.fonte === 'api' && w.atualizadoEm).filter(Boolean).sort().at(-1)
-    return ts ? new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : null
+    return ts ? new Date(ts).toLocaleDateString(locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : null
   })()
 
 
@@ -213,34 +217,34 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
                   ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
                   : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
               }`}
-              title="Copia um link para o cliente preencher os resultados B2B"
+              title={t('resultados.acoes.tituloLinkB2b')}
             >
               {copied ? <CheckCircle2 size={14} /> : <Link2 size={14} />}
-              {copied ? 'Link copiado!' : 'Copiar link do cliente'}
+              {copied ? t('resultados.acoes.linkCopiado') : t('resultados.acoes.copiarLink')}
             </button>
           )}
           <button
-            onClick={() => exportResultadosB2BPDF({ companyName, resultados, year, month, weekRanges, MONTH_NAMES })}
+            onClick={() => exportResultadosB2BPDF({ companyName, resultados, year, month, weekRanges: semanasPdf(weekRanges), MONTH_NAMES })}
             className="btn-secondary flex items-center gap-2 text-sm whitespace-nowrap"
-            title="Gerar PDF do mês para o cliente"
+            title={t('resultados.acoes.tituloPdf')}
           >
             <FileDown size={15} />
-            Gerar PDF
+            {t('resultados.acoes.gerarPdf')}
           </button>
         </div>
       </div>
 
       {/* ── Funil do mês: API + lançado ──────────────────────────────────────── */}
       <FunilDoMes
-        titulo={`Funil de ${MONTH_NAMES[month]}`}
+        titulo={t('resultados.funil.funilDe', { mes: nomeMes(month) })}
         atualizado={atualizadoApi}
         etapas={[
-          { key: 'inv', label: 'Investido', valor: fmtMoney(totals.investido), sub: plan ? `plano ${fmtMoney(plan.mediaOrcamento)}` : null, fonte: 'api' },
-          { key: 'leads', label: 'Leads', valor: fmtInt(totals.leads), sub: cpl ? `${fmtMoney(cpl)} por lead` : null, fonte: 'api' },
-          { key: 'mql', label: 'MQL', valor: fmtInt(totals.mql), sub: cpMql ? `${fmtMoney(cpMql)} por MQL` : null, fonte: 'lancado', conversao: totals.mql ? `${fmtPct(totals.mql, totals.leads)} dos leads` : null },
-          { key: 'sql', label: 'SQL', valor: fmtInt(totals.sql), sub: cpSql ? `${fmtMoney(cpSql)} por SQL` : null, fonte: 'lancado', conversao: totals.sql ? `${fmtPct(totals.sql, totals.mql)} dos MQL` : null },
-          { key: 'vendas', label: 'Vendas', valor: fmtInt(totals.vendas), sub: cac ? `CAC ${fmtMoney(cac)}` : null, fonte: 'lancado', conversao: totals.vendas ? `${fmtPct(totals.vendas, totals.sql)} dos SQL` : null },
-          { key: 'receita', label: 'Receita', valor: fmtMoney(totals.receitaVendas), sub: roas ? `ROAS ${roas.toFixed(2)}x` : null, fonte: 'lancado', conversao: totals.vendas && totals.receitaVendas ? `ticket ${fmtMoney(totals.receitaVendas / totals.vendas)}` : null },
+          { key: 'inv', label: t('resultados.campos.investido'), valor: fmtMoney(totals.investido), sub: plan ? t('resultados.etapas.plano', { valor: fmtMoney(plan.mediaOrcamento) }) : null, fonte: 'api' },
+          { key: 'leads', label: t('resultados.campos.leads'), valor: fmtInt(totals.leads), sub: cpl ? t('resultados.etapas.porLead', { valor: fmtMoney(cpl) }) : null, fonte: 'api' },
+          { key: 'mql', label: t('resultados.campos.mql'), valor: fmtInt(totals.mql), sub: cpMql ? t('resultados.etapas.porMql', { valor: fmtMoney(cpMql) }) : null, fonte: 'lancado', conversao: totals.mql ? t('resultados.etapas.dosLeads', { pct: fmtPct(totals.mql, totals.leads) }) : null },
+          { key: 'sql', label: t('resultados.campos.sql'), valor: fmtInt(totals.sql), sub: cpSql ? t('resultados.etapas.porSql', { valor: fmtMoney(cpSql) }) : null, fonte: 'lancado', conversao: totals.sql ? t('resultados.etapas.dosMql', { pct: fmtPct(totals.sql, totals.mql) }) : null },
+          { key: 'vendas', label: t('resultados.campos.vendas'), valor: fmtInt(totals.vendas), sub: cac ? t('resultados.etapas.cac', { valor: fmtMoney(cac) }) : null, fonte: 'lancado', conversao: totals.vendas ? t('resultados.etapas.dosSql', { pct: fmtPct(totals.vendas, totals.sql) }) : null },
+          { key: 'receita', label: t('resultados.campos.receita'), valor: fmtMoney(totals.receitaVendas), sub: roas ? t('resultados.etapas.roas', { valor: roas.toFixed(2) }) : null, fonte: 'lancado', conversao: totals.vendas && totals.receitaVendas ? t('resultados.etapas.ticket', { valor: fmtMoney(totals.receitaVendas / totals.vendas) }) : null },
         ]}
       />
 
@@ -253,11 +257,11 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
                 <th className="bg-rl-surface/60" />
                 <th colSpan={2} className="bg-rl-surface/60 px-3 pt-2.5 text-left"><FonteTag fonte="api" /></th>
                 <th colSpan={4} className="bg-rl-surface/60 px-3 pt-2.5 text-left border-l border-rl-border"><FonteTag fonte="lancado" /></th>
-                <th colSpan={3} className="bg-rl-surface/60 px-3 pt-2.5 text-left text-rl-muted font-semibold border-l border-rl-border">Calculado</th>
+                <th colSpan={3} className="bg-rl-surface/60 px-3 pt-2.5 text-left text-rl-muted font-semibold border-l border-rl-border">{t('resultados.calculado')}</th>
                 <th className="bg-rl-surface/60" />
               </tr>
               <tr className="text-xs text-rl-muted border-b border-rl-border">
-                {['Semana', 'Investido', 'Leads', 'MQL', 'SQL', 'Vendas', 'Receita', 'CPL', 'CAC', 'ROAS', ''].map((h, i) => (
+                {[t('resultados.campos.semana'), t('resultados.campos.investido'), t('resultados.campos.leads'), t('resultados.campos.mql'), t('resultados.campos.sql'), t('resultados.campos.vendas'), t('resultados.campos.receita'), t('resultados.campos.cpl'), t('resultados.campos.cac'), t('resultados.campos.roas'), ''].map((h, i) => (
                   <th key={h + i} className={`bg-rl-surface/60 px-3 pb-2 pt-1 font-medium ${i === 0 ? 'text-left' : 'text-right'} ${i === 3 || i === 7 ? 'border-l border-rl-border' : ''}`}>{h}</th>
                 ))}
               </tr>
@@ -274,7 +278,7 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
                   const r = wk[k] / alvo
                   return r >= 1 ? 'text-rl-green' : r >= 0.8 ? 'text-rl-gold' : 'text-red-500'
                 }
-                const metaTitulo = (k) => (weeklyTargets?.[k] ? `meta semanal: ${weeklyTargets[k]}` : undefined)
+                const metaTitulo = (k) => (weeklyTargets?.[k] ? t('resultados.tabela.metaSemanal', { n: weeklyTargets[k] }) : undefined)
                 const cel = 'px-3 py-2.5 text-right tabular-nums'
                 return [
                   <tr key={weekKey} className={`border-b border-rl-border/60 ${editing === weekKey ? 'bg-rl-purple/5' : 'hover:bg-rl-surface/40'}`}>
@@ -283,7 +287,7 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
                         <span className="font-semibold text-rl-text">{week.label}</span>
                         <AutoBadge entry={wk} />
                       </div>
-                      <div className="text-xs text-rl-muted">{week.start}/{month + 1} a {week.end}/{month + 1}</div>
+                      <div className="text-xs text-rl-muted">{t('resultados.intervalo', { de: diaMes(week.start, month), ate: diaMes(week.end, month) })}</div>
                     </td>
                     {wk ? (
                       <>
@@ -298,15 +302,15 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
                         <td className={`${cel} text-rl-subtle`}>{wk.investido > 0 && wk.receitaVendas > 0 ? `${(wk.receitaVendas / wk.investido).toFixed(2)}x` : '—'}</td>
                       </>
                     ) : (
-                      <td colSpan={9} className="px-3 py-2.5 text-xs text-rl-muted">Sem dados ainda. A API preenche quando a semana fecha.</td>
+                      <td colSpan={9} className="px-3 py-2.5 text-xs text-rl-muted">{t('resultados.tabela.semDadosSemana')}</td>
                     )}
                     <td className="px-3 py-2.5 text-right whitespace-nowrap">
                       {semLancamento ? (
                         <button onClick={() => setEditing(weekKey)} className="inline-flex items-center gap-1 text-xs font-semibold text-rl-purple bg-rl-purple/10 hover:bg-rl-purple/15 px-2.5 py-1 rounded-lg">
-                          <Plus size={12} /> Lançar vendas
+                          <Plus size={12} /> {t('resultados.acoes.lancarVendas')}
                         </button>
                       ) : (
-                        <button onClick={() => setEditing(editing === weekKey ? null : weekKey)} title={wk ? 'Editar semana' : 'Lançar semana'}
+                        <button onClick={() => setEditing(editing === weekKey ? null : weekKey)} title={wk ? t('resultados.acoes.editarSemana') : t('resultados.acoes.lancarSemana')}
                           className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-colors">
                           {wk ? <Edit2 size={13} /> : <Plus size={13} />}
                         </button>
@@ -326,7 +330,7 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
             {hasTotals && (
               <tfoot>
                 <tr className="bg-rl-surface/60 font-semibold text-rl-text">
-                  <td className="px-3 py-2.5">Total do mês</td>
+                  <td className="px-3 py-2.5">{t('resultados.totalMes')}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{fmtMoney(totals.investido)}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{fmtInt(totals.leads)}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums border-l border-rl-border/60">{fmtInt(totals.mql)}</td>
@@ -344,16 +348,16 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
         </div>
         {weeklyTargets && (
           <p className="px-3 py-2 text-xs text-rl-muted border-t border-rl-border/60">
-            Cor dos volumes = semana fechada contra a meta semanal do plano de ROI: <span className="text-rl-green">na meta</span>, <span className="text-rl-gold">80% a 99%</span>, <span className="text-red-500">abaixo</span>.
+            {t('resultados.tabela.legenda')} <span className="text-rl-green">{t('resultados.tabela.naMeta')}</span>, <span className="text-rl-gold">{t('resultados.tabela.faixa')}</span>, <span className="text-red-500">{t('resultados.tabela.abaixo')}</span>.
           </p>
         )}
       </div>
 
       {/* ── Evolução semanal ─────────────────────────────────────────────────────── */}
       <GraficosEvolucao
-        titulo="Evolução semanal"
-        labels={weekRanges.map((_, i) => `S${i + 1}`)}
-        nomes={weekRanges.map(w => `${w.label} · ${w.start}/${month + 1} a ${w.end}/${month + 1}`)}
+        titulo={t('resultados.evolucao.semanal')}
+        labels={weekRanges.map((_, i) => t('resultados.semanaCurta', { n: i + 1 }))}
+        nomes={weekRanges.map(w => `${w.label} · ${t('resultados.intervalo', { de: diaMes(w.start, month), ate: diaMes(w.end, month) })}`)}
         periodos={weekRanges.map((_, i) => {
           const w = monthData[`semana${i + 1}`]
           return w ? { investido: w.investido, leads: w.leads, vendas: w.vendas, receita: w.receitaVendas } : null
@@ -379,7 +383,7 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
             projectId={projectId}
             year={year}
             month={month}
-            monthLabel={`${MONTH_NAMES[month]} ${year}`}
+            monthLabel={`${nomeMes(month)} ${year}`}
           />
         </div>
       </div>

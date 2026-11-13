@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState } from 'react'
 import { Plus, X } from 'lucide-react'
+import { useI18n } from '../../i18n'
 
 export function Label({ children }) {
   return (
@@ -25,12 +26,13 @@ export function Field({ label, children }) {
 
 // Lista dinâmica de strings simples (adicionar / remover)
 export function DynamicStringList({ title, hint, placeholder, items = [], onChange }) {
+  const { t } = useI18n()
   const [draft, setDraft] = useState('')
 
   function add() {
-    const t = draft.trim()
-    if (!t) return
-    onChange([...(items || []), t])
+    const texto = draft.trim()
+    if (!texto) return
+    onChange([...(items || []), texto])
     setDraft('')
   }
 
@@ -52,7 +54,7 @@ export function DynamicStringList({ title, hint, placeholder, items = [], onChan
               type="button"
               onClick={() => remove(i)}
               className="p-1 text-rl-muted hover:text-red-400 transition-colors"
-              aria-label="Remover"
+              aria-label={t('comum.remover')}
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -73,7 +75,7 @@ export function DynamicStringList({ title, hint, placeholder, items = [], onChan
             disabled={!draft.trim()}
             className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-rl-purple text-white hover:bg-rl-purple/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <Plus className="w-3.5 h-3.5" /> Adicionar
+            <Plus className="w-3.5 h-3.5" /> {t('comum.adicionar')}
           </button>
         </div>
       </div>
@@ -83,6 +85,7 @@ export function DynamicStringList({ title, hint, placeholder, items = [], onChan
 
 // Tabela dinâmica: cada row tem N colunas. Add row / remove row.
 export function DynamicTable({ title, hint, columns = [], rows = [], onChange }) {
+  const { t } = useI18n()
   function add() {
     const empty = Object.fromEntries(columns.map((c) => [c.id, '']))
     onChange([...(rows || []), { id: crypto.randomUUID(), ...empty }])
@@ -121,7 +124,7 @@ export function DynamicTable({ title, hint, columns = [], rows = [], onChange })
               type="button"
               onClick={() => remove(i)}
               className="p-2 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
-              aria-label="Remover linha"
+              aria-label={t('mecanismo.campos.removerLinha')}
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -132,7 +135,7 @@ export function DynamicTable({ title, hint, columns = [], rows = [], onChange })
           onClick={add}
           className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border border-dashed border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all"
         >
-          <Plus className="w-3.5 h-3.5" /> Adicionar linha
+          <Plus className="w-3.5 h-3.5" /> {t('mecanismo.campos.adicionarLinha')}
         </button>
       </div>
     </div>

@@ -5,12 +5,14 @@ import { parseCreativeForFields } from '../../lib/criativoTemplate'
 import { downloadBlob, slugify } from '../../lib/htmlToJpg'
 import { useToast } from '../../hooks/useToast'
 import Toast from '../UI/Toast'
+import { useI18n } from '../../i18n'
 
 // Escala da preview por formato (largura do iframe é sempre 1080 nativo).
 const PREVIEW_SCALE = { feed: 0.5, story: 0.28 }
 
 export default function AdWireframePanel({ project }) {
   const { toast, showToast } = useToast()
+  const { t, lang, locale } = useI18n()
   const [selectedCreativeId, setSelectedCreativeId] = useState('')
   const [wireframeId, setWireframeId] = useState(AD_WIREFRAMES[0].id)
   const [format, setFormat] = useState('feed')
@@ -50,7 +52,7 @@ export default function AdWireframePanel({ project }) {
 
   const previewHtml = useMemo(
     () => wireframe.buildHtml({ format, values: mergedValues }),
-    [wireframe, format, mergedValues]
+    [wireframe, format, mergedValues, lang] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   const setField = (key) => (e) => {
@@ -67,12 +69,12 @@ export default function AdWireframePanel({ project }) {
 
   function handleDownloadCurrent() {
     downloadHtml(format)
-    showToast('HTML baixado!')
+    showToast(t('criativosVisual.wireframes.htmlBaixado'))
   }
 
   function handleDownloadBoth() {
     AD_FORMATS.forEach((f) => downloadHtml(f.id))
-    showToast('HTML dos 2 formatos baixados!')
+    showToast(t('criativosVisual.wireframes.doisFormatosBaixados'))
   }
 
   const fmtCfg = AD_FORMATS.find((f) => f.id === format) || AD_FORMATS[0]
@@ -84,10 +86,10 @@ export default function AdWireframePanel({ project }) {
       <div>
         <h3 className="text-base font-bold text-rl-text flex items-center gap-2">
           <LayoutTemplate className="w-4 h-4 text-rl-purple" />
-          Wireframes de anúncio (Feed + Story)
+          {t('criativosVisual.wireframes.titulo')}
         </h3>
         <p className="text-xs text-rl-muted mt-0.5">
-          Aplique uma copy gerada num layout de anúncio com o design system do cliente e baixe o HTML em 1080×1080 e 1080×1920.
+          {t('criativosVisual.wireframes.subtitulo')}
         </p>
       </div>
 
@@ -96,21 +98,21 @@ export default function AdWireframePanel({ project }) {
         <div className="space-y-4">
           {/* Selecionar copy */}
           <div>
-            <label className="label-field">Copy gerada (opcional)</label>
+            <label className="label-field">{t('criativosVisual.wireframes.copyOpcional')}</label>
             <select
               value={selectedCreativeId}
               onChange={handleSelectCreative}
               className="input-field w-full"
             >
-              <option value="">— Escolha uma copy gerada —</option>
+              <option value="">{t('criativosVisual.escolhaCopy')}</option>
               {creatives.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name || c.id}{c.createdAt ? ` · ${new Date(c.createdAt).toLocaleDateString('pt-BR')}` : ''}
+                  {c.name || c.id}{c.createdAt ? ` · ${new Date(c.createdAt).toLocaleDateString(locale)}` : ''}
                 </option>
               ))}
             </select>
             <p className="text-[10px] text-rl-muted mt-1">
-              Ao escolher, título, subheadline e CTA são pré-preenchidos. Você pode editar tudo abaixo.
+              {t('criativosVisual.wireframes.preenchidos')}
             </p>
           </div>
 
@@ -191,7 +193,7 @@ export default function AdWireframePanel({ project }) {
 
           {/* Cores do design system */}
           <div>
-            <label className="label-field">Design system do cliente</label>
+            <label className="label-field">{t('criativosVisual.wireframes.designSystem')}</label>
             <div className="grid grid-cols-3 gap-2">
               {wireframe.brandFields.map((f) => (
                 <div key={f.key}>
@@ -223,14 +225,14 @@ export default function AdWireframePanel({ project }) {
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
             >
               <Download className="w-4 h-4" />
-              Baixar HTML ({format === 'feed' ? 'Feed' : 'Story'})
+              {t('criativosVisual.wireframes.baixarHtml', { formato: format === 'feed' ? 'Feed' : 'Story' })}
             </button>
             <button
               onClick={handleDownloadBoth}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30 transition-all"
             >
               <Download className="w-4 h-4" />
-              Baixar os 2 formatos
+              {t('criativosVisual.wireframes.baixarDois')}
             </button>
           </div>
         </div>
@@ -238,7 +240,7 @@ export default function AdWireframePanel({ project }) {
         {/* Coluna 2: preview */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="label-field mb-0">Preview</label>
+            <label className="label-field mb-0">{t('criativosVisual.preview')}</label>
             <div className="flex items-center gap-1 p-0.5 rounded-lg bg-rl-surface border border-rl-border">
               {AD_FORMATS.map((f) => (
                 <button
@@ -276,7 +278,7 @@ export default function AdWireframePanel({ project }) {
             </div>
           </div>
           <p className="text-[10px] text-rl-muted mt-2 text-center">
-            Preview em escala {Math.round(scale * 100)}% (tamanho real: {fmtCfg.width}×{fmtCfg.height})
+            {t('criativosVisual.previewEscala', { pct: Math.round(scale * 100), tamanho: `${fmtCfg.width}×${fmtCfg.height}` })}
           </p>
         </div>
       </div>

@@ -5,7 +5,8 @@ import {
   Zap, FileDown, CheckCircle2, Link2, Check, Plus, Copy, Trash2, Star,
 } from 'lucide-react'
 import { exportOfertaPDF } from '../utils/exportPDF'
-import { streamClaude } from '../lib/claude'
+import { streamClaude, instrucaoDeIdioma } from '../lib/claude'
+import { t as tAgora, useI18n } from '../i18n'
 import VideoGuide from '../components/VideoGuide'
 import {
   hydrateOferta, newOferta, uid, GOM_SYSTEM_PROMPT, buildFinalPrompt,
@@ -27,10 +28,11 @@ function initialList(project) {
   return [{ ...newOferta(), id: uid(), createdAt: new Date().toISOString(), principal: true }]
 }
 
-const rotulo = (oferta, i) => oferta.nome?.trim() || `Oferta ${i + 1}`
+const rotulo = (oferta, i) => oferta.nome?.trim() || tAgora('oferta.ofertaN', { n: i + 1 })
 
 export default function OfertaMatadora({ project, onSave }) {
   const { updateProject } = useApp()
+  const { t } = useI18n()
   const [list, setList] = useState(() => initialList(project))
   const [activeId, setActiveId] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -73,7 +75,7 @@ export default function OfertaMatadora({ project, onSave }) {
       ...oferta,
       id:        uid(),
       createdAt: new Date().toISOString(),
-      nome:      oferta.nome?.trim() ? `${oferta.nome} (cópia)` : '',
+      nome:      oferta.nome?.trim() ? `${oferta.nome} ${t('oferta.sufixoCopia')}` : '',
       principal: false,
     }
     commit([...list, copia])
@@ -82,7 +84,7 @@ export default function OfertaMatadora({ project, onSave }) {
 
   const excluirOferta = () => {
     const i = list.findIndex((o) => o.id === oferta.id)
-    if (!window.confirm(`Excluir "${rotulo(oferta, i)}"? Essa ação não pode ser desfeita.`)) return
+    if (!window.confirm(t('oferta.confirmarExcluir', { nome: rotulo(oferta, i) }))) return
     const restante = list.filter((o) => o.id !== oferta.id)
     if (!restante.length) {
       const vazia = { ...newOferta(), id: uid(), createdAt: new Date().toISOString(), principal: true }
@@ -111,7 +113,12 @@ export default function OfertaMatadora({ project, onSave }) {
       const fullText = await streamClaude({
         model: 'claude-sonnet-4-5',
         max_tokens: 16000,
-        system: [{ type: 'text', text: GOM_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+        // Rótulos do formato (GOM #N, Valor total, Preço) ficam em pt: OfertaResult e o
+        // parseGOMs da Landing Page leem "GOM #N".
+        system: [
+          { type: 'text', text: GOM_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+          ...(instrucaoDeIdioma() ? [{ type: 'text', text: instrucaoDeIdioma() }] : []),
+        ],
         messages: [{ role: 'user', content: buildFinalPrompt(project, oferta) }],
         onChunk: (text) => set('generatedOffer', text),
       })
@@ -140,7 +147,7 @@ export default function OfertaMatadora({ project, onSave }) {
     <div className="space-y-6">
       <VideoGuide
         videoId="tLOx9Wjq7wo"
-        label="Como preencher o módulo de Oferta Matadora"
+        label={t('oferta.video')}
         defaultOpen
       />
 
@@ -148,10 +155,10 @@ export default function OfertaMatadora({ project, onSave }) {
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
-            <Zap className="w-5 h-5 text-rl-gold" /> Oferta Matadora
+            <Zap className="w-5 h-5 text-rl-gold" /> {t('oferta.titulo')}
           </h2>
           <p className="text-sm text-rl-muted mt-0.5">
-            Linha de produção passo-a-passo baseada em $100M Offers (Alex Hormozi)
+            {t('oferta.subtitulo')}
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -159,16 +166,16 @@ export default function OfertaMatadora({ project, onSave }) {
           <button
             onClick={copyClientLink}
             className="btn-secondary flex items-center gap-2 text-sm"
-            title="Copiar link para o cliente preencher sozinho"
+            title={t('oferta.linkDica')}
           >
             {linkCopied ? <Check className="w-4 h-4 text-green-400" /> : <Link2 className="w-4 h-4" />}
-            {linkCopied ? 'Link copiado!' : 'Link do Cliente'}
+            {linkCopied ? t('oferta.linkCopiado') : t('oferta.linkCliente')}
           </button>
           <button
             onClick={() => exportOfertaPDF(oferta, project)}
             disabled={!hasContent}
             className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Exportar PDF"
+            title={t('oferta.exportarPdf')}
           >
             <FileDown className="w-4 h-4" /> PDF
           </button>
@@ -197,7 +204,7 @@ export default function OfertaMatadora({ project, onSave }) {
             onClick={novaOferta}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs whitespace-nowrap text-rl-gold hover:bg-rl-gold/10 shrink-0"
           >
-            <Plus className="w-3.5 h-3.5" /> Nova oferta
+            <Plus className="w-3.5 h-3.5" /> {t('oferta.nova')}
           </button>
         </div>
 
@@ -205,36 +212,34 @@ export default function OfertaMatadora({ project, onSave }) {
           <input
             value={oferta.nome || ''}
             onChange={(e) => set('nome', e.target.value)}
-            placeholder={`Nome desta oferta (ex.: ${rotulo(oferta, list.indexOf(oferta))})`}
+            placeholder={t('oferta.nomePh', { ex: rotulo(oferta, list.indexOf(oferta)) })}
             className="input-field flex-1 min-w-[220px] text-sm"
           />
           <button
             onClick={definirPrincipal}
             disabled={ehPrincipal(oferta, list.indexOf(oferta))}
             className="btn-secondary flex items-center gap-1.5 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-            title="A oferta principal é a que alimenta LP, criativos e estratégia"
+            title={t('oferta.principalDica')}
           >
-            <Star className="w-3.5 h-3.5" /> Principal
+            <Star className="w-3.5 h-3.5" /> {t('oferta.principal')}
           </button>
           <button
             onClick={duplicarOferta}
             className="btn-secondary flex items-center gap-1.5 text-xs"
-            title="Duplicar esta oferta"
+            title={t('oferta.duplicarDica')}
           >
-            <Copy className="w-3.5 h-3.5" /> Duplicar
+            <Copy className="w-3.5 h-3.5" /> {t('oferta.duplicar')}
           </button>
           <button
             onClick={excluirOferta}
             className="btn-secondary flex items-center gap-1.5 text-xs text-rl-red"
-            title="Excluir esta oferta"
+            title={t('oferta.excluirDica')}
           >
-            <Trash2 className="w-3.5 h-3.5" /> Excluir
+            <Trash2 className="w-3.5 h-3.5" /> {t('comum.excluir')}
           </button>
         </div>
         <p className="text-[11px] text-rl-muted">
-          Cada aba é uma oferta completa e salva separadamente. A marcada como
-          principal (★) é a que os outros módulos usam e a que o cliente preenche
-          pelo link público.
+          {t('oferta.abasDica')}
         </p>
       </div>
 
@@ -258,7 +263,7 @@ export default function OfertaMatadora({ project, onSave }) {
               disabled={!hasContent}
               className="btn-primary flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <CheckCircle2 className="w-4 h-4" /> Concluir Oferta Matadora
+              <CheckCircle2 className="w-4 h-4" /> {t('oferta.concluir')}
             </button>
           )
         }

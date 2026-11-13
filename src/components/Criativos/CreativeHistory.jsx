@@ -6,8 +6,10 @@ import {
 } from 'lucide-react'
 import RatingSelector from '../RatingSelector'
 import { exportCreativoSetPDF } from '../../lib/creativoPDF'
+import { useI18n } from '../../i18n'
 
 export default function CreativeHistory({ project, updateProject, onOpen }) {
+  const { t } = useI18n()
   // Ordena do mais recente pro mais antigo. Antes era só `.reverse()` sobre a
   // ordem que o Supabase devolvia — como o SELECT não tem ORDER BY explícito,
   // criativos novos podiam vir no meio da lista. Sort por createdAt resolve.
@@ -24,10 +26,10 @@ export default function CreativeHistory({ project, updateProject, onOpen }) {
   if (!allCreatives.length) return null
 
   const visible = showAll ? allCreatives : allCreatives.slice(0, 5)
-  const companyName = project.companyName || project.company_name || 'Cliente'
+  const companyName = project.companyName || project.company_name || t('criativos.historico.cliente')
 
   // Flatten campaigns from plan for the campaign-link selector
-  const STAGE_LABELS = { topo: 'Topo', meio: 'Meio', fundo: 'Fundo' }
+  const STAGE_LABELS = { topo: t('criativos.historico.topo'), meio: t('criativos.historico.meio'), fundo: t('criativos.historico.fundo') }
   const allCampaigns = (() => {
     const result = []
     for (const account of (project.campaignPlan?.accounts || [])) {
@@ -50,7 +52,7 @@ export default function CreativeHistory({ project, updateProject, onOpen }) {
   })()
 
   function getDefaultName(c) {
-    const prefix = c.type === 'video' ? 'Vídeo' : 'Estático'
+    const prefix = c.type === 'video' ? t('criativos.historico.video') : t('criativos.historico.estatico')
     const types  = (c.adTypeLabels || []).slice(0, 2).join(', ')
     return types ? `${prefix} — ${types}` : prefix
   }
@@ -95,7 +97,7 @@ export default function CreativeHistory({ project, updateProject, onOpen }) {
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <History className="w-4 h-4 text-rl-muted" />
-        <h3 className="text-sm font-semibold text-rl-text">Histórico de Criativos</h3>
+        <h3 className="text-sm font-semibold text-rl-text">{t('criativos.historico.titulo')}</h3>
         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rl-surface text-rl-muted border border-rl-border">
           {allCreatives.length}
         </span>
@@ -149,7 +151,7 @@ export default function CreativeHistory({ project, updateProject, onOpen }) {
                   <button
                     onClick={(e) => startEditName(e, c)}
                     className="flex items-center gap-1.5 group text-left min-w-0 flex-1"
-                    title="Clique para renomear"
+                    title={t('criativos.historico.renomear')}
                   >
                     <span className="text-xs font-semibold text-rl-text truncate">
                       {c.name || getDefaultName(c)}
@@ -176,7 +178,7 @@ export default function CreativeHistory({ project, updateProject, onOpen }) {
                           : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-blue/30'
                       }`}
                     >
-                      <option value="">— Sem campanha —</option>
+                      <option value="">{t('criativos.historico.semCampanha')}</option>
                       {allCampaigns.map((camp) => (
                         <option key={camp.id} value={camp.id}>
                           {camp.name} · {camp.channel} · {camp.stage}
@@ -194,7 +196,7 @@ export default function CreativeHistory({ project, updateProject, onOpen }) {
                     ? 'text-rl-purple bg-rl-purple/10 border-rl-purple/30'
                     : 'text-rl-blue   bg-rl-blue/10   border-rl-blue/30'
                 }`}>
-                  {c.type === 'video' ? '🎬 Vídeo' : '🖼️ Estático'}
+                  {c.type === 'video' ? `🎬 ${t('criativos.historico.video')}` : `🖼️ ${t('criativos.historico.estatico')}`}
                 </span>
 
                 <div className="flex flex-wrap gap-1 min-w-0 flex-1">
@@ -218,14 +220,14 @@ export default function CreativeHistory({ project, updateProject, onOpen }) {
                   <button
                     onClick={(e) => handleExport(e, c)}
                     disabled={exportingId === c.id}
-                    title="Exportar PDF"
+                    title={t('criativos.historico.exportarPdf')}
                     className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all disabled:opacity-40"
                   >
                     <FileDown className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={(e) => handleDelete(e, c.id)}
-                    title="Excluir"
+                    title={t('comum.excluir')}
                     className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -241,7 +243,7 @@ export default function CreativeHistory({ project, updateProject, onOpen }) {
             onClick={() => setShowAll((v) => !v)}
             className="w-full px-4 py-3 text-xs text-rl-muted hover:text-rl-text transition-colors text-center"
           >
-            {showAll ? '▲ Mostrar menos' : `▼ Ver mais ${allCreatives.length - 5} entradas`}
+            {showAll ? `▲ ${t('criativos.historico.mostrarMenos')}` : `▼ ${t('criativos.historico.verMais', { count: allCreatives.length - 5 })}`}
           </button>
         )}
       </div>

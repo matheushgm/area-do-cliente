@@ -7,8 +7,9 @@ import { useState } from 'react'
 import { Plus, X, Sparkles, Loader2, CheckCircle2, Zap, AlertTriangle, Info, Pencil } from 'lucide-react'
 import {
   DRIVERS, DRIVER_BY_ID, ATENCAO_OPTS, ESFORCO_OPTS, MEIO_OPTS,
-  ESCASSEZ_TIPOS, URGENCIA_TIPOS, GARANTIA_TIPOS, uid, aiAssist,
+  ESCASSEZ_TIPOS, URGENCIA_TIPOS, GARANTIA_TIPOS, uid, aiAssist, rotuloMeio,
 } from './ofertaShared'
+import { t, useI18n, localeAtual } from '../../i18n'
 import {
   OM_QUESTIONS, computeOmDiagnosis, getVerdict,
 } from '../Kickoff/KickoffOfertaMatadora'
@@ -41,7 +42,8 @@ function Example({ b2b, b2c }) {
   )
 }
 
-function AIButton({ onClick, loading, label = 'Sugerir com IA' }) {
+function AIButton({ onClick, loading, label }) {
+  const { t } = useI18n()
   return (
     <button
       onClick={onClick}
@@ -49,7 +51,7 @@ function AIButton({ onClick, loading, label = 'Sugerir com IA' }) {
       className="inline-flex items-center gap-1.5 text-xs font-medium text-rl-gold hover:text-rl-gold/80 transition-colors disabled:opacity-50"
     >
       {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-      {loading ? 'Gerando...' : `💡 ${label}`}
+      {loading ? t('ofertaPassos.gerando') : `💡 ${label || t('ofertaPassos.sugerirIa')}`}
     </button>
   )
 }
@@ -98,6 +100,7 @@ function ChoiceCards({ options, value, onChange }) {
 
 // ─── Passo 0: Diagnóstico ───────────────────────────────────────────────────
 export function StepDiagnostico({ oferta, set, q, avancar }) {
+  const { t } = useI18n()
   const answers = oferta.diagnostico?.answers || {}
   const diag = computeOmDiagnosis(answers)
 
@@ -111,16 +114,16 @@ export function StepDiagnostico({ oferta, set, q, avancar }) {
   const answeredAll = diag.answeredCount === OM_QUESTIONS.length
 
   const tipo = (
-    <Field key="tipo" label="Seu cliente é:" emoji="🎯" hint="Isso ajusta as dicas ao longo do wizard.">
+    <Field key="tipo" label={t('ofertaPassos.diagnostico.seuCliente')} emoji="🎯" hint={t('ofertaPassos.diagnostico.seuClienteDica')}>
       <div className="grid grid-cols-2 gap-2">
-        {[{ v: 'b2b', l: '🏢 Empresa (B2B)' }, { v: 'b2c', l: '🙋 Consumidor (B2C)' }].map((t) => (
+        {[{ v: 'b2b', l: `🏢 ${t('ofertaPassos.diagnostico.b2b')}` }, { v: 'b2c', l: `🙋 ${t('ofertaPassos.diagnostico.b2c')}` }].map((tp) => (
           <button
-            key={t.v}
-            onClick={() => { set('tipoCliente', t.v); avancar?.() }}
+            key={tp.v}
+            onClick={() => { set('tipoCliente', tp.v); avancar?.() }}
             className={`p-3 rounded-xl border text-sm font-semibold transition-all ${
-              oferta.tipoCliente === t.v ? 'border-rl-gold bg-rl-gold/10 text-rl-text' : 'border-rl-border text-rl-muted hover:border-rl-gold/40'
+              oferta.tipoCliente === tp.v ? 'border-rl-gold bg-rl-gold/10 text-rl-text' : 'border-rl-border text-rl-muted hover:border-rl-gold/40'
             }`}
-          >{t.l}</button>
+          >{tp.l}</button>
         ))}
       </div>
     </Field>
@@ -147,7 +150,7 @@ export function StepDiagnostico({ oferta, set, q, avancar }) {
   return (
     <div className="space-y-5">
       <p className="text-sm text-rl-muted">
-        Antes de construir, vamos checar se o cenário favorece uma oferta agressiva. Responda as 6 perguntas.
+        {t('ofertaPassos.diagnostico.intro')}
       </p>
 
       {pick([tipo, ...perguntas], q)}
@@ -162,7 +165,7 @@ export function StepDiagnostico({ oferta, set, q, avancar }) {
           {verdict.id === 'nao_cabe' && (
             <p className="text-[11px] text-rl-muted mt-2 flex items-start gap-1.5">
               <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-              Você pode construir mesmo assim, mas considere autoridade/conteúdo antes de escalar.
+              {t('ofertaPassos.diagnostico.naoCabe')}
             </p>
           )}
         </div>
@@ -173,6 +176,7 @@ export function StepDiagnostico({ oferta, set, q, avancar }) {
 
 // ─── Passo 1: Sonho ─────────────────────────────────────────────────────────
 export function StepSonho({ oferta, set, project, publicMode, q }) {
+  const { t } = useI18n()
   const { run, loading, err } = useAssist(project, oferta)
   const suggest = async () => {
     const r = await run('sonho')
@@ -184,27 +188,28 @@ export function StepSonho({ oferta, set, project, publicMode, q }) {
   }
   return (
     <div className="space-y-4">
-      <p className="text-sm text-rl-muted">Venda a <b>transformação</b>, não o produto. E lembre: as pessoas compram <b>status</b> — como serão vistas pelos outros.</p>
-      {!publicMode && <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label="Refinar meu sonho" /></div>}
+      <p className="text-sm text-rl-muted">{t('ofertaPassos.sonho.intro1')}<b>{t('ofertaPassos.sonho.intro2')}</b>{t('ofertaPassos.sonho.intro3')}<b>{t('ofertaPassos.sonho.intro4')}</b>{t('ofertaPassos.sonho.intro5')}</p>
+      {!publicMode && <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label={t('ofertaPassos.sonho.ia')} /></div>}
       {err && <ErrLine msg={err} />}
       {pick([
-        <Field key="dor" label="Onde seu cliente está HOJE (a dor)?" emoji="😣">
-          <textarea rows={isAll(q) ? 2 : 4} value={oferta.dorAtual} onChange={(e) => set('dorAtual', e.target.value)} className="input-field resize-none text-sm" placeholder="Ex: perde negócios por não saber o próprio custo de aquisição" />
+        <Field key="dor" label={t('ofertaPassos.sonho.dor')} emoji="😣">
+          <textarea rows={isAll(q) ? 2 : 4} value={oferta.dorAtual} onChange={(e) => set('dorAtual', e.target.value)} className="input-field resize-none text-sm" placeholder={t('ofertaPassos.sonho.dorPh')} />
         </Field>,
-        <Field key="sonho" label="Onde ele quer chegar (o sonho)?" emoji="✨">
-          <textarea rows={isAll(q) ? 2 : 4} value={oferta.resultadoSonho} onChange={(e) => set('resultadoSonho', e.target.value)} className="input-field resize-none text-sm" placeholder="Ex: máquina de aquisição previsível, R$X/mês com margem" />
+        <Field key="sonho" label={t('ofertaPassos.sonho.sonho')} emoji="✨">
+          <textarea rows={isAll(q) ? 2 : 4} value={oferta.resultadoSonho} onChange={(e) => set('resultadoSonho', e.target.value)} className="input-field resize-none text-sm" placeholder={t('ofertaPassos.sonho.sonhoPh')} />
         </Field>,
-        <Field key="status" label="Como ele será visto pelos outros depois?" emoji="👑">
-          <input type="text" value={oferta.statusGanho} onChange={(e) => set('statusGanho', e.target.value)} className="input-field text-sm" placeholder="Ex: o dono que 'destravou' o crescimento" />
+        <Field key="status" label={t('ofertaPassos.sonho.status')} emoji="👑">
+          <input type="text" value={oferta.statusGanho} onChange={(e) => set('statusGanho', e.target.value)} className="input-field text-sm" placeholder={t('ofertaPassos.sonho.statusPh')} />
         </Field>,
       ], q)}
-      <Example b2b="dor='não sabe o CAC' → sonho='aquisição previsível' → status='destravou o crescimento'" b2c="dor='acorda com dor nas costas' → sonho='dormir a noite toda' → status='resolveu e recomenda'" />
+      <Example b2b={t('ofertaPassos.sonho.exB2b')} b2c={t('ofertaPassos.sonho.exB2c')} />
     </div>
   )
 }
 
 // ─── Passo 2: Problemas (4 drivers) ─────────────────────────────────────────
 export function StepProblemas({ oferta, set, project, publicMode, q }) {
+  const { t } = useI18n()
   const { run, loading, err } = useAssist(project, oferta)
   const problemas = oferta.problemas || []
   const add = (driver) => set('problemas', [...problemas, { id: uid(), texto: '', driver }])
@@ -219,16 +224,16 @@ export function StepProblemas({ oferta, set, project, publicMode, q }) {
   }
   return (
     <div className="space-y-4">
-      <p className="text-sm text-rl-muted">Liste tudo que passa na cabeça do cliente <b>antes, durante e depois</b> da compra. Cada objeção vira um bônus ou uma garantia depois. Mire 8+.</p>
+      <p className="text-sm text-rl-muted">{t('ofertaPassos.problemas.intro1')}<b>{t('ofertaPassos.problemas.intro2')}</b>{t('ofertaPassos.problemas.intro3')}</p>
       <div className="flex items-center justify-between">
-        <span className="text-xs text-rl-muted">{problemas.length} objeções</span>
-        {!publicMode && <AIButton onClick={suggest} loading={loading} label="Sugerir objeções do meu público" />}
+        <span className="text-xs text-rl-muted">{t('ofertaPassos.problemas.contagem', { count: problemas.length })}</span>
+        {!publicMode && <AIButton onClick={suggest} loading={loading} label={t('ofertaPassos.problemas.ia')} />}
       </div>
       {err && <ErrLine msg={err} />}
       <div className={isAll(q) ? 'grid md:grid-cols-2 gap-3' : 'space-y-3'}>
         {pick(DRIVERS.map((d) => (
           <div key={d.id} className="glass-card p-3 space-y-2">
-            {!isAll(q) && <p className="text-sm font-medium text-rl-text">Que objeções do tipo “{d.label}” o seu cliente tem?</p>}
+            {!isAll(q) && <p className="text-sm font-medium text-rl-text">{t('ofertaPassos.problemas.pergunta', { tipo: d.label })}</p>}
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full" style={{ background: d.color }} />
               <p className="text-sm font-semibold text-rl-text">{d.label}</p>
@@ -236,12 +241,12 @@ export function StepProblemas({ oferta, set, project, publicMode, q }) {
             <p className="text-[11px] text-rl-muted">{d.hint}</p>
             {problemas.filter((p) => p.driver === d.id).map((p) => (
               <div key={p.id} className="flex items-center gap-1.5">
-                <input value={p.texto} onChange={(e) => update(p.id, e.target.value)} placeholder="Objeção..." className={`input-field flex-1 ${isAll(q) ? 'py-1.5 text-xs' : 'py-2 text-sm'}`} />
+                <input value={p.texto} onChange={(e) => update(p.id, e.target.value)} placeholder={t('ofertaPassos.problemas.objecaoPh')} className={`input-field flex-1 ${isAll(q) ? 'py-1.5 text-xs' : 'py-2 text-sm'}`} />
                 <button onClick={() => remove(p.id)} className="p-1 text-rl-muted hover:text-rl-red shrink-0"><X className="w-3.5 h-3.5" /></button>
               </div>
             ))}
             <button onClick={() => add(d.id)} className="flex items-center gap-1 text-xs text-rl-purple hover:text-rl-purple/80">
-              <Plus className="w-3.5 h-3.5" /> Adicionar
+              <Plus className="w-3.5 h-3.5" /> {t('comum.adicionar')}
             </button>
           </div>
         )), q)}
@@ -252,6 +257,7 @@ export function StepProblemas({ oferta, set, project, publicMode, q }) {
 
 // ─── Passo 3: Soluções ──────────────────────────────────────────────────────
 export function StepSolucoes({ oferta, set, project, publicMode, q }) {
+  const { t } = useI18n()
   const { run, loading, err } = useAssist(project, oferta)
   const problemas = oferta.problemas || []
   const solucoes = oferta.solucoes || []
@@ -275,24 +281,24 @@ export function StepSolucoes({ oferta, set, project, publicMode, q }) {
     }
   }
   const done = problemas.filter((p) => getSol(p.id)?.comoResolve?.trim()).length
-  if (!problemas.length) return <EmptyHint text="Volte ao passo anterior e liste ao menos alguns problemas." />
+  if (!problemas.length) return <EmptyHint text={t('ofertaPassos.solucoes.vazio')} />
   return (
     <div className="space-y-4">
-      <p className="text-sm text-rl-muted">Para cada travamento, responda: o que eu preciso <b>mostrar/entregar</b> pra resolver? Comece com "Como...".</p>
+      <p className="text-sm text-rl-muted">{t('ofertaPassos.solucoes.intro1')}<b>{t('ofertaPassos.solucoes.intro2')}</b>{t('ofertaPassos.solucoes.intro3')}</p>
       <div className="flex items-center justify-between">
-        <span className="text-xs text-rl-muted">{done} de {problemas.length} resolvidos</span>
-        {!publicMode && <AIButton onClick={suggest} loading={loading} label="Sugerir soluções" />}
+        <span className="text-xs text-rl-muted">{t('ofertaPassos.solucoes.resolvidos', { feitos: done, total: problemas.length })}</span>
+        {!publicMode && <AIButton onClick={suggest} loading={loading} label={t('ofertaPassos.solucoes.ia')} />}
       </div>
       {err && <ErrLine msg={err} />}
       <div className="space-y-2">
         {pick(problemas.map((p) => (
           <div key={p.id} className="glass-card p-3 space-y-1.5">
-            {!isAll(q) && <p className="text-[11px] uppercase tracking-wide text-rl-muted">Objeção · {DRIVER_BY_ID[p.driver]?.label}</p>}
+            {!isAll(q) && <p className="text-[11px] uppercase tracking-wide text-rl-muted">{t('ofertaPassos.solucoes.objecao')} · {DRIVER_BY_ID[p.driver]?.label}</p>}
             <p className={`${isAll(q) ? 'text-xs text-rl-muted' : 'text-sm font-medium text-rl-text'} flex items-center gap-1.5`}>
               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: DRIVER_BY_ID[p.driver]?.color }} />
-              {p.texto || '(objeção sem texto)'}
+              {p.texto || t('ofertaPassos.objecaoSemTexto')}
             </p>
-            <input value={getSol(p.id)?.comoResolve || ''} onChange={(e) => setSol(p.id, e.target.value)} placeholder="Como..." className="input-field text-sm" />
+            <input value={getSol(p.id)?.comoResolve || ''} onChange={(e) => setSol(p.id, e.target.value)} placeholder={t('ofertaPassos.solucoes.comoPh')} className="input-field text-sm" />
           </div>
         )), q)}
       </div>
@@ -302,6 +308,7 @@ export function StepSolucoes({ oferta, set, project, publicMode, q }) {
 
 // ─── Passo 4: Entrega ───────────────────────────────────────────────────────
 export function StepEntrega({ oferta, set, q }) {
+  const { t } = useI18n()
   const e = oferta.entrega || {}
   const setE = (k, v) => set('entrega', { ...e, [k]: v })
   const toggleMeio = (m) => {
@@ -310,28 +317,29 @@ export function StepEntrega({ oferta, set, q }) {
   }
   return (
     <div className="space-y-5">
-      <p className="text-sm text-rl-muted">Quanto menos esforço pro cliente (DFY) e quanto mais "um-para-muitos", maior a margem. Escolha o ponto que você entrega bem.</p>
+      <p className="text-sm text-rl-muted">{t('ofertaPassos.entrega.intro')}</p>
       {pick([
-        <Field key="atencao" label="Nível de atenção" emoji="👥"><ChoiceCards options={ATENCAO_OPTS} value={e.atencao} onChange={(v) => setE('atencao', v)} /></Field>,
-        <Field key="esforco" label="Nível de esforço do cliente" emoji="🛠️"><ChoiceCards options={ESFORCO_OPTS} value={e.esforcoModelo} onChange={(v) => setE('esforcoModelo', v)} /></Field>,
-        <Field key="meio" label="Meio de entrega" emoji="📡" hint="Selecione um ou mais.">
+        <Field key="atencao" label={t('ofertaPassos.entrega.atencao')} emoji="👥"><ChoiceCards options={ATENCAO_OPTS} value={e.atencao} onChange={(v) => setE('atencao', v)} /></Field>,
+        <Field key="esforco" label={t('ofertaPassos.entrega.esforco')} emoji="🛠️"><ChoiceCards options={ESFORCO_OPTS} value={e.esforcoModelo} onChange={(v) => setE('esforcoModelo', v)} /></Field>,
+        <Field key="meio" label={t('ofertaPassos.entrega.meio')} emoji="📡" hint={t('ofertaPassos.entrega.meioDica')}>
           <div className="flex flex-wrap gap-2">
             {MEIO_OPTS.map((m) => {
               const active = (e.meio || []).includes(m)
               return (
-                <button key={m} onClick={() => toggleMeio(m)} className={`px-3 py-1.5 rounded-full text-xs border transition-all ${active ? 'border-rl-gold bg-rl-gold/10 text-rl-text' : 'border-rl-border text-rl-muted hover:border-rl-gold/40'}`}>{m}</button>
+                <button key={m} onClick={() => toggleMeio(m)} className={`px-3 py-1.5 rounded-full text-xs border transition-all ${active ? 'border-rl-gold bg-rl-gold/10 text-rl-text' : 'border-rl-border text-rl-muted hover:border-rl-gold/40'}`}>{rotuloMeio(m)}</button>
               )
             })}
           </div>
         </Field>,
       ], q)}
-      <Example b2b="1 a 1 + DFY + Zoom/relatório (consultoria high-ticket)" b2c="Um-para-muitos + DWY + app/vídeo (programa escalável)" />
+      <Example b2b={t('ofertaPassos.entrega.exB2b')} b2c={t('ofertaPassos.entrega.exB2c')} />
     </div>
   )
 }
 
 // ─── Passo 5: Núcleo + Stack + Preço ────────────────────────────────────────
 export function StepNucleo({ oferta, set, project, publicMode, q }) {
+  const { t, locale } = useI18n()
   const { run, loading, err } = useAssist(project, oferta)
   const stack = oferta.itensStack || []
   const addItem = () => set('itensStack', [...stack, { id: uid(), nome: '', tipo: 'entrega', valor: '' }])
@@ -349,24 +357,24 @@ export function StepNucleo({ oferta, set, project, publicMode, q }) {
   }
   return (
     <div className="space-y-4">
-      <p className="text-sm text-rl-muted">Some o valor de cada peça. A meta é o valor percebido ser <b>~10x o preço</b>. Nunca dê desconto — adicione peça.</p>
+      <p className="text-sm text-rl-muted">{t('ofertaPassos.nucleo.intro1')}<b>{t('ofertaPassos.nucleo.intro2')}</b>{t('ofertaPassos.nucleo.intro3')}</p>
       {pick([
-      <Field key="nucleo" label="Entrega PRINCIPAL (núcleo)" emoji="🎯">
-        <input value={oferta.nucleo} onChange={(e) => set('nucleo', e.target.value)} className="input-field text-sm" placeholder="Ex: financeiro completo rodando (a pagar/receber, conciliação, DRE)" />
+      <Field key="nucleo" label={t('ofertaPassos.nucleo.nucleo')} emoji="🎯">
+        <input value={oferta.nucleo} onChange={(e) => set('nucleo', e.target.value)} className="input-field text-sm" placeholder={t('ofertaPassos.nucleo.nucleoPh')} />
       </Field>,
 
       <div key="stack" className="space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-rl-text">📦 Entregas da oferta (com valor)</p>
-        {!publicMode && <AIButton onClick={suggest} loading={loading} label="Montar o stack" />}
+        <p className="text-sm font-medium text-rl-text">📦 {t('ofertaPassos.nucleo.entregas')}</p>
+        {!publicMode && <AIButton onClick={suggest} loading={loading} label={t('ofertaPassos.nucleo.ia')} />}
       </div>
-      <p className="text-xs text-rl-muted">Liste as entregas que compõem a oferta. Os bônus são um passo à parte, mais pra frente.</p>
+      <p className="text-xs text-rl-muted">{t('ofertaPassos.nucleo.entregasDica')}</p>
       {err && <ErrLine msg={err} />}
       <div className="space-y-2">
         {stack.map((i, idx) => (
           <div key={i.id} className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-rl-muted w-20 shrink-0">Entrega {idx + 1}</span>
-            <input value={i.nome} onChange={(ev) => updItem(i.id, { nome: ev.target.value })} placeholder="Nome sedutor da entrega" className="input-field flex-1 py-1.5 text-xs" />
+            <span className="text-xs font-medium text-rl-muted w-20 shrink-0">{t('ofertaPassos.nucleo.entregaN', { n: idx + 1 })}</span>
+            <input value={i.nome} onChange={(ev) => updItem(i.id, { nome: ev.target.value })} placeholder={t('ofertaPassos.nucleo.entregaPh')} className="input-field flex-1 py-1.5 text-xs" />
             <div className="flex items-center gap-0.5 shrink-0">
               <span className="text-[11px] text-rl-muted">R$</span>
               <input type="number" value={i.valor} onChange={(ev) => updItem(i.id, { valor: ev.target.value })} placeholder="0" className="input-field py-1.5 text-xs w-20" />
@@ -374,27 +382,27 @@ export function StepNucleo({ oferta, set, project, publicMode, q }) {
             <button onClick={() => rmItem(i.id)} className="p-1 text-rl-muted hover:text-rl-red shrink-0"><X className="w-3.5 h-3.5" /></button>
           </div>
         ))}
-        <button onClick={() => addItem()} className="flex items-center gap-1 text-xs text-rl-purple hover:text-rl-purple/80"><Plus className="w-3.5 h-3.5" /> Adicionar entrega</button>
+        <button onClick={() => addItem()} className="flex items-center gap-1 text-xs text-rl-purple hover:text-rl-purple/80"><Plus className="w-3.5 h-3.5" /> {t('ofertaPassos.nucleo.adicionarEntrega')}</button>
       </div>
       </div>,
 
-        <Field key="preco" label="Preço final (R$)" emoji="💰">
-          <input type="number" value={oferta.preco} onChange={(e) => set('preco', e.target.value)} className="input-field text-sm" placeholder="Ex: 1997" />
+        <Field key="preco" label={t('ofertaPassos.nucleo.preco')} emoji="💰">
+          <input type="number" value={oferta.preco} onChange={(e) => set('preco', e.target.value)} className="input-field text-sm" placeholder={t('ofertaPassos.nucleo.precoPh')} />
         </Field>,
-        <Field key="velocidade" label="1ª vitória (velocidade)" emoji="⚡">
-          <input value={oferta.velocidade} onChange={(e) => set('velocidade', e.target.value)} className="input-field text-sm" placeholder="Ex: primeiro resultado em 7 dias" />
+        <Field key="velocidade" label={t('ofertaPassos.nucleo.velocidade')} emoji="⚡">
+          <input value={oferta.velocidade} onChange={(e) => set('velocidade', e.target.value)} className="input-field text-sm" placeholder={t('ofertaPassos.nucleo.velocidadePh')} />
         </Field>,
-      <Field key="esforco" label="Esforço mínimo do cliente" emoji="🤝" hint="O que ele precisa fazer: minimize ao máximo.">
-        <textarea rows={2} value={oferta.esforcoMinimo} onChange={(e) => set('esforcoMinimo', e.target.value)} className="input-field resize-none text-sm" placeholder="Ex: você só dá acesso; nós cuidamos de tudo" />
+      <Field key="esforco" label={t('ofertaPassos.nucleo.esforco')} emoji="🤝" hint={t('ofertaPassos.nucleo.esforcoDica')}>
+        <textarea rows={2} value={oferta.esforcoMinimo} onChange={(e) => set('esforcoMinimo', e.target.value)} className="input-field resize-none text-sm" placeholder={t('ofertaPassos.nucleo.esforcoPh')} />
       </Field>,
       ], q)}
 
       {(total > 0 || preco > 0) && (isAll(q) || q === 1 || q === 2) && (
         <div className={`rounded-xl p-3 text-sm border ${ratio >= 10 ? 'border-green-500/40 bg-green-500/5' : ratio >= 3 ? 'border-rl-gold/40 bg-rl-gold/5' : 'border-rl-red/40 bg-rl-red/5'}`}>
-          <p className="text-rl-text font-semibold">Valor total R$ {total.toLocaleString('pt-BR')} · Preço R$ {preco.toLocaleString('pt-BR')}
+          <p className="text-rl-text font-semibold">{t('ofertaPassos.nucleo.razao', { total: total.toLocaleString(locale), preco: preco.toLocaleString(locale) })}
             {ratio > 0 && <> · <b>{ratio.toFixed(1)}x</b></>}</p>
           <p className="text-xs text-rl-muted mt-0.5">
-            {ratio >= 10 ? '✅ Excelente — valor ~10x o preço.' : ratio >= 3 ? '⚠️ Ok, mas empilhe mais valor pra chegar a 10x.' : ratio > 0 ? '❌ Discrepância fraca — aumente o valor percebido.' : 'Defina preço e valores pra ver a razão.'}
+            {ratio >= 10 ? t('ofertaPassos.nucleo.razaoOtima') : ratio >= 3 ? t('ofertaPassos.nucleo.razaoOk') : ratio > 0 ? t('ofertaPassos.nucleo.razaoFraca') : t('ofertaPassos.nucleo.razaoVazia')}
           </p>
         </div>
       )}
@@ -404,42 +412,44 @@ export function StepNucleo({ oferta, set, project, publicMode, q }) {
 
 // ─── Passo 6: Escassez + Urgência ───────────────────────────────────────────
 export function StepEscassez({ oferta, set, q }) {
-  const pickEsc = (t) => {
-    set('escassezTipo', t.value)
-    if (t.tpl && !oferta.escassez) set('escassez', t.tpl)
+  const { t } = useI18n()
+  const pickEsc = (tp) => {
+    set('escassezTipo', tp.value)
+    if (tp.tpl && !oferta.escassez) set('escassez', tp.tpl)
   }
-  const pickUrg = (t) => {
-    set('urgenciaTipo', t.value)
-    if (t.tpl && !oferta.urgencia) set('urgencia', t.tpl)
+  const pickUrg = (tp) => {
+    set('urgenciaTipo', tp.value)
+    if (tp.tpl && !oferta.urgencia) set('urgencia', tp.tpl)
   }
   return (
     <div className="space-y-5">
-      <p className="text-sm text-rl-muted"><b>Escassez</b> = quantidade limitada. <b>Urgência</b> = prazo. Use uma de cada. Tem que ser <b>real</b> — deadline falso queima credibilidade.</p>
+      <p className="text-sm text-rl-muted"><b>{t('ofertaPassos.escassez.escassez')}</b>{t('ofertaPassos.escassez.intro1')}<b>{t('ofertaPassos.escassez.urgencia')}</b>{t('ofertaPassos.escassez.intro2')}<b>{t('ofertaPassos.escassez.intro3')}</b>{t('ofertaPassos.escassez.intro4')}</p>
       {pick([
-      <Field key="escassez" label="Escassez" emoji="🔒">
+      <Field key="escassez" label={t('ofertaPassos.escassez.escassez')} emoji="🔒">
         <div className="flex flex-wrap gap-2 mb-2">
-          {ESCASSEZ_TIPOS.map((t) => (
-            <button key={t.value} onClick={() => pickEsc(t)} className={`px-3 py-1.5 rounded-full text-xs border transition-all ${oferta.escassezTipo === t.value ? 'border-rl-gold bg-rl-gold/10 text-rl-text' : 'border-rl-border text-rl-muted hover:border-rl-gold/40'}`}>{t.label}</button>
+          {ESCASSEZ_TIPOS.map((tp) => (
+            <button key={tp.value} onClick={() => pickEsc(tp)} className={`px-3 py-1.5 rounded-full text-xs border transition-all ${oferta.escassezTipo === tp.value ? 'border-rl-gold bg-rl-gold/10 text-rl-text' : 'border-rl-border text-rl-muted hover:border-rl-gold/40'}`}>{tp.label}</button>
           ))}
         </div>
-        <input value={oferta.escassez} onChange={(e) => set('escassez', e.target.value)} className="input-field text-sm" placeholder="Frase final de escassez" />
+        <input value={oferta.escassez} onChange={(e) => set('escassez', e.target.value)} className="input-field text-sm" placeholder={t('ofertaPassos.escassez.escassezPh')} />
       </Field>,
-      <Field key="urgencia" label="Urgência" emoji="⏳">
+      <Field key="urgencia" label={t('ofertaPassos.escassez.urgencia')} emoji="⏳">
         <div className="flex flex-wrap gap-2 mb-2">
-          {URGENCIA_TIPOS.map((t) => (
-            <button key={t.value} onClick={() => pickUrg(t)} className={`px-3 py-1.5 rounded-full text-xs border transition-all ${oferta.urgenciaTipo === t.value ? 'border-rl-gold bg-rl-gold/10 text-rl-text' : 'border-rl-border text-rl-muted hover:border-rl-gold/40'}`}>{t.label}</button>
+          {URGENCIA_TIPOS.map((tp) => (
+            <button key={tp.value} onClick={() => pickUrg(tp)} className={`px-3 py-1.5 rounded-full text-xs border transition-all ${oferta.urgenciaTipo === tp.value ? 'border-rl-gold bg-rl-gold/10 text-rl-text' : 'border-rl-border text-rl-muted hover:border-rl-gold/40'}`}>{tp.label}</button>
           ))}
         </div>
-        <input value={oferta.urgencia} onChange={(e) => set('urgencia', e.target.value)} className="input-field text-sm" placeholder="Frase final de urgência" />
+        <input value={oferta.urgencia} onChange={(e) => set('urgencia', e.target.value)} className="input-field text-sm" placeholder={t('ofertaPassos.escassez.urgenciaPh')} />
       </Field>,
       ], q)}
-      <Example b2b="'5 vagas/mês, restam 2' + 'implantação grátis fechando este mês'" b2c="'lote de 8 unidades' + 'Semana do Sono até domingo'" />
+      <Example b2b={t('ofertaPassos.escassez.exB2b')} b2c={t('ofertaPassos.escassez.exB2c')} />
     </div>
   )
 }
 
 // ─── Passo 7: Bônus ─────────────────────────────────────────────────────────
 export function StepBonus({ oferta, set, project, publicMode }) {
+  const { t } = useI18n()
   const { run, loading, err } = useAssist(project, oferta)
   const bonus = oferta.bonus?.length ? oferta.bonus : ['']
   const add = () => bonus.length < 10 && set('bonus', [...bonus, ''])
@@ -455,18 +465,18 @@ export function StepBonus({ oferta, set, project, publicMode }) {
   }
   return (
     <div className="space-y-4">
-      <p className="text-sm text-rl-muted">Cada bônus resolve <b>UMA objeção</b>. Ferramentas e checklists valem mais que treinamentos. A soma dos bônus deve valer mais que o produto principal. Nunca desconto — bônus.</p>
-      {!publicMode && <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label="Sugerir bônus" /></div>}
+      <p className="text-sm text-rl-muted">{t('ofertaPassos.bonus.intro1')}<b>{t('ofertaPassos.bonus.intro2')}</b>{t('ofertaPassos.bonus.intro3')}</p>
+      {!publicMode && <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label={t('ofertaPassos.bonus.ia')} /></div>}
       {err && <ErrLine msg={err} />}
       <div className="space-y-2">
         {bonus.map((b, i) => (
           <div key={i} className="flex items-center gap-2">
             <span className="text-[11px] text-rl-muted w-4 text-right shrink-0">{i + 1}.</span>
-            <input value={b} onChange={(e) => upd(i, e.target.value)} placeholder="Ex: Régua de Cobrança Automática — R$ 1.500 (recupera inadimplência)" className="input-field flex-1 py-2 text-sm" />
+            <input value={b} onChange={(e) => upd(i, e.target.value)} placeholder={t('ofertaPassos.bonus.ph')} className="input-field flex-1 py-2 text-sm" />
             {bonus.length > 1 && <button onClick={() => rm(i)} className="p-1.5 text-rl-muted hover:text-rl-red shrink-0"><X className="w-3.5 h-3.5" /></button>}
           </div>
         ))}
-        {bonus.length < 10 && <button onClick={add} className="flex items-center gap-1.5 text-xs text-rl-purple hover:text-rl-purple/80"><Plus className="w-3.5 h-3.5" /> Adicionar bônus ({bonus.length}/10)</button>}
+        {bonus.length < 10 && <button onClick={add} className="flex items-center gap-1.5 text-xs text-rl-purple hover:text-rl-purple/80"><Plus className="w-3.5 h-3.5" /> {t('ofertaPassos.bonus.adicionar', { n: bonus.length })}</button>}
       </div>
     </div>
   )
@@ -474,11 +484,12 @@ export function StepBonus({ oferta, set, project, publicMode }) {
 
 // ─── Passo 8: Garantia ──────────────────────────────────────────────────────
 export function StepGarantia({ oferta, set, project, publicMode, q }) {
+  const { t } = useI18n()
   const { run, loading, err } = useAssist(project, oferta)
   const b2b = oferta.tipoCliente === 'b2b'
-  const pickTipo = (t) => {
-    set('garantiaTipo', t.value)
-    const tpl = b2b ? t.tplB2b : t.tplB2c
+  const pickTipo = (tp) => {
+    set('garantiaTipo', tp.value)
+    const tpl = b2b ? tp.tplB2b : tp.tplB2c
     if (tpl && !oferta.garantia) set('garantia', tpl)
   }
   const suggest = async () => {
@@ -487,26 +498,26 @@ export function StepGarantia({ oferta, set, project, publicMode, q }) {
   }
   return (
     <div className="space-y-4">
-      <p className="text-sm text-rl-muted">A maior objeção é o <b>risco</b>. Garantia com "dentes" tem o "ou o quê" (Z): <i>"Se você não [X] em [Y], então [Z]"</i>.</p>
+      <p className="text-sm text-rl-muted">{t('ofertaPassos.garantia.intro1')}<b>{t('ofertaPassos.garantia.intro2')}</b>{t('ofertaPassos.garantia.intro3')}<i>{t('ofertaPassos.garantia.intro4')}</i>.</p>
       {pick([
-      <Field key="tipo" label="Que tipo de garantia você oferece?" emoji="🛡️">
+      <Field key="tipo" label={t('ofertaPassos.garantia.tipo')} emoji="🛡️">
       <div className="grid sm:grid-cols-2 gap-2">
-        {GARANTIA_TIPOS.map((t) => {
-          const active = oferta.garantiaTipo === t.value
+        {GARANTIA_TIPOS.map((tp) => {
+          const active = oferta.garantiaTipo === tp.value
           return (
-            <button key={t.value} onClick={() => pickTipo(t)} className={`text-left p-3 rounded-xl border transition-all ${active ? 'border-rl-gold bg-rl-gold/10' : 'border-rl-border hover:border-rl-gold/40'}`}>
-              <p className="text-sm font-semibold text-rl-text">{t.label}</p>
-              <p className="text-[11px] text-rl-muted mt-0.5 leading-snug">{t.dica}</p>
+            <button key={tp.value} onClick={() => pickTipo(tp)} className={`text-left p-3 rounded-xl border transition-all ${active ? 'border-rl-gold bg-rl-gold/10' : 'border-rl-border hover:border-rl-gold/40'}`}>
+              <p className="text-sm font-semibold text-rl-text">{tp.label}</p>
+              <p className="text-[11px] text-rl-muted mt-0.5 leading-snug">{tp.dica}</p>
             </button>
           )
         })}
       </div>
       </Field>,
       <div key="texto" className="space-y-2">
-      {!publicMode && <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label="Escrever minha garantia" /></div>}
+      {!publicMode && <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label={t('ofertaPassos.garantia.ia')} /></div>}
       {err && <ErrLine msg={err} />}
-      <Field label="Texto da garantia" emoji="✍️">
-        <textarea rows={3} value={oferta.garantia} onChange={(e) => set('garantia', e.target.value)} className="input-field resize-none text-sm" placeholder="Ex: 20 clientes em 30 dias, ou devolvo seu dinheiro + o que você gastou em anúncios." />
+      <Field label={t('ofertaPassos.garantia.texto')} emoji="✍️">
+        <textarea rows={3} value={oferta.garantia} onChange={(e) => set('garantia', e.target.value)} className="input-field resize-none text-sm" placeholder={t('ofertaPassos.garantia.textoPh')} />
       </Field>
       </div>,
       ], q)}
@@ -515,44 +526,28 @@ export function StepGarantia({ oferta, set, project, publicMode, q }) {
 }
 
 // ─── Passo 9: Nome (M-A-G-I-C) ──────────────────────────────────────────────
-const MAGIC = [
-  { k: 'magnet', l: 'M · Magnet (motivo)', ph: 'Grátis / 88% OFF / Inauguração' },
-  { k: 'avatar', l: 'A · Avatar', ph: 'Donos de Restaurante / Mães de [bairro]' },
-  { k: 'goal', l: 'G · Goal (meta)', ph: 'Dobre o Faturamento / Sem Dor nas Costas' },
-  { k: 'interval', l: 'I · Interval (prazo)', ph: '30 Dias / 6 Semanas' },
-  { k: 'container', l: 'C · Container', ph: 'Sistema / Método / Desafio / Blueprint' },
-]
+// Rótulo e placeholder de cada bloco: ofertaPassos.nome.magic.<k>.{l,ph}
+const MAGIC = ['magnet', 'avatar', 'goal', 'interval', 'container'].map((k) => ({
+  k,
+  get l() { return t(`ofertaPassos.nome.magic.${k}.l`) },
+  get ph() { return t(`ofertaPassos.nome.magic.${k}.ph`) },
+}))
 
-// Exemplos estáticos de nomes por tipo de negócio (hover no passo de nome)
+// Exemplos estáticos de nomes por tipo de negócio (hover no passo de nome).
+// Os nomes moram em ofertaPassos.nome.exemplos.<tipo> (5 por tipo).
 const NOMES_EXEMPLO = {
-  b2b: {
-    icon: '🏢', label: 'B2B',
-    nomes: [
-      '5 Clientes em 5 Dias Blueprint',
-      'Máquina de Reuniões Qualificadas em 30 Dias',
-      'Agência 7 Dígitos Intensivo de 12 Semanas',
-      'Preencha Seu Pipeline em 45 Dias Sem Prospecção Fria',
-      'Sistema Caixa Blindado: Financeiro Organizado em 30 Dias',
-    ],
-  },
-  b2c: {
-    icon: '🙋', label: 'B2C',
-    nomes: [
-      'Desafio Seque Até o Verão em 6 Semanas',
-      'Programa Sono dos Sonhos: Sem Dor nas Costas em 30 Noites',
-      'Blueprint Corpo de Praia 12 Semanas 88% OFF',
-      'Transformação Sorriso de Celebridade em 90 Dias',
-      'Mãe Fitness 21 Dias: Volte a Caber na Sua Roupa Favorita',
-    ],
-  },
+  b2b: { icon: '🏢', label: 'B2B' },
+  b2c: { icon: '🙋', label: 'B2C' },
 }
 
 function NomeExemplos({ onPick }) {
+  const { t } = useI18n()
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-rl-muted">Inspiração:</span>
+      <span className="text-xs text-rl-muted">{t('ofertaPassos.nome.inspiracao')}</span>
       {['b2b', 'b2c'].map((tipo) => {
         const ex = NOMES_EXEMPLO[tipo]
+        const nomes = [0, 1, 2, 3, 4].map((i) => t(`ofertaPassos.nome.exemplos.${tipo}.${i}`))
         return (
           <div key={tipo} className="relative group">
             <button
@@ -565,14 +560,14 @@ function NomeExemplos({ onPick }) {
             <div className="absolute left-0 top-full pt-1 w-72 z-20 hidden group-hover:block">
               <div className="glass-card p-2 space-y-0.5 border border-rl-gold/20 shadow-glow">
                 <p className="text-[10px] uppercase tracking-wide text-rl-gold font-semibold px-1 pb-0.5">
-                  5 exemplos {ex.label}
+                  {t('ofertaPassos.nome.exemplosTitulo', { tipo: ex.label })}
                 </p>
-                {ex.nomes.map((n, i) => (
+                {nomes.map((n, i) => (
                   <button
                     key={i}
                     onClick={() => onPick(n)}
                     className="w-full text-left px-2 py-1.5 rounded-md text-xs text-rl-text hover:bg-rl-gold/10 transition-all"
-                    title="Usar este nome"
+                    title={t('ofertaPassos.nome.usarEste')}
                   >
                     {n}
                   </button>
@@ -587,6 +582,7 @@ function NomeExemplos({ onPick }) {
 }
 
 export function StepNome({ oferta, set, project, publicMode, q }) {
+  const { t } = useI18n()
   const { run, loading, err } = useAssist(project, oferta)
   const [sugs, setSugs] = useState([])
   const nb = oferta.nomeBlocks || {}
@@ -598,11 +594,11 @@ export function StepNome({ oferta, set, project, publicMode, q }) {
   }
   return (
     <div className="space-y-4">
-      <p className="text-sm text-rl-muted">Use 3 a 5 blocos. Curto e punchy vence. <span className="text-rl-gold">⚠️ meta + prazo juntos podem ser barrados por plataforma.</span></p>
+      <p className="text-sm text-rl-muted">{t('ofertaPassos.nome.intro')} <span className="text-rl-gold">⚠️ {t('ofertaPassos.nome.aviso')}</span></p>
       {isAll(q) && <NomeExemplos onPick={(n) => set('nome', n)} />}
       {pick([
       <div key="blocos" className="space-y-4">
-      {!isAll(q) && <p className="text-sm font-medium text-rl-text">🧩 Monte o nome com os blocos M-A-G-I-C</p>}
+      {!isAll(q) && <p className="text-sm font-medium text-rl-text">🧩 {t('ofertaPassos.nome.monte')}</p>}
       <div className="grid sm:grid-cols-2 gap-3">
         {MAGIC.map((m) => (
           <Field key={m.k} label={m.l}>
@@ -612,15 +608,15 @@ export function StepNome({ oferta, set, project, publicMode, q }) {
       </div>
       {preview && (
         <div className="rounded-xl border border-rl-gold/30 bg-rl-gold/5 p-3">
-          <p className="text-[11px] text-rl-muted">Prévia:</p>
+          <p className="text-[11px] text-rl-muted">{t('ofertaPassos.nome.previa')}</p>
           <p className="text-sm font-semibold text-rl-text">{preview}</p>
-          <button onClick={() => set('nome', preview)} className="text-xs text-rl-gold hover:text-rl-gold/80 mt-1">Usar como nome →</button>
+          <button onClick={() => set('nome', preview)} className="text-xs text-rl-gold hover:text-rl-gold/80 mt-1">{t('ofertaPassos.nome.usarComoNome')} →</button>
         </div>
       )}
       </div>,
       <div key="final" className="space-y-4">
       {!isAll(q) && <NomeExemplos onPick={(n) => set('nome', n)} />}
-      {!publicMode && <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label="Sugerir 5 nomes" /></div>}
+      {!publicMode && <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label={t('ofertaPassos.nome.ia')} /></div>}
       {err && <ErrLine msg={err} />}
       {sugs.length > 0 && (
         <div className="space-y-1.5">
@@ -629,8 +625,8 @@ export function StepNome({ oferta, set, project, publicMode, q }) {
           ))}
         </div>
       )}
-      <Field label="Nome final da oferta" emoji="🏷️">
-        <input value={oferta.nome} onChange={(e) => set('nome', e.target.value)} className="input-field text-sm" placeholder="Ex: Sistema Caixa Blindado: Financeiro Organizado em 30 Dias" />
+      <Field label={t('ofertaPassos.nome.nomeFinal')} emoji="🏷️">
+        <input value={oferta.nome} onChange={(e) => set('nome', e.target.value)} className="input-field text-sm" placeholder={t('ofertaPassos.nome.nomeFinalPh')} />
       </Field>
       </div>,
       ], q)}
@@ -640,26 +636,27 @@ export function StepNome({ oferta, set, project, publicMode, q }) {
 
 // ─── Passo final: gerar ─────────────────────────────────────────────────────
 export function StepFinal({ onGenerate, loading, error, generatedOffer }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-4">
       <div className="glass-card p-5 border border-rl-gold/20">
-        <div className="flex items-center gap-2 mb-2"><Sparkles className="w-4 h-4 text-rl-gold" /><p className="text-sm font-semibold text-rl-text">Gerar as 3 versões da oferta</p></div>
-        <p className="text-xs text-rl-muted mb-4">A IA vai consolidar tudo que você preencheu em 3 Grandes Ofertas Matadoras (com pitch), usando a metodologia $100M Offers.</p>
+        <div className="flex items-center gap-2 mb-2"><Sparkles className="w-4 h-4 text-rl-gold" /><p className="text-sm font-semibold text-rl-text">{t('ofertaPassos.final.titulo')}</p></div>
+        <p className="text-xs text-rl-muted mb-4">{t('ofertaPassos.final.descricao')}</p>
         <button onClick={onGenerate} disabled={loading} className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-semibold text-sm bg-gradient-gold text-white disabled:opacity-50 hover:opacity-90 transition-opacity">
-          {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando oferta...</> : <><Sparkles className="w-4 h-4" /> Gerar Oferta Matadora</>}
+          {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('ofertaPassos.final.gerando')}</> : <><Sparkles className="w-4 h-4" /> {t('ofertaPassos.final.gerar')}</>}
         </button>
       </div>
       {error && <ErrLine msg={error} />}
       {generatedOffer && (
         <div className="glass-card p-5 border border-rl-gold/20">
-          <div className="flex items-center gap-2 mb-4"><CheckCircle2 className="w-4 h-4 text-rl-gold" /><p className="text-sm font-semibold text-rl-text">Oferta Matadora Gerada</p></div>
+          <div className="flex items-center gap-2 mb-4"><CheckCircle2 className="w-4 h-4 text-rl-gold" /><p className="text-sm font-semibold text-rl-text">{t('ofertaPassos.final.gerada')}</p></div>
           <OfertaResult text={generatedOffer} />
         </div>
       )}
       {!generatedOffer && !error && (
         <div className="glass-card p-8 text-center">
           <Zap className="w-8 h-8 text-rl-muted/30 mx-auto mb-3" />
-          <p className="text-rl-muted text-sm">Clique em "Gerar Oferta Matadora" para criar suas 3 GOMs completas.</p>
+          <p className="text-rl-muted text-sm">{t('ofertaPassos.final.vazio')}</p>
         </div>
       )}
     </div>
@@ -684,32 +681,34 @@ export function questionCount(stepId, oferta) {
   }
 }
 
-const brl = (v) => `R$ ${(Number(v) || 0).toLocaleString('pt-BR')}`
+const brl = (v) => `R$ ${(Number(v) || 0).toLocaleString(localeAtual())}`
 const labelOf = (opts, v) => opts.find((o) => o.value === v)?.label || ''
 const txt = (v) => (typeof v === 'string' ? v.trim() : v)
 
 // Linhas da prévia: { q, label, value }; value é texto, lista de textos ou vazio.
 // q = pergunta que o botão "Editar" abre (null = sem edição, ex.: veredito).
+// Chamada no render do StepReview (que assina o idioma), então o `t` solto basta.
 export function reviewItems(stepId, oferta) {
+  const L = (k, vars) => t(`ofertaPassos.revisao.${k}`, vars)
   switch (stepId) {
     case 'diagnostico': {
       const answers = oferta.diagnostico?.answers || {}
       const diag = computeOmDiagnosis(answers)
       const rows = [
-        { q: 0, label: 'Seu cliente é', value: { b2b: 'Empresa (B2B)', b2c: 'Consumidor (B2C)' }[oferta.tipoCliente] || '' },
+        { q: 0, label: L('seuCliente'), value: { b2b: t('ofertaPassos.diagnostico.b2b'), b2c: t('ofertaPassos.diagnostico.b2c') }[oferta.tipoCliente] || '' },
         ...OM_QUESTIONS.map((qq, i) => ({ q: i + 1, label: qq.label, value: labelOf(qq.options, answers[qq.id]) })),
       ]
       if (diag.answeredCount === OM_QUESTIONS.length) {
         const v = getVerdict(diag.totalScore)
-        rows.push({ q: null, label: 'Veredito', value: `${v.emoji} ${v.label} · ${diag.totalScore}/100` })
+        rows.push({ q: null, label: L('veredito'), value: `${v.emoji} ${v.label} · ${diag.totalScore}/100` })
       }
       return rows
     }
     case 'sonho':
       return [
-        { q: 0, label: 'Onde seu cliente está hoje (a dor)', value: txt(oferta.dorAtual) },
-        { q: 1, label: 'Onde ele quer chegar (o sonho)', value: txt(oferta.resultadoSonho) },
-        { q: 2, label: 'Como ele será visto pelos outros depois', value: txt(oferta.statusGanho) },
+        { q: 0, label: L('dor'), value: txt(oferta.dorAtual) },
+        { q: 1, label: L('sonho'), value: txt(oferta.resultadoSonho) },
+        { q: 2, label: L('status'), value: txt(oferta.statusGanho) },
       ]
     case 'problemas':
       return DRIVERS.map((d, i) => ({
@@ -719,51 +718,51 @@ export function reviewItems(stepId, oferta) {
     case 'solucoes': {
       const sol = oferta.solucoes || []
       return (oferta.problemas || []).map((p, i) => ({
-        q: i, label: p.texto?.trim() || '(objeção sem texto)', color: DRIVER_BY_ID[p.driver]?.color,
+        q: i, label: p.texto?.trim() || t('ofertaPassos.objecaoSemTexto'), color: DRIVER_BY_ID[p.driver]?.color,
         value: txt(sol.find((s) => s.problemaId === p.id)?.comoResolve),
       }))
     }
     case 'entrega': {
       const e = oferta.entrega || {}
       return [
-        { q: 0, label: 'Nível de atenção', value: labelOf(ATENCAO_OPTS, e.atencao) },
-        { q: 1, label: 'Nível de esforço do cliente', value: labelOf(ESFORCO_OPTS, e.esforcoModelo) },
-        { q: 2, label: 'Meio de entrega', value: (e.meio || []).join(', ') },
+        { q: 0, label: t('ofertaPassos.entrega.atencao'), value: labelOf(ATENCAO_OPTS, e.atencao) },
+        { q: 1, label: t('ofertaPassos.entrega.esforco'), value: labelOf(ESFORCO_OPTS, e.esforcoModelo) },
+        { q: 2, label: t('ofertaPassos.entrega.meio'), value: (e.meio || []).map(rotuloMeio).join(', ') },
       ]
     }
     case 'nucleo': {
       const stack = (oferta.itensStack || []).filter((i) => i.nome?.trim())
       const total = (oferta.itensStack || []).reduce((s, i) => s + (Number(i.valor) || 0), 0)
       const preco = Number(oferta.preco) || 0
-      const ratio = preco > 0 && total > 0 ? ` · valor total ${brl(total)} (${(total / preco).toFixed(1)}x o preço)` : ''
+      const ratio = preco > 0 && total > 0 ? ` · ${L('valorTotal', { total: brl(total), x: (total / preco).toFixed(1) })}` : ''
       return [
-        { q: 0, label: 'Entrega principal (núcleo)', value: txt(oferta.nucleo) },
-        { q: 1, label: 'Entregas da oferta', value: stack.map((i) => (i.valor ? `${i.nome.trim()} (${brl(i.valor)})` : i.nome.trim())) },
-        { q: 2, label: 'Preço final', value: preco > 0 ? `${brl(preco)}${ratio}` : '' },
-        { q: 3, label: '1ª vitória (velocidade)', value: txt(oferta.velocidade) },
-        { q: 4, label: 'Esforço mínimo do cliente', value: txt(oferta.esforcoMinimo) },
+        { q: 0, label: L('nucleo'), value: txt(oferta.nucleo) },
+        { q: 1, label: L('entregas'), value: stack.map((i) => (i.valor ? `${i.nome.trim()} (${brl(i.valor)})` : i.nome.trim())) },
+        { q: 2, label: L('preco'), value: preco > 0 ? `${brl(preco)}${ratio}` : '' },
+        { q: 3, label: t('ofertaPassos.nucleo.velocidade'), value: txt(oferta.velocidade) },
+        { q: 4, label: t('ofertaPassos.nucleo.esforco'), value: txt(oferta.esforcoMinimo) },
       ]
     }
     case 'escassez': {
       const esc = labelOf(ESCASSEZ_TIPOS, oferta.escassezTipo)
       const urg = labelOf(URGENCIA_TIPOS, oferta.urgenciaTipo)
       return [
-        { q: 0, label: esc ? `Escassez · ${esc}` : 'Escassez', value: txt(oferta.escassez) },
-        { q: 1, label: urg ? `Urgência · ${urg}` : 'Urgência', value: txt(oferta.urgencia) },
+        { q: 0, label: esc ? `${t('ofertaPassos.escassez.escassez')} · ${esc}` : t('ofertaPassos.escassez.escassez'), value: txt(oferta.escassez) },
+        { q: 1, label: urg ? `${t('ofertaPassos.escassez.urgencia')} · ${urg}` : t('ofertaPassos.escassez.urgencia'), value: txt(oferta.urgencia) },
       ]
     }
     case 'bonus':
-      return [{ q: 0, label: 'Bônus', value: (oferta.bonus || []).map((b) => b.trim()).filter(Boolean) }]
+      return [{ q: 0, label: L('bonus'), value: (oferta.bonus || []).map((b) => b.trim()).filter(Boolean) }]
     case 'garantia':
       return [
-        { q: 0, label: 'Tipo de garantia', value: labelOf(GARANTIA_TIPOS, oferta.garantiaTipo) },
-        { q: 1, label: 'Texto da garantia', value: txt(oferta.garantia) },
+        { q: 0, label: L('tipoGarantia'), value: labelOf(GARANTIA_TIPOS, oferta.garantiaTipo) },
+        { q: 1, label: t('ofertaPassos.garantia.texto'), value: txt(oferta.garantia) },
       ]
     case 'nome': {
       const nb = oferta.nomeBlocks || {}
       return [
-        { q: 0, label: 'Blocos M-A-G-I-C', value: MAGIC.filter((m) => nb[m.k]?.trim()).map((m) => `${m.l}: ${nb[m.k].trim()}`) },
-        { q: 1, label: 'Nome final da oferta', value: txt(oferta.nome) },
+        { q: 0, label: L('blocosMagic'), value: MAGIC.filter((m) => nb[m.k]?.trim()).map((m) => `${m.l}: ${nb[m.k].trim()}`) },
+        { q: 1, label: t('ofertaPassos.nome.nomeFinal'), value: txt(oferta.nome) },
       ]
     }
     default: return []
@@ -773,24 +772,25 @@ export function reviewItems(stepId, oferta) {
 const isEmptyValue = (v) => (Array.isArray(v) ? v.length === 0 : !v)
 
 export function StepReview({ stepId, title, oferta, onEdit }) {
+  const { t } = useI18n()
   const rows = reviewItems(stepId, oferta)
   const editaveis = rows.filter((r) => r.q != null)
   const respondidas = editaveis.filter((r) => !isEmptyValue(r.value)).length
 
   if (!rows.length) {
-    return <EmptyHint text="Nada para revisar nesta etapa ainda. Volte e responda as perguntas." />
+    return <EmptyHint text={t('ofertaPassos.revisao.vazio')} />
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm text-rl-muted">
-          Confira tudo o que você preencheu em <b className="text-rl-text">{title}</b>. Clique em Editar para voltar a uma pergunta.
+          {t('ofertaPassos.revisao.intro1')}<b className="text-rl-text">{title}</b>{t('ofertaPassos.revisao.intro2')}
         </p>
         <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
           respondidas === editaveis.length ? 'bg-green-500/10 text-green-600' : 'bg-rl-gold/10 text-rl-gold'
         }`}>
-          {respondidas} de {editaveis.length} respondidas
+          {t('ofertaPassos.revisao.respondidas', { feitas: respondidas, total: editaveis.length })}
         </span>
       </div>
 
@@ -805,7 +805,7 @@ export function StepReview({ stepId, title, oferta, onEdit }) {
                   {r.label}
                 </p>
                 {vazio ? (
-                  <p className="text-sm italic text-rl-muted/70">Não respondida</p>
+                  <p className="text-sm italic text-rl-muted/70">{t('ofertaPassos.revisao.naoRespondida')}</p>
                 ) : Array.isArray(r.value) ? (
                   <ul className="space-y-0.5">
                     {r.value.map((v, j) => (
@@ -821,7 +821,7 @@ export function StepReview({ stepId, title, oferta, onEdit }) {
                   onClick={() => onEdit(r.q)}
                   className="shrink-0 flex items-center gap-1 text-xs text-rl-purple hover:text-rl-purple/80 px-2 py-1 rounded-lg hover:bg-rl-purple/5"
                 >
-                  <Pencil className="w-3.5 h-3.5" /> {vazio ? 'Responder' : 'Editar'}
+                  <Pencil className="w-3.5 h-3.5" /> {vazio ? t('ofertaPassos.revisao.responder') : t('comum.editar')}
                 </button>
               )}
             </div>
@@ -854,7 +854,7 @@ export function OfertaResult({ text }) {
         if (/^─+$/.test(t)) return <div key={i} className="border-t border-rl-border/60 my-1 ml-4" />
         if (/^[📛🎯📦🛡️⚡💬🎁🔥🗣️✨💡🤝]\s/.test(t)) return <p key={i} className="text-sm font-semibold text-rl-text mt-3 mb-1">{t}</p>
         if (t.startsWith('• ')) return <p key={i} className="text-xs text-rl-muted leading-relaxed ml-2 font-mono">{t}</p>
-        if (/^\s*(Valor total:|Preço:)/.test(line)) return <p key={i} className="text-xs font-semibold text-rl-text leading-relaxed ml-6">{t}</p>
+        if (/^\s*(Valor total:|Preço:|Total value:|Price:)/.test(line)) return <p key={i} className="text-xs font-semibold text-rl-text leading-relaxed ml-6">{t}</p>
         if (t === '') return <div key={i} className="h-1" />
         return <p key={i} className="text-xs text-rl-muted leading-relaxed">{t.replace(/\*\*(.*?)\*\*/g, '$1')}</p>
       })}

@@ -11,6 +11,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Check, Eye, ListChecks, Rows3 } from 'lucide-react'
 import { STEP_META } from './ofertaShared'
+import { useI18n } from '../../i18n'
 import {
   StepDiagnostico, StepSonho, StepProblemas, StepSolucoes, StepEntrega,
   StepNucleo, StepEscassez, StepBonus, StepGarantia, StepNome,
@@ -63,6 +64,7 @@ export default function OfertaWizardShell({
   finalContent = null,   // node renderizado na última tela
   finalFooter = null,    // node no rodapé da última tela (ex.: Concluir)
 }) {
+  const { t } = useI18n()
   const [stepIndex, setStepIndex] = useState(0)
   const [qIndex, setQIndex] = useState(0)        // número da pergunta ou REVIEW
   const [modo, setModo] = useState(lerModo)
@@ -71,13 +73,14 @@ export default function OfertaWizardShell({
 
   useEffect(() => () => clearTimeout(autoTimer.current), [])
 
+  // `t` muda com o idioma: o spread lê os getters de título na hora.
   const meta = useMemo(() => (
     publicMode
       ? STEP_META.map((s) => s.id === 'final'
-          ? { ...s, title: 'Revisar e enviar', subtitle: 'Confira e envie para a Revenue Lab' }
+          ? { ...s, title: t('oferta.shell.revisarEnviar'), subtitle: t('oferta.shell.revisarEnviarSub') }
           : s)
       : STEP_META
-  ), [publicMode])
+  ), [publicMode, t])
 
   const step = meta[stepIndex]
   const isFinal = step.id === 'final'
@@ -143,10 +146,10 @@ export default function OfertaWizardShell({
 
   const canPrev = umaPorVez ? !(stepIndex === 0 && (q ?? 0) === 0 && !inReview) : stepIndex > 0
   const nextLabel = !umaPorVez
-    ? 'Continuar'
+    ? t('oferta.shell.continuar')
     : inReview
-      ? (meta[stepIndex + 1]?.id === 'final' ? (publicMode ? 'Revisar e enviar' : 'Ir para Gerar oferta') : 'Próxima etapa')
-      : q === total - 1 ? 'Ver prévia da etapa' : 'Próxima pergunta'
+      ? (meta[stepIndex + 1]?.id === 'final' ? (publicMode ? t('oferta.shell.revisarEnviar') : t('oferta.shell.irGerar')) : t('oferta.shell.proximaEtapa'))
+      : q === total - 1 ? t('oferta.shell.verPrevia') : t('oferta.shell.proximaPergunta')
 
   return (
     <div className="space-y-6" ref={topRef}>
@@ -179,8 +182,8 @@ export default function OfertaWizardShell({
           {/* Modo de preenchimento */}
           <div className="hidden sm:flex items-center shrink-0 rounded-lg border border-rl-border p-0.5 text-[11px]">
             {[
-              { v: 'uma', l: 'Uma por vez', I: ListChecks },
-              { v: 'tudo', l: 'Tudo junto', I: Rows3 },
+              { v: 'uma', l: t('oferta.shell.umaPorVez'), I: ListChecks },
+              { v: 'tudo', l: t('oferta.shell.tudoJunto'), I: Rows3 },
             ].map(({ v, l, I }) => (
               <button
                 key={v}
@@ -188,7 +191,7 @@ export default function OfertaWizardShell({
                 className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all ${
                   modo === v ? 'bg-rl-gold/15 text-rl-text font-semibold' : 'text-rl-muted hover:text-rl-text'
                 }`}
-                title={v === 'uma' ? 'Uma pergunta por tela, com prévia no fim de cada etapa' : 'A etapa inteira numa tela só'}
+                title={v === 'uma' ? t('oferta.shell.umaPorVezDica') : t('oferta.shell.tudoJuntoDica')}
               >
                 <I className="w-3.5 h-3.5" /> {l}
               </button>
@@ -202,16 +205,16 @@ export default function OfertaWizardShell({
         <div className="mb-4 space-y-3">
           <div>
             <p className="text-[11px] uppercase tracking-wide text-rl-gold font-semibold">
-              Passo {stepIndex} de {meta.length - 1}{step.optional && ' · opcional'}
+              {t('oferta.shell.passo', { n: stepIndex, total: meta.length - 1 })}{step.optional && ` · ${t('oferta.shell.opcional')}`}
               {umaPorVez && !isFinal && (
                 inReview
-                  ? <> · Prévia da etapa</>
-                  : <> · Pergunta {q + 1} de {total}</>
+                  ? <> · {t('oferta.shell.previaEtapa')}</>
+                  : <> · {t('oferta.shell.pergunta', { n: q + 1, total })}</>
               )}
             </p>
             <h3 className="text-lg font-bold text-rl-text flex items-center gap-2">
               {inReview && <Eye className="w-4 h-4 text-rl-gold" />}
-              {inReview ? `Prévia: ${step.title}` : step.title}
+              {inReview ? t('oferta.shell.previaDe', { titulo: step.title }) : step.title}
             </h3>
             <p className="text-xs text-rl-muted">{step.subtitle}</p>
           </div>
@@ -223,7 +226,7 @@ export default function OfertaWizardShell({
                 <button
                   key={i}
                   onClick={() => goQ(i)}
-                  title={`Pergunta ${i + 1}`}
+                  title={t('oferta.shell.perguntaN', { n: i + 1 })}
                   className={`h-1.5 flex-1 rounded-full transition-all ${
                     !inReview && i === q ? 'bg-rl-gold' : (inReview || i < q) ? 'bg-rl-gold/40' : 'bg-rl-border'
                   }`}
@@ -231,7 +234,7 @@ export default function OfertaWizardShell({
               ))}
               <button
                 onClick={() => goQ(REVIEW)}
-                title="Prévia da etapa"
+                title={t('oferta.shell.previaEtapa')}
                 className={`ml-1 flex items-center justify-center w-6 h-6 rounded-full border transition-all ${
                   inReview ? 'border-rl-gold bg-rl-gold/15 text-rl-gold' : 'border-rl-border text-rl-muted hover:text-rl-text'
                 }`}
@@ -256,13 +259,13 @@ export default function OfertaWizardShell({
           disabled={!canPrev}
           className="btn-secondary flex items-center gap-1.5 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <ChevronLeft className="w-4 h-4" /> Voltar
+          <ChevronLeft className="w-4 h-4" /> {t('comum.voltar')}
         </button>
 
         <div className="flex items-center gap-2">
           {step.optional && !isFinal && !inReview && (
             <button onClick={() => goStep(stepIndex + 1)} className="text-sm text-rl-muted hover:text-rl-text px-3 py-2">
-              Pular etapa
+              {t('oferta.shell.pularEtapa')}
             </button>
           )}
           {!isFinal ? (

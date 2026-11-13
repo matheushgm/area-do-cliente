@@ -1,0 +1,71 @@
+// Google Ads da página do cliente (GoogleAdsModule, GoogleAds/AdsHistory e GoogleAds/ResultCard)
+export default {
+  titulo: 'Google Ads — Estrutura de Campanhas',
+  subtitulo: 'Adicione os grupos de palavras-chave com volume e concorrência para gerar a estrutura completa de campanhas com RSAs e gatilhos emocionais.',
+  exportarPdf: 'Exportar PDF',
+  exportarSemPalavras: 'Adicione palavras-chave para exportar',
+  exportarTitulo: 'Exportar PDF da estrutura',
+  metodologiaTitulo: '🍰 Metodologia Bolo de Cenoura Fofinho',
+  metodologia1: 'A palavra pesquisada pelo lead ',
+  metodologia2: 'aparece no título do anúncio',
+  metodologia3: ' e espelha a ',
+  metodologia4: 'headline da landing page',
+  metodologia5: ' — garantindo máxima relevância e Quality Score.',
+  gruposTitulo: 'Grupos de Palavras-chave',
+  nPalavras: { one: '{count} palavra', other: '{count} palavras' },
+  nGrupos: { one: '{count} grupo', other: '{count} grupos' },
+  adicionarGrupo: 'Adicionar Grupo',
+  campanhasACriar: 'Campanhas a criar',
+  nSelecionadas: { one: '{count} selecionada', other: '{count} selecionadas' },
+  instrucoesAdicionais: 'Instruções adicionais',
+  opcional: '(opcional)',
+  instrucoesPlaceholder: 'Ex: não criar campanha de marca pois a empresa é nova, focar em buscas de alta intenção, incluir termos de urgência em todos os grupos...',
+  configSalvas: 'Configurações salvas!',
+  salvarConfig: 'Salvar configurações',
+  salvarConfigDica: 'Salva grupos e tipos sem gerar',
+  gerando: 'Gerando estrutura...',
+  gerar: 'Gerar Estrutura Google Ads',
+  semPalavras: 'Adicione pelo menos uma palavra-chave para gerar',
+  semTipo: 'Selecione pelo menos um tipo de campanha',
+  regerar: 'Regerar',
+  alterarConfig: 'Alterar configurações',
+
+  grupoN: 'Grupo {n}',
+  grupoSemNome: 'Grupo',
+  removerGrupo: 'Remover grupo',
+  colPalavra: 'Palavra-chave',
+  colBuscas: 'Buscas/mês',
+  colConcorrencia: 'Concorrência',
+  adicionarPalavra: 'Adicionar palavra-chave',
+  palavraPlaceholder: 'Ex: gestor de tráfego',
+  buscasPlaceholder: 'Buscas',
+  concorrenciaOpcao: 'Concorrência: {nivel}',
+  // Valor gravado em keywordGroups[].keywords[].concorrencia continua em pt (Baixo/Médio/Alto).
+  concorrencia: {
+    baixo: 'Baixo',
+    medio: 'Médio',
+    alto: 'Alto',
+  },
+
+  // O rótulo e a descrição em pt também entram no prompt da IA (lidos daqui direto).
+  tipos: {
+    marca: { label: 'Marca / Brand', desc: 'Protege sua marca e captura buscas diretas pelo nome' },
+    generico: { label: 'Genérico', desc: 'Termos genéricos do serviço — maior volume de buscas' },
+    concorrentes: { label: 'Concorrentes', desc: 'Nomes de concorrentes — captura quem busca alternativas' },
+    problema: { label: 'Problema / Dor', desc: 'Termos de dor — topo de funil, intenção de resolver' },
+  },
+
+  historico: {
+    titulo: 'Histórico de Estruturas',
+    verConteudo: 'Ver conteúdo',
+    mostrarMenos: '▲ Mostrar menos',
+    verMais: { one: '▼ Ver mais {count} entrada', other: '▼ Ver mais {count} entradas' },
+    tudoCopiado: 'Tudo copiado!',
+    copiarTudo: 'Copiar tudo',
+  },
+
+  resultado: {
+    estrutura: 'Estrutura de Campanha {n}',
+    excede: '⚠️ EXCEDE {n}',
+  },
+}

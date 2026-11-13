@@ -1,5 +1,9 @@
 import { escapeHtml } from './utils'
 import { openPrintWindow } from './printDoc'
+import { t, localeAtual } from '../i18n'
+
+// Rótulos fixos do PDF no idioma de quem gera; o texto do roteiro vai como está.
+const L = (k, v) => t(`criativos.roteiroPdf.${k}`, v)
 /**
  * Export de roteiros de VÍDEO no template Verta.
  *
@@ -178,8 +182,8 @@ export function parseRoteiro(chunk) {
   // é o gancho e o restante, a mensagem.
   if (!secoes.length) {
     const prosa = texto.replace(/^#{1,4}[^\n]*\n?/, '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)
-    if (prosa.length) secoes.push({ titulo: 'Gancho', tempo: '', texto: prosa[0] })
-    if (prosa.length > 1) secoes.push({ titulo: 'Mensagem', tempo: '', texto: prosa.slice(1).join('\n\n') })
+    if (prosa.length) secoes.push({ titulo: L('gancho'), tempo: '', texto: prosa[0] })
+    if (prosa.length > 1) secoes.push({ titulo: L('mensagem'), tempo: '', texto: prosa.slice(1).join('\n\n') })
   }
 
   // Duração total = maior marca de tempo citada (ex.: "CTA FINAL (45s – 60s)" → 60 s).
@@ -196,7 +200,7 @@ export function parseRoteiro(chunk) {
   return {
     numero: cabecalho ? Number(cabecalho[1]) : null,
     // Emoji some do título: a Sora não tem esses glifos e some na impressão.
-    titulo: (tipoGancho ? tipoGancho[1] : metaLinha || 'Roteiro')
+    titulo: (tipoGancho ? tipoGancho[1] : metaLinha || L('roteiro'))
       .replace(/\p{Extended_Pictographic}|️/gu, '')
       .trim(),
     nivel,
@@ -247,10 +251,10 @@ function bloco(numero, titulo, dica, corpoHTML, peso = '500', primeiro = false) 
 function artigo(r, indice, origem) {
   const quebra = indice > 1 ? 'break-before:page;' : ''
   const metas = [
-    ['Data de gravação', r.data || 'A definir'],
-    ['Duração estimada', r.duracao || '30-60 s'],
-    ['Plataforma', r.plataforma || 'Reels / Feed / YouTube'],
-    ['Nível de consciência', r.nivel || 'A definir'],
+    [L('dataGravacao'), r.data || L('aDefinir')],
+    [L('duracaoEstimada'), r.duracao || '30-60 s'],
+    [L('plataforma'), r.plataforma || 'Reels / Feed / YouTube'],
+    [L('nivelConsciencia'), r.nivel || L('aDefinir')],
   ]
 
   // Um bloco por seção que a IA gerou, numerados na ordem em que aparecem.
@@ -264,7 +268,7 @@ function artigo(r, indice, origem) {
       <section style="break-inside:avoid;border-top:1px solid ${LINHA};margin-top:24px;padding-top:24px;">
         <div style="background:${CAIXA_BG};border:1px solid ${CAIXA_BORDA};border-radius:12px;padding:20px 24px;">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-            <span style="font-family:'Sora',sans-serif;font-weight:700;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:${AZUL};">Legenda do post</span>
+            <span style="font-family:'Sora',sans-serif;font-weight:700;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:${AZUL};">${L('legendaPost')}</span>
           </div>
           <p style="margin:0 0 12px;font-size:15px;line-height:1.55;font-weight:500;color:${TINTA};text-wrap:pretty;">${limpo(r.legenda)}</p>
           <div style="font-size:15px;font-weight:600;color:${CINZA_MEDIO};">${limpo(r.hashtags)}</div>
@@ -278,9 +282,9 @@ function artigo(r, indice, origem) {
       <img src="${origem}/verta/simbolo.png" alt="" style="position:absolute;right:-70px;top:-60px;width:360px;opacity:0.14;pointer-events:none;">
       <div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:26px;">
         <img src="${origem}/verta/logo-branca.png" alt="Verta" style="height:30px;width:auto;">
-        <span style="font-family:'Sora',sans-serif;font-weight:700;font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:rgba(255,255,255,0.72);">Roteiro · Anúncio pago</span>
+        <span style="font-family:'Sora',sans-serif;font-weight:700;font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:rgba(255,255,255,0.72);">${L('roteiroAnuncioPago')}</span>
       </div>
-      <div style="position:relative;font-family:'Sora',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.24em;text-transform:uppercase;color:${AZUL_CLARO};margin-bottom:14px;">Roteiro ${String(indice).padStart(2, '0')}</div>
+      <div style="position:relative;font-family:'Sora',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.24em;text-transform:uppercase;color:${AZUL_CLARO};margin-bottom:14px;">${L('roteiroN', { n: String(indice).padStart(2, '0') })}</div>
       <h1 style="position:relative;font-family:'Sora',sans-serif;font-weight:800;font-size:34px;line-height:1.1;letter-spacing:-0.02em;margin:0 0 24px;max-width:84%;text-wrap:balance;">${limpo(r.titulo)}</h1>
       <div style="position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.16);border-radius:12px;overflow:hidden;">${metas
         .map(([k, v]) => celula(k, v))
@@ -295,7 +299,7 @@ ${legenda}
 
     <footer style="display:flex;align-items:center;justify-content:space-between;padding:14px 56px;background:#fff;border-top:1px solid ${LINHA};">
       <img src="${origem}/verta/logo-azul.png" alt="Verta" style="height:18px;width:auto;opacity:0.85;">
-      <span style="font-size:12px;color:${CINZA};letter-spacing:0.02em;">Documento confidencial · preparado pela Verta</span>
+      <span style="font-size:12px;color:${CINZA};letter-spacing:0.02em;">${L('confidencial')}</span>
     </footer>
   </article>`
 }
@@ -304,7 +308,7 @@ ${legenda}
 export function montarHTML(roteiros, { titulo, origem }) {
   const artigos = roteiros.map((r, i) => artigo(r, i + 1, origem)).join('\n')
   return `<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="${localeAtual()}">
 <head>
 <meta charset="UTF-8">
 <title>${esc(titulo)}</title>
@@ -329,7 +333,7 @@ export function montarHTML(roteiros, { titulo, origem }) {
 </head>
 <body>
 ${artigos}
-<button class="print-btn" onclick="window.print()">Salvar como PDF</button>
+<button class="print-btn" onclick="window.print()">${L('salvarPdf')}</button>
 </body>
 </html>`
 }
@@ -342,7 +346,7 @@ ${artigos}
  * @param {object} opts     { companyName, index } — index limita a 1 roteiro
  * @returns {boolean}       false se não havia roteiro reconhecível
  */
-export function exportRoteirosVideoPDF(content, { companyName = 'Cliente', index = null } = {}) {
+export function exportRoteirosVideoPDF(content, { companyName = L('cliente'), index = null } = {}) {
   let chunks = splitRoteiros(content)
   if (!chunks.length) return false
 
@@ -354,7 +358,7 @@ export function exportRoteirosVideoPDF(content, { companyName = 'Cliente', index
   const roteiros = chunks.map(parseRoteiro).filter((r) => r.secoes.length)
   if (!roteiros.length) return false
 
-  const titulo = `${companyName} · Roteiros de Anúncio em Vídeo`
+  const titulo = `${companyName} · ${L('tituloDoc')}`
   const html = montarHTML(roteiros, { titulo, origem: window.location.origin })
 
   openPrintWindow(html, { width: 1100, height: 900 })

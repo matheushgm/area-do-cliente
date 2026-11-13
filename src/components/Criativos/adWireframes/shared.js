@@ -1,4 +1,5 @@
 import { escapeHtml } from '../../../lib/utils'
+import { t } from '../../../i18n'
 // ─── Helpers compartilhados dos wireframes de anúncio ─────────────────────────
 // Funções puras usadas pelos builders de HTML dos wireframes (escape, rich text,
 // blocos de mídia com placeholder). Cada wireframe gera um HTML standalone —
@@ -56,6 +57,6 @@ export function photoBlock(url, label, hint) {
 export function logoBlock(logoUrl, companyName) {
   const u = String(logoUrl || '').trim()
   if (u) return `<img class="logo-img" src="${escapeHtml(u)}" alt="logo">`
-  const name = String(companyName || '').trim() || 'SUA MARCA'
+  const name = String(companyName || '').trim() || t('criativosVisual.guias.suaMarca')
   return `<div class="logo-text">${escapeHtml(name)}</div>`
 }

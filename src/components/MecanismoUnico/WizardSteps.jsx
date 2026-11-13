@@ -15,6 +15,7 @@ import {
   countValidacao, vereditoValidacao,
 } from './mecanismoUnicoData'
 import { buildPitch } from './mecanismoShared'
+import { useI18n } from '../../i18n'
 
 // ─── Caixinhas de apoio ─────────────────────────────────────────────────────
 function Ensino({ children }) {
@@ -27,9 +28,10 @@ function Ensino({ children }) {
 }
 
 function Exemplo({ children }) {
+  const { t } = useI18n()
   return (
     <div className="rounded-xl bg-rl-surface/50 border border-rl-border/60 p-3">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted mb-1">Exemplo</p>
+      <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted mb-1">{t('mecanismoPassos.wizard.exemplo')}</p>
       <p className="text-xs text-rl-subtle leading-relaxed italic">{children}</p>
     </div>
   )
@@ -38,13 +40,14 @@ function Exemplo({ children }) {
 // Galeria de exemplos com abas B2B / B2C — mostra a cadeia lógica completa
 // (vilão → problema → fracasso) e a prova que a sustenta.
 function ExemplosConexao() {
+  const { t } = useI18n()
   const [aberto, setAberto] = useState(false)
   const [tipo, setTipo] = useState('b2b')
   const exemplos = EXEMPLOS_CONEXAO[tipo] || []
 
   const TAGS = [
-    { id: 'b2b', label: 'B2B', hint: 'Vendo para empresas', Icon: Building2 },
-    { id: 'b2c', label: 'B2C', hint: 'Vendo para pessoas',  Icon: User },
+    { id: 'b2b', label: 'B2B', hint: t('mecanismoPassos.wizard.b2bHint'), Icon: Building2 },
+    { id: 'b2c', label: 'B2C', hint: t('mecanismoPassos.wizard.b2cHint'), Icon: User },
   ]
 
   // Fechado por padrão: o passo já é longo (conexão + prova) e os 10 exemplos
@@ -57,7 +60,7 @@ function ExemplosConexao() {
         className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border border-dashed border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all"
       >
         <ChevronDown className="w-3.5 h-3.5" />
-        Ver exemplos preenchidos (B2B e B2C)
+        {t('mecanismoPassos.wizard.verExemplos')}
       </button>
     )
   }
@@ -65,34 +68,34 @@ function ExemplosConexao() {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted">Exemplos</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted">{t('mecanismoPassos.wizard.exemplos')}</p>
         <div className="flex items-center gap-1 p-1 rounded-lg bg-rl-surface border border-rl-border">
-          {TAGS.map((t) => {
-            const active = tipo === t.id
+          {TAGS.map((tag) => {
+            const active = tipo === tag.id
             return (
               <button
-                key={t.id}
+                key={tag.id}
                 type="button"
-                onClick={() => setTipo(t.id)}
-                title={t.hint}
+                onClick={() => setTipo(tag.id)}
+                title={tag.hint}
                 className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-md transition-all ${
                   active ? 'bg-rl-purple text-white' : 'text-rl-muted hover:text-rl-text'
                 }`}
               >
-                <t.Icon className="w-3 h-3" /> {t.label}
+                <tag.Icon className="w-3 h-3" /> {tag.label}
               </button>
             )
           })}
         </div>
         <span className="text-[10px] text-rl-muted">
-          {tipo === 'b2b' ? 'Vendendo para empresas' : 'Vendendo para o consumidor final'}
+          {tipo === 'b2b' ? t('mecanismoPassos.wizard.b2bDesc') : t('mecanismoPassos.wizard.b2cDesc')}
         </span>
         <button
           type="button"
           onClick={() => setAberto(false)}
           className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-rl-muted hover:text-rl-text transition-colors"
         >
-          <ChevronUp className="w-3 h-3" /> Ocultar
+          <ChevronUp className="w-3 h-3" /> {t('mecanismoPassos.wizard.ocultar')}
         </button>
       </div>
 
@@ -108,16 +111,14 @@ function ExemplosConexao() {
               <span className="px-2 py-1 rounded-md bg-rl-border/40 border border-rl-border text-rl-text">{ex.fracasso}</span>
             </div>
             <p className="text-[11px] text-rl-subtle italic leading-relaxed">
-              <span className="not-italic font-bold text-rl-muted">Prova: </span>{ex.prova}
+              <span className="not-italic font-bold text-rl-muted">{t('mecanismoPassos.wizard.prova')}</span>{ex.prova}
             </p>
           </div>
         ))}
       </div>
 
       <p className="text-[10px] text-rl-muted leading-relaxed">
-        Repare que toda prova acima é evidência que o próprio negócio colheu atendendo.
-        Use os seus números reais: prova inventada é o jeito mais rápido de perder a confiança
-        que o mecanismo acabou de construir.
+        {t('mecanismoPassos.wizard.provaReal')}
       </p>
     </div>
   )
@@ -125,25 +126,24 @@ function ExemplosConexao() {
 
 // ─── Passo 0 — Concorrentes ─────────────────────────────────────────────────
 export function StepConcorrentes({ data, set }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-4">
       <Ensino>
-        Antes de criar o seu mecanismo, é preciso saber contra o que ele compete. Liste
-        de 3 a 5 concorrentes diretos e o que cada um entrega hoje.
+        {t('mecanismoPassos.wizard.concorrentesEnsino')}
       </Ensino>
       <DynamicTable
-        title="Seus concorrentes"
-        hint="Quem seu cliente considera antes de escolher você?"
+        title={t('mecanismoPassos.campos.seusConcorrentes')}
+        hint={t('mecanismoPassos.wizard.concorrentesHint')}
         columns={[
-          { id: 'nome',   label: 'Concorrente',   placeholder: 'Ex: Fulano' },
-          { id: 'oferta', label: 'O que oferece', placeholder: 'Ex: Curso online + comunidade' },
+          { id: 'nome',   label: t('mecanismoPassos.campos.concorrente'), placeholder: t('mecanismoPassos.campos.concorrentePh') },
+          { id: 'oferta', label: t('mecanismoPassos.campos.oQueOferece'), placeholder: t('mecanismoPassos.campos.oQueOferecePh') },
         ]}
         rows={data.concorrentes}
         onChange={(rows) => set('concorrentes', rows)}
       />
       <Exemplo>
-        &ldquo;Agência X: gestão de tráfego por R$3k/mês&rdquo; · &ldquo;Curso do Fulano:
-        aulas gravadas + grupo no WhatsApp&rdquo;
+        {t('mecanismoPassos.wizard.concorrentesExemplo')}
       </Exemplo>
     </div>
   )
@@ -151,31 +151,30 @@ export function StepConcorrentes({ data, set }) {
 
 // ─── Passo 1 — Padrão do mercado ────────────────────────────────────────────
 export function StepMercado({ data, set }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-4">
       <Ensino>
-        Tudo o que &ldquo;todo mundo&rdquo; oferece e promete vira ruído: o cliente já ouviu,
-        já duvidou. Mapear isso aqui é o que permite criar contraste depois.
+        {t('mecanismoPassos.wizard.mercadoEnsino')}
       </Ensino>
       <DynamicStringList
-        title="O que é padrão no mercado?"
-        hint="O que todo mundo entrega igual (calls semanais, método em X passos, suporte WhatsApp...)"
-        placeholder="Ex: Calls semanais"
+        title={t('mecanismoPassos.campos.padraoMercado')}
+        hint={t('mecanismoPassos.wizard.mercadoHint')}
+        placeholder={t('mecanismoPassos.campos.padraoMercadoPh')}
         items={data.padroesMercado}
         onChange={(items) => set('padroesMercado', items)}
       />
       <DynamicStringList
-        title="Promessas que todo mundo faz"
-        hint="Frases batidas que você vê em todo lugar do seu nicho."
-        placeholder='Ex: "Escale seu faturamento"'
+        title={t('mecanismoPassos.campos.promessasComuns')}
+        hint={t('mecanismoPassos.campos.promessasComunsHint')}
+        placeholder={t('mecanismoPassos.campos.promessasComunsPh')}
         items={data.promessasComuns}
         onChange={(items) => set('promessasComuns', items)}
       />
       <div className="flex items-start gap-2 p-3 rounded-xl bg-rl-gold/5 border border-rl-gold/30">
         <AlertTriangle className="w-4 h-4 text-rl-gold mt-0.5 shrink-0" />
         <p className="text-xs text-rl-text leading-snug">
-          <strong>Alerta:</strong> se você oferece as mesmas coisas que listou acima, você é
-          igual aos outros. Use isso pra criar contraste nos próximos passos.
+          <strong>{t('mecanismoPassos.campos.alerta')}</strong> {t('mecanismoPassos.wizard.mercadoAlerta')}
         </p>
       </div>
     </div>
@@ -184,33 +183,31 @@ export function StepMercado({ data, set }) {
 
 // ─── Passo 2 — O que já tentou ──────────────────────────────────────────────
 export function StepTentativas({ data, set }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-4">
       <Ensino>
-        Seu cliente já tentou resolver isso antes e falhou. O que ele acredita ser o motivo
-        do fracasso é a porta de entrada do seu mecanismo. Use as palavras <strong>dele</strong>,
-        não as suas.
+        {t('mecanismoPassos.wizard.tentativasEnsino1')}<strong>{t('mecanismoPassos.wizard.tentativasEnsinoDele')}</strong>{t('mecanismoPassos.wizard.tentativasEnsino2')}
       </Ensino>
       <DynamicTable
-        title="O que ele já tentou antes de você?"
+        title={t('mecanismoPassos.campos.jaTentou')}
         hint=""
         columns={[
-          { id: 'tentou',    label: 'O que tentou', placeholder: 'Ex: Curso online' },
-          { id: 'resultado', label: 'Resultado',    placeholder: 'Ex: Não aplicou' },
+          { id: 'tentou',    label: t('mecanismoPassos.campos.oQueTentou'), placeholder: t('mecanismoPassos.campos.oQueTentouPh') },
+          { id: 'resultado', label: t('mecanismoPassos.campos.resultado'), placeholder: t('mecanismoPassos.campos.resultadoPh') },
         ]}
         rows={data.tentativas}
         onChange={(rows) => set('tentativas', rows)}
       />
       <DynamicStringList
-        title="Por que ELE acha que não funcionou?"
-        hint='Literalmente como ele fala. Ex: "Não tive tempo de aplicar"'
-        placeholder='Ex: "Era muito complexo"'
+        title={t('mecanismoPassos.campos.porqueNaoFuncionou')}
+        hint={t('mecanismoPassos.wizard.tentativasHint')}
+        placeholder={t('mecanismoPassos.campos.porqueNaoFuncionouPh')}
         items={data.justificativas}
         onChange={(items) => set('justificativas', items)}
       />
       <Exemplo>
-        Tentou: &ldquo;contratar um vendedor&rdquo; → Resultado: &ldquo;pediu demissão em 2
-        meses&rdquo;. Ele acha que foi porque &ldquo;é difícil achar gente boa&rdquo;.
+        {t('mecanismoPassos.wizard.tentativasExemplo')}
       </Exemplo>
     </div>
   )
@@ -218,6 +215,7 @@ export function StepTentativas({ data, set }) {
 
 // ─── Passo 3 — O vilão ──────────────────────────────────────────────────────
 export function StepVilao({ data, set }) {
+  const { t } = useI18n()
   const selected = new Set(data.viloes || [])
 
   function toggle(id) {
@@ -230,14 +228,13 @@ export function StepVilao({ data, set }) {
     <div className="space-y-4">
       <div className="p-3 rounded-xl bg-rl-red/5 border border-rl-red/30">
         <p className="text-xs text-rl-text">
-          <strong>Regra de ouro:</strong> o cliente NUNCA é culpado. A culpa é de algo que ele
-          NÃO SABIA. Culpar o cliente fecha a conversa; culpar o vilão abre.
+          <strong>{t('mecanismoPassos.campos.regraDeOuro')}</strong> {t('mecanismoPassos.wizard.vilaoRegra')}
         </p>
       </div>
 
       <div>
-        <Label>Escolha os candidatos a vilão</Label>
-        <p className="text-[11px] text-rl-muted mb-2">Quem ou o que você pode culpar pelo fracasso?</p>
+        <Label>{t('mecanismoPassos.wizard.vilaoCandidatos')}</Label>
+        <p className="text-[11px] text-rl-muted mb-2">{t('mecanismoPassos.campos.quemCulpar')}</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {VILOES.map((v) => {
             const checked = selected.has(v.id)
@@ -265,29 +262,28 @@ export function StepVilao({ data, set }) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Field label="Meu vilão principal">
+        <Field label={t('mecanismoPassos.campos.vilaoPrincipal')}>
           <input
             type="text"
             value={data.vilaoPrincipal || ''}
             onChange={(e) => set('vilaoPrincipal', e.target.value)}
-            placeholder="Resuma em uma frase"
+            placeholder={t('mecanismoPassos.campos.vilaoPrincipalPh')}
             className="input-field w-full"
           />
         </Field>
-        <Field label="Por que isso é vilão?">
+        <Field label={t('mecanismoPassos.campos.porqueVilao')}>
           <input
             type="text"
             value={data.vilaoJustificativa || ''}
             onChange={(e) => set('vilaoJustificativa', e.target.value)}
-            placeholder="A razão lógica"
+            placeholder={t('mecanismoPassos.campos.porqueVilaoPh')}
             className="input-field w-full"
           />
         </Field>
       </div>
 
       <Exemplo>
-        Vilão: &ldquo;scripts de venda genéricos da internet&rdquo;. Por quê: &ldquo;foram
-        escritos para outro tipo de produto e outro ticket&rdquo;.
+        {t('mecanismoPassos.wizard.vilaoExemplo')}
       </Exemplo>
     </div>
   )
@@ -295,6 +291,7 @@ export function StepVilao({ data, set }) {
 
 // ─── Passo 4 — Conexão lógica + prova ───────────────────────────────────────
 export function StepProva({ data, set, setNested }) {
+  const { t } = useI18n()
   const provasSelected = new Set(data.provas || [])
 
   function toggleProva(id) {
@@ -306,43 +303,42 @@ export function StepProva({ data, set, setNested }) {
   return (
     <div className="space-y-5">
       <Ensino>
-        O vilão só convence se a corrente lógica fechar e existir uma prova. Sem prova, vira
-        opinião: o cliente ouve e não acredita.
+        {t('mecanismoPassos.wizard.provaEnsino')}
       </Ensino>
 
       <div>
-        <Label>Conexão lógica</Label>
+        <Label>{t('mecanismoPassos.wizard.conexaoLogica')}</Label>
         <p className="text-[11px] text-rl-muted mb-2">
-          [VILÃO] → causou [PROBLEMA] → que levou a [FRACASSO]
+          {t('mecanismoPassos.campos.cadeia')}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <input
             type="text"
             value={data.conexao?.vilao || ''}
             onChange={(e) => setNested('conexao', 'vilao', e.target.value)}
-            placeholder="Vilão"
+            placeholder={t('mecanismoPassos.campos.vilao')}
             className="input-field w-full"
           />
           <input
             type="text"
             value={data.conexao?.problema || ''}
             onChange={(e) => setNested('conexao', 'problema', e.target.value)}
-            placeholder="Problema causado"
+            placeholder={t('mecanismoPassos.campos.problemaCausado')}
             className="input-field w-full"
           />
           <input
             type="text"
             value={data.conexao?.fracasso || ''}
             onChange={(e) => setNested('conexao', 'fracasso', e.target.value)}
-            placeholder="Fracasso final"
+            placeholder={t('mecanismoPassos.campos.fracassoFinal')}
             className="input-field w-full"
           />
         </div>
       </div>
 
       <div>
-        <Label>A prova</Label>
-        <p className="text-[11px] text-rl-muted mb-2">Qual tipo de prova torna sua explicação crível?</p>
+        <Label>{t('mecanismoPassos.wizard.aProva')}</Label>
+        <p className="text-[11px] text-rl-muted mb-2">{t('mecanismoPassos.campos.qualProva')}</p>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
           {TIPOS_PROVA.map((p) => {
             const checked = provasSelected.has(p.id)
@@ -366,7 +362,7 @@ export function StepProva({ data, set, setNested }) {
           value={data.provaTexto || ''}
           onChange={(e) => set('provaTexto', e.target.value)}
           rows={3}
-          placeholder='Ex: "9 em cada 10 scripts da internet foram escritos por quem nunca vendeu acima de R$5.000"'
+          placeholder={t('mecanismoPassos.campos.provaPh')}
           className="input-field w-full resize-none"
         />
       </div>
@@ -380,25 +376,24 @@ export function StepProva({ data, set, setNested }) {
 
 // ─── Passo 5 — O que é diferente ────────────────────────────────────────────
 export function StepDiferente({ data, set }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-4">
       <Ensino>
-        Agora vem a virada: por que a SUA forma resolve o que os outros não resolveram.
-        Cada linha é um contraste direto com o que você mapeou nos concorrentes.
+        {t('mecanismoPassos.wizard.diferenteEnsino')}
       </Ensino>
       <DynamicTable
-        title="Defina o que é diferente"
-        hint='Complete: "Diferente de... eu..."'
+        title={t('mecanismoPassos.wizard.diferenteTitulo')}
+        hint={t('mecanismoPassos.campos.completeDiferente')}
         columns={[
-          { id: 'deles', label: 'Diferente de...', placeholder: 'Ex: cursos que dão teoria' },
-          { id: 'voce',  label: 'Eu...',           placeholder: 'Ex: implemento do seu lado' },
+          { id: 'deles', label: t('mecanismoPassos.campos.diferenteDe'), placeholder: t('mecanismoPassos.campos.diferenteDePh') },
+          { id: 'voce',  label: t('mecanismoPassos.campos.eu'), placeholder: t('mecanismoPassos.campos.euPh') },
         ]}
         rows={data.diferentes}
         onChange={(rows) => set('diferentes', rows)}
       />
       <Exemplo>
-        &ldquo;Diferente de agências que entregam relatório, eu entro na sua reunião comercial
-        toda semana.&rdquo;
+        {t('mecanismoPassos.wizard.diferenteExemplo')}
       </Exemplo>
     </div>
   )
@@ -406,15 +401,15 @@ export function StepDiferente({ data, set }) {
 
 // ─── Passo 6 — Nome do mecanismo ────────────────────────────────────────────
 export function StepNome({ data, set }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-4">
       <Ensino>
-        Um método sem nome é um serviço. Com nome, vira propriedade: o cliente consegue
-        repetir pra outra pessoa e você deixa de ser comparável por preço.
+        {t('mecanismoPassos.wizard.nomeEnsino')}
       </Ensino>
 
       <div>
-        <Label>Escolha um formato</Label>
+        <Label>{t('mecanismoPassos.wizard.escolhaFormato')}</Label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 mt-2">
           {FORMATOS_NOME.map((f) => {
             const active = data.formatoNome === f.id
@@ -430,17 +425,17 @@ export function StepNome({ data, set }) {
                 }`}
               >
                 <div className="font-bold">{f.label}</div>
-                <div className="text-[10px] text-rl-muted">Ex: {f.exemplo}</div>
+                <div className="text-[10px] text-rl-muted">{t('mecanismoPassos.campos.exemploCurto', { texto: f.exemplo })}</div>
               </button>
             )
           })}
         </div>
-        <Field label="Nome final do mecanismo">
+        <Field label={t('mecanismoPassos.campos.nomeFinal')}>
           <input
             type="text"
             value={data.nomeMecanismo || ''}
             onChange={(e) => set('nomeMecanismo', e.target.value)}
-            placeholder='Ex: "Método do Closer Interno"'
+            placeholder={t('mecanismoPassos.campos.nomeFinalPh')}
             className="input-field w-full"
             maxLength={80}
           />
@@ -449,7 +444,7 @@ export function StepNome({ data, set }) {
 
       {data.nomeMecanismo?.trim() && (
         <div className="rounded-xl bg-rl-gold/5 border border-rl-gold/30 p-4 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-rl-gold mb-1">Seu mecanismo</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-rl-gold mb-1">{t('mecanismoPassos.wizard.seuMecanismo')}</p>
           <p className="text-lg font-black text-rl-text">{data.nomeMecanismo}</p>
         </div>
       )}
@@ -459,21 +454,21 @@ export function StepNome({ data, set }) {
 
 // ─── Passo 7 — Por que funciona ─────────────────────────────────────────────
 export function StepPorque({ data, setNested }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-4">
       <Ensino>
-        Escolha uma ou mais técnicas para sustentar a promessa. Não precisa preencher todas:
-        uma bem feita vale mais que quatro genéricas.
+        {t('mecanismoPassos.wizard.porqueEnsino')}
       </Ensino>
       <div className="space-y-3">
-        {TECNICAS.map((t) => (
-          <div key={t.id}>
-            <p className="text-[11px] font-bold text-rl-text mb-1">{t.label}</p>
+        {TECNICAS.map((tc) => (
+          <div key={tc.id}>
+            <p className="text-[11px] font-bold text-rl-text mb-1">{tc.label}</p>
             <textarea
-              value={(data.tecnicas || {})[t.id] || ''}
-              onChange={(e) => setNested('tecnicas', t.id, e.target.value)}
+              value={(data.tecnicas || {})[tc.id] || ''}
+              onChange={(e) => setNested('tecnicas', tc.id, e.target.value)}
               rows={2}
-              placeholder={t.placeholder}
+              placeholder={tc.placeholder}
               className="input-field w-full resize-none"
             />
           </div>
@@ -485,78 +480,78 @@ export function StepPorque({ data, setNested }) {
 
 // ─── Passo 8 — Montagem do pitch ────────────────────────────────────────────
 export function StepMontagem({ data, set, setNested }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-5">
       <Ensino>
-        Último esforço: junte tudo no esqueleto. O pitch se monta sozinho no passo final
-        conforme você preenche aqui.
+        {t('mecanismoPassos.wizard.montagemEnsino')}
       </Ensino>
 
       <div className="space-y-3">
-        <Field label="Eu ajudo:">
+        <Field label={t('mecanismoPassos.campos.euAjudo')}>
           <textarea
             value={data.euAjudo || ''}
             onChange={(e) => set('euAjudo', e.target.value)}
             rows={2}
-            placeholder="Ex: Donos de agências que faturam entre R$50k e R$200k/mês e ainda são o principal vendedor"
+            placeholder={t('mecanismoPassos.campos.euAjudoPh')}
             className="input-field w-full resize-none"
           />
         </Field>
-        <Field label="A conseguir:">
+        <Field label={t('mecanismoPassos.campos.aConseguir')}>
           <textarea
             value={data.aConseguir || ''}
             onChange={(e) => set('aConseguir', e.target.value)}
             rows={2}
-            placeholder="Ex: Contratar o primeiro closer que bate meta em 45 dias sem o dono participar"
+            placeholder={t('mecanismoPassos.campos.aConseguirPh')}
             className="input-field w-full resize-none"
           />
         </Field>
-        <Field label="Através do (nome do mecanismo):">
+        <Field label={t('mecanismoPassos.campos.atravesDo')}>
           <input
             type="text"
             value={data.atravesDo || data.nomeMecanismo || ''}
             onChange={(e) => set('atravesDo', e.target.value)}
-            placeholder={data.nomeMecanismo || 'Ex: Método do Closer Interno'}
+            placeholder={data.nomeMecanismo || t('mecanismoPassos.campos.atravesDoPh')}
             className="input-field w-full"
           />
         </Field>
       </div>
 
       <div className="border-t border-rl-border/60 pt-4">
-        <Label>Parte 1 — Por que falhou até agora</Label>
+        <Label>{t('mecanismoPassos.campos.parte1')}</Label>
         <div className="space-y-2 mt-2">
           <textarea
             value={data.porqueFalhou?.problema || ''}
             onChange={(e) => setNested('porqueFalhou', 'problema', e.target.value)}
             rows={2}
-            placeholder="Você não conseguiu... até agora porque..."
+            placeholder={t('mecanismoPassos.campos.falhouProblemaPh')}
             className="input-field w-full resize-none"
           />
           <textarea
             value={data.porqueFalhou?.razao || ''}
             onChange={(e) => setNested('porqueFalhou', 'razao', e.target.value)}
             rows={2}
-            placeholder="Isso acontece porque..."
+            placeholder={t('mecanismoPassos.campos.falhouRazaoPh')}
             className="input-field w-full resize-none"
           />
           <textarea
             value={data.porqueFalhou?.prova || ''}
             onChange={(e) => setNested('porqueFalhou', 'prova', e.target.value)}
             rows={2}
-            placeholder="[PROVA]: ..."
+            placeholder={t('mecanismoPassos.campos.falhouProvaPh')}
             className="input-field w-full resize-none"
           />
         </div>
       </div>
 
       <div className="border-t border-rl-border/60 pt-4">
-        <Label>Parte 2 — Por que vai funcionar</Label>
+        <Label>{t('mecanismoPassos.campos.parte2')}</Label>
         <div className="space-y-2 mt-2">
           <textarea
             value={data.porqueFunciona?.explicacao || ''}
             onChange={(e) => setNested('porqueFunciona', 'explicacao', e.target.value)}
             rows={2}
-            placeholder="O [NOME DO MECANISMO]... funciona porque..."
+            placeholder={t('mecanismoPassos.campos.funcionaExplicacaoPh')}
             className="input-field w-full resize-none"
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -564,14 +559,14 @@ export function StepMontagem({ data, set, setNested }) {
               value={data.porqueFunciona?.diferente || ''}
               onChange={(e) => setNested('porqueFunciona', 'diferente', e.target.value)}
               rows={2}
-              placeholder="Diferente de..."
+              placeholder={t('mecanismoPassos.campos.funcionaDiferentePh')}
               className="input-field w-full resize-none"
             />
             <textarea
               value={data.porqueFunciona?.voce || ''}
               onChange={(e) => setNested('porqueFunciona', 'voce', e.target.value)}
               rows={2}
-              placeholder="...eu..."
+              placeholder={t('mecanismoPassos.campos.funcionaVocePh')}
               className="input-field w-full resize-none"
             />
           </div>
@@ -579,23 +574,23 @@ export function StepMontagem({ data, set, setNested }) {
       </div>
 
       <div className="border-t border-rl-border/60 pt-4">
-        <Label>Promessa final</Label>
+        <Label>{t('mecanismoPassos.campos.promessaFinal')}</Label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-          <Field label="Em (prazo)">
+          <Field label={t('mecanismoPassos.campos.prazo')}>
             <input
               type="text"
               value={data.promessaPrazo || ''}
               onChange={(e) => set('promessaPrazo', e.target.value)}
-              placeholder="Ex: 45 dias"
+              placeholder={t('mecanismoPassos.campos.prazoPh')}
               className="input-field w-full"
             />
           </Field>
-          <Field label="...você terá">
+          <Field label={t('mecanismoPassos.campos.resultadoPromessa')}>
             <input
               type="text"
               value={data.promessaResultado || ''}
               onChange={(e) => set('promessaResultado', e.target.value)}
-              placeholder="Ex: seu closer batendo meta sem você"
+              placeholder={t('mecanismoPassos.campos.resultadoPromessaPh')}
               className="input-field w-full"
             />
           </Field>
@@ -607,6 +602,7 @@ export function StepMontagem({ data, set, setNested }) {
 
 // ─── Passo 9 — Validação ────────────────────────────────────────────────────
 export function StepValidacao({ data, set }) {
+  const { t } = useI18n()
   const count = countValidacao(data.validacao)
   const veredito = vereditoValidacao(data.validacao)
 
@@ -617,8 +613,7 @@ export function StepValidacao({ data, set }) {
   return (
     <div className="space-y-5">
       <Ensino>
-        Marque cada critério com sinceridade. Um mecanismo só está aprovado quando os 7
-        respondem SIM: qualquer &ldquo;não&rdquo; aponta exatamente o passo que precisa voltar.
+        {t('mecanismoPassos.wizard.validacaoEnsino')}
       </Ensino>
 
       <div className="space-y-2">
@@ -641,7 +636,7 @@ export function StepValidacao({ data, set }) {
                       : 'bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text'
                   }`}
                 >
-                  Sim
+                  {t('mecanismoPassos.campos.sim')}
                 </button>
                 <button
                   type="button"
@@ -652,7 +647,7 @@ export function StepValidacao({ data, set }) {
                       : 'bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text'
                   }`}
                 >
-                  Não
+                  {t('mecanismoPassos.campos.nao')}
                 </button>
               </div>
             </div>
@@ -665,39 +660,39 @@ export function StepValidacao({ data, set }) {
         style={{ background: `${veredito.color}10`, borderLeftColor: veredito.color }}
       >
         <p className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: veredito.color }}>
-          Veredito ({count}/7)
+          {t('mecanismoPassos.campos.veredito', { count })}
         </p>
         <p className="text-sm font-bold" style={{ color: veredito.color }}>{veredito.label}</p>
       </div>
 
       <div>
-        <Label>Teste do amigo</Label>
+        <Label>{t('mecanismoPassos.campos.testeAmigo')}</Label>
         <p className="text-[11px] text-rl-muted mb-2">
-          Imagina contar o mecanismo pra um amigo no bar. Qual seria a reação?
+          {t('mecanismoPassos.campos.testeAmigoHint')}
         </p>
         <div className="space-y-2">
-          {TESTE_AMIGO.map((t) => {
-            const active = data.testeAmigo === t.id
+          {TESTE_AMIGO.map((ta) => {
+            const active = data.testeAmigo === ta.id
             return (
               <button
-                key={t.id}
+                key={ta.id}
                 type="button"
-                onClick={() => set('testeAmigo', active ? '' : t.id)}
+                onClick={() => set('testeAmigo', active ? '' : ta.id)}
                 className={`w-full text-left px-4 py-3 rounded-xl border transition-all flex items-center justify-between ${
                   active
-                    ? t.id === 'aprovado'
+                    ? ta.id === 'aprovado'
                       ? 'bg-rl-green/10 border-rl-green/50 text-rl-green'
                       : 'bg-rl-red/10 border-rl-red/50 text-rl-red'
                     : 'bg-rl-surface border-rl-border text-rl-text hover:border-rl-purple/30'
                 }`}
               >
-                <span className="text-sm">{t.label}</span>
+                <span className="text-sm">{ta.label}</span>
                 <span className={`text-[10px] font-bold uppercase tracking-wider ${
                   active
-                    ? t.id === 'aprovado' ? 'text-rl-green' : 'text-rl-red'
+                    ? ta.id === 'aprovado' ? 'text-rl-green' : 'text-rl-red'
                     : 'text-rl-muted'
                 }`}>
-                  → {t.resultado}
+                  → {ta.resultado}
                 </span>
               </button>
             )
@@ -710,11 +705,12 @@ export function StepValidacao({ data, set }) {
 
 // ─── Passo final — pitch montado ────────────────────────────────────────────
 export function StepPitchPreview({ data }) {
+  const { t } = useI18n()
   const pitch = buildPitch(data)
   if (!pitch) {
     return (
       <p className="text-sm text-rl-muted text-center py-8 italic">
-        Volte ao passo &ldquo;Montagem do pitch&rdquo; pra ver o resultado aparecer aqui.
+        {t('mecanismoPassos.wizard.semPitch')}
       </p>
     )
   }
@@ -722,7 +718,7 @@ export function StepPitchPreview({ data }) {
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <Trophy className="w-4 h-4 text-rl-gold" />
-        <h4 className="text-sm font-bold text-rl-text">Seu pitch montado</h4>
+        <h4 className="text-sm font-bold text-rl-text">{t('mecanismoPassos.wizard.seuPitch')}</h4>
       </div>
       <div className="rounded-xl bg-rl-surface/50 border border-rl-border p-4">
         <MarkdownBlock content={pitch} />

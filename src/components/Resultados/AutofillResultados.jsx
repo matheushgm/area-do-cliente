@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Zap, Loader2 } from 'lucide-react'
 import { autofillResultados } from '../../lib/autofillResultados'
+import { useI18n } from '../../i18n'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Preenchimento dos Resultados a partir das contas de anúncio vinculadas.
@@ -12,17 +13,18 @@ import { autofillResultados } from '../../lib/autofillResultados'
 
 // Selo nos cards preenchidos pela API.
 export function AutoBadge({ entry }) {
+  const { t, locale } = useI18n()
   if (entry?.fonte !== 'api') return null
   const quando = entry.atualizadoEm
-    ? new Date(entry.atualizadoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    ? new Date(entry.atualizadoEm).toLocaleDateString(locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
     : null
   return (
     <span
       className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-rl-cyan bg-rl-cyan/10 border border-rl-cyan/25 rounded-full px-1.5 py-0.5"
-      title={`Investimento e conversões vindos da API${quando ? ` · atualizado em ${quando}` : ''}${entry.parcial ? ' · semana ainda em curso' : ''}`}
+      title={`${t('resultados.autofill.titulo')}${quando ? t('resultados.autofill.atualizadoEm', { quando }) : ''}${entry.parcial ? t('resultados.autofill.semanaEmCurso') : ''}`}
     >
       <Zap size={9} />
-      {entry.parcial ? 'API · parcial' : 'API'}
+      {entry.parcial ? t('resultados.autofill.apiParcial') : t('resultados.fonte.api')}
     </span>
   )
 }
@@ -31,6 +33,7 @@ export function AutoBadge({ entry }) {
 export function AutofillButton({ projectId, year, month, onFilled }) {
   const [state, setState] = useState('idle') // idle | loading | done | error
   const [msg, setMsg] = useState('')
+  const { t } = useI18n()
 
   if (!projectId) return null
 
@@ -43,16 +46,16 @@ export function AutofillButton({ projectId, year, month, onFilled }) {
       if (res.data && onFilled) onFilled(res.data)
       if (mine) {
         setState('done')
-        setMsg(`${mine.semanas.length} semana${mine.semanas.length > 1 ? 's' : ''} preenchida${mine.semanas.length > 1 ? 's' : ''}`)
+        setMsg(t('resultados.autofill.semanasPreenchidas', { count: mine.semanas.length }))
       } else {
         const why = res.skipped?.find(s => s.projectId === projectId)?.reason
         setState('done')
-        setMsg(why ? `Nada a preencher: ${why}` : 'Nada a preencher neste mês')
+        setMsg(why ? t('resultados.autofill.nadaPreencher', { motivo: why }) : t('resultados.autofill.nadaMes'))
       }
       setTimeout(() => { setState('idle'); setMsg('') }, 4000)
     } catch (e) {
       setState('error')
-      setMsg(e.message || 'Falha ao puxar os dados')
+      setMsg(e.message || t('resultados.autofill.falha'))
       setTimeout(() => { setState('idle'); setMsg('') }, 5000)
     }
   }
@@ -66,10 +69,10 @@ export function AutofillButton({ projectId, year, month, onFilled }) {
         onClick={run}
         disabled={state === 'loading'}
         className="btn-secondary flex items-center gap-2 text-sm whitespace-nowrap disabled:opacity-60"
-        title="Preenche investimento e conversões das semanas fechadas com os dados reais de Meta e Google Ads"
+        title={t('resultados.autofill.botaoTitulo')}
       >
         {state === 'loading' ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} />}
-        {state === 'loading' ? 'Puxando…' : 'Puxar da API'}
+        {state === 'loading' ? t('resultados.autofill.puxando') : t('resultados.autofill.puxar')}
       </button>
     </div>
   )

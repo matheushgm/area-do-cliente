@@ -5,6 +5,7 @@
 // (src/index.css), validadas para daltonismo no claro e no escuro.
 import { useEffect, useRef, useState } from 'react'
 import { fmtMoney } from './resultadosHelpers'
+import { useI18n, t, localeAtual } from '../../i18n'
 
 const COR = { investido: 'rgb(var(--viz-1))', receita: 'rgb(var(--viz-2))', leads: 'rgb(var(--viz-3))' }
 const ALTURA = 280
@@ -12,9 +13,10 @@ const M = { top: 30, right: 48, bottom: 26, left: 70 }
 
 const compacto = (v, dinheiro) => {
   const abs = Math.abs(v)
-  const txt = abs >= 1e6 ? `${(v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi`
-    : abs >= 1e3 ? `${(v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil`
-      : v.toLocaleString('pt-BR', { maximumFractionDigits: dinheiro ? 0 : 1 })
+  const loc = localeAtual()
+  const txt = abs >= 1e6 ? t('resultados.evolucao.mi', { n: (v / 1e6).toLocaleString(loc, { maximumFractionDigits: 1 }) })
+    : abs >= 1e3 ? t('resultados.evolucao.mil', { n: (v / 1e3).toLocaleString(loc, { maximumFractionDigits: 1 }) })
+      : v.toLocaleString(loc, { maximumFractionDigits: dinheiro ? 0 : 1 })
   return dinheiro ? `R$ ${txt}` : txt
 }
 
@@ -61,6 +63,7 @@ function Legenda({ cor, linha, children }) {
 export default function GraficosEvolucao({ titulo, labels, nomes, rotuloX, periodos }) {
   const [ref, W] = useLargura()
   const [hover, setHover] = useState(null)
+  const { t, locale } = useI18n()
   const n = labels.length
   const H = ALTURA
   const pw = Math.max(0, W - M.left - M.right), ph = H - M.top - M.bottom
@@ -101,23 +104,23 @@ export default function GraficosEvolucao({ titulo, labels, nomes, rotuloX, perio
         <div>
           <p className="text-base font-semibold text-rl-text">{titulo}</p>
           <p className="text-sm text-rl-subtle mt-0.5 tabular-nums">
-            {fmtMoney(tInv)} investidos · {tLeads.toLocaleString('pt-BR')} leads · {fmtMoney(tRec)} de receita
+            {t('resultados.evolucao.resumo', { investido: fmtMoney(tInv), leads: tLeads.toLocaleString(locale), receita: fmtMoney(tRec) })}
           </p>
         </div>
         <div className="flex items-center gap-4 flex-wrap pt-1">
-          <Legenda cor={COR.investido}>Investido</Legenda>
-          <Legenda cor={COR.receita}>Receita</Legenda>
-          <Legenda cor={COR.leads} linha>Leads</Legenda>
+          <Legenda cor={COR.investido}>{t('resultados.campos.investido')}</Legenda>
+          <Legenda cor={COR.receita}>{t('resultados.campos.receita')}</Legenda>
+          <Legenda cor={COR.leads} linha>{t('resultados.campos.leads')}</Legenda>
         </div>
       </div>
 
       <div ref={ref} className="relative" style={{ height: H }}>
         {W > 0 && (
           <svg width={W} height={H} className="block" onMouseMove={mover} onMouseLeave={() => setHover(null)} role="img"
-            aria-label={`${titulo}: investido, receita e leads por período`}>
+            aria-label={t('resultados.evolucao.aria', { titulo })}>
             {/* nomes dos eixos */}
-            <text x={M.left - 8} y={12} textAnchor="end" fontSize="12" fontWeight="600" fill="rgb(var(--rl-muted))">Reais</text>
-            <text x={W - M.right + 8} y={12} textAnchor="start" fontSize="12" fontWeight="600" fill="rgb(var(--rl-muted))">Leads</text>
+            <text x={M.left - 8} y={12} textAnchor="end" fontSize="12" fontWeight="600" fill="rgb(var(--rl-muted))">{t('resultados.evolucao.reais')}</text>
+            <text x={W - M.right + 8} y={12} textAnchor="start" fontSize="12" fontWeight="600" fill="rgb(var(--rl-muted))">{t('resultados.campos.leads')}</text>
             {marcas.map((f) => (
               <g key={f}>
                 <line x1={M.left} x2={W - M.right} y1={M.top + ph - f * ph} y2={M.top + ph - f * ph} stroke="rgb(var(--rl-border))" strokeWidth="1" />
@@ -127,8 +130,8 @@ export default function GraficosEvolucao({ titulo, labels, nomes, rotuloX, perio
             ))}
             {hover != null && <rect x={M.left + banda * hover} y={M.top} width={banda} height={ph} fill="rgb(var(--rl-surface))" />}
             {labels.map((l, i) => {
-              const t = rotuloX ? rotuloX(i) : l
-              return t ? <text key={i} x={xc(i)} y={H - 6} textAnchor="middle" fontSize="12" fill="rgb(var(--rl-muted))">{t}</text> : null
+              const rot = rotuloX ? rotuloX(i) : l
+              return rot ? <text key={i} x={xc(i)} y={H - 6} textAnchor="middle" fontSize="12" fill="rgb(var(--rl-muted))">{rot}</text> : null
             })}
 
             {[['investido', inv, 0], ['receita', rec, 1]].map(([k, vals, si]) => vals.map((v, i) => {
@@ -154,7 +157,7 @@ export default function GraficosEvolucao({ titulo, labels, nomes, rotuloX, perio
             <p className="text-xs text-rl-muted mb-1">{(nomes || labels)[hover]}</p>
             {p ? (
               <>
-                {[['Investido', COR.investido, fmtMoney(p.investido || 0)], ['Receita', COR.receita, fmtMoney(p.receita || 0)], ['Leads', COR.leads, (p.leads || 0).toLocaleString('pt-BR')]].map(([l, c, v]) => (
+                {[[t('resultados.campos.investido'), COR.investido, fmtMoney(p.investido || 0)], [t('resultados.campos.receita'), COR.receita, fmtMoney(p.receita || 0)], [t('resultados.campos.leads'), COR.leads, (p.leads || 0).toLocaleString(locale)]].map(([l, c, v]) => (
                   <p key={l} className="flex items-center gap-2 text-rl-text tabular-nums">
                     <span className="w-2 h-2 rounded-sm" style={{ background: c }} />
                     <span className="text-rl-subtle">{l}</span>
@@ -166,7 +169,7 @@ export default function GraficosEvolucao({ titulo, labels, nomes, rotuloX, perio
                   <span>ROAS {p.investido > 0 && p.receita > 0 ? `${(p.receita / p.investido).toFixed(2)}x` : '—'}</span>
                 </p>
               </>
-            ) : <p className="text-rl-subtle">sem dado</p>}
+            ) : <p className="text-rl-subtle">{t('resultados.evolucao.semDado')}</p>}
           </div>
         )}
       </div>

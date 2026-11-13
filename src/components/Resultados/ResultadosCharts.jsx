@@ -5,6 +5,7 @@
 // gráficos acompanham automaticamente o tema claro/escuro.
 
 import { fmtMoney } from './resultadosHelpers'
+import { useI18n } from '../../i18n'
 
 // Paleta em formato CSS (var() só funciona em `style`, não em atributos SVG).
 export const C = {
@@ -58,6 +59,7 @@ export function KpiHero({ label, value, sub, color = 'blue', icon, footer }) {
 // Cada série é normalizada pelo próprio máximo quando `axis` difere, de modo que
 // investimento (R$) e leads (unidades) convivem no mesmo gráfico.
 export function AreaChart({ labels, series, height = 190, formatValue }) {
+  const { t } = useI18n()
   const W = 640
   const H = height
   const padL = 8, padR = 8, padT = 14, padB = 26
@@ -87,7 +89,7 @@ export function AreaChart({ labels, series, height = 190, formatValue }) {
     return (
       <div className="flex items-center justify-center text-xs text-rl-muted border border-dashed border-rl-border rounded-xl"
            style={{ height: H }}>
-        Sem dados suficientes para o gráfico
+        {t('resultados.graficos.semDados')}
       </div>
     )
   }
@@ -95,7 +97,7 @@ export function AreaChart({ labels, series, height = 190, formatValue }) {
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" role="img"
-           aria-label="Evolução no período">
+           aria-label={t('resultados.graficos.aria')}>
         {/* linhas de grade */}
         {[0, 0.25, 0.5, 0.75, 1].map(g => (
           <line key={g}
@@ -180,25 +182,26 @@ export function CostTile({ label, value, color = 'blue' }) {
 // Custos unitários de uma semana/período. `data` precisa de investido + leads,
 // mql, sql e vendas (o que faltar vira "—").
 export function CostGrid({ investido, leads, mql, sql, vendas, compact = false }) {
+  const { t } = useI18n()
   const inv = Number(investido) || 0
   const per = qty => (inv > 0 && Number(qty) > 0 ? inv / Number(qty) : 0)
 
   const tiles = [
-    { label: 'Custo / Lead', value: per(leads),  color: 'blue' },
-    { label: 'Custo / MQL',  value: per(mql),    color: 'cyan' },
-    { label: 'Custo / SQL',  value: per(sql),    color: 'purple' },
-    { label: 'CAC',          value: per(vendas), color: 'gold' },
+    { id: 'lead', label: t('resultados.campos.custoLead'), value: per(leads),  color: 'blue' },
+    { id: 'mql', label: t('resultados.campos.custoMql'),  value: per(mql),    color: 'cyan' },
+    { id: 'sql', label: t('resultados.campos.custoSql'),  value: per(sql),    color: 'purple' },
+    { id: 'cac', label: t('resultados.campos.cac'),          value: per(vendas), color: 'gold' },
   ]
 
   return (
     <div>
       {!compact && (
         <div className="text-xs text-rl-muted uppercase tracking-wider mb-1.5 font-semibold">
-          Custo por etapa
+          {t('resultados.graficos.custoEtapa')}
         </div>
       )}
       <div className="grid grid-cols-4 gap-1.5">
-        {tiles.map(t => <CostTile key={t.label} {...t} />)}
+        {tiles.map(({ id, ...tile }) => <CostTile key={id} {...tile} />)}
       </div>
     </div>
   )

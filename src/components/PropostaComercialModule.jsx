@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { exportPropostaComercialPDF } from '../utils/exportPDF'
 import { PROPOSTA_SECTIONS, PROPOSTA_DEFAULTS } from '../lib/propostaComercial'
+import { useI18n } from '../i18n'
 
 // Monta o estado inicial: valor salvo tem prioridade; se o campo nunca foi
 // salvo (undefined), usa a fala-modelo (default). String vazia salva é mantida,
@@ -20,6 +21,7 @@ function buildInitial(saved) {
 
 export default function PropostaComercialModule({ project }) {
   const { updateProject } = useApp()
+  const { t } = useI18n()
   const saved = project.propostaComercial || {}
 
   const [data, setData] = useState(() => buildInitial(saved))
@@ -47,19 +49,18 @@ export default function PropostaComercialModule({ project }) {
         <div>
           <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
             <FileSignature className="w-5 h-5 text-rl-cyan" />
-            Proposta Comercial
+            {t('proposta.titulo')}
           </h2>
           <p className="text-sm text-rl-muted mt-0.5">
-            Preencha o roteiro seção por seção e exporte o PDF pra montar sua apresentação.
-            Cada bloco vira uma página no PDF, marcada como <strong>Momento</strong> (fala) ou{' '}
-            <strong>Slide</strong>.
+            {t('proposta.descricaoAntes')}<strong>{t('proposta.momento')}</strong>{t('proposta.descricaoMeio')}
+            <strong>{t('proposta.slide')}</strong>{t('proposta.descricaoDepois')}
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <AutoSaveIndicator />
           <button onClick={handleExport} className="btn-secondary flex items-center gap-2 text-sm">
             <FileDown className="w-4 h-4" />
-            Exportar PDF
+            {t('proposta.exportarPdf')}
           </button>
         </div>
       </div>
@@ -81,7 +82,7 @@ export default function PropostaComercialModule({ project }) {
                     : 'bg-rl-surface text-rl-muted border-rl-border/50'
                 }`}
               >
-                {isSlide ? 'Slide' : 'Momento'}
+                {isSlide ? t('proposta.slide') : t('proposta.momento')}
               </span>
             </div>
 
@@ -127,7 +128,7 @@ export default function PropostaComercialModule({ project }) {
         <AutoSaveIndicator />
         <button onClick={handleExport} className="btn-primary flex items-center gap-2 text-sm">
           <FileDown className="w-4 h-4" />
-          Exportar PDF
+          {t('proposta.exportarPdf')}
         </button>
       </div>
     </div>

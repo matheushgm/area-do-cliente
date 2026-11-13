@@ -3,6 +3,7 @@ import { Map, Check, Clock, Circle, ChevronRight } from 'lucide-react'
 import {
   PHASES, getModuleStatus, computeProgress, computePhaseProgress,
 } from './jornadaPhases'
+import { useI18n } from '../../i18n'
 
 // Página de jornada do cliente — vai como primeiro item da sidebar.
 // Mostra todas as fases (Preparação / Criação / Campanhas no ar / Primeiros
@@ -13,8 +14,10 @@ import {
 // usado no switch de renderContent em ClientProfile. toolId é passado quando
 // o módulo está dentro de Ferramentas (Mecanismo Único, Promessa).
 export default function JornadaModule({ project, onNavigate }) {
+  const { t } = useI18n()
   const progress = useMemo(() => computeProgress(project), [project])
-  const companyName = project?.companyName || project?.company_name || 'Cliente'
+  const companyName = project?.companyName || project?.company_name || t('jornada.clientePadrao')
+  const [descAntes, descDepois = ''] = t('jornada.descricao').split('{cliente}')
 
   function handleClick(mod) {
     if (typeof onNavigate !== 'function') return
@@ -33,10 +36,9 @@ export default function JornadaModule({ project, onNavigate }) {
           <Map className="w-5 h-5 text-rl-cyan" />
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-black text-rl-text leading-tight">Jornada</h2>
+          <h2 className="text-xl font-black text-rl-text leading-tight">{t('jornada.titulo')}</h2>
           <p className="text-sm text-rl-subtle mt-0.5 max-w-2xl">
-            Visão completa do projeto de <strong>{companyName}</strong> em 4 fases. Use a Jornada
-            como ponto de partida pra saber o que falta atacar.
+            {descAntes}<strong>{companyName}</strong>{descDepois}
           </p>
         </div>
       </div>
@@ -44,7 +46,7 @@ export default function JornadaModule({ project, onNavigate }) {
       {/* Progresso geral */}
       <div className="glass-card p-5 space-y-3">
         <div className="flex items-baseline justify-between gap-3">
-          <h3 className="text-sm font-bold text-rl-text">Progresso geral</h3>
+          <h3 className="text-sm font-bold text-rl-text">{t('jornada.progressoGeral')}</h3>
           <span className="text-2xl font-black text-rl-green tabular-nums">{progress.percent}%</span>
         </div>
         <div className="h-2.5 rounded-full bg-rl-surface overflow-hidden">
@@ -55,16 +57,16 @@ export default function JornadaModule({ project, onNavigate }) {
         </div>
         <div className="flex items-center justify-between text-xs text-rl-muted">
           <span>
-            {progress.done} de {progress.total} etapa{progress.total !== 1 ? 's' : ''} concluída{progress.done !== 1 ? 's' : ''}
+            {t('jornada.etapasConcluidas', { done: progress.done, count: progress.total })}
             {progress.andamento > 0 && (
               <span className="ml-2 text-rl-gold font-semibold">
-                · {progress.andamento} em andamento
+                {t('jornada.emAndamentoQtd', { n: progress.andamento })}
               </span>
             )}
           </span>
           {progress.pendente > 0 && (
             <span>
-              Próxima: <strong className="text-rl-text">{findNextPending(project)}</strong>
+              {t('jornada.proxima')} <strong className="text-rl-text">{findNextPending(project) || t('jornada.tudoPronto')}</strong>
             </span>
           )}
         </div>
@@ -85,6 +87,7 @@ export default function JornadaModule({ project, onNavigate }) {
 
 // ─── Card de cada fase ────────────────────────────────────────────────────────
 function PhaseCard({ phase, project, onClick }) {
+  const { t } = useI18n()
   const stats = computePhaseProgress(project, phase)
   const isComplete = stats.done === stats.total
 
@@ -103,14 +106,14 @@ function PhaseCard({ phase, project, onClick }) {
             </div>
             <div>
               <h3 className="text-base font-black text-rl-text leading-tight">
-                Fase 0{phase.number}: {phase.title}
+                {t('jornada.fase', { n: phase.number, titulo: phase.title })}
               </h3>
               <p className="text-xs text-rl-subtle mt-0.5">{phase.desc}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs font-bold text-rl-muted tabular-nums">
-              {stats.done}/{stats.total} concluídas
+              {t('jornada.concluidasFase', { done: stats.done, total: stats.total })}
             </span>
             {phase.badge && (
               <span
@@ -170,23 +173,24 @@ function PhaseCard({ phase, project, onClick }) {
 
 // ─── Badge de status do módulo ───────────────────────────────────────────────
 function StatusBadge({ status }) {
+  const { t } = useI18n()
   if (status === 'concluido') {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-rl-green/10 text-rl-green border border-rl-green/30 shrink-0 whitespace-nowrap">
-        <Check className="w-3 h-3" /> Concluído
+        <Check className="w-3 h-3" /> {t('jornada.status.concluido')}
       </span>
     )
   }
   if (status === 'andamento') {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-rl-gold/10 text-rl-gold border border-rl-gold/30 shrink-0 whitespace-nowrap">
-        <Clock className="w-3 h-3" /> Em andamento
+        <Clock className="w-3 h-3" /> {t('jornada.status.andamento')}
       </span>
     )
   }
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-rl-surface text-rl-muted border border-rl-border shrink-0 whitespace-nowrap">
-      <Circle className="w-3 h-3" /> Pendente
+      <Circle className="w-3 h-3" /> {t('jornada.status.pendente')}
     </span>
   )
 }
@@ -199,5 +203,5 @@ function findNextPending(project) {
       if (s === 'pendente') return mod.label
     }
   }
-  return 'tudo pronto 🎉'
+  return null
 }

@@ -2,6 +2,10 @@
 // e o funil define o OBJETIVO e o CTA da peça (o `objetivo` entra no prompt).
 // Os ids acompanham o catálogo do Kickoff (KickoffFunnelRecommendations.js).
 // Mantido em sincronia com FUNIS_OBJETIVO em api/criativos-public.js.
+// `label` e `objetivo` entram no prompt e ficam em português; na tela use
+// rotuloFunil(id) / metaFunil(id), que seguem o idioma (namespace `funis`).
+
+import { t } from '../i18n'
 
 export const FUNIS = [
   {
@@ -103,3 +107,13 @@ export const FUNIS = [
 ]
 
 export const FUNIS_BY_ID = Object.fromEntries(FUNIS.map((f) => [f.id, f]))
+
+// Rótulo e meta exibidos na tela, no idioma atual (o `label` do objeto vai para o prompt).
+export function rotuloFunil(id) {
+  const f = FUNIS_BY_ID[id]
+  return f ? t(`funis.${id}.rotulo`) : id
+}
+export function metaFunil(id) {
+  const f = FUNIS_BY_ID[id]
+  return f ? t(`funis.${id}.meta`) : ''
+}

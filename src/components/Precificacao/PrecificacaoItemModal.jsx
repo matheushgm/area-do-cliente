@@ -6,6 +6,7 @@ import PrecificacaoProdutoForm from './PrecificacaoProdutoForm'
 import PrecificacaoSaasForm from './PrecificacaoSaasForm'
 import { calcularServico, calcularProduto, calcularSaas } from './precificacaoMath'
 import { fmtMoney } from '../Resultados/resultadosHelpers'
+import { useI18n } from '../../i18n'
 
 // Defaults razoáveis pra novos itens (acelera o preenchimento)
 const SERVICO_DEFAULTS = {
@@ -78,12 +79,6 @@ const CALC_BY_MODE = {
   saas:     calcularSaas,
 }
 
-const LABEL_BY_MODE = {
-  servicos: { singular: 'Serviço', title: 'Precificar serviço' },
-  produtos: { singular: 'Produto', title: 'Precificar produto' },
-  saas:     { singular: 'SaaS',    title: 'Precificar plano de SaaS' },
-}
-
 export default function PrecificacaoItemModal({
   mode,        // 'servicos' | 'produtos' | 'saas'
   initial,     // item existente (edição) ou null (criação)
@@ -92,8 +87,10 @@ export default function PrecificacaoItemModal({
 }) {
   const isServico = mode === 'servicos'
   const isSaas    = mode === 'saas'
+  const { t, lang } = useI18n()
   const defaults  = DEFAULTS_BY_MODE[mode] || PRODUTO_DEFAULTS
-  const labels    = LABEL_BY_MODE[mode] || LABEL_BY_MODE.produtos
+  // Rótulos do cabeçalho por modo (modo desconhecido = produto).
+  const modoRotulo = DEFAULTS_BY_MODE[mode] ? mode : 'produtos'
   const [values, setValues] = useState(() => {
     const base = { ...defaults, ...(initial || {}) }
     return isServico ? normalizarServico(base) : base
@@ -105,7 +102,8 @@ export default function PrecificacaoItemModal({
 
   // Cálculo derivado — recalcula a cada mudança de input
   const calcFn = CALC_BY_MODE[mode] || calcularProduto
-  const result = useMemo(() => calcFn(values), [values, calcFn])
+  // `lang` nas dependências: a mensagem de erro do cálculo vem traduzida.
+  const result = useMemo(() => calcFn(values), [values, calcFn, lang]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const canSave =
     !!(values.nome || '').trim() &&
@@ -130,16 +128,16 @@ export default function PrecificacaoItemModal({
       <div className="flex items-start justify-between gap-4 mb-4 pb-4 border-b border-rl-border">
         <div className="flex-1 min-w-0">
           <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold mb-1">
-            {labels.singular} · {initial ? 'editando' : 'novo item'}
+            {t(`precificacao.modal.${modoRotulo}.singular`)} · {initial ? t('precificacao.editando') : t('precificacao.novoItem')}
           </p>
           <h3 className="text-lg font-black text-rl-text leading-tight">
-            {labels.title}
+            {t(`precificacao.modal.${modoRotulo}.titulo`)}
           </h3>
         </div>
         <button
           onClick={onClose}
           className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all shrink-0"
-          aria-label="Fechar"
+          aria-label={t('comum.fechar')}
         >
           <X className="w-4 h-4" />
         </button>
@@ -174,14 +172,14 @@ export default function PrecificacaoItemModal({
           onClick={onClose}
           className="text-xs px-4 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
         >
-          Cancelar
+          {t('comum.cancelar')}
         </button>
         <button
           onClick={handleSave}
           disabled={!canSave}
           className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl bg-rl-purple text-white font-semibold hover:bg-rl-purple/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <Check className="w-3.5 h-3.5" /> {initial ? 'Salvar alterações' : 'Salvar item'}
+          <Check className="w-3.5 h-3.5" /> {initial ? t('precificacao.salvarAlteracoes') : t('precificacao.salvarItem')}
         </button>
       </div>
     </Modal>
@@ -190,12 +188,13 @@ export default function PrecificacaoItemModal({
 
 // ─── Preview ──────────────────────────────────────────────────────────────────
 function PreviewBlock({ result, isServico }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <TrendingUp className="w-3.5 h-3.5 text-rl-green" />
         <p className="text-[10px] uppercase tracking-wider text-rl-subtle font-bold">
-          Cálculo ao vivo
+          {t('precificacao.calculoAoVivo')}
         </p>
       </div>
 
@@ -203,10 +202,10 @@ function PreviewBlock({ result, isServico }) {
       <div className="flex items-center justify-between p-4 rounded-xl bg-rl-green/8 border border-rl-green/30">
         <div>
           <p className="text-[10px] uppercase tracking-wider text-rl-green font-bold mb-0.5">
-            Preço de venda recomendado
+            {t('precificacao.precoRecomendado')}
           </p>
           <p className="text-[10px] text-rl-subtle">
-            considera custo + imposto + margem desejada
+            {t('precificacao.precoRecomendadoAjuda')}
           </p>
         </div>
         <p className="text-2xl font-black text-rl-green tabular-nums">
@@ -217,13 +216,13 @@ function PreviewBlock({ result, isServico }) {
       {/* Breakdown em grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {isServico && (
-          <MiniCard label="Custo mão de obra" value={fmtMoney(result.custoMaoObra)} />
+          <MiniCard label={t('precificacao.custoMaoObra')} value={fmtMoney(result.custoMaoObra)} />
         )}
-        <MiniCard label="Custo total" value={fmtMoney(result.custoTotal)} />
-        <MiniCard label="Imposto" value={fmtMoney(result.impostoReais)} colorClass="text-rl-red" />
-        <MiniCard label="Margem (lucro)" value={fmtMoney(result.margemReais)} colorClass="text-rl-green" />
-        <MiniCard label="Markup" value={`${result.markupPct.toFixed(0)}%`} colorClass="text-rl-purple" />
-        <MiniCard label="Lucro líquido" value={fmtMoney(result.lucroLiquido)} colorClass="text-rl-green" />
+        <MiniCard label={t('precificacao.custoTotal')} value={fmtMoney(result.custoTotal)} />
+        <MiniCard label={t('precificacao.imposto')} value={fmtMoney(result.impostoReais)} colorClass="text-rl-red" />
+        <MiniCard label={t('precificacao.margemLucro')} value={fmtMoney(result.margemReais)} colorClass="text-rl-green" />
+        <MiniCard label={t('precificacao.markup')} value={`${result.markupPct.toFixed(0)}%`} colorClass="text-rl-purple" />
+        <MiniCard label={t('precificacao.lucroLiquido')} value={fmtMoney(result.lucroLiquido)} colorClass="text-rl-green" />
       </div>
     </div>
   )
@@ -231,12 +230,13 @@ function PreviewBlock({ result, isServico }) {
 
 // ─── Preview SaaS ─────────────────────────────────────────────────────────────
 function SaasPreviewBlock({ result }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <TrendingUp className="w-3.5 h-3.5 text-rl-green" />
         <p className="text-[10px] uppercase tracking-wider text-rl-subtle font-bold">
-          Cálculo ao vivo
+          {t('precificacao.calculoAoVivo')}
         </p>
       </div>
 
@@ -244,24 +244,24 @@ function SaasPreviewBlock({ result }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div className="p-4 rounded-xl bg-rl-green/8 border border-rl-green/30">
           <p className="text-[10px] uppercase tracking-wider text-rl-green font-bold mb-0.5 flex items-center gap-1">
-            <Repeat className="w-3 h-3" /> Mensalidade recomendada
+            <Repeat className="w-3 h-3" /> {t('precificacao.mensalidadeRecomendada')}
           </p>
           <p className="text-2xl font-black text-rl-green tabular-nums">
-            {fmtMoney(result.mensalidade)}<span className="text-xs font-semibold text-rl-green/70">/mês</span>
+            {fmtMoney(result.mensalidade)}<span className="text-xs font-semibold text-rl-green/70">{t('precificacao.porMes')}</span>
           </p>
           {result.porUsuario && (
             <p className="text-[10px] text-rl-subtle mt-0.5">
-              {fmtMoney(result.precoPorUsuario)}/usuário · {result.numUsuarios} seats
+              {t('precificacao.porUsuarioSeats', { valor: fmtMoney(result.precoPorUsuario), count: result.numUsuarios })}
             </p>
           )}
           {!result.porUsuario && (
-            <p className="text-[10px] text-rl-subtle mt-0.5">usuários ilimitados</p>
+            <p className="text-[10px] text-rl-subtle mt-0.5">{t('precificacao.usuariosIlimitados')}</p>
           )}
         </div>
 
         <div className={`p-4 rounded-xl border ${result.temImplantacao ? 'bg-rl-gold/8 border-rl-gold/30' : 'bg-rl-surface/40 border-rl-border'}`}>
           <p className="text-[10px] uppercase tracking-wider text-rl-gold font-bold mb-0.5 flex items-center gap-1">
-            <Wrench className="w-3 h-3" /> Implantação (única)
+            <Wrench className="w-3 h-3" /> {t('precificacao.implantacaoUnica')}
           </p>
           {result.temImplantacao ? (
             <>
@@ -269,11 +269,11 @@ function SaasPreviewBlock({ result }) {
                 {fmtMoney(result.precoImplantacao)}
               </p>
               <p className="text-[10px] text-rl-subtle mt-0.5">
-                custo {fmtMoney(result.custoImplantacao)}
+                {t('precificacao.custoValor', { valor: fmtMoney(result.custoImplantacao) })}
               </p>
             </>
           ) : (
-            <p className="text-sm font-semibold text-rl-muted mt-1">Sem implantação</p>
+            <p className="text-sm font-semibold text-rl-muted mt-1">{t('precificacao.semImplantacao')}</p>
           )}
         </div>
       </div>
@@ -281,11 +281,11 @@ function SaasPreviewBlock({ result }) {
       {/* Ciclo de vida — LTV */}
       <div className="p-3 rounded-xl bg-rl-purple/8 border border-rl-purple/25">
         <p className="text-[10px] uppercase tracking-wider text-rl-purple font-bold mb-2">
-          Projeção no ciclo de vida ({result.mesesAtivo} {result.mesesAtivo === 1 ? 'mês' : 'meses'} ativo)
+          {t('precificacao.projecaoCiclo', { count: result.mesesAtivo })}
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <MiniCard label="Receita no ciclo (LTV)" value={fmtMoney(result.receitaCiclo)} colorClass="text-rl-purple" />
-          <MiniCard label="Lucro no ciclo" value={fmtMoney(result.lucroCiclo)} colorClass="text-rl-green" />
+          <MiniCard label={t('precificacao.receitaCiclo')} value={fmtMoney(result.receitaCiclo)} colorClass="text-rl-purple" />
+          <MiniCard label={t('precificacao.lucroCiclo')} value={fmtMoney(result.lucroCiclo)} colorClass="text-rl-green" />
           <MiniCard label="MRR" value={fmtMoney(result.mrr)} />
           <MiniCard label="ARR" value={fmtMoney(result.arr)} />
         </div>
@@ -293,10 +293,10 @@ function SaasPreviewBlock({ result }) {
 
       {/* Breakdown mensal */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <MiniCard label="Custo mensal" value={fmtMoney(result.custoRecorrente)} />
-        <MiniCard label="Imposto/mês" value={fmtMoney(result.impostoReais)} colorClass="text-rl-red" />
-        <MiniCard label="Margem/mês" value={fmtMoney(result.margemReais)} colorClass="text-rl-green" />
-        <MiniCard label="Markup" value={`${result.markupPct.toFixed(0)}%`} colorClass="text-rl-purple" />
+        <MiniCard label={t('precificacao.custoMensal')} value={fmtMoney(result.custoRecorrente)} />
+        <MiniCard label={t('precificacao.impostoMes')} value={fmtMoney(result.impostoReais)} colorClass="text-rl-red" />
+        <MiniCard label={t('precificacao.margemMes')} value={fmtMoney(result.margemReais)} colorClass="text-rl-green" />
+        <MiniCard label={t('precificacao.markup')} value={`${result.markupPct.toFixed(0)}%`} colorClass="text-rl-purple" />
       </div>
     </div>
   )

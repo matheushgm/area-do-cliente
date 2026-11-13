@@ -4,54 +4,55 @@
 // No feed (1080×1080) o CTA fica sobreposto na emenda das fotos; no story
 // (1080×1920) ele ganha respiro próprio com glow entre o selo e as fotos.
 
+import { t } from '../../../i18n'
 import { escapeHtml, rich, slot, hexToRgba, photoBlock, logoBlock } from './shared'
 
 const FIELDS = [
   {
     key: 'title',
-    label: 'Título',
-    placeholder: 'Centro médico',
-    hint: 'Curto e gigante — segmento, promessa ou chamada principal',
+    get label() { return t('criativosVisual.destaqueDuasFotos.campos.title.rotulo') },
+    get placeholder() { return t('criativosVisual.destaqueDuasFotos.campos.title.exemplo') },
+    get hint() { return t('criativosVisual.destaqueDuasFotos.campos.title.dica') },
     max: 60,
   },
   {
     key: 'sub',
-    label: 'Subheadline',
+    get label() { return t('criativosVisual.destaqueDuasFotos.campos.sub.rotulo') },
     type: 'textarea',
-    placeholder: 'O seu caixa enxerga a **diferença de margem** entre convênio e particular?',
-    hint: 'Use **trecho** pra pintar o trecho na cor de destaque',
+    get placeholder() { return t('criativosVisual.destaqueDuasFotos.campos.sub.exemplo') },
+    get hint() { return t('criativosVisual.destaqueDuasFotos.campos.sub.dica') },
     max: 220,
   },
   {
     key: 'badgeBold',
-    label: 'Selo — frase em destaque',
-    placeholder: 'Gestão financeira especializada em saúde,',
+    get label() { return t('criativosVisual.destaqueDuasFotos.campos.badgeBold.rotulo') },
+    get placeholder() { return t('criativosVisual.destaqueDuasFotos.campos.badgeBold.exemplo') },
     max: 90,
   },
   {
     key: 'badgeText',
-    label: 'Selo — complemento',
-    placeholder: 'do faturamento ao repasse dos médicos.',
+    get label() { return t('criativosVisual.destaqueDuasFotos.campos.badgeText.rotulo') },
+    get placeholder() { return t('criativosVisual.destaqueDuasFotos.campos.badgeText.exemplo') },
     max: 90,
   },
   {
     key: 'cta',
-    label: 'CTA',
-    placeholder: 'Saiba mais',
+    get label() { return t('criativosVisual.destaqueDuasFotos.campos.cta.rotulo') },
+    get placeholder() { return t('criativosVisual.destaqueDuasFotos.campos.cta.exemplo') },
     max: 30,
   },
 ]
 
 const MEDIA_FIELDS = [
-  { key: 'logoUrl', label: 'Logo (URL da imagem)', placeholder: 'https://… (vazio = nome da empresa)' },
-  { key: 'photo1', label: 'Foto 1 (URL)', placeholder: 'https://… (vazio = placeholder)' },
-  { key: 'photo2', label: 'Foto 2 (URL)', placeholder: 'https://… (vazio = placeholder)' },
+  { key: 'logoUrl', get label() { return t('criativosVisual.destaqueDuasFotos.campos.logoUrl.rotulo') }, get placeholder() { return t('criativosVisual.destaqueDuasFotos.campos.logoUrl.exemplo') } },
+  { key: 'photo1', get label() { return t('criativosVisual.destaqueDuasFotos.campos.photo1.rotulo') }, get placeholder() { return t('criativosVisual.destaqueDuasFotos.campos.photo1.exemplo') } },
+  { key: 'photo2', get label() { return t('criativosVisual.destaqueDuasFotos.campos.photo2.rotulo') }, get placeholder() { return t('criativosVisual.destaqueDuasFotos.campos.photo2.exemplo') } },
 ]
 
 const BRAND_FIELDS = [
-  { key: 'accent', label: 'Cor de destaque', default: '#2BD98A' },
-  { key: 'bg1', label: 'Fundo — base', default: '#081C30' },
-  { key: 'bg2', label: 'Fundo — gradiente', default: '#14405C' },
+  { key: 'accent', get label() { return t('criativosVisual.destaqueDuasFotos.campos.accent.rotulo') }, default: '#2BD98A' },
+  { key: 'bg1', get label() { return t('criativosVisual.destaqueDuasFotos.campos.bg1.rotulo') }, default: '#081C30' },
+  { key: 'bg2', get label() { return t('criativosVisual.destaqueDuasFotos.campos.bg2.rotulo') }, default: '#14405C' },
 ]
 
 // Dimensões e escalas por formato. Tudo que muda entre feed e story vive aqui.
@@ -90,15 +91,15 @@ function buildHtml({ format = 'feed', values = {} }) {
   const bg1 = values.bg1 || '#081C30'
   const bg2 = values.bg2 || '#14405C'
 
-  const title = slot(values.title, 'Título principal')
-  const sub = slot(values.sub, 'Subheadline com **trecho em destaque** na cor da marca')
+  const title = slot(values.title, t('criativosVisual.guias.tituloPrincipal'))
+  const sub = slot(values.sub, t('criativosVisual.guias.subDestaque'))
   const badgeBold = values.badgeBold?.trim()
     ? `<b>${rich(values.badgeBold)}</b>`
-    : `<b class="ph">Frase em destaque do selo,</b>`
+    : `<b class="ph">${escapeHtml(t('criativosVisual.guias.seloFrase'))}</b>`
   const badgeText = values.badgeText?.trim()
     ? rich(values.badgeText)
-    : `<span class="ph">complemento do selo.</span>`
-  const cta = values.cta?.trim() ? escapeHtml(values.cta) : 'Saiba mais'
+    : `<span class="ph">${escapeHtml(t('criativosVisual.guias.seloComplemento'))}</span>`
+  const cta = values.cta?.trim() ? escapeHtml(values.cta) : escapeHtml(t('criativosVisual.saibaMais'))
 
   const ctaHtml = `<div class="cta">${cta}</div>`
 
@@ -236,8 +237,8 @@ function buildHtml({ format = 'feed', values = {} }) {
   </div>
   ${cfg.ctaOverlay ? '' : `<div class="cta-row">${ctaHtml}</div>`}
   <div class="photos">
-    ${photoBlock(values.photo1, 'FOTO 1', 'ex: equipe, ambiente, pessoas em contexto')}
-    ${photoBlock(values.photo2, 'FOTO 2', 'ex: detalhe do serviço, mãos em ação')}
+    ${photoBlock(values.photo1, t('criativosVisual.guias.foto1'), t('criativosVisual.guias.foto1Dica'))}
+    ${photoBlock(values.photo2, t('criativosVisual.guias.foto2'), t('criativosVisual.guias.foto2Dica'))}
     ${cfg.ctaOverlay ? ctaHtml : ''}
   </div>
 </div>
@@ -270,9 +271,8 @@ const thumbnail = `data:image/svg+xml;utf8,${encodeURIComponent(`
 
 export default {
   id: 'destaque-duas-fotos',
-  name: 'Destaque + 2 Fotos',
-  description:
-    'Logo no topo, título gigante, subheadline com trecho em destaque, selo com ícone, duas fotos e CTA.',
+  get name() { return t('criativosVisual.destaqueDuasFotos.nome') },
+  get description() { return t('criativosVisual.destaqueDuasFotos.descricao') },
   ready: true,
   thumbnail,
   fields: FIELDS,

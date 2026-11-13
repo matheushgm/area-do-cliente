@@ -1,22 +1,24 @@
 import { fmtCurrency } from '../lib/utils'
 import { useState, useCallback, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
+import { useI18n, localeAtual } from '../i18n'
 import {
   TrendingUp, Package, Users2, DollarSign, BarChart3,
   Plus, Trash2, ArrowRight, CheckCircle2, AlertTriangle, Calculator,
 } from 'lucide-react'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const MONTHS    = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
-const MONTH_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+// Nomes dos meses: planejamentoAnual.mesesCurtos / mesesLongos (12 nomes separados por vírgula).
+const meses = (t, chave) => t(`planejamentoAnual.${chave}`).split(',')
 
+// Rótulo de cada aba: planejamentoAnual.secoes.<id>
 const SECTIONS = [
-  { id: 'config',   label: 'Configuração',    emoji: '⚙️' },
-  { id: 'produtos', label: 'Produtos',         emoji: '📦' },
-  { id: 'funil',    label: 'Funil',            emoji: '🔁' },
-  { id: 'custos',   label: 'Custos Fixos',     emoji: '💰' },
-  { id: 'rh',       label: 'RH',               emoji: '👥' },
-  { id: 'dre',      label: 'DRE & Projeção',   emoji: '📊' },
+  { id: 'config',   emoji: '⚙️' },
+  { id: 'produtos', emoji: '📦' },
+  { id: 'funil',    emoji: '🔁' },
+  { id: 'custos',   emoji: '💰' },
+  { id: 'rh',       emoji: '👥' },
+  { id: 'dre',      emoji: '📊' },
 ]
 
 const DEFAULT_DATA = {
@@ -49,7 +51,7 @@ function weightedTicket(produtos) {
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 const fmtPct  = (n, d=1) => (n == null || isNaN(n) || !isFinite(n)) ? '—' : `${(n*100).toFixed(d)}%`
-const fmtNum  = (n) => (n == null || isNaN(n) || !isFinite(n)) ? '—' : Math.ceil(n).toLocaleString('pt-BR')
+const fmtNum  = (n) => (n == null || isNaN(n) || !isFinite(n)) ? '—' : Math.ceil(n).toLocaleString(localeAtual())
 const numVal  = (v) => { const n = Number(String(v).replace(',','.')); return isNaN(n) ? 0 : n }
 
 // ─── DRE Computation ──────────────────────────────────────────────────────────
@@ -112,6 +114,7 @@ function NumField({ label, value, onChange, prefix, suffix, hint }) {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function SectionNav({ active, setActive, data }) {
+  const { t } = useI18n()
   const completions = {
     config:   !!(numVal(data.setup.metaAnual) && numVal(data.setup.mediaUltimos3Meses)),
     produtos: data.produtos.some(p => p.nome && numVal(p.ticketMedio) > 0),
@@ -130,7 +133,7 @@ function SectionNav({ active, setActive, data }) {
               : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-green/30'
           }`}>
           <span>{s.emoji}</span>
-          {s.label}
+          {t(`planejamentoAnual.secoes.${s.id}`)}
           {completions[s.id] && active !== s.id && (
             <span className="w-1.5 h-1.5 rounded-full bg-rl-green shrink-0" />
           )}
@@ -142,6 +145,7 @@ function SectionNav({ active, setActive, data }) {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 function ConfigSection({ data, onChange }) {
+  const { t } = useI18n()
   const s = data
   const crescimento = numVal(s.faturamentoAnterior) && numVal(s.metaAnual)
     ? (numVal(s.metaAnual) / numVal(s.faturamentoAnterior) - 1) * 100 : null
@@ -151,48 +155,48 @@ function ConfigSection({ data, onChange }) {
   return (
     <div className="space-y-5">
       <div className="glass-card p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-rl-text">📅 Faturamento Anual</h3>
+        <h3 className="text-sm font-semibold text-rl-text">📅 {t('planejamentoAnual.config.faturamentoAnual')}</h3>
         <div className="grid sm:grid-cols-2 gap-4">
-          <NumField label="Faturamento do Ano Anterior" value={s.faturamentoAnterior}
-            onChange={e => onChange({ ...s, faturamentoAnterior: e.target.value })} prefix="R$" hint="Base para calcular crescimento" />
-          <NumField label="Meta de Faturamento (Ano Atual)" value={s.metaAnual}
-            onChange={e => onChange({ ...s, metaAnual: e.target.value })} prefix="R$" hint="Quanto quer faturar este ano" />
+          <NumField label={t('planejamentoAnual.config.anoAnterior')} value={s.faturamentoAnterior}
+            onChange={e => onChange({ ...s, faturamentoAnterior: e.target.value })} prefix="R$" hint={t('planejamentoAnual.config.anoAnteriorDica')} />
+          <NumField label={t('planejamentoAnual.config.meta')} value={s.metaAnual}
+            onChange={e => onChange({ ...s, metaAnual: e.target.value })} prefix="R$" hint={t('planejamentoAnual.config.metaDica')} />
         </div>
         {crescimento !== null && (
           <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border ${crescimento >= 0 ? 'bg-rl-green/8 border-rl-green/25 text-rl-green' : 'bg-red-500/8 border-red-500/25 text-red-400'}`}>
             <TrendingUp className="w-4 h-4 shrink-0" />
             <span className="text-sm font-semibold">
-              Crescimento necessário: {crescimento >= 0 ? '+' : ''}{crescimento.toFixed(1)}% em relação ao ano anterior
+              {t('planejamentoAnual.config.crescimento', { pct: `${crescimento >= 0 ? '+' : ''}${crescimento.toFixed(1)}` })}
             </span>
           </div>
         )}
       </div>
 
       <div className="glass-card p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-rl-text">📈 Projeção de Crescimento (Juros Composto)</h3>
+        <h3 className="text-sm font-semibold text-rl-text">📈 {t('planejamentoAnual.config.projecao')}</h3>
         <p className="text-xs text-rl-muted -mt-2">
-          Informe a média dos últimos 3 meses — será o ponto de partida das projeções mensais. A taxa de crescimento mensal é calculada via CAGR a partir do faturamento anterior e da meta anual (equivalente ao =TAXA do Excel).
+          {t('planejamentoAnual.config.projecaoDica')}
         </p>
-        <NumField label="Média dos últimos 3 meses (faturamento base)" value={s.mediaUltimos3Meses}
+        <NumField label={t('planejamentoAnual.config.media3')} value={s.mediaUltimos3Meses}
           onChange={e => onChange({ ...s, mediaUltimos3Meses: e.target.value })} prefix="R$"
-          hint="Ponto de partida para a curva de crescimento mensal" />
+          hint={t('planejamentoAnual.config.media3Dica')} />
         {rate !== null && (
           <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rl-purple/8 border border-rl-purple/25 text-rl-purple">
             <Calculator className="w-4 h-4 shrink-0" />
             <span className="text-sm font-semibold">
-              Taxa de crescimento: {rate >= 0 ? '+' : ''}{rate.toFixed(2)}% ao mês (juros composto)
+              {t('planejamentoAnual.config.taxa', { pct: `${rate >= 0 ? '+' : ''}${rate.toFixed(2)}` })}
             </span>
           </div>
         )}
       </div>
 
       <div className="glass-card p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-rl-text">💸 Parâmetros Financeiros</h3>
+        <h3 className="text-sm font-semibold text-rl-text">💸 {t('planejamentoAnual.config.parametros')}</h3>
         <div className="grid sm:grid-cols-2 gap-4">
-          <NumField label="Investimento em Marketing" value={s.taxaMarketing}
-            onChange={e => onChange({ ...s, taxaMarketing: e.target.value })} suffix="%" hint="% do faturamento bruto" />
-          <NumField label="Alíquota de Impostos" value={s.taxaImposto}
-            onChange={e => onChange({ ...s, taxaImposto: e.target.value })} suffix="%" hint="% do faturamento bruto" />
+          <NumField label={t('planejamentoAnual.config.marketing')} value={s.taxaMarketing}
+            onChange={e => onChange({ ...s, taxaMarketing: e.target.value })} suffix="%" hint={t('planejamentoAnual.config.pctBruto')} />
+          <NumField label={t('planejamentoAnual.config.impostos')} value={s.taxaImposto}
+            onChange={e => onChange({ ...s, taxaImposto: e.target.value })} suffix="%" hint={t('planejamentoAnual.config.pctBruto')} />
         </div>
       </div>
     </div>
@@ -201,6 +205,7 @@ function ConfigSection({ data, onChange }) {
 
 // ── Produtos ──────────────────────────────────────────────────────────────────
 function ProdutosSection({ produtos, onChange }) {
+  const { t } = useI18n()
   const add    = () => onChange([...produtos, { id: crypto.randomUUID(), nome:'', ticketMedio:'', composicao:'' }])
   const remove = (id) => onChange(produtos.filter(p => p.id !== id))
   const upd    = (id, f, v) => onChange(produtos.map(p => p.id === id ? { ...p, [f]: v } : p))
@@ -212,7 +217,7 @@ function ProdutosSection({ produtos, onChange }) {
       {produtos.map((p, i) => (
         <div key={p.id} className="glass-card p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-rl-text">Produto / Serviço {i + 1}</span>
+            <span className="text-sm font-semibold text-rl-text">{t('planejamentoAnual.produtos.produtoN', { n: i + 1 })}</span>
             {produtos.length > 1 && (
               <button onClick={() => remove(p.id)} className="p-1.5 text-rl-muted hover:text-red-400 rounded-lg transition-colors">
                 <Trash2 className="w-4 h-4" />
@@ -221,18 +226,18 @@ function ProdutosSection({ produtos, onChange }) {
           </div>
           <div className="grid sm:grid-cols-3 gap-3">
             <div>
-              <label className="label-field">Nome</label>
-              <input value={p.nome} onChange={e => upd(p.id,'nome',e.target.value)} className="input-field" placeholder="Ex: Consultoria Mensal" />
+              <label className="label-field">{t('planejamentoAnual.produtos.nome')}</label>
+              <input value={p.nome} onChange={e => upd(p.id,'nome',e.target.value)} className="input-field" placeholder={t('planejamentoAnual.produtos.nomePh')} />
             </div>
             <div>
-              <label className="label-field">Ticket Médio</label>
+              <label className="label-field">{t('planejamentoAnual.produtos.ticket')}</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-rl-muted text-sm">R$</span>
                 <input type="number" value={p.ticketMedio} onChange={e => upd(p.id,'ticketMedio',e.target.value)} className="input-field pl-8" placeholder="0" />
               </div>
             </div>
             <div>
-              <label className="label-field">% Composição na Carteira</label>
+              <label className="label-field">{t('planejamentoAnual.produtos.composicao')}</label>
               <div className="relative">
                 <input type="number" min="0" max="100" value={p.composicao} onChange={e => upd(p.id,'composicao',e.target.value)} className="input-field pr-8" placeholder="0" />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-rl-muted text-sm">%</span>
@@ -243,19 +248,19 @@ function ProdutosSection({ produtos, onChange }) {
       ))}
 
       <button onClick={add} className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-rl-gold/30 text-rl-gold hover:border-rl-gold/50 text-sm font-medium transition-all">
-        <Plus className="w-4 h-4" /> Adicionar Produto / Serviço
+        <Plus className="w-4 h-4" /> {t('planejamentoAnual.produtos.adicionar')}
       </button>
 
       <div className={`flex items-center justify-between px-4 py-3 rounded-xl border ${ok ? 'bg-rl-green/8 border-rl-green/25' : 'bg-rl-gold/8 border-rl-gold/25'}`}>
-        <span className="text-sm text-rl-muted">Total da composição</span>
+        <span className="text-sm text-rl-muted">{t('planejamentoAnual.produtos.total')}</span>
         <span className={`text-sm font-bold ${ok ? 'text-rl-green' : 'text-rl-gold'}`}>
-          {total.toFixed(1)}% {ok ? '✓' : `(faltam ${(100 - total).toFixed(1)}%)`}
+          {total.toFixed(1)}% {ok ? '✓' : t('planejamentoAnual.produtos.faltam', { pct: (100 - total).toFixed(1) })}
         </span>
       </div>
 
       {weightedTicket(produtos) > 0 && (
         <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-rl-cyan/8 border border-rl-cyan/25">
-          <span className="text-sm text-rl-muted">Ticket médio ponderado</span>
+          <span className="text-sm text-rl-muted">{t('planejamentoAnual.produtos.ponderado')}</span>
           <span className="text-sm font-bold text-rl-cyan">{fmtCurrency(weightedTicket(produtos))}</span>
         </div>
       )}
@@ -265,22 +270,23 @@ function ProdutosSection({ produtos, onChange }) {
 
 // ── Funil ─────────────────────────────────────────────────────────────────────
 function FunilSection({ data, onChange }) {
+  const { t } = useI18n()
   const stages = [
     { key:'leadToMQL', from:'Lead',  to:'MQL',   emoji:'📥', color:'rl-blue'   },
     { key:'mqlToSQL',  from:'MQL',   to:'SQL',    emoji:'🎯', color:'rl-purple' },
-    { key:'sqlToVenda',from:'SQL',   to:'Venda',  emoji:'💰', color:'rl-green'  },
+    { key:'sqlToVenda',from:'SQL',   to:t('planejamentoAnual.funil.venda'),  emoji:'💰', color:'rl-green'  },
   ]
   const conv = (numVal(data.leadToMQL)/100) * (numVal(data.mqlToSQL)/100) * (numVal(data.sqlToVenda)/100)
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-rl-muted">Configure as taxas de conversão entre cada etapa do funil. O sistema vai calcular quantos leads você precisa gerar mensalmente para atingir a meta.</p>
+      <p className="text-xs text-rl-muted">{t('planejamentoAnual.funil.intro')}</p>
       {stages.map(s => (
         <div key={s.key} className="glass-card p-5 flex items-center gap-4">
           <span className="text-2xl">{s.emoji}</span>
           <div className="flex-1">
             <p className="text-sm font-semibold text-rl-text">{s.from} → {s.to}</p>
-            <p className="text-xs text-rl-muted">Percentual de {s.from}s que avançam para {s.to}</p>
+            <p className="text-xs text-rl-muted">{t('planejamentoAnual.funil.percentual', { de: s.from, para: s.to })}</p>
           </div>
           <div className="relative w-28 shrink-0">
             <input type="number" min="0" max="100" value={data[s.key] ?? ''}
@@ -292,9 +298,9 @@ function FunilSection({ data, onChange }) {
       ))}
       {conv > 0 && (
         <div className="glass-card p-4 bg-rl-purple/5 border border-rl-purple/20">
-          <p className="text-xs text-rl-muted mb-1">Conversão total Lead → Venda</p>
+          <p className="text-xs text-rl-muted mb-1">{t('planejamentoAnual.funil.total')}</p>
           <p className="text-2xl font-bold text-rl-purple">{fmtPct(conv, 2)}</p>
-          <p className="text-xs text-rl-muted mt-1">Para cada 1.000 leads, {(conv * 1000).toFixed(1)} viram clientes</p>
+          <p className="text-xs text-rl-muted mt-1">{t('planejamentoAnual.funil.cada1000', { n: (conv * 1000).toFixed(1) })}</p>
         </div>
       )}
     </div>
@@ -303,6 +309,7 @@ function FunilSection({ data, onChange }) {
 
 // ── Custos Fixos ──────────────────────────────────────────────────────────────
 function CustosSection({ custos, onChange }) {
+  const { t } = useI18n()
   const add    = () => onChange([...custos, { id: crypto.randomUUID(), nome:'', valor:'' }])
   const remove = (id) => onChange(custos.filter(c => c.id !== id))
   const upd    = (id, f, v) => onChange(custos.map(c => c.id === id ? { ...c, [f]: v } : c))
@@ -310,11 +317,11 @@ function CustosSection({ custos, onChange }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-rl-muted">Adicione todos os custos fixos mensais (exceto RH e marketing, que são calculados automaticamente).</p>
+      <p className="text-xs text-rl-muted">{t('planejamentoAnual.custos.intro')}</p>
       {custos.map(c => (
         <div key={c.id} className="glass-card p-4 flex items-center gap-3">
           <div className="flex-1">
-            <input value={c.nome} onChange={e => upd(c.id,'nome',e.target.value)} className="input-field" placeholder="Nome do custo (ex: Aluguel, Software...)" />
+            <input value={c.nome} onChange={e => upd(c.id,'nome',e.target.value)} className="input-field" placeholder={t('planejamentoAnual.custos.nomePh')} />
           </div>
           <div className="relative w-36 shrink-0">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-rl-muted text-sm">R$</span>
@@ -326,11 +333,11 @@ function CustosSection({ custos, onChange }) {
         </div>
       ))}
       <button onClick={add} className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-rl-gold/30 text-rl-gold hover:border-rl-gold/50 text-sm font-medium transition-all">
-        <Plus className="w-4 h-4" /> Adicionar Custo Fixo
+        <Plus className="w-4 h-4" /> {t('planejamentoAnual.custos.adicionar')}
       </button>
       {total > 0 && (
         <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-rl-surface border border-rl-border">
-          <span className="text-sm text-rl-muted">Total mensal de custos fixos</span>
+          <span className="text-sm text-rl-muted">{t('planejamentoAnual.custos.total')}</span>
           <span className="text-sm font-bold text-rl-text">{fmtCurrency(total)}</span>
         </div>
       )}
@@ -340,6 +347,7 @@ function CustosSection({ custos, onChange }) {
 
 // ── Recursos Humanos ──────────────────────────────────────────────────────────
 function RHSection({ rh, onChange }) {
+  const { t } = useI18n()
   const add    = () => onChange([...rh, { id: crypto.randomUUID(), cargo:'', salario:'', encargos:'70' }])
   const remove = (id) => onChange(rh.filter(r => r.id !== id))
   const upd    = (id, f, v) => onChange(rh.map(r => r.id === id ? { ...r, [f]: v } : r))
@@ -348,29 +356,29 @@ function RHSection({ rh, onChange }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-rl-muted">Inclua todos os colaboradores. Os encargos (INSS, FGTS, 13º, férias, etc.) são tipicamente 70–80% do salário base para CLT.</p>
+      <p className="text-xs text-rl-muted">{t('planejamentoAnual.rh.intro')}</p>
       {rh.map((r, i) => (
         <div key={r.id} className="glass-card p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-rl-text">Colaborador {i + 1}</span>
+            <span className="text-sm font-semibold text-rl-text">{t('planejamentoAnual.rh.colaboradorN', { n: i + 1 })}</span>
             <button onClick={() => remove(r.id)} className="p-1.5 text-rl-muted hover:text-red-400 rounded-lg transition-colors">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
           <div className="grid sm:grid-cols-3 gap-3">
             <div>
-              <label className="label-field">Cargo / Nome</label>
-              <input value={r.cargo} onChange={e => upd(r.id,'cargo',e.target.value)} className="input-field" placeholder="Ex: Vendedor" />
+              <label className="label-field">{t('planejamentoAnual.rh.cargo')}</label>
+              <input value={r.cargo} onChange={e => upd(r.id,'cargo',e.target.value)} className="input-field" placeholder={t('planejamentoAnual.rh.cargoPh')} />
             </div>
             <div>
-              <label className="label-field">Salário Base</label>
+              <label className="label-field">{t('planejamentoAnual.rh.salario')}</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-rl-muted text-sm">R$</span>
                 <input type="number" value={r.salario} onChange={e => upd(r.id,'salario',e.target.value)} className="input-field pl-8" placeholder="0" />
               </div>
             </div>
             <div>
-              <label className="label-field">Encargos / Benefícios</label>
+              <label className="label-field">{t('planejamentoAnual.rh.encargos')}</label>
               <div className="relative">
                 <input type="number" value={r.encargos} onChange={e => upd(r.id,'encargos',e.target.value)} className="input-field pr-8" placeholder="70" />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-rl-muted text-sm">%</span>
@@ -379,20 +387,20 @@ function RHSection({ rh, onChange }) {
           </div>
           {numVal(r.salario) > 0 && (
             <p className="text-xs text-rl-muted">
-              Custo real: <span className="text-rl-cyan font-semibold">{fmtCurrency(numVal(r.salario) * (1 + numVal(r.encargos)/100))}</span>/mês
+              {t('planejamentoAnual.rh.custoReal')} <span className="text-rl-cyan font-semibold">{fmtCurrency(numVal(r.salario) * (1 + numVal(r.encargos)/100))}</span>{t('planejamentoAnual.porMes')}
             </p>
           )}
         </div>
       ))}
       <button onClick={add} className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-rl-cyan/30 text-rl-cyan hover:border-rl-cyan/50 text-sm font-medium transition-all">
-        <Plus className="w-4 h-4" /> Adicionar Colaborador
+        <Plus className="w-4 h-4" /> {t('planejamentoAnual.rh.adicionar')}
       </button>
       {rh.length > 0 && (
         <div className="glass-card p-4 space-y-2">
-          <div className="flex justify-between text-sm"><span className="text-rl-muted">Total salários</span><span>{fmtCurrency(totalSal)}</span></div>
-          <div className="flex justify-between text-sm"><span className="text-rl-muted">Total encargos</span><span>{fmtCurrency(totalEnc)}</span></div>
+          <div className="flex justify-between text-sm"><span className="text-rl-muted">{t('planejamentoAnual.rh.totalSalarios')}</span><span>{fmtCurrency(totalSal)}</span></div>
+          <div className="flex justify-between text-sm"><span className="text-rl-muted">{t('planejamentoAnual.rh.totalEncargos')}</span><span>{fmtCurrency(totalEnc)}</span></div>
           <div className="flex justify-between text-sm font-bold border-t border-rl-border pt-2">
-            <span className="text-rl-text">Custo total RH</span>
+            <span className="text-rl-text">{t('planejamentoAnual.rh.custoTotal')}</span>
             <span className="text-rl-cyan">{fmtCurrency(totalSal + totalEnc)}</span>
           </div>
         </div>
@@ -429,6 +437,9 @@ function DRERow({ label, value, bold, negative, highlight, isPct, isRatio, thres
 
 // ── DRE Section ───────────────────────────────────────────────────────────────
 function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizadoChange }) {
+  const { t } = useI18n()
+  const MONTHS = meses(t, 'mesesCurtos')
+  const MONTH_FULL = meses(t, 'mesesLongos')
   const [selMonth, setSelMonth] = useState(() => {
     // Default: current month (0-indexed) or 0
     const m = new Date().getMonth()
@@ -454,12 +465,12 @@ function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizado
   }, [selMonth,realizado,setup,custos,rh,funil,ticket])
 
   const kpis = [
-    { label:'Meta Anual',           value: fmtCurrency(annual),         color:'text-rl-green'  },
-    { label:'Projeção (soma 12m)',   value: fmtCurrency(totalP),         color: Math.abs(totalP-annual)<1?'text-rl-green':'text-rl-gold' },
-    { label:'Ticket Médio Pond.',    value: fmtCurrency(ticket),         color:'text-rl-cyan'   },
-    { label:'Taxa Mensal Composta',  value: `${(rate*100).toFixed(2)}%`, color:'text-rl-purple' },
-    { label:'Custo Total Fixo/mês',  value: fmtCurrency(totalRH+totalFixos), color:'text-rl-gold' },
-    { label:'Realizado Acumulado',   value: fmtCurrency(realTotal),      color:'text-rl-text'   },
+    { label:t('planejamentoAnual.dre.metaAnual'),        value: fmtCurrency(annual),         color:'text-rl-green'  },
+    { label:t('planejamentoAnual.dre.projecao12'),       value: fmtCurrency(totalP),         color: Math.abs(totalP-annual)<1?'text-rl-green':'text-rl-gold' },
+    { label:t('planejamentoAnual.dre.ticketPond'),       value: fmtCurrency(ticket),         color:'text-rl-cyan'   },
+    { label:t('planejamentoAnual.dre.taxaMensal'),       value: `${(rate*100).toFixed(2)}%`, color:'text-rl-purple' },
+    { label:t('planejamentoAnual.dre.custoFixoMes'),     value: fmtCurrency(totalRH+totalFixos), color:'text-rl-gold' },
+    { label:t('planejamentoAnual.dre.realizadoAcum'),    value: fmtCurrency(realTotal),      color:'text-rl-text'   },
   ]
 
   return (
@@ -476,16 +487,16 @@ function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizado
 
       {/* Planned vs Realized table */}
       <div className="glass-card p-5">
-        <h3 className="text-sm font-semibold text-rl-text mb-4">📅 Planejado vs Realizado — clique no mês para ver a DRE</h3>
+        <h3 className="text-sm font-semibold text-rl-text mb-4">📅 {t('planejamentoAnual.dre.tabelaTitulo')}</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-rl-border">
-                <th className="text-left py-2 pr-3 text-rl-muted font-medium w-10">Mês</th>
-                <th className="text-right py-2 px-3 text-rl-muted font-medium">Planejado</th>
-                <th className="text-right py-2 px-3 text-rl-muted font-medium">Realizado</th>
+                <th className="text-left py-2 pr-3 text-rl-muted font-medium w-10">{t('planejamentoAnual.dre.mes')}</th>
+                <th className="text-right py-2 px-3 text-rl-muted font-medium">{t('planejamentoAnual.dre.planejado')}</th>
+                <th className="text-right py-2 px-3 text-rl-muted font-medium">{t('planejamentoAnual.dre.realizado')}</th>
                 <th className="text-right py-2 px-3 text-rl-muted font-medium hidden sm:table-cell">Δ</th>
-                <th className="py-2 pl-3 text-rl-muted font-medium hidden sm:table-cell">Ating.</th>
+                <th className="py-2 pl-3 text-rl-muted font-medium hidden sm:table-cell">{t('planejamentoAnual.dre.ating')}</th>
               </tr>
             </thead>
             <tbody>
@@ -522,7 +533,7 @@ function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizado
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-rl-border font-bold text-sm">
-                <td className="py-2 pr-3 text-rl-text">Total</td>
+                <td className="py-2 pr-3 text-rl-text">{t('planejamentoAnual.dre.total')}</td>
                 <td className="py-2 px-3 text-right text-rl-green">{fmtCurrency(totalP)}</td>
                 <td className="py-2 px-3 text-right text-rl-text">{realTotal > 0 ? fmtCurrency(realTotal) : '—'}</td>
                 <td colSpan={2} className="hidden sm:table-cell" />
@@ -535,7 +546,7 @@ function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizado
       {/* DRE Month Detail */}
       <div className="glass-card p-5">
         <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
-          <h3 className="text-sm font-semibold text-rl-text">📊 DRE — {MONTH_FULL[selMonth]}</h3>
+          <h3 className="text-sm font-semibold text-rl-text">📊 {t('planejamentoAnual.dre.dreDe', { mes: MONTH_FULL[selMonth] })}</h3>
           <div className="flex gap-1 flex-wrap">
             {MONTHS.map((m,i) => (
               <button key={m} onClick={() => setSelMonth(i)}
@@ -549,51 +560,51 @@ function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizado
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Planned */}
           <div className="space-y-0.5">
-            <p className="text-xs font-bold text-rl-purple uppercase tracking-wider mb-3">Planejado — {fmtCurrency(projs[selMonth])}</p>
-            <DRERow label="Receita Bruta"                    value={projs[selMonth]}    bold />
-            <DRERow label={`(−) Impostos (${numVal(setup.taxaImposto)}%)`} value={-dreP.impostos} negative indent />
-            <DRERow label="= Lucro Bruto"                    value={dreP.lucroBruto}    bold highlight="green" />
-            <DRERow label="Margem Bruta"                     value={dreP.margemBruta}   isPct />
+            <p className="text-xs font-bold text-rl-purple uppercase tracking-wider mb-3">{t('planejamentoAnual.dre.planejado')} — {fmtCurrency(projs[selMonth])}</p>
+            <DRERow label={t('planejamentoAnual.dre.receitaBruta')}                    value={projs[selMonth]}    bold />
+            <DRERow label={t('planejamentoAnual.dre.impostos', { pct: numVal(setup.taxaImposto) })} value={-dreP.impostos} negative indent />
+            <DRERow label={t('planejamentoAnual.dre.lucroBruto')}                    value={dreP.lucroBruto}    bold highlight="green" />
+            <DRERow label={t('planejamentoAnual.dre.margemBruta')}                     value={dreP.margemBruta}   isPct />
             <div className="border-t border-rl-border/40 my-2" />
-            <DRERow label={`(−) Marketing (${numVal(setup.taxaMarketing)}%)`} value={-dreP.marketing} negative indent />
-            <DRERow label="(−) Custo RH"                    value={-totalRH}            negative indent />
-            <DRERow label="(−) Custos Fixos"                 value={-totalFixos}         negative indent />
+            <DRERow label={t('planejamentoAnual.dre.marketing', { pct: numVal(setup.taxaMarketing) })} value={-dreP.marketing} negative indent />
+            <DRERow label={t('planejamentoAnual.dre.custoRh')}                    value={-totalRH}            negative indent />
+            <DRERow label={t('planejamentoAnual.dre.custosFixos')}                 value={-totalFixos}         negative indent />
             <div className="border-t border-rl-border/40 my-2" />
-            <DRERow label="= Lucro Líquido"                  value={dreP.lucroLiquido}  bold highlight={dreP.lucroLiquido>=0?'green':'red'} />
-            <DRERow label="Margem Líquida"                   value={dreP.margemLiquida} isPct highlight={dreP.margemLiquida>=0.1?'green':dreP.margemLiquida>=0?'gold':'red'} />
+            <DRERow label={t('planejamentoAnual.dre.lucroLiquido')}                  value={dreP.lucroLiquido}  bold highlight={dreP.lucroLiquido>=0?'green':'red'} />
+            <DRERow label={t('planejamentoAnual.dre.margemLiquida')}                   value={dreP.margemLiquida} isPct highlight={dreP.margemLiquida>=0.1?'green':dreP.margemLiquida>=0?'gold':'red'} />
             <div className="border-t border-rl-border/40 my-2" />
-            <DRERow label="CAC"                              value={dreP.cac}           bold highlight="cyan" />
-            <DRERow label="LB / CAC (meta > 3×)"            value={dreP.lbCac}         isRatio threshold={3} bold />
-            <DRERow label="Ponto de Equilíbrio"              value={dreP.pontoEq}       bold highlight="purple" />
+            <DRERow label={t('planejamentoAnual.dre.cac')}                              value={dreP.cac}           bold highlight="cyan" />
+            <DRERow label={t('planejamentoAnual.dre.lbCac')}            value={dreP.lbCac}         isRatio threshold={3} bold />
+            <DRERow label={t('planejamentoAnual.dre.pontoEq')}              value={dreP.pontoEq}       bold highlight="purple" />
           </div>
 
           {/* Realized */}
           <div className="space-y-0.5">
             <p className="text-xs font-bold text-rl-gold uppercase tracking-wider mb-3">
-              Realizado — {numVal(realizado?.[selMonth]) > 0 ? fmtCurrency(numVal(realizado[selMonth])) : 'Aguardando entrada'}
+              {t('planejamentoAnual.dre.realizado')} — {numVal(realizado?.[selMonth]) > 0 ? fmtCurrency(numVal(realizado[selMonth])) : t('planejamentoAnual.dre.aguardando')}
             </p>
             {dreR ? (
               <>
-                <DRERow label="Receita Bruta"                    value={numVal(realizado[selMonth])} bold />
-                <DRERow label={`(−) Impostos (${numVal(setup.taxaImposto)}%)`} value={-dreR.impostos} negative indent />
-                <DRERow label="= Lucro Bruto"                    value={dreR.lucroBruto}    bold highlight="green" />
-                <DRERow label="Margem Bruta"                     value={dreR.margemBruta}   isPct />
+                <DRERow label={t('planejamentoAnual.dre.receitaBruta')}                    value={numVal(realizado[selMonth])} bold />
+                <DRERow label={t('planejamentoAnual.dre.impostos', { pct: numVal(setup.taxaImposto) })} value={-dreR.impostos} negative indent />
+                <DRERow label={t('planejamentoAnual.dre.lucroBruto')}                    value={dreR.lucroBruto}    bold highlight="green" />
+                <DRERow label={t('planejamentoAnual.dre.margemBruta')}                     value={dreR.margemBruta}   isPct />
                 <div className="border-t border-rl-border/40 my-2" />
-                <DRERow label={`(−) Marketing (${numVal(setup.taxaMarketing)}%)`} value={-dreR.marketing} negative indent />
-                <DRERow label="(−) Custo RH"                    value={-totalRH}            negative indent />
-                <DRERow label="(−) Custos Fixos"                 value={-totalFixos}         negative indent />
+                <DRERow label={t('planejamentoAnual.dre.marketing', { pct: numVal(setup.taxaMarketing) })} value={-dreR.marketing} negative indent />
+                <DRERow label={t('planejamentoAnual.dre.custoRh')}                    value={-totalRH}            negative indent />
+                <DRERow label={t('planejamentoAnual.dre.custosFixos')}                 value={-totalFixos}         negative indent />
                 <div className="border-t border-rl-border/40 my-2" />
-                <DRERow label="= Lucro Líquido"                  value={dreR.lucroLiquido}  bold highlight={dreR.lucroLiquido>=0?'green':'red'} />
-                <DRERow label="Margem Líquida"                   value={dreR.margemLiquida} isPct highlight={dreR.margemLiquida>=0.1?'green':dreR.margemLiquida>=0?'gold':'red'} />
+                <DRERow label={t('planejamentoAnual.dre.lucroLiquido')}                  value={dreR.lucroLiquido}  bold highlight={dreR.lucroLiquido>=0?'green':'red'} />
+                <DRERow label={t('planejamentoAnual.dre.margemLiquida')}                   value={dreR.margemLiquida} isPct highlight={dreR.margemLiquida>=0.1?'green':dreR.margemLiquida>=0?'gold':'red'} />
                 <div className="border-t border-rl-border/40 my-2" />
-                <DRERow label="CAC"                              value={dreR.cac}           bold highlight="cyan" />
-                <DRERow label="LB / CAC (meta > 3×)"            value={dreR.lbCac}         isRatio threshold={3} bold />
-                <DRERow label="Ponto de Equilíbrio"              value={dreR.pontoEq}       bold highlight="purple" />
+                <DRERow label={t('planejamentoAnual.dre.cac')}                              value={dreR.cac}           bold highlight="cyan" />
+                <DRERow label={t('planejamentoAnual.dre.lbCac')}            value={dreR.lbCac}         isRatio threshold={3} bold />
+                <DRERow label={t('planejamentoAnual.dre.pontoEq')}              value={dreR.pontoEq}       bold highlight="purple" />
               </>
             ) : (
               <div className="flex flex-col items-center justify-center h-48 text-center gap-2">
                 <BarChart3 className="w-8 h-8 text-rl-border" />
-                <p className="text-sm text-rl-muted">Insira o faturamento realizado<br />na tabela acima para ver a DRE comparada</p>
+                <p className="text-sm text-rl-muted">{t('planejamentoAnual.dre.semRealizado1')}<br />{t('planejamentoAnual.dre.semRealizado2')}</p>
               </div>
             )}
           </div>
@@ -603,18 +614,18 @@ function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizado
       {/* Funil Reverso */}
       {(dreP.leadsNec || dreP.mqlNec || dreP.sqlNec) && (
         <div className="glass-card p-5">
-          <h3 className="text-sm font-semibold text-rl-text mb-4">🔁 Funil Reverso — {MONTH_FULL[selMonth]} (Planejado)</h3>
+          <h3 className="text-sm font-semibold text-rl-text mb-4">🔁 {t('planejamentoAnual.dre.funilReverso', { mes: MONTH_FULL[selMonth] })}</h3>
           <p className="text-xs text-rl-muted mb-4">
-            Para faturar <span className="text-rl-green font-semibold">{fmtCurrency(projs[selMonth])}</span> com ticket médio de <span className="text-rl-cyan font-semibold">{fmtCurrency(ticket)}</span>, você precisa de:
+            {t('planejamentoAnual.dre.paraFaturar1')}<span className="text-rl-green font-semibold">{fmtCurrency(projs[selMonth])}</span>{t('planejamentoAnual.dre.paraFaturar2')}<span className="text-rl-cyan font-semibold">{fmtCurrency(ticket)}</span>{t('planejamentoAnual.dre.paraFaturar3')}
           </p>
           <div className="flex items-center gap-3 flex-wrap">
             {[
               { label:'Leads',  value: dreP.leadsNec, color:'rl-blue'   },
               { label:'MQLs',   value: dreP.mqlNec,   color:'rl-purple' },
               { label:'SQLs',   value: dreP.sqlNec,   color:'rl-cyan'   },
-              { label:'Vendas', value: dreP.vendasNec, color:'rl-green'  },
+              { label:t('planejamentoAnual.dre.vendas'), value: dreP.vendasNec, color:'rl-green'  },
             ].map((st, i, arr) => (
-              <div key={st.label} className="flex items-center gap-3">
+              <div key={i} className="flex items-center gap-3">
                 <div className="text-center">
                   <div className={`text-3xl font-black text-${st.color}`}>{st.value != null ? fmtNum(st.value) : '—'}</div>
                   <div className="text-xs text-rl-muted">{st.label}</div>
@@ -632,6 +643,7 @@ function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizado
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function PlanejamentoAnualModule({ project }) {
   const { updateProject } = useApp()
+  const { t } = useI18n()
   const saveTimer = useRef(null)
 
   const [activeSection, setActiveSection] = useState('config')
@@ -672,15 +684,15 @@ export default function PlanejamentoAnualModule({ project }) {
         <div>
           <h2 className="text-base font-bold text-rl-text flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-rl-green" />
-            Planejamento Anual
+            {t('planejamentoAnual.titulo')}
           </h2>
           <p className="text-xs text-rl-muted mt-0.5">
-            Projeção com juros composto · DRE · Funil reverso · Planejado vs Realizado
+            {t('planejamentoAnual.subtitulo')}
           </p>
         </div>
         {saved && (
           <span className="flex items-center gap-1.5 text-xs text-rl-green">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Salvo
+            <CheckCircle2 className="w-3.5 h-3.5" /> {t('comum.salvo')}
           </span>
         )}
       </div>

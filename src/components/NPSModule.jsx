@@ -2,6 +2,7 @@ import { fmtDate, todayISO } from '../lib/utils'
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import Modal from './UI/Modal'
+import { useI18n, t as tGlobal } from '../i18n'
 import {
   Rocket, TrendingUp, Award, CheckCircle2, ChevronRight,
   Star, MessageSquare, BarChart2, ThumbsUp, ThumbsDown,
@@ -27,28 +28,39 @@ const MARCO_ICONS = [Rocket, TrendingUp, Award, Star]
 const themeFor = (i) => MARCO_THEMES[i % MARCO_THEMES.length]
 const iconFor  = (i) => MARCO_ICONS[i % MARCO_ICONS.length]
 
+// O valor gravado em q3/q4/q5 é o texto em português (o NPSClientForm grava o mesmo);
+// a tela mostra o rótulo traduzido pela chave do mapa.
 const Q3_OPTIONS = ['Ruim', 'Regular', 'Bom', 'Excelente']
 const Q4_OPTIONS = ['Sim, dentro do esperado', 'Parcialmente', 'Não, abaixo do esperado']
 const Q5_OPTIONS = ['Sim, tenho clareza total', 'Às vezes fico com dúvidas', 'Não, sinto falta de mais transparência']
+const OPCAO_CHAVE = {
+  'Ruim': 'ruim', 'Regular': 'regular', 'Bom': 'bom', 'Excelente': 'excelente',
+  'Sim, dentro do esperado': 'q4Sim', 'Parcialmente': 'q4Parcial', 'Não, abaixo do esperado': 'q4Nao',
+  'Sim, tenho clareza total': 'q5Sim', 'Às vezes fico com dúvidas': 'q5AsVezes', 'Não, sinto falta de mais transparência': 'q5Nao',
+}
+const rotuloOpcao = (v) => (OPCAO_CHAVE[v] ? tGlobal(`nps.opcoes.${OPCAO_CHAVE[v]}`) : v)
+
+// Nome gravado quando o respondente fica em branco (fica em português no banco).
+const SEM_NOME = 'Sem nome'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getNPSCategory(score) {
-  if (score <= 6) return { label: 'Detrator', color: 'text-red-400',  bg: 'bg-red-400/10',  border: 'border-red-400/20',  Icon: ThumbsDown }
-  if (score <= 8) return { label: 'Neutro',   color: 'text-rl-gold',  bg: 'bg-rl-gold/10',  border: 'border-rl-gold/20',  Icon: Minus      }
-  return              { label: 'Promotor', color: 'text-rl-green', bg: 'bg-rl-green/10', border: 'border-rl-green/20', Icon: ThumbsUp   }
+  if (score <= 6) return { label: tGlobal('nps.categoria.detrator'), color: 'text-red-400',  bg: 'bg-red-400/10',  border: 'border-red-400/20',  Icon: ThumbsDown }
+  if (score <= 8) return { label: tGlobal('nps.categoria.neutro'),   color: 'text-rl-gold',  bg: 'bg-rl-gold/10',  border: 'border-rl-gold/20',  Icon: Minus      }
+  return              { label: tGlobal('nps.categoria.promotor'), color: 'text-rl-green', bg: 'bg-rl-green/10', border: 'border-rl-green/20', Icon: ThumbsUp   }
 }
 
 function getActionLabel(score) {
-  if (score <= 6) return { text: 'Account manager entra em contato em até 24h para entender e reverter.', color: 'text-red-400', bg: 'bg-red-400/5', border: 'border-red-400/15' }
-  if (score <= 8) return { text: 'Agendar alinhamento estratégico no próximo ciclo.', color: 'text-rl-gold', bg: 'bg-rl-gold/5', border: 'border-rl-gold/15' }
-  return              { text: 'Solicitar depoimento ou case ao cliente.', color: 'text-rl-green', bg: 'bg-rl-green/5', border: 'border-rl-green/15' }
+  if (score <= 6) return { text: tGlobal('nps.acao.detrator'), color: 'text-red-400', bg: 'bg-red-400/5', border: 'border-red-400/15' }
+  if (score <= 8) return { text: tGlobal('nps.acao.neutro'), color: 'text-rl-gold', bg: 'bg-rl-gold/5', border: 'border-rl-gold/15' }
+  return              { text: tGlobal('nps.acao.promotor'), color: 'text-rl-green', bg: 'bg-rl-green/5', border: 'border-rl-green/15' }
 }
 
 function getQ2Label(score) {
-  if (score <= 6) return 'O que fez você dar essa nota? O que precisaria mudar para você se sentir bem atendido?'
-  if (score <= 8) return 'O que está faltando para a nossa parceria ser excelente na sua visão?'
-  return 'O que mais te surpreendeu positivamente na nossa parceria até agora?'
+  if (score <= 6) return tGlobal('nps.q2.detrator')
+  if (score <= 8) return tGlobal('nps.q2.neutro')
+  return tGlobal('nps.q2.promotor')
 }
 
 const fmtDue = (iso) => fmtDate(iso) || null
@@ -78,6 +90,7 @@ function RadioOption({ label, selected, onClick }) {
 // ─── NPS Form (admin — inclui campo de respondente) ──────────────────────────
 
 function NPSForm({ tw, onSubmit, onCancel }) {
+  const { t } = useI18n()
   const [respondentName, setRespondentName] = useState('')
   const [step, setStep]     = useState(0)
   const [form, setForm]     = useState({ score: null, q2: '', q3: '', q4: '', q5: '', q6: '' })
@@ -88,7 +101,7 @@ function NPSForm({ tw, onSubmit, onCancel }) {
   const handleSubmit = async () => {
     setSaving(true)
     await onSubmit({
-      name: respondentName.trim() || 'Sem nome',
+      name: respondentName.trim() || SEM_NOME,
       ...form,
       submittedAt: new Date().toISOString(),
     })
@@ -101,19 +114,19 @@ function NPSForm({ tw, onSubmit, onCancel }) {
       {/* Respondente */}
       <div>
         <label className="text-[10px] font-bold text-rl-muted uppercase tracking-wide block mb-1.5">
-          <User className="w-3 h-3 inline mr-1" />Respondente
+          <User className="w-3 h-3 inline mr-1" />{t('nps.form.respondente')}
         </label>
         <input
           value={respondentName}
           onChange={(e) => setRespondentName(e.target.value)}
-          placeholder="Nome de quem está respondendo"
+          placeholder={t('nps.form.respondentePlaceholder')}
           className="input-field text-sm w-full"
         />
       </div>
 
       {/* Progress */}
       <div className="flex items-center gap-2">
-        {['Nota', 'Diagnóstico', 'Avaliação', 'Encerramento'].map((s, i) => (
+        {['nota', 'diagnostico', 'avaliacao', 'encerramento'].map((k) => t(`nps.form.passos.${k}`)).map((s, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className={`flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold transition-all ${
               i < step ? 'bg-rl-green text-white' : i === step ? tw.badge : 'bg-rl-surface text-rl-muted border border-rl-border'
@@ -130,8 +143,8 @@ function NPSForm({ tw, onSubmit, onCancel }) {
       {step === 0 && (
         <div className="space-y-4">
           <div>
-            <p className="text-sm font-semibold text-rl-text mb-1">Em uma escala de 0 a 10, qual a probabilidade de você indicar a Revenue Lab para outro empresário?</p>
-            <p className="text-xs text-rl-muted">0 = Jamais indicaria · 10 = Indicaria com certeza</p>
+            <p className="text-sm font-semibold text-rl-text mb-1">{t('nps.form.q1')}</p>
+            <p className="text-xs text-rl-muted">{t('nps.form.q1Escala')}</p>
           </div>
           <div className="grid grid-cols-11 gap-1.5">
             {[0,1,2,3,4,5,6,7,8,9,10].map((n) => {
@@ -150,13 +163,13 @@ function NPSForm({ tw, onSubmit, onCancel }) {
           {category && (
             <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium ${category.bg} ${category.border} ${category.color}`}>
               <category.Icon className="w-4 h-4 shrink-0" />
-              Nota {form.score} — {category.label}
+              {t('nps.form.notaCategoria', { nota: form.score, categoria: category.label })}
             </div>
           )}
           <div className="flex justify-end">
             <button onClick={() => setStep(1)} disabled={form.score === null}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${tw.btn} disabled:opacity-40 disabled:cursor-not-allowed`}>
-              Próximo <ChevronRight className="w-4 h-4" />
+              {t('nps.form.proximo')} <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -166,20 +179,20 @@ function NPSForm({ tw, onSubmit, onCancel }) {
       {step === 1 && (
         <div className="space-y-4">
           <div className={`px-3 py-2 rounded-xl border text-xs font-medium ${getNPSCategory(form.score).bg} ${getNPSCategory(form.score).border} ${getNPSCategory(form.score).color}`}>
-            Nota {form.score} — {category.label}
+            {t('nps.form.notaCategoria', { nota: form.score, categoria: category.label })}
           </div>
           <div>
             <p className="text-sm font-semibold text-rl-text mb-3">{getQ2Label(form.score)}</p>
             <textarea value={form.q2} onChange={(e) => setForm(f => ({ ...f, q2: e.target.value }))}
-              placeholder="Escreva aqui..." rows={4} autoFocus className="input-field resize-none text-sm leading-relaxed w-full" />
+              placeholder={t('nps.form.escrevaAqui')} rows={4} autoFocus className="input-field resize-none text-sm leading-relaxed w-full" />
           </div>
           <div className="flex justify-between">
             <button onClick={() => setStep(0)} className="text-sm text-rl-muted hover:text-rl-text transition-colors flex items-center gap-1">
-              <RotateCcw className="w-3.5 h-3.5" /> Voltar
+              <RotateCcw className="w-3.5 h-3.5" /> {t('comum.voltar')}
             </button>
             <button onClick={() => setStep(2)} disabled={!form.q2.trim()}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${tw.btn} disabled:opacity-40 disabled:cursor-not-allowed`}>
-              Próximo <ChevronRight className="w-4 h-4" />
+              {t('nps.form.proximo')} <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -189,22 +202,22 @@ function NPSForm({ tw, onSubmit, onCancel }) {
       {step === 2 && (
         <div className="space-y-5">
           {[
-            { q: 'Como você avalia a comunicação e o atendimento da equipe?', key: 'q3', opts: Q3_OPTIONS },
-            { q: 'Os resultados das campanhas estão dentro do que foi combinado no início?', key: 'q4', opts: Q4_OPTIONS },
-            { q: 'Você sente que entende o que está sendo feito e por quê?', key: 'q5', opts: Q5_OPTIONS },
+            { q: t('nps.form.q3'), key: 'q3', opts: Q3_OPTIONS },
+            { q: t('nps.form.q4'), key: 'q4', opts: Q4_OPTIONS },
+            { q: t('nps.form.q5'), key: 'q5', opts: Q5_OPTIONS },
           ].map(({ q, key, opts }) => (
             <div key={key} className="space-y-2">
               <p className="text-sm font-semibold text-rl-text">{q}</p>
-              {opts.map(o => <RadioOption key={o} label={o} selected={form[key] === o} onClick={() => setForm(f => ({ ...f, [key]: o }))} />)}
+              {opts.map(o => <RadioOption key={o} label={rotuloOpcao(o)} selected={form[key] === o} onClick={() => setForm(f => ({ ...f, [key]: o }))} />)}
             </div>
           ))}
           <div className="flex justify-between">
             <button onClick={() => setStep(1)} className="text-sm text-rl-muted hover:text-rl-text transition-colors flex items-center gap-1">
-              <RotateCcw className="w-3.5 h-3.5" /> Voltar
+              <RotateCcw className="w-3.5 h-3.5" /> {t('comum.voltar')}
             </button>
             <button onClick={() => setStep(3)} disabled={!form.q3 || !form.q4 || !form.q5}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${tw.btn} disabled:opacity-40 disabled:cursor-not-allowed`}>
-              Próximo <ChevronRight className="w-4 h-4" />
+              {t('nps.form.proximo')} <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -214,20 +227,20 @@ function NPSForm({ tw, onSubmit, onCancel }) {
       {step === 3 && (
         <div className="space-y-4">
           <div>
-            <p className="text-sm font-semibold text-rl-text mb-1">Tem algo que você gostaria que a gente soubesse e que não perguntamos aqui?</p>
-            <p className="text-xs text-rl-muted mb-3">Campo opcional</p>
+            <p className="text-sm font-semibold text-rl-text mb-1">{t('nps.form.q6')}</p>
+            <p className="text-xs text-rl-muted mb-3">{t('nps.form.opcional')}</p>
             <textarea value={form.q6} onChange={(e) => setForm(f => ({ ...f, q6: e.target.value }))}
-              placeholder="Fique à vontade para comentar..." rows={4} autoFocus className="input-field resize-none text-sm leading-relaxed w-full" />
+              placeholder={t('nps.form.comentePlaceholder')} rows={4} autoFocus className="input-field resize-none text-sm leading-relaxed w-full" />
           </div>
           <div className="flex justify-between">
             <button onClick={() => setStep(2)} className="text-sm text-rl-muted hover:text-rl-text transition-colors flex items-center gap-1">
-              <RotateCcw className="w-3.5 h-3.5" /> Voltar
+              <RotateCcw className="w-3.5 h-3.5" /> {t('comum.voltar')}
             </button>
             <button onClick={handleSubmit} disabled={saving}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${tw.btn} disabled:opacity-60`}>
               {saving
-                ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Salvando...</>
-                : <><Send className="w-4 h-4" />Salvar resposta</>
+                ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />{t('comum.salvando')}</>
+                : <><Send className="w-4 h-4" />{t('nps.form.salvarResposta')}</>
               }
             </button>
           </div>
@@ -236,7 +249,7 @@ function NPSForm({ tw, onSubmit, onCancel }) {
 
       <div className="pt-1 border-t border-rl-border/40">
         <button onClick={onCancel} className="text-xs text-rl-muted hover:text-rl-text transition-colors">
-          Cancelar
+          {t('comum.cancelar')}
         </button>
       </div>
     </div>
@@ -246,6 +259,7 @@ function NPSForm({ tw, onSubmit, onCancel }) {
 // ─── Response Row (linha expansível de cada respondente) ──────────────────────
 
 function ResponseRow({ response }) {
+  const { t } = useI18n()
   const [expanded, setExpanded] = useState(false)
   const cat    = getNPSCategory(response.score)
   const action = getActionLabel(response.score)
@@ -262,7 +276,7 @@ function ResponseRow({ response }) {
         </div>
         {/* Name + date */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-rl-text truncate">{response.name || 'Anônimo'}</p>
+          <p className="text-sm font-semibold text-rl-text truncate">{response.name === SEM_NOME ? t('nps.semNome') : (response.name || t('nps.anonimo'))}</p>
           {response.email && <p className="text-xs text-rl-muted truncate">{response.email}</p>}
         </div>
         {/* Category + date + chevron */}
@@ -296,13 +310,13 @@ function ResponseRow({ response }) {
           )}
           {/* Action */}
           <div className={`px-3 py-2 rounded-lg border text-xs leading-relaxed ${action.bg} ${action.border} ${action.color}`}>
-            <span className="font-semibold">Ação recomendada: </span>{action.text}
+            <span className="font-semibold">{t('nps.acaoRecomendada')}</span>{action.text}
           </div>
           {/* Q2 */}
           {response.q2 && (
             <div className="glass-card p-3">
               <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide mb-1 flex items-center gap-1">
-                <MessageSquare className="w-3 h-3" /> Diagnóstico
+                <MessageSquare className="w-3 h-3" /> {t('nps.diagnostico')}
               </p>
               <p className="text-sm text-rl-text leading-relaxed">{response.q2}</p>
             </div>
@@ -310,13 +324,13 @@ function ResponseRow({ response }) {
           {/* Q3/Q4/Q5 */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {[
-              { label: 'Comunicação',  val: response.q3 },
-              { label: 'Resultados',   val: response.q4 },
-              { label: 'Transparência', val: response.q5 },
+              { label: t('nps.comunicacao'),  val: response.q3 },
+              { label: t('nps.resultados'),   val: response.q4 },
+              { label: t('nps.transparencia'), val: response.q5 },
             ].filter(({ val }) => val).map(({ label, val }) => (
               <div key={label} className="glass-card p-2.5">
                 <p className="text-[9px] font-bold text-rl-muted uppercase tracking-wide mb-0.5">{label}</p>
-                <p className="text-xs text-rl-text font-medium leading-snug">{val}</p>
+                <p className="text-xs text-rl-text font-medium leading-snug">{rotuloOpcao(val)}</p>
               </div>
             ))}
           </div>
@@ -324,7 +338,7 @@ function ResponseRow({ response }) {
           {response.q6 && (
             <div className="glass-card p-3">
               <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide mb-1 flex items-center gap-1">
-                <Star className="w-3 h-3" /> Comentário adicional
+                <Star className="w-3 h-3" /> {t('nps.comentarioAdicional')}
               </p>
               <p className="text-sm text-rl-text leading-relaxed">{response.q6}</p>
             </div>
@@ -338,6 +352,7 @@ function ResponseRow({ response }) {
 // ─── Marco Card ───────────────────────────────────────────────────────────────
 
 function MarcoCard({ marco, index, onAddResponse, onClearAll, onCopyLink, isCopied, onEdit, onDelete }) {
+  const { t } = useI18n()
   const [open, setOpen]           = useState(false)
   const [addingNew, setAddingNew] = useState(false)
   const Icon  = iconFor(index)
@@ -365,14 +380,14 @@ function MarcoCard({ marco, index, onAddResponse, onClearAll, onCopyLink, isCopi
           <div>
             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
               <span className={`text-[10px] font-bold uppercase tracking-wider ${hasResponses ? 'text-rl-green' : tw.text}`}>
-                Marco {String(index + 1).padStart(2, '0')}
+                {t('nps.marco', { n: String(index + 1).padStart(2, '0') })}
               </span>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                 hasResponses
                   ? 'bg-rl-green/15 text-rl-green border-rl-green/20'
                   : `${tw.bg} ${tw.border} ${tw.text}`
               }`}>
-                {count} resposta{count !== 1 ? 's' : ''}
+                {t('nps.respostas', { count })}
               </span>
               {marco.dueAt && (
                 <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border flex items-center gap-1 ${
@@ -381,7 +396,7 @@ function MarcoCard({ marco, index, onAddResponse, onClearAll, onCopyLink, isCopi
                     : 'bg-rl-surface border-rl-border text-rl-muted'
                 }`}>
                   <Calendar className="w-2.5 h-2.5" />
-                  {!hasResponses && marco.dueAt <= todayISO() ? 'Previsto para ' : ''}{fmtDue(marco.dueAt)}
+                  {!hasResponses && marco.dueAt <= todayISO() ? t('nps.previstoPara') : ''}{fmtDue(marco.dueAt)}
                 </span>
               )}
             </div>
@@ -395,12 +410,12 @@ function MarcoCard({ marco, index, onAddResponse, onClearAll, onCopyLink, isCopi
           {avgScore && (
             <div className="text-right mr-1">
               <p className="text-xl font-black text-rl-text leading-none">{avgScore}</p>
-              <p className="text-[9px] text-rl-muted">média</p>
+              <p className="text-[9px] text-rl-muted">{t('nps.media')}</p>
             </div>
           )}
           <button
             onClick={onCopyLink}
-            title="Copiar link para o cliente"
+            title={t('nps.copiarLinkTitulo')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
               isCopied
                 ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
@@ -408,18 +423,18 @@ function MarcoCard({ marco, index, onAddResponse, onClearAll, onCopyLink, isCopi
             }`}
           >
             {isCopied ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
-            {isCopied ? 'Copiado!' : 'Copiar link'}
+            {isCopied ? t('comum.copiado') : t('nps.copiarLink')}
           </button>
           <button
             onClick={() => { setOpen(true); setAddingNew(true) }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${tw.btn}`}
           >
             <Plus className="w-3.5 h-3.5" />
-            Adicionar
+            {t('comum.adicionar')}
           </button>
           <button
             onClick={onEdit}
-            title="Editar marco"
+            title={t('nps.editarMarco')}
             className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-colors"
           >
             <Pencil className="w-3.5 h-3.5" />
@@ -428,7 +443,7 @@ function MarcoCard({ marco, index, onAddResponse, onClearAll, onCopyLink, isCopi
           {marco.origem === 'custom' && (
             <button
               onClick={onDelete}
-              title="Excluir marco"
+              title={t('nps.excluirMarco')}
               className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -446,13 +461,13 @@ function MarcoCard({ marco, index, onAddResponse, onClearAll, onCopyLink, isCopi
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide flex items-center gap-1.5">
-                  <Users className="w-3 h-3" /> {count} respondente{count !== 1 ? 's' : ''}
+                  <Users className="w-3 h-3" /> {t('nps.respondentes', { count })}
                 </p>
                 <button
                   onClick={onClearAll}
                   className="text-[10px] text-red-400/70 hover:text-red-400 transition-colors"
                 >
-                  Limpar tudo
+                  {t('nps.limparTudo')}
                 </button>
               </div>
               {responses.map((r) => (
@@ -465,7 +480,7 @@ function MarcoCard({ marco, index, onAddResponse, onClearAll, onCopyLink, isCopi
           {addingNew ? (
             <div className={`${hasResponses ? 'border-t border-rl-border/40 pt-4' : ''}`}>
               {hasResponses && (
-                <p className="text-xs font-bold text-rl-muted uppercase tracking-wide mb-4">Nova resposta</p>
+                <p className="text-xs font-bold text-rl-muted uppercase tracking-wide mb-4">{t('nps.novaResposta')}</p>
               )}
               <NPSForm
                 tw={tw}
@@ -478,12 +493,12 @@ function MarcoCard({ marco, index, onAddResponse, onClearAll, onCopyLink, isCopi
             </div>
           ) : !hasResponses ? (
             <div className="text-center py-6">
-              <p className="text-sm text-rl-muted mb-3">Nenhuma resposta ainda.</p>
+              <p className="text-sm text-rl-muted mb-3">{t('nps.nenhumaResposta')}</p>
               <button
                 onClick={() => setAddingNew(true)}
                 className={`inline-flex items-center gap-2 text-sm font-semibold ${tw.text} hover:opacity-80 transition-opacity`}
               >
-                <Plus className="w-4 h-4" /> Adicionar primeira resposta
+                <Plus className="w-4 h-4" /> {t('nps.adicionarPrimeira')}
               </button>
             </div>
           ) : null}
@@ -497,6 +512,7 @@ function MarcoCard({ marco, index, onAddResponse, onClearAll, onCopyLink, isCopi
 // ─── NPS Summary Banner ───────────────────────────────────────────────────────
 
 function NPSSummary({ marcos }) {
+  const { t } = useI18n()
   const allResponses = marcos.flatMap(m => m.respostas || [])
   if (allResponses.length === 0) return null
 
@@ -512,28 +528,28 @@ function NPSSummary({ marcos }) {
     <div className="glass-card p-5">
       <div className="flex items-center gap-2 mb-4">
         <BarChart2 className="w-4 h-4 text-rl-purple" />
-        <p className="text-sm font-semibold text-rl-text">Visão Geral do NPS</p>
+        <p className="text-sm font-semibold text-rl-text">{t('nps.resumo.titulo')}</p>
         <span className="text-xs text-rl-muted ml-auto">
-          {n} resposta{n !== 1 ? 's' : ''} · {marcosAtivos} de {marcos.length} marcos
+          {t('nps.respostas', { count: n })} · {t('nps.resumo.marcos', { ativos: marcosAtivos, total: marcos.length })}
         </span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="text-center">
-          <p className="text-[10px] text-rl-muted mb-1">NPS Score</p>
+          <p className="text-[10px] text-rl-muted mb-1">{t('nps.resumo.npsScore')}</p>
           <p className={`text-2xl font-black ${npsScore >= 50 ? 'text-rl-green' : npsScore >= 0 ? 'text-rl-gold' : 'text-red-400'}`}>
             {npsScore > 0 ? `+${npsScore}` : npsScore}
           </p>
         </div>
         <div className="text-center">
-          <p className="text-[10px] text-rl-muted mb-1">Média de notas</p>
+          <p className="text-[10px] text-rl-muted mb-1">{t('nps.resumo.mediaNotas')}</p>
           <p className="text-2xl font-black text-rl-text">{avg}</p>
         </div>
         <div className="text-center">
-          <p className="text-[10px] text-rl-muted mb-1">Promotores</p>
+          <p className="text-[10px] text-rl-muted mb-1">{t('nps.resumo.promotores')}</p>
           <p className="text-2xl font-black text-rl-green">{promotores}</p>
         </div>
         <div className="text-center">
-          <p className="text-[10px] text-rl-muted mb-1">Detratores</p>
+          <p className="text-[10px] text-rl-muted mb-1">{t('nps.resumo.detratores')}</p>
           <p className="text-2xl font-black text-red-400">{detratores}</p>
         </div>
       </div>
@@ -544,6 +560,7 @@ function NPSSummary({ marcos }) {
 // ─── Marco Form (criar / editar) ──────────────────────────────────────────────
 
 function MarcoFormModal({ marco, onSave, onClose }) {
+  const { t } = useI18n()
   const [label, setLabel]         = useState(marco?.label     || '')
   const [descricao, setDescricao] = useState(marco?.descricao || '')
   const [dueAt, setDueAt]         = useState(marco?.dueAt     || '')
@@ -566,12 +583,12 @@ function MarcoFormModal({ marco, onSave, onClose }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-lg font-bold text-rl-text">
-              {editando ? 'Editar marco' : 'Novo marco de NPS'}
+              {editando ? t('nps.modal.editar') : t('nps.modal.novo')}
             </h3>
             <p className="text-xs text-rl-muted mt-0.5">
               {editando
-                ? 'A alteração vale só para este cliente.'
-                : 'Vale só para este cliente — use para acompanhar o ciclo de vida além dos marcos padrão.'}
+                ? t('nps.modal.editarTexto')
+                : t('nps.modal.novoTexto')}
             </p>
           </div>
           <button type="button" onClick={onClose} className="p-1 text-rl-muted hover:text-rl-text transition-colors">
@@ -581,12 +598,12 @@ function MarcoFormModal({ marco, onSave, onClose }) {
 
         <div>
           <label className="text-[10px] font-bold text-rl-muted uppercase tracking-wide block mb-1.5">
-            Nome do marco
+            {t('nps.modal.nome')}
           </label>
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="Ex: 9 Meses, Pós-renovação"
+            placeholder={t('nps.modal.nomePlaceholder')}
             autoFocus
             className="input-field text-sm w-full"
           />
@@ -594,19 +611,19 @@ function MarcoFormModal({ marco, onSave, onClose }) {
 
         <div>
           <label className="text-[10px] font-bold text-rl-muted uppercase tracking-wide block mb-1.5">
-            Descrição <span className="font-medium normal-case">(opcional)</span>
+            {t('nps.modal.descricao')} <span className="font-medium normal-case">{t('nps.modal.opcional')}</span>
           </label>
           <input
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
-            placeholder="Ex: Três trimestres de parceria"
+            placeholder={t('nps.modal.descricaoPlaceholder')}
             className="input-field text-sm w-full"
           />
         </div>
 
         <div>
           <label className="text-[10px] font-bold text-rl-muted uppercase tracking-wide block mb-1.5">
-            Data prevista <span className="font-medium normal-case">(opcional)</span>
+            {t('nps.modal.dataPrevista')} <span className="font-medium normal-case">{t('nps.modal.opcional')}</span>
           </label>
           <input
             type="date"
@@ -615,17 +632,16 @@ function MarcoFormModal({ marco, onSave, onClose }) {
             className="input-field text-sm w-full"
           />
           <p className="text-[11px] text-rl-muted mt-1.5 leading-relaxed">
-            O marco só aparece sozinho para o cliente depois desta data. Sem data, ele fica
-            disponível apenas por link direto.
+            {t('nps.modal.dataAjuda')}
           </p>
         </div>
 
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-rl-muted hover:text-rl-text transition-colors">
-            Cancelar
+            {t('comum.cancelar')}
           </button>
           <button type="submit" disabled={!podeSalvar} className="btn-primary text-sm disabled:opacity-40 disabled:cursor-not-allowed">
-            {saving ? 'Salvando...' : editando ? 'Salvar' : 'Criar marco'}
+            {saving ? t('comum.salvando') : editando ? t('comum.salvar') : t('nps.modal.criar')}
           </button>
         </div>
       </form>
@@ -640,6 +656,7 @@ export default function NPSModule({ project }) {
     updateProject, addNpsMarco, updateNpsMarco, deleteNpsMarco,
     addNpsResposta, clearNpsMarco,
   } = useApp()
+  const { t } = useI18n()
   const [copiedMarco, setCopiedMarco] = useState(null)
   const [editing, setEditing] = useState(null) // { marco } para editar, {} para criar
 
@@ -656,8 +673,8 @@ export default function NPSModule({ project }) {
   const handleDeleteMarco = async (marco) => {
     const n = (marco.respostas || []).length
     const aviso = n
-      ? `Excluir "${marco.label}"? As ${n} resposta${n !== 1 ? 's' : ''} deste marco também serão apagadas.`
-      : `Excluir o marco "${marco.label}"?`
+      ? t('nps.confirmarExcluirComRespostas', { nome: marco.label, count: n })
+      : t('nps.confirmarExcluir', { nome: marco.label })
     if (!window.confirm(aviso)) return
     await deleteNpsMarco(project.id, marco.id)
   }
@@ -692,17 +709,17 @@ export default function NPSModule({ project }) {
         <div>
           <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
             <Star className="w-5 h-5 text-rl-gold" />
-            NPS — Satisfação do Cliente
+            {t('nps.titulo')}
           </h2>
           <p className="text-sm text-rl-muted mt-0.5">
-            Copie o link de cada marco e envie aos participantes — cada pessoa preenche de forma independente
+            {t('nps.subtitulo')}
           </p>
         </div>
         <button
           onClick={() => setEditing({})}
           className="btn-primary flex items-center gap-2 text-sm shrink-0"
         >
-          <Plus className="w-4 h-4" /> Novo marco
+          <Plus className="w-4 h-4" /> {t('nps.novoMarco')}
         </button>
       </div>
 
@@ -711,27 +728,27 @@ export default function NPSModule({ project }) {
 
       {/* How it works */}
       <div className="glass-card p-4 space-y-3">
-        <p className="text-xs font-bold text-rl-muted uppercase tracking-wide">Como usar as respostas</p>
+        <p className="text-xs font-bold text-rl-muted uppercase tracking-wide">{t('nps.comoUsar')}</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
           <div className="flex items-start gap-2 p-2.5 rounded-xl bg-red-400/5 border border-red-400/15">
             <ThumbsDown className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-red-400">Nota 0–6 (Detrator)</p>
-              <p className="text-rl-muted mt-0.5">Account manager entra em contato em até 24h para entender e reverter.</p>
+              <p className="font-semibold text-red-400">{t('nps.faixaDetrator')}</p>
+              <p className="text-rl-muted mt-0.5">{t('nps.acao.detrator')}</p>
             </div>
           </div>
           <div className="flex items-start gap-2 p-2.5 rounded-xl bg-rl-gold/5 border border-rl-gold/15">
             <Minus className="w-4 h-4 text-rl-gold shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-rl-gold">Nota 7–8 (Neutro)</p>
-              <p className="text-rl-muted mt-0.5">Agendar alinhamento estratégico no próximo ciclo.</p>
+              <p className="font-semibold text-rl-gold">{t('nps.faixaNeutro')}</p>
+              <p className="text-rl-muted mt-0.5">{t('nps.acao.neutro')}</p>
             </div>
           </div>
           <div className="flex items-start gap-2 p-2.5 rounded-xl bg-rl-green/5 border border-rl-green/15">
             <ThumbsUp className="w-4 h-4 text-rl-green shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-rl-green">Nota 9–10 (Promotor)</p>
-              <p className="text-rl-muted mt-0.5">Solicitar depoimento ou case ao cliente.</p>
+              <p className="font-semibold text-rl-green">{t('nps.faixaPromotor')}</p>
+              <p className="text-rl-muted mt-0.5">{t('nps.acao.promotor')}</p>
             </div>
           </div>
         </div>
@@ -756,9 +773,9 @@ export default function NPSModule({ project }) {
         {marcos.length === 0 && (
           <div className="glass-card p-8 text-center">
             <Star className="w-8 h-8 text-rl-muted/40 mx-auto mb-3" />
-            <p className="text-sm text-rl-muted mb-3">Nenhum marco de NPS neste cliente ainda.</p>
+            <p className="text-sm text-rl-muted mb-3">{t('nps.semMarcos')}</p>
             <button onClick={() => setEditing({})} className="btn-primary inline-flex items-center gap-2 text-sm">
-              <Plus className="w-4 h-4" /> Criar o primeiro marco
+              <Plus className="w-4 h-4" /> {t('nps.criarPrimeiro')}
             </button>
           </div>
         )}

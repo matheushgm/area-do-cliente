@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext'
 import Modal from './UI/Modal'
 import Toast from './UI/Toast'
 import { useToast } from '../hooks/useToast'
+import { useI18n, t as tGlobal } from '../i18n'
 import {
   FileText, Plus, Calendar, Video, Users, Edit2, Trash2,
   X, Loader2, ExternalLink, ChevronRight, Save, ArrowLeft,
@@ -27,6 +28,7 @@ function nameInitials(name = '') {
 
 // ─── Multi-seleção de participantes (usuários da plataforma) ─────────────────
 function ParticipantsSelect({ members, selectedIds, onChange }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const selected = members.filter((m) => selectedIds.includes(m.id))
 
@@ -48,7 +50,7 @@ function ParticipantsSelect({ members, selectedIds, onChange }) {
         <span className="flex-1 min-w-0 truncate">
           {selected.length
             ? selected.map((m) => m.name).join(', ')
-            : <span className="text-rl-muted">Selecione os participantes...</span>}
+            : <span className="text-rl-muted">{t('atas.selecioneParticipantes')}</span>}
         </span>
         <ChevronDown className={`w-4 h-4 text-rl-muted shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -58,7 +60,7 @@ function ParticipantsSelect({ members, selectedIds, onChange }) {
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-xl border border-rl-border bg-rl-surface shadow-2xl p-1">
             {members.length === 0 ? (
-              <p className="px-3 py-3 text-xs text-rl-muted text-center">Nenhum usuário disponível.</p>
+              <p className="px-3 py-3 text-xs text-rl-muted text-center">{t('atas.nenhumUsuario')}</p>
             ) : (
               members.map((m) => {
                 const checked = selectedIds.includes(m.id)
@@ -93,11 +95,15 @@ function ParticipantsSelect({ members, selectedIds, onChange }) {
 }
 
 // ─── Configuração das 3 assinaturas ──────────────────────────────────────────
+// label/shortLabel são getters do dicionário `atas` (o id é a chave gravada).
 const SIGNATURE_ROLES = [
-  { id: 'account_manager', label: 'Account Manager',  shortLabel: 'AM',  source: 'internal', color: '#7C3AED' },
-  { id: 'trafego',         label: 'Gestor de Tráfego', shortLabel: 'GT',  source: 'internal', color: '#2563EB' },
-  { id: 'client',          label: 'Cliente',           shortLabel: 'CL',  source: 'client',   color: '#059669' },
-]
+  { id: 'account_manager', source: 'internal', color: '#7C3AED' },
+  { id: 'trafego',         source: 'internal', color: '#2563EB' },
+  { id: 'client',          source: 'client',   color: '#059669' },
+].map((r) => Object.defineProperties(r, {
+  label:      { get: () => tGlobal(`atas.papeis.${r.id}`), enumerable: true },
+  shortLabel: { get: () => tGlobal(`atas.papeisCurto.${r.id}`), enumerable: true },
+}))
 
 // Resumo do status de assinaturas dado um minute (read-only chips). Usado
 // no MinuteCard pra mostrar 3 pontinhos coloridos com tooltip.
@@ -114,79 +120,72 @@ function signatureStatus(minute) {
 }
 
 // ─── Template estruturado da ata ────────────────────────────────────────────
-export const TEMPLATE_SECTIONS = [
+const SECOES_BASE = [
   {
     id: 'resumo',
-    title: 'Resumo da reunião',
     Icon: FileText,
     color: 'text-rl-cyan',
-    description: 'Em uma frase, qual foi o foco principal desta reunião?',
-    placeholder: 'Ex.: Revisão dos resultados do mês e planejamento da próxima campanha de Black Friday.',
     rows: 2,
   },
   {
     id: 'resultados',
-    title: 'Resultados desde a última reunião',
     Icon: TrendingUp,
     color: 'text-rl-green',
-    description: 'O que funcionou e o que não funcionou? Cite métricas quando possível.',
-    placeholder: '• CPL caiu de R$45 para R$32\n• Anúncio "X" performou bem\n• Landing Y teve baixa conversão...',
     rows: 4,
   },
   {
     id: 'metricas',
-    title: 'Principais métricas reportadas',
     Icon: Target,
     color: 'text-rl-purple',
-    description: 'Liste leads, MQL, SQL, vendas, ROAS, CAC, etc.',
-    placeholder: 'Leads: ___\nMQLs: ___\nVendas: ___\nROAS: ___',
     rows: 4,
   },
   {
     id: 'pontos_atencao',
-    title: 'Pontos de atenção / bloqueios',
     Icon: AlertTriangle,
     color: 'text-rl-gold',
-    description: 'O que está travando o avanço? Decisões pendentes?',
-    placeholder: '• Aguardando aprovação dos novos criativos\n• CRM ainda não integrado...',
     rows: 3,
   },
   {
     id: 'discussoes',
-    title: 'Principais discussões e decisões',
     Icon: Lightbulb,
     color: 'text-rl-cyan',
-    description: 'Resumo das conversas e decisões tomadas.',
-    placeholder: 'Decidimos focar em...\nValidamos que...\nO cliente prefere...',
     rows: 4,
   },
   {
     id: 'compromissos_cliente',
-    title: 'Compromissos do cliente',
     Icon: Users,
     color: 'text-rl-gold',
-    description: 'O que o cliente vai entregar / fazer até a próxima reunião?',
-    placeholder: '• Enviar fotos novas do produto até dia ___\n• Aprovar copies da landing\n• ...',
     rows: 3,
   },
   {
     id: 'compromissos_agencia',
-    title: 'Compromissos da agência',
     Icon: CheckSquare,
     color: 'text-rl-purple',
-    description: 'O que a agência vai entregar até a próxima reunião?',
-    placeholder: '• Subir 3 novos criativos até ___\n• Configurar pixel de conversão\n• ...',
     rows: 3,
   },
 ]
 
-export const ACTION_AREAS = [
-  { value: 'marketing', label: 'Marketing', Icon: Megaphone, color: 'text-rl-purple', bg: 'bg-rl-purple/10', border: 'border-rl-purple/30' },
-  { value: 'vendas',    label: 'Vendas',    Icon: ShoppingCart, color: 'text-rl-green',  bg: 'bg-rl-green/10',  border: 'border-rl-green/30'  },
+const AREAS_BASE = [
+  { value: 'marketing', Icon: Megaphone, color: 'text-rl-purple', bg: 'bg-rl-purple/10', border: 'border-rl-purple/30' },
+  { value: 'vendas',    Icon: ShoppingCart, color: 'text-rl-green',  bg: 'bg-rl-green/10',  border: 'border-rl-green/30'  },
 ]
+
+// Textos no idioma de quem lê (o portal também importa estas listas): title,
+// description e placeholder da seção e o label da área são getters do dicionário
+// `atas`. Ids e `value` são o que a ata grava e não mudam.
+export const TEMPLATE_SECTIONS = SECOES_BASE.map((sec) => Object.defineProperties(sec, {
+  title:       { get: () => tGlobal(`atas.secoes.${sec.id}.titulo`), enumerable: true },
+  description: { get: () => tGlobal(`atas.secoes.${sec.id}.descricao`), enumerable: true },
+  placeholder: { get: () => tGlobal(`atas.secoes.${sec.id}.placeholder`), enumerable: true },
+}))
+
+export const ACTION_AREAS = AREAS_BASE.map((area) => Object.defineProperty(area, 'label', {
+  get: () => tGlobal(`atas.areas.${area.value}`), enumerable: true,
+}))
 
 // ─── Editor de uma ata ──────────────────────────────────────────────────────
 function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onCancel, showToast }) {
+  const { t } = useI18n()
   const [title,        setTitle]        = useState(initial?.title || '')
   const [meetingDate,  setMeetingDate]  = useState(initial?.meeting_date || todayISO())
   const [recordingUrl, setRecordingUrl] = useState(initial?.recording_url || '')
@@ -222,7 +221,7 @@ function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onC
 
   async function handleSave() {
     if (!title.trim() || !meetingDate) {
-      showToast('Preencha título e data da reunião', 'error')
+      showToast(t('atas.preenchaTituloData'), 'error')
       return
     }
     setSaving(true)
@@ -260,29 +259,29 @@ function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onC
       {/* Header com voltar/salvar */}
       <div className="flex items-center justify-between gap-2 sticky top-0 bg-rl-bg/95 backdrop-blur z-10 -mx-2 px-2 py-2 border-b border-rl-border">
         <button onClick={onCancel} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-rl-muted hover:text-rl-text hover:bg-rl-surface transition">
-          <ArrowLeft className="w-4 h-4" /> Voltar
+          <ArrowLeft className="w-4 h-4" /> {t('comum.voltar')}
         </button>
         <button onClick={handleSave} disabled={saving || !title.trim() || !meetingDate} className="btn-primary inline-flex items-center gap-2 text-sm px-4 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          {saving ? 'Salvando...' : 'Salvar ata'}
+          {saving ? t('comum.salvando') : t('atas.salvarAta')}
         </button>
       </div>
 
       {/* Cabeçalho da ata */}
       <div className="glass-card p-5 space-y-4">
         <div>
-          <label className="block text-xs font-semibold text-rl-muted mb-1.5 uppercase tracking-wider">Título da reunião</label>
+          <label className="block text-xs font-semibold text-rl-muted mb-1.5 uppercase tracking-wider">{t('atas.tituloReuniao')}</label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Ex.: Reunião de alinhamento mensal"
+            placeholder={t('atas.tituloPlaceholder')}
             className="input-field w-full"
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-rl-muted mb-1.5 uppercase tracking-wider">
-              <Calendar className="w-3.5 h-3.5 inline mr-1" /> Data da reunião
+              <Calendar className="w-3.5 h-3.5 inline mr-1" /> {t('atas.dataReuniao')}
             </label>
             <input
               type="date"
@@ -293,7 +292,7 @@ function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onC
           </div>
           <div>
             <label className="block text-xs font-semibold text-rl-muted mb-1.5 uppercase tracking-wider">
-              <Video className="w-3.5 h-3.5 inline mr-1" /> Link da gravação
+              <Video className="w-3.5 h-3.5 inline mr-1" /> {t('atas.linkGravacao')}
             </label>
             <input
               type="url"
@@ -306,7 +305,7 @@ function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onC
         </div>
         <div>
           <label className="block text-xs font-semibold text-rl-muted mb-1.5 uppercase tracking-wider">
-            <Users className="w-3.5 h-3.5 inline mr-1" /> Participantes
+            <Users className="w-3.5 h-3.5 inline mr-1" /> {t('atas.participantes')}
           </label>
           <ParticipantsSelect
             members={members}
@@ -314,7 +313,7 @@ function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onC
             onChange={setParticipantIds}
           />
           <p className="text-[10px] text-rl-muted mt-1">
-            Selecione os usuários da plataforma. Os marcados recebem a notificação de assinatura da ata.
+            {t('atas.participantesAjuda')}
           </p>
         </div>
       </div>
@@ -323,7 +322,7 @@ function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onC
       <div className="glass-card p-5 space-y-5">
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-rl-purple" />
-          <h3 className="text-sm font-bold text-rl-text">Template — preencha passo a passo</h3>
+          <h3 className="text-sm font-bold text-rl-text">{t('atas.templateTitulo')}</h3>
         </div>
         {TEMPLATE_SECTIONS.map((sec, i) => (
           <div key={sec.id} className="border-l-2 border-rl-border pl-4">
@@ -352,8 +351,8 @@ function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onC
       <div className="glass-card p-5 space-y-5">
         <div className="flex items-center gap-2">
           <CheckSquare className="w-4 h-4 text-rl-green" />
-          <h3 className="text-sm font-bold text-rl-text">Próximas ações</h3>
-          <span className="text-[11px] text-rl-muted">(com responsável e prazo)</span>
+          <h3 className="text-sm font-bold text-rl-text">{t('atas.proximasAcoes')}</h3>
+          <span className="text-[11px] text-rl-muted">{t('atas.comResponsavelPrazo')}</span>
         </div>
 
         {ACTION_AREAS.map((area) => {
@@ -369,11 +368,11 @@ function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onC
                   onClick={() => addAction(area.value)}
                   className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium border ${area.bg} ${area.color} ${area.border} hover:opacity-80 transition`}
                 >
-                  <Plus className="w-3 h-3" /> Adicionar
+                  <Plus className="w-3 h-3" /> {t('comum.adicionar')}
                 </button>
               </div>
               {list.length === 0 ? (
-                <p className="text-[11px] text-rl-muted px-2 py-2">Nenhuma ação cadastrada.</p>
+                <p className="text-[11px] text-rl-muted px-2 py-2">{t('atas.nenhumaAcao')}</p>
               ) : (
                 <ul className="space-y-2">
                   {list.map((action) => (
@@ -388,7 +387,7 @@ function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onC
                         <input
                           value={action.title}
                           onChange={(e) => updateAction(action.id, { title: e.target.value })}
-                          placeholder={`Ação de ${area.label.toLowerCase()}...`}
+                          placeholder={t('atas.acaoDe', { area: area.label.toLowerCase() })}
                           className={`input-field w-full text-sm ${action.done ? 'line-through opacity-60' : ''}`}
                         />
                         <div className="flex flex-col sm:flex-row gap-2">
@@ -401,7 +400,7 @@ function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onC
                           <input
                             value={action.owner || ''}
                             onChange={(e) => updateAction(action.id, { owner: e.target.value })}
-                            placeholder="Responsável"
+                            placeholder={t('atas.responsavel')}
                             className="input-field text-xs flex-1"
                           />
                         </div>
@@ -410,7 +409,7 @@ function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onC
                         type="button"
                         onClick={() => removeAction(action.id)}
                         className="p-1 rounded text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition shrink-0"
-                        aria-label="Remover ação"
+                        aria-label={t('atas.removerAcao')}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -428,6 +427,7 @@ function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onC
 
 // ─── Card de ata ────────────────────────────────────────────────────────────
 function MinuteCard({ minute, onOpen, onDelete }) {
+  const { t } = useI18n()
   const actions = Array.isArray(minute.next_actions) ? minute.next_actions : []
   const open = actions.filter((a) => !a.done).length
   return (
@@ -453,20 +453,20 @@ function MinuteCard({ minute, onOpen, onDelete }) {
                 onClick={(e) => e.stopPropagation()}
                 className="inline-flex items-center gap-1 text-rl-cyan hover:underline"
               >
-                <Video className="w-3 h-3" /> Gravação
+                <Video className="w-3 h-3" /> {t('atas.gravacao')}
                 <ExternalLink className="w-2.5 h-2.5" />
               </a>
             )}
             {actions.length > 0 && (
               <span className="inline-flex items-center gap-1 text-rl-muted">
                 <CheckSquare className="w-3 h-3" />
-                {open}/{actions.length} ações abertas
+                {t('atas.acoesAbertas', { abertas: open, total: actions.length })}
               </span>
             )}
             <SignatureMiniIndicator minute={minute} />
             {!minute.client_signature && minute.share_token && (
               <span className="inline-flex items-center gap-1 text-rl-purple font-semibold">
-                <Link2 className="w-3 h-3" /> Link gerado
+                <Link2 className="w-3 h-3" /> {t('atas.linkGerado')}
               </span>
             )}
           </div>
@@ -475,7 +475,7 @@ function MinuteCard({ minute, onOpen, onDelete }) {
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(minute) }}
             className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition"
-            aria-label="Excluir ata"
+            aria-label={t('atas.excluirAta')}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -488,9 +488,10 @@ function MinuteCard({ minute, onOpen, onDelete }) {
 
 // 3 mini-pílulas mostrando status de assinatura (AM/GT/CL)
 function SignatureMiniIndicator({ minute }) {
+  const { t } = useI18n()
   const status = signatureStatus(minute)
   return (
-    <span className="inline-flex items-center gap-1" title="Status das assinaturas">
+    <span className="inline-flex items-center gap-1" title={t('atas.statusAssinaturas')}>
       {SIGNATURE_ROLES.map((r) => {
         const ok = status[r.id]
         return (
@@ -500,7 +501,7 @@ function SignatureMiniIndicator({ minute }) {
               ok ? 'text-white' : 'text-rl-muted bg-rl-surface border border-rl-border'
             }`}
             style={ok ? { background: r.color } : undefined}
-            title={`${r.label}: ${ok ? 'assinado' : 'pendente'}`}
+            title={t('atas.papelStatus', { papel: r.label, status: ok ? t('atas.assinadoMinusculo') : t('atas.pendenteMinusculo') })}
           >
             {r.shortLabel}
           </span>
@@ -511,6 +512,7 @@ function SignatureMiniIndicator({ minute }) {
 }
 // ─── Painel de assinaturas (AM / GT / Cliente) ───────────────────────────────
 function SignaturesPanel({ minute, currentUser, onUpdate }) {
+  const { t, locale } = useI18n()
   const [busyRole, setBusyRole] = useState(null)
   const status = signatureStatus(minute)
 
@@ -530,7 +532,7 @@ function SignaturesPanel({ minute, currentUser, onUpdate }) {
       .select()
       .single()
     setBusyRole(null)
-    if (error) return alert('Erro ao assinar: ' + error.message)
+    if (error) return alert(t('atas.erroAssinar', { erro: error.message }))
     onUpdate(data)
   }
 
@@ -550,20 +552,20 @@ function SignaturesPanel({ minute, currentUser, onUpdate }) {
               {role.label}
             </p>
             {sig
-              ? <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold text-rl-green"><CheckCircle2 className="w-3 h-3" /> Assinado</span>
-              : <span className="ml-auto text-[10px] font-bold text-rl-muted">Pendente</span>
+              ? <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold text-rl-green"><CheckCircle2 className="w-3 h-3" /> {t('atas.assinado')}</span>
+              : <span className="ml-auto text-[10px] font-bold text-rl-muted">{t('atas.pendente')}</span>
             }
           </div>
           {sig ? (
             <>
               <p className="text-sm font-black text-rl-text leading-tight">{sig.name}</p>
               <p className="text-[11px] text-rl-muted mt-0.5">
-                {new Date(sig.signedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                {new Date(sig.signedAt).toLocaleString(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
             </>
           ) : (
             <p className="text-[11px] text-rl-muted italic">
-              Cliente assina via link público de compartilhamento.
+              {t('atas.clienteAssinaLink')}
             </p>
           )}
         </div>
@@ -585,15 +587,15 @@ function SignaturesPanel({ minute, currentUser, onUpdate }) {
             {role.label}
           </p>
           {isSigned
-            ? <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold text-rl-green"><CheckCircle2 className="w-3 h-3" /> Assinado</span>
-            : <span className="ml-auto text-[10px] font-bold text-rl-muted">Pendente</span>
+            ? <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold text-rl-green"><CheckCircle2 className="w-3 h-3" /> {t('atas.assinado')}</span>
+            : <span className="ml-auto text-[10px] font-bold text-rl-muted">{t('atas.pendente')}</span>
           }
         </div>
         {isSigned ? (
           <>
             <p className="text-sm font-black text-rl-text leading-tight">{sig.name}</p>
             <p className="text-[11px] text-rl-muted mt-0.5">
-              {new Date(sig.signedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              {new Date(sig.signedAt).toLocaleString(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </p>
           </>
         ) : (
@@ -603,8 +605,8 @@ function SignaturesPanel({ minute, currentUser, onUpdate }) {
             className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-rl-purple text-white hover:bg-rl-purple/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {busyRole === role.id
-              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Assinando...</>
-              : <><PenLine className="w-3.5 h-3.5" /> Assinar como {role.shortLabel}</>
+              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('atas.assinando')}</>
+              : <><PenLine className="w-3.5 h-3.5" /> {t('atas.assinarComo', { papel: role.shortLabel })}</>
             }
           </button>
         )}
@@ -616,15 +618,15 @@ function SignaturesPanel({ minute, currentUser, onUpdate }) {
     <div className="glass-card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <PenLine className="w-4 h-4 text-rl-purple" />
-        <h3 className="text-sm font-black text-rl-text">Assinaturas</h3>
+        <h3 className="text-sm font-black text-rl-text">{t('atas.assinaturas')}</h3>
         {status.allSigned && (
           <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rl-green/10 text-rl-green border border-rl-green/30">
-            <CheckCircle2 className="w-3 h-3" /> Ata completa
+            <CheckCircle2 className="w-3 h-3" /> {t('atas.ataCompleta')}
           </span>
         )}
       </div>
       <p className="text-xs text-rl-muted leading-relaxed">
-        A ata só é considerada válida quando as 3 partes assinam: Account Manager, Gestor de Tráfego e o Cliente. Internas são assinadas aqui dentro; a do cliente vem pelo link público.
+        {t('atas.assinaturasTexto')}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {SIGNATURE_ROLES.map(renderRole)}
@@ -635,6 +637,7 @@ function SignaturesPanel({ minute, currentUser, onUpdate }) {
 
 // ─── Visualização (modo leitura) ────────────────────────────────────────────
 function MinuteView({ minute, currentUser, onEdit, onClose, onShare, onUpdate, copiedShareId }) {
+  const { t } = useI18n()
   const actions = Array.isArray(minute.next_actions) ? minute.next_actions : []
   const sectionsWithContent = TEMPLATE_SECTIONS.filter((s) => (minute.template?.[s.id] || '').trim())
   const sigStatus = signatureStatus(minute)
@@ -644,7 +647,7 @@ function MinuteView({ minute, currentUser, onEdit, onClose, onShare, onUpdate, c
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-2 sticky top-0 bg-rl-bg/95 backdrop-blur z-10 -mx-2 px-2 py-2 border-b border-rl-border">
         <button onClick={onClose} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-rl-muted hover:text-rl-text hover:bg-rl-surface transition">
-          <ArrowLeft className="w-4 h-4" /> Voltar
+          <ArrowLeft className="w-4 h-4" /> {t('comum.voltar')}
         </button>
         <div className="flex items-center gap-2">
           <button
@@ -654,15 +657,15 @@ function MinuteView({ minute, currentUser, onEdit, onClose, onShare, onUpdate, c
                 ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
                 : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
             }`}
-            title="Cria/copia o link pra ata que o cliente vai assinar"
+            title={t('atas.compartilharTitulo')}
           >
             {justCopied
-              ? <><Check className="w-4 h-4" /> Link copiado!</>
-              : <><Link2 className="w-4 h-4" /> Compartilhar com cliente</>
+              ? <><Check className="w-4 h-4" /> {t('atas.linkCopiadoBotao')}</>
+              : <><Link2 className="w-4 h-4" /> {t('atas.compartilhar')}</>
             }
           </button>
-          <button onClick={onEdit} disabled={signed} className="btn-secondary inline-flex items-center gap-2 text-sm px-4 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed" title={signed ? 'Ata já tem assinatura(s) — não pode ser editada' : 'Editar ata'}>
-            <Edit2 className="w-4 h-4" /> Editar
+          <button onClick={onEdit} disabled={signed} className="btn-secondary inline-flex items-center gap-2 text-sm px-4 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed" title={signed ? t('atas.naoEditavel') : t('atas.editarAta')}>
+            <Edit2 className="w-4 h-4" /> {t('comum.editar')}
           </button>
         </div>
       </div>
@@ -672,10 +675,10 @@ function MinuteView({ minute, currentUser, onEdit, onClose, onShare, onUpdate, c
           <Lock className="w-4 h-4 text-rl-green mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-rl-text">
-              Ata completa — todas as 3 assinaturas registradas
+              {t('atas.completaTitulo')}
             </p>
             <p className="text-xs text-rl-muted mt-0.5">
-              AM: {minute.internal_signatures.account_manager.name} · GT: {minute.internal_signatures.trafego.name} · Cliente: {minute.client_signature.name}
+              {t('atas.completaResumo', { am: minute.internal_signatures.account_manager.name, gt: minute.internal_signatures.trafego.name, cliente: minute.client_signature.name })}
             </p>
           </div>
         </div>
@@ -703,7 +706,7 @@ function MinuteView({ minute, currentUser, onEdit, onClose, onShare, onUpdate, c
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-sm text-rl-cyan hover:underline"
           >
-            <Video className="w-4 h-4" /> Acessar gravação
+            <Video className="w-4 h-4" /> {t('atas.acessarGravacao')}
             <ExternalLink className="w-3 h-3" />
           </a>
         )}
@@ -725,7 +728,7 @@ function MinuteView({ minute, currentUser, onEdit, onClose, onShare, onUpdate, c
       {actions.length > 0 && (
         <div className="glass-card p-5 space-y-4">
           <h4 className="text-xs font-bold uppercase tracking-wider text-rl-text inline-flex items-center gap-1.5">
-            <CheckSquare className="w-3.5 h-3.5" /> Próximas ações
+            <CheckSquare className="w-3.5 h-3.5" /> {t('atas.proximasAcoes')}
           </h4>
           {ACTION_AREAS.map((area) => {
             const list = actions.filter((a) => a.area === area.value)
@@ -740,7 +743,7 @@ function MinuteView({ minute, currentUser, onEdit, onClose, onShare, onUpdate, c
                     <li key={a.id} className={`flex items-start gap-2 p-2 rounded-lg border ${area.bg} ${area.border}`}>
                       <input type="checkbox" checked={!!a.done} readOnly className="mt-1 w-3.5 h-3.5 accent-rl-green shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${a.done ? 'line-through opacity-60' : 'text-rl-text'}`}>{a.title || '(sem título)'}</p>
+                        <p className={`text-sm ${a.done ? 'line-through opacity-60' : 'text-rl-text'}`}>{a.title || t('atas.semTitulo')}</p>
                         <div className="flex items-center gap-3 text-[10px] text-rl-muted mt-0.5">
                           {a.due_date && <span><Calendar className="w-2.5 h-2.5 inline mr-0.5" />{fmtDate(a.due_date)}</span>}
                           {a.owner && <span><Users className="w-2.5 h-2.5 inline mr-0.5" />{a.owner}</span>}
@@ -762,6 +765,7 @@ function MinuteView({ minute, currentUser, onEdit, onClose, onShare, onUpdate, c
 export default function MeetingMinutesModule({ project }) {
   const { user, teamMembers } = useApp()
   const { toast, showToast } = useToast()
+  const { t } = useI18n()
   const [minutes,    setMinutes]    = useState([])
   const [loading,    setLoading]    = useState(true)
   const [view,       setView]       = useState({ mode: 'list' }) // { mode: 'list' } | { mode: 'view', minute } | { mode: 'edit', minute? }
@@ -779,7 +783,7 @@ export default function MeetingMinutesModule({ project }) {
       .order('meeting_date', { ascending: false })
       .then(({ data, error }) => {
         if (cancelled) return
-        if (error) { console.error(error); showToast('Erro ao carregar atas', 'error'); setLoading(false); return }
+        if (error) { console.error(error); showToast(tGlobal('atas.erroCarregar'), 'error'); setLoading(false); return }
         setMinutes(data || [])
         setLoading(false)
       })
@@ -793,7 +797,7 @@ export default function MeetingMinutesModule({ project }) {
       return [saved, ...prev].sort((a, b) => (b.meeting_date || '').localeCompare(a.meeting_date || ''))
     })
     setView({ mode: 'view', minute: saved })
-    showToast('Ata salva')
+    showToast(t('atas.salva'))
 
     // Notifica os participantes marcados SÓ na criação (não em edição)
     if (!exists) notifyParticipantsAboutNewMinute(saved)
@@ -838,7 +842,7 @@ export default function MeetingMinutesModule({ project }) {
     if (error) { showToast(error.message, 'error'); return }
     setMinutes((prev) => prev.filter((m) => m.id !== minute.id))
     if (view.mode !== 'list' && view.minute?.id === minute.id) setView({ mode: 'list' })
-    showToast('Ata excluída')
+    showToast(t('atas.excluida'))
   }
 
   // Gera (ou recupera) o share_token e copia o link pra área de transferência.
@@ -853,7 +857,7 @@ export default function MeetingMinutesModule({ project }) {
         .select()
         .single()
       if (error) {
-        showToast('Erro ao gerar link: ' + error.message, 'error')
+        showToast(t('atas.erroGerarLink', { erro: error.message }), 'error')
         return
       }
       // Atualiza o state local com a row completa (inclui share_token)
@@ -867,10 +871,10 @@ export default function MeetingMinutesModule({ project }) {
       await navigator.clipboard.writeText(url)
       setCopiedShareId(minute.id)
       setTimeout(() => setCopiedShareId(null), 2500)
-      showToast('Link copiado pro clipboard!')
+      showToast(t('atas.linkCopiado'))
     } catch {
       // Fallback: mostra a URL no toast
-      showToast('Link: ' + url)
+      showToast(t('atas.linkToast', { url }))
     }
   }
 
@@ -916,31 +920,31 @@ export default function MeetingMinutesModule({ project }) {
       <div className="flex items-center justify-between gap-2">
         <div>
           <h2 className="text-base font-bold text-rl-text inline-flex items-center gap-2">
-            <FileText className="w-4 h-4 text-rl-purple" /> Ata de Reunião
+            <FileText className="w-4 h-4 text-rl-purple" /> {t('atas.titulo')}
           </h2>
-          <p className="text-xs text-rl-muted mt-0.5">Histórico de reuniões, gravações e próximas ações.</p>
+          <p className="text-xs text-rl-muted mt-0.5">{t('atas.subtitulo')}</p>
         </div>
         <button
           onClick={() => setView({ mode: 'edit', minute: null })}
           className="btn-primary inline-flex items-center gap-2 text-sm px-3 py-1.5"
         >
-          <Plus className="w-4 h-4" /> Nova ata
+          <Plus className="w-4 h-4" /> {t('atas.nova')}
         </button>
       </div>
 
       {loading ? (
         <div className="glass-card flex items-center justify-center py-12 text-rl-muted">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> {t('comum.carregando')}
         </div>
       ) : minutes.length === 0 ? (
         <div className="glass-card text-center py-12">
           <FileText className="w-10 h-10 text-rl-muted mx-auto mb-3 opacity-50" />
-          <p className="text-sm text-rl-muted mb-4">Nenhuma ata registrada ainda.</p>
+          <p className="text-sm text-rl-muted mb-4">{t('atas.vazio')}</p>
           <button
             onClick={() => setView({ mode: 'edit', minute: null })}
             className="btn-primary inline-flex items-center gap-2 text-sm"
           >
-            <Plus className="w-4 h-4" /> Criar primeira ata
+            <Plus className="w-4 h-4" /> {t('atas.criarPrimeira')}
           </button>
         </div>
       ) : (
@@ -959,16 +963,16 @@ export default function MeetingMinutesModule({ project }) {
       {confirmDel && (
         <Modal onClose={() => setConfirmDel(null)} maxWidth="sm">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-rl-text">Excluir ata?</h3>
+            <h3 className="text-sm font-bold text-rl-text">{t('atas.confirmarTitulo')}</h3>
             <button onClick={() => setConfirmDel(null)} className="p-1 rounded text-rl-muted hover:text-rl-text"><X className="w-4 h-4" /></button>
           </div>
           <p className="text-sm text-rl-muted mb-4">
-            Esta ação não pode ser desfeita. A ata <span className="text-rl-text font-semibold">&quot;{confirmDel.title}&quot;</span> será removida permanentemente.
+            {t('atas.confirmarAntes')}<span className="text-rl-text font-semibold">&quot;{confirmDel.title}&quot;</span>{t('atas.confirmarDepois')}
           </p>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setConfirmDel(null)} className="px-3 py-1.5 text-sm text-rl-muted hover:text-rl-text">Cancelar</button>
+            <button onClick={() => setConfirmDel(null)} className="px-3 py-1.5 text-sm text-rl-muted hover:text-rl-text">{t('comum.cancelar')}</button>
             <button onClick={() => handleDelete(confirmDel)} className="px-3 py-1.5 text-sm bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition">
-              Excluir
+              {t('comum.excluir')}
             </button>
           </div>
         </Modal>

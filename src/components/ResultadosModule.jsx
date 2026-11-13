@@ -10,6 +10,7 @@ import B2BView from './Resultados/B2BResultados'
 import B2CView from './Resultados/B2CResultados'
 import ProjectTrafficDashboard from './Resultados/ProjectTrafficDashboard'
 import ContasVinculadas from './Resultados/ContasVinculadas'
+import { useI18n } from '../i18n'
 
 // ─── Main Export ───────────────────────────────────────────────────────────────
 // Dois módulos do cliente que leem o mesmo dash (dash_insights via /api, escopado às
@@ -51,9 +52,10 @@ function Cabecalho({ Icon, titulo, sub, children }) {
 // do Supabase (o projeto B2C do preview usa o id real da Boa Noite, por causa das lojas).
 export function TrafegoConteudo({ project, dash, mock = false }) {
   const { toast, showToast } = useToast()
+  const { t } = useI18n()
   return (
     <div className="space-y-4">
-      <Cabecalho Icon={BarChart3} titulo="Resultados de Tráfego" sub="Dados reais das contas de anúncio vinculadas a este cliente" />
+      <Cabecalho Icon={BarChart3} titulo={t('resultados.trafego.titulo')} sub={t('resultados.trafego.sub')} />
       <ContasVinculadas project={project} dash={dash} showToast={showToast} />
       <ProjectTrafficDashboard project={project} dash={dash} viewerExtra={mock ? '&mock=1' : ''} />
       <Toast toast={toast} />
@@ -63,6 +65,7 @@ export function TrafegoConteudo({ project, dash, mock = false }) {
 
 export function ResultadosConteudo({ project, dash, mock = false, onIrParaTrafego }) {
   const { updateProject } = useApp()
+  const { t } = useI18n()
   const semContas = !dash.loading && !Object.values(dash.accounts || {}).some((a) => a.projectId === project.id)
 
   const resultados = project.resultados || {}
@@ -114,15 +117,15 @@ export function ResultadosConteudo({ project, dash, mock = false, onIrParaTrafeg
 
   return (
     <div className="space-y-6">
-        <Cabecalho Icon={Filter} titulo="Resultados de Funil" sub="Investimento e conversões da API somados às vendas lançadas pelo time ou pelo cliente">
+        <Cabecalho Icon={Filter} titulo={t('resultados.funil.titulo')} sub={t('resultados.funil.sub')}>
           {modelo ? (
             <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border ${modelo === 'b2b' ? 'border-rl-blue/30 text-rl-blue bg-rl-blue/10' : 'border-rl-green/30 text-rl-green bg-rl-green/10'}`}>
-              {modelo === 'b2b' ? 'B2B · Semanal' : 'B2C · Diário'}
+              {modelo === 'b2b' ? t('resultados.funil.modeloB2b') : t('resultados.funil.modeloB2c')}
             </span>
           ) : null}
           {modelo ? (
             <button onClick={() => handleUpdate({ ...resultados, modelo: null })} className="btn-secondary text-xs">
-              Trocar modelo
+              {t('resultados.funil.trocarModelo')}
             </button>
           ) : null}
         </Cabecalho>
@@ -130,8 +133,8 @@ export function ResultadosConteudo({ project, dash, mock = false, onIrParaTrafeg
         {semContas && (
           <div className="flex items-center gap-3 rounded-xl border border-rl-gold/30 bg-rl-gold/5 px-4 py-3 text-sm text-rl-text">
             <Link2 className="w-4 h-4 text-rl-gold shrink-0" />
-            <span className="flex-1">Nenhuma conta de anúncio vinculada: investimento e leads não vêm da API e precisam ser lançados à mão.</span>
-            {onIrParaTrafego && <button onClick={onIrParaTrafego} className="btn-secondary text-sm !py-1.5">Vincular contas</button>}
+            <span className="flex-1">{t('resultados.funil.semContas')}</span>
+            {onIrParaTrafego && <button onClick={onIrParaTrafego} className="btn-secondary text-sm !py-1.5">{t('resultados.funil.vincularContas')}</button>}
           </div>
         )}
 

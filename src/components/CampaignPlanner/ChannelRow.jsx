@@ -4,12 +4,14 @@ import AdAccountSection from './AdAccountSection'
 import FunnelTable from './FunnelTable'
 import PctInput from './PctInput'
 import ValueInput from './ValueInput'
+import { useI18n } from '../../i18n'
 
 // Barrinha Topo/Meio/Fundo do cabeçalho: mostra como a verba do canal está
 // repartida no funil sem precisar abrir o cartão.
 function FunnelBar({ stages }) {
+  const { t } = useI18n()
   const partes = STAGE_KEYS.map((k) => ({ k, pct: stages?.[k]?.percentage || 0 })).filter((p) => p.pct > 0)
-  if (!partes.length) return <span className="text-[11px] text-rl-muted">funil sem distribuição</span>
+  if (!partes.length) return <span className="text-[11px] text-rl-muted">{t('campanhas.canal.funilSemDistribuicao')}</span>
   return (
     <div className="flex items-center gap-2 min-w-0">
       <div className="flex h-1.5 w-20 shrink-0 rounded-full overflow-hidden bg-rl-border/60">
@@ -39,6 +41,7 @@ export default function ChannelRow({
   onUpdate, onDelete, onUpdateStage, onAddCampaign, onUpdateCampaign, onDeleteCampaign,
   onUpdateAdAccount, onAddAdAccount, onDeleteAdAccount,
 }) {
+  const { t } = useI18n()
   // Canal subdividido por conta de anúncio: o funil fica dentro de cada conta e
   // o que precisa fechar 100% aqui é a divisão entre as contas.
   const adAccounts   = channel.adAccounts || []
@@ -82,23 +85,23 @@ export default function ChannelRow({
                 onClick={(e) => e.stopPropagation()}
                 onChange={(e) => onUpdate({ name: e.target.value })}
                 className="bg-transparent border-0 p-0 pr-1 text-base font-bold text-rl-text outline-none cursor-pointer hover:underline"
-                title="Trocar canal"
+                title={t('campanhas.canal.trocarCanal')}
               >
                 {availableOptions.map((opt) => (
                   <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>
               <span className="text-[11px] text-rl-muted whitespace-nowrap">
-                {subdivided ? `${adAccounts.length} contas · ` : ''}{nCampanhas} {nCampanhas === 1 ? 'campanha' : 'campanhas'}
+                {subdivided ? t('campanhas.canal.nContas', { n: adAccounts.length }) : ''}{t('campanhas.canal.campanhas', { count: nCampanhas })}
               </span>
               {stageRemaining !== 0 && (
                 <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-rl-gold/10 text-rl-gold border border-rl-gold/20 whitespace-nowrap">
-                  {subdivided ? 'contas' : 'funil'}: {stageRemaining > 0 ? `falta ${stageRemaining}%` : `passou ${-stageRemaining}%`}
+                  {subdivided ? t('campanhas.canal.contasRotulo') : t('campanhas.canal.funilRotulo')}: {stageRemaining > 0 ? t('campanhas.canal.falta', { pct: stageRemaining }) : t('campanhas.canal.passou', { pct: -stageRemaining })}
                 </span>
               )}
             </div>
             {subdivided
-              ? <span className="text-[11px] text-rl-muted">verba dividida entre {adAccounts.map((a) => a.name || 'sem nome').join(', ')}</span>
+              ? <span className="text-[11px] text-rl-muted">{t('campanhas.canal.verbaDividida', { contas: adAccounts.map((a) => a.name || t('campanhas.canal.semNome')).join(', ') })}</span>
               : <FunnelBar stages={channel.stages} />}
           </div>
         </div>
@@ -118,10 +121,10 @@ export default function ChannelRow({
             />
           </div>
           <div className="hidden sm:block text-right w-[104px] shrink-0">
-            <p className="text-sm font-bold text-rl-text tabular-nums">{fmtBRL(derived.daily)}<span className="text-[10px] font-medium text-rl-muted">/dia</span></p>
+            <p className="text-sm font-bold text-rl-text tabular-nums">{fmtBRL(derived.daily)}<span className="text-[10px] font-medium text-rl-muted">{t('campanhas.canal.porDiaSufixo')}</span></p>
             {derived.isMeta && (
-              <p className="text-[10px] text-rl-gold" title={`Líquido no período: ${fmtBRL(derived.monthly)}`}>
-                líquido, −13% impostos
+              <p className="text-[10px] text-rl-gold" title={t('campanhas.canal.liquidoTitulo', { valor: fmtBRL(derived.monthly) })}>
+                {t('campanhas.canal.liquido')}
               </p>
             )}
           </div>
@@ -131,8 +134,8 @@ export default function ChannelRow({
               disabled={!canPull}
               className="p-1.5 rounded-lg text-rl-muted hover:text-rl-green hover:bg-rl-surface transition-colors shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
               title={canPull
-                ? `Puxar dados: campanhas ativas de ${channel.name} e a verba na proporção atual`
-                : `Sem dados de ${channel.name} para as contas vinculadas a este cliente`}
+                ? t('campanhas.canal.puxarTitulo', { canal: channel.name })
+                : t('campanhas.canal.semDadosTitulo', { canal: channel.name })}
             >
               <DownloadCloud className="w-4 h-4" />
             </button>
@@ -140,7 +143,7 @@ export default function ChannelRow({
           <button
             onClick={onDelete}
             className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-rl-surface transition-colors shrink-0"
-            title="Remover canal"
+            title={t('campanhas.canal.remover')}
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -188,11 +191,11 @@ export default function ChannelRow({
             onClick={onAddAdAccount}
             className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-colors"
             title={subdivided
-              ? 'Adicionar outra conta de anúncio a este canal'
-              : 'Repartir a verba deste canal entre contas de anúncio (o funil atual vai para a primeira conta)'}
+              ? t('campanhas.canal.addContaTitulo')
+              : t('campanhas.canal.dividirTitulo')}
           >
             {subdivided ? <Plus className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
-            {subdivided ? 'Adicionar conta de anúncio' : 'Dividir por conta de anúncio'}
+            {subdivided ? t('campanhas.canal.addConta') : t('campanhas.canal.dividir')}
           </button>
         </div>
       )}

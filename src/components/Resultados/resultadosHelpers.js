@@ -1,8 +1,23 @@
 import { fmtCurrency } from '../../lib/utils'
+import { t, idiomaAtual, localeAtual } from '../../i18n'
+// Nomes em português: quem lê o PDF e o ROI ainda usa este array; na tela, use nomeMes().
 export const MONTH_NAMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
+
+// Nome do mês (0-11) no idioma da tela, com inicial maiúscula.
+export function nomeMes(m) {
+  if (idiomaAtual() === 'pt') return MONTH_NAMES[m]
+  const s = new Date(2000, m, 1).toLocaleDateString(localeAtual(), { month: 'long' })
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+// "dia/mês" no formato do idioma (pt 5/3, en 3/5). `pad` = dois dígitos (05/03).
+export function diaMes(dia, mes0, pad = false) {
+  const f = (n) => (pad ? String(n).padStart(2, '0') : String(n))
+  return idiomaAtual() === 'pt' ? `${f(dia)}/${f(mes0 + 1)}` : `${f(mes0 + 1)}/${f(dia)}`
+}
 
 export const fmtMoney = (n) => fmtCurrency(n, 2)
 
@@ -12,7 +27,7 @@ export function fmtMoneyShort(n) {
   if (!n && n !== 0) return '—'
   const num = Number(n)
   if (!isFinite(num)) return '—'
-  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+  return num.toLocaleString(localeAtual(), { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
 
 export function fmtPct(a, b) {
@@ -33,7 +48,9 @@ const WEEKDAYS_SHORT = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
 
 // Dia da semana abreviado ("seg", "ter"…) de um dia do mês. `month` é 0-based.
 export function weekdayShort(year, month, day) {
-  return WEEKDAYS_SHORT[new Date(year, month, day).getDay()]
+  const d = new Date(year, month, day)
+  if (idiomaAtual() === 'pt') return WEEKDAYS_SHORT[d.getDay()]
+  return d.toLocaleDateString(localeAtual(), { weekday: 'short' })
 }
 
 // Plano MENSAL derivado da Calculadora de ROI (mesmas fórmulas do
@@ -73,9 +90,12 @@ export function computeRoiPlan(roiCalc) {
 export function getWeekRanges(year, month) {
   const days = getDaysInMonth(year, month)
   return [
-    { label: 'Semana 1', start: 1,  end: Math.min(7,  days) },
-    { label: 'Semana 2', start: 8,  end: Math.min(14, days) },
-    { label: 'Semana 3', start: 15, end: Math.min(21, days) },
-    { label: 'Semana 4', start: 22, end: days },
+    { label: t('resultados.semana', { n: 1 }), start: 1,  end: Math.min(7,  days) },
+    { label: t('resultados.semana', { n: 2 }), start: 8,  end: Math.min(14, days) },
+    { label: t('resultados.semana', { n: 3 }), start: 15, end: Math.min(21, days) },
+    { label: t('resultados.semana', { n: 4 }), start: 22, end: days },
   ]
 }
+
+// O PDF (src/utils/exportPDF.js) ainda é só em português: as semanas vão com o rótulo em pt.
+export const semanasPdf = (ranges) => ranges.map((w, i) => ({ ...w, label: `Semana ${i + 1}` }))

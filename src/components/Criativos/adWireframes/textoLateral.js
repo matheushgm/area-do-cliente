@@ -4,40 +4,41 @@
 // cor de destaque, bloco de apoio com borda lateral e CTA outlined.
 // Referência: anúncio dark com foto de empresário e headline em branco/laranja.
 
+import { t } from '../../../i18n'
 import { escapeHtml, slot, hexToRgba } from './shared'
 
 const FIELDS = [
   {
     key: 'headline',
-    label: 'Headline',
+    get label() { return t('criativosVisual.textoLateral.campos.headline.rotulo') },
     type: 'textarea',
-    placeholder: 'Tem empresário que fatura **R$500 mil** e vive pior do que quem fatura **R$50 mil.**',
-    hint: 'Use **trecho** pra pintar números/palavras na cor de destaque. Tudo vira caixa alta.',
+    get placeholder() { return t('criativosVisual.textoLateral.campos.headline.exemplo') },
+    get hint() { return t('criativosVisual.textoLateral.campos.headline.dica') },
     max: 220,
   },
   {
     key: 'apoio',
-    label: 'Bloco de apoio (borda lateral)',
+    get label() { return t('criativosVisual.textoLateral.campos.apoio.rotulo') },
     type: 'textarea',
-    placeholder: 'Pare de ser escravo **da empresa que você mesmo construiu.**',
-    hint: 'Use **trecho** pra pintar a parte final na cor de destaque',
+    get placeholder() { return t('criativosVisual.textoLateral.campos.apoio.exemplo') },
+    get hint() { return t('criativosVisual.textoLateral.campos.apoio.dica') },
     max: 160,
   },
   {
     key: 'cta',
-    label: 'CTA',
-    placeholder: 'Aprenda a virar o jogo',
+    get label() { return t('criativosVisual.textoLateral.campos.cta.rotulo') },
+    get placeholder() { return t('criativosVisual.textoLateral.campos.cta.exemplo') },
     max: 40,
   },
 ]
 
 const MEDIA_FIELDS = [
-  { key: 'bgImage', label: 'Imagem de fundo (URL)', placeholder: 'https://… (vazio = placeholder)' },
+  { key: 'bgImage', get label() { return t('criativosVisual.textoLateral.campos.bgImage.rotulo') }, get placeholder() { return t('criativosVisual.textoLateral.campos.bgImage.exemplo') } },
 ]
 
 const BRAND_FIELDS = [
-  { key: 'accent', label: 'Cor de destaque', default: '#FF7A1A' },
-  { key: 'bg1', label: 'Fundo / overlay', default: '#0B0906' },
+  { key: 'accent', get label() { return t('criativosVisual.textoLateral.campos.accent.rotulo') }, default: '#FF7A1A' },
+  { key: 'bg1', get label() { return t('criativosVisual.textoLateral.campos.bg1.rotulo') }, default: '#0B0906' },
 ]
 
 // Dimensões e escalas por formato.
@@ -75,7 +76,7 @@ function bgLayer(bgImage) {
       <circle cx="9" cy="9" r="2"/>
       <path d="M21 15l-5-5-9 9"/>
     </svg>
-    <span>IMAGEM DE FUNDO<br>ex: pessoa em contexto, lado direito livre</span>
+    <span>${escapeHtml(t('criativosVisual.guias.imagemFundo'))}<br>${escapeHtml(t('criativosVisual.guias.imagemFundoDica'))}</span>
   </div>`
 }
 
@@ -84,9 +85,9 @@ function buildHtml({ format = 'feed', values = {} }) {
   const accent = values.accent || '#FF7A1A'
   const bg1 = values.bg1 || '#0B0906'
 
-  const headline = slot(values.headline, 'Headline forte com **trechos em destaque** na cor da marca')
-  const apoio = slot(values.apoio, 'Frase de apoio **com fechamento em destaque.**')
-  const cta = values.cta?.trim() ? escapeHtml(values.cta) : 'Saiba mais'
+  const headline = slot(values.headline, t('criativosVisual.guias.headlineForte'))
+  const apoio = slot(values.apoio, t('criativosVisual.guias.fraseApoio'))
+  const cta = values.cta?.trim() ? escapeHtml(values.cta) : escapeHtml(t('criativosVisual.saibaMais'))
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -215,9 +216,8 @@ const thumbnail = `data:image/svg+xml;utf8,${encodeURIComponent(`
 
 export default {
   id: 'texto-lateral-imagem',
-  name: 'Texto Lateral + Imagem',
-  description:
-    'Imagem de fundo full-bleed com overlay escuro, headline gigante à esquerda com trechos em destaque, bloco de apoio com borda lateral e CTA outlined.',
+  get name() { return t('criativosVisual.textoLateral.nome') },
+  get description() { return t('criativosVisual.textoLateral.descricao') },
   ready: true,
   thumbnail,
   fields: FIELDS,

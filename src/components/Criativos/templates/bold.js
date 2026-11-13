@@ -1,3 +1,4 @@
+import { t } from '../../../i18n'
 // Template "Bold" — gradient escuro, headline gigante em uppercase.
 
 const html = `<!DOCTYPE html>
@@ -116,7 +117,7 @@ const thumbnail = `data:image/svg+xml;utf8,${encodeURIComponent(`
 export default {
   id: 'bold',
   name: 'Bold',
-  description: 'Fundo gradient escuro, headline uppercase gigante, CTA branco contrastado',
+  get description() { return t('criativosVisual.templates.bold') },
   thumbnail,
   html,
 }

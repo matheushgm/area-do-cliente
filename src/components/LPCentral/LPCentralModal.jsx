@@ -8,13 +8,15 @@ import {
 } from 'lucide-react'
 import Modal from '../UI/Modal'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
-import { LP_STATUS_OPTIONS, LP_DEFAULT_STATUS, APROVACAO_BY_ID, fmtDateTimeBR } from './lpCentralData'
+import { LP_STATUS_OPTIONS, LP_DEFAULT_STATUS, APROVACAO_BY_ID, rotuloAprovacao, fmtDataHoraLp } from './lpCentralData'
+import { useI18n } from '../../i18n'
 
 const STATUS_ICON = { em_producao: PenTool, no_ar: Globe, desativada: PowerOff }
 
 const TODAY = () => new Date().toISOString().slice(0, 10) // yyyy-mm-dd
 
 export default function LPCentralModal({ initial, onSave, onClose }) {
+  const { t } = useI18n()
   const stableId = useMemo(() => initial?.id || crypto.randomUUID(), [initial?.id])
 
   const [values, setValues] = useState(() => ({
@@ -59,10 +61,10 @@ export default function LPCentralModal({ initial, onSave, onClose }) {
       <div className="flex items-start justify-between gap-4 mb-4 pb-4 border-b border-rl-border">
         <div className="flex-1 min-w-0">
           <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold mb-1">
-            {initial ? 'Editando landing page' : 'Nova landing page'}
+            {initial ? t('lpCentral.modal.editando') : t('lpCentral.modal.nova')}
           </p>
           <h3 className="text-lg font-black text-rl-text leading-tight">
-            Cadastro de landing page
+            {t('lpCentral.modal.titulo')}
           </h3>
         </div>
         <button onClick={onClose} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all shrink-0">
@@ -74,7 +76,7 @@ export default function LPCentralModal({ initial, onSave, onClose }) {
       <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-4">
         {/* Data + Nome */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label="Data de criação" required>
+          <Field label={t('lpCentral.modal.dataCriacao')} required>
             <input
               type="date"
               value={values.createdAt || ''}
@@ -82,12 +84,12 @@ export default function LPCentralModal({ initial, onSave, onClose }) {
               className="input-field w-full"
             />
           </Field>
-          <Field label="Nome da landing page" required>
+          <Field label={t('lpCentral.modal.nome')} required>
             <input
               type="text"
               value={values.nome || ''}
               onChange={(e) => set('nome', e.target.value)}
-              placeholder="Ex: LP Webinar Julho, LP Diagnóstico..."
+              placeholder={t('lpCentral.modal.nomePlaceholder')}
               className="input-field w-full"
               maxLength={120}
             />
@@ -95,7 +97,7 @@ export default function LPCentralModal({ initial, onSave, onClose }) {
         </div>
 
         {/* URL */}
-        <Field label="Link da landing page" required>
+        <Field label={t('lpCentral.modal.link')} required>
           <div className="relative">
             <input
               type="text"
@@ -110,7 +112,7 @@ export default function LPCentralModal({ initial, onSave, onClose }) {
                 target="_blank"
                 rel="noreferrer"
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-lg text-rl-muted hover:text-rl-green transition-all"
-                title="Abrir em nova aba"
+                title={t('lpCentral.modal.abrirNovaAba')}
               >
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
@@ -120,15 +122,15 @@ export default function LPCentralModal({ initial, onSave, onClose }) {
 
         {/* Funil */}
         <Field
-          label="Funil da landing page"
-          hint="Usa os mesmos funis da metodologia (Webinar, Diagnóstico, VSL, etc)."
+          label={t('lpCentral.modal.funil')}
+          hint={t('lpCentral.modal.funilDica')}
         >
           <select
             value={values.funilId || ''}
             onChange={(e) => set('funilId', e.target.value)}
             className="input-field w-full"
           >
-            <option value="">— escolha um funil —</option>
+            <option value="">{t('lpCentral.modal.escolhaFunil')}</option>
             {FUNNELS.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.icon}  {f.label}
@@ -141,18 +143,18 @@ export default function LPCentralModal({ initial, onSave, onClose }) {
         </Field>
 
         {/* Observação */}
-        <Field label="Observação (opcional)">
+        <Field label={t('lpCentral.modal.observacao')}>
           <textarea
             value={values.observacao || ''}
             onChange={(e) => set('observacao', e.target.value)}
             rows={3}
-            placeholder="Ex: variante B do teste de headline, promessa focada em prazo..."
+            placeholder={t('lpCentral.modal.observacaoPlaceholder')}
             className="input-field w-full resize-none"
           />
         </Field>
 
         {/* Status */}
-        <Field label="Status da landing page" required>
+        <Field label={t('lpCentral.modal.statusLp')} required>
           <div className="grid grid-cols-3 gap-2">
             {LP_STATUS_OPTIONS.map((s) => {
               const Icon = STATUS_ICON[s.id] || Clock
@@ -188,10 +190,10 @@ export default function LPCentralModal({ initial, onSave, onClose }) {
               />
               <span>
                 <span className="text-xs font-bold text-rl-text uppercase tracking-wide block">
-                  Enviar pra aprovação do cliente
+                  {t('lpCentral.modal.enviarAprovacao')}
                 </span>
                 <span className="text-[11px] text-rl-muted">
-                  A landing page aparece no link de aprovação e o cliente aprova ou reprova antes de ir pro ar.
+                  {t('lpCentral.modal.enviarAprovacaoTexto')}
                 </span>
               </span>
             </label>
@@ -208,7 +210,7 @@ export default function LPCentralModal({ initial, onSave, onClose }) {
           <div className="flex items-start gap-2 p-3 rounded-xl bg-rl-gold/5 border border-rl-gold/30">
             <AlertTriangle className="w-4 h-4 text-rl-gold mt-0.5 shrink-0" />
             <p className="text-xs text-rl-text">
-              O link parece não começar com http(s)://. Confira antes de salvar.
+              {t('lpCentral.modal.linkInvalido')}
             </p>
           </div>
         )}
@@ -220,14 +222,14 @@ export default function LPCentralModal({ initial, onSave, onClose }) {
           onClick={onClose}
           className="text-xs px-4 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
         >
-          Cancelar
+          {t('lpCentral.modal.cancelar')}
         </button>
         <button
           onClick={handleSave}
           disabled={!canSave}
           className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl bg-rl-green text-white font-semibold hover:bg-rl-green/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <Check className="w-3.5 h-3.5" /> {initial ? 'Salvar alterações' : 'Salvar landing page'}
+          <Check className="w-3.5 h-3.5" /> {initial ? t('lpCentral.modal.salvarAlteracoes') : t('lpCentral.modal.salvarLp')}
         </button>
       </div>
     </Modal>
@@ -236,6 +238,7 @@ export default function LPCentralModal({ initial, onSave, onClose }) {
 
 // Status da aprovação do cliente ao EDITAR uma LP — espelho do modal de anúncio.
 function AprovacaoStatus({ aprovacao, onEnviar }) {
+  const { t } = useI18n()
   const info = aprovacao ? APROVACAO_BY_ID[aprovacao.status] : null
 
   const enviarBtn = (label) => (
@@ -252,10 +255,10 @@ function AprovacaoStatus({ aprovacao, onEnviar }) {
     return (
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-bold text-rl-text uppercase tracking-wide">Aprovação do cliente</p>
-          <p className="text-[11px] text-rl-muted">Essa landing page ainda não foi enviada pro cliente avaliar.</p>
+          <p className="text-xs font-bold text-rl-text uppercase tracking-wide">{t('lpCentral.modal.aprovacaoCliente')}</p>
+          <p className="text-[11px] text-rl-muted">{t('lpCentral.modal.naoEnviada')}</p>
         </div>
-        {enviarBtn('Enviar pra aprovação')}
+        {enviarBtn(t('lpCentral.modal.enviarPraAprovacao'))}
       </div>
     )
   }
@@ -264,7 +267,7 @@ function AprovacaoStatus({ aprovacao, onEnviar }) {
     <div className="space-y-2.5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <p className="text-xs font-bold text-rl-text uppercase tracking-wide">Aprovação do cliente</p>
+          <p className="text-xs font-bold text-rl-text uppercase tracking-wide">{t('lpCentral.modal.aprovacaoCliente')}</p>
           <span
             className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border"
             style={{ color: info.color, background: info.bgColor, borderColor: info.borderColor }}
@@ -272,20 +275,20 @@ function AprovacaoStatus({ aprovacao, onEnviar }) {
             {aprovacao.status === 'aprovado' && <CheckCircle2 className="w-3 h-3" />}
             {aprovacao.status === 'reprovado' && <XCircle className="w-3 h-3" />}
             {aprovacao.status === 'pendente' && <Clock className="w-3 h-3" />}
-            {info.label}
+            {rotuloAprovacao(aprovacao.status)}
           </span>
         </div>
-        {aprovacao.status === 'reprovado' && enviarBtn('Reenviar pra aprovação')}
+        {aprovacao.status === 'reprovado' && enviarBtn(t('lpCentral.modal.reenviarPraAprovacao'))}
       </div>
 
       <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] text-rl-muted">
         {aprovacao.enviadoEm && (
-          <span>Enviada pra aprovação em <span className="font-semibold text-rl-subtle">{fmtDateTimeBR(aprovacao.enviadoEm)}</span></span>
+          <span>{t('lpCentral.modal.enviadaEm')} <span className="font-semibold text-rl-subtle">{fmtDataHoraLp(aprovacao.enviadoEm)}</span></span>
         )}
         {aprovacao.decididoEm && (
           <span>
-            {aprovacao.status === 'aprovado' ? 'Aprovada' : 'Reprovada'} pelo cliente em{' '}
-            <span className="font-semibold text-rl-subtle">{fmtDateTimeBR(aprovacao.decididoEm)}</span>
+            {aprovacao.status === 'aprovado' ? t('lpCentral.modal.aprovadaEm') : t('lpCentral.modal.reprovadaEm')}{' '}
+            <span className="font-semibold text-rl-subtle">{fmtDataHoraLp(aprovacao.decididoEm)}</span>
           </span>
         )}
       </div>
@@ -293,11 +296,11 @@ function AprovacaoStatus({ aprovacao, onEnviar }) {
       {aprovacao.status === 'reprovado' && (
         <>
           <div className="rounded-xl bg-red-500/10 border border-red-500/30 px-3 py-2.5">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-red-500">Motivo da reprovação</p>
+            <p className="text-[10px] uppercase tracking-wider font-bold text-red-500">{t('lpCentral.modal.motivoReprovacao')}</p>
             <p className="text-sm text-rl-text mt-1 whitespace-pre-wrap">{aprovacao.motivo || '—'}</p>
           </div>
           <div className="rounded-xl bg-rl-surface/60 border border-rl-border px-3 py-2.5">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-rl-muted">Como o cliente quer a landing page</p>
+            <p className="text-[10px] uppercase tracking-wider font-bold text-rl-muted">{t('lpCentral.modal.comoClienteQuer')}</p>
             <p className="text-sm text-rl-text mt-1 whitespace-pre-wrap">{aprovacao.sugestao || '—'}</p>
           </div>
         </>

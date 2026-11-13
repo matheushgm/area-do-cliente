@@ -3,6 +3,7 @@ import { stageSum, fmtBRL } from './campaignHelpers'
 import PctInput from './PctInput'
 import ValueInput from './ValueInput'
 import FunnelTable from './FunnelTable'
+import { useI18n } from '../../i18n'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Conta de anúncio dentro de um canal. Só aparece em cliente que tem mais de
@@ -14,6 +15,7 @@ export default function AdAccountSection({
   account, derived, channelMonthly, daysLeft,
   onUpdate, onDelete, onUpdateStage, onAddCampaign, onUpdateCampaign, onDeleteCampaign,
 }) {
+  const { t } = useI18n()
   const sum   = stageSum(account.stages)
   const falta = Math.round((100 - sum) * 100) / 100
   const open  = !!account.expanded
@@ -25,7 +27,7 @@ export default function AdAccountSection({
         <button
           onClick={() => onUpdate({ expanded: !open })}
           className="p-1 text-rl-muted hover:text-rl-text transition-colors shrink-0"
-          title={open ? 'Recolher' : 'Expandir'}
+          title={open ? t('campanhas.contaAnuncio.recolher') : t('campanhas.contaAnuncio.expandir')}
           aria-expanded={open}
         >
           <ChevronDown className={`w-4 h-4 transition-transform ${open ? '' : '-rotate-90'}`} />
@@ -35,12 +37,12 @@ export default function AdAccountSection({
           type="text"
           value={account.name}
           onChange={(e) => onUpdate({ name: e.target.value })}
-          placeholder="Nome da conta de anúncio"
+          placeholder={t('campanhas.contaAnuncio.nomePlaceholder')}
           className="flex-1 min-w-[140px] bg-transparent border border-transparent hover:border-rl-border focus:border-rl-purple rounded-md px-2 py-1 text-sm font-semibold text-rl-text outline-none transition-colors"
         />
         {falta !== 0 && (
           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-rl-gold/10 text-rl-gold border border-rl-gold/20 whitespace-nowrap">
-            funil: {falta > 0 ? `falta ${falta}%` : `passou ${-falta}%`}
+            {t('campanhas.contaAnuncio.funil', { status: falta > 0 ? t('campanhas.canal.falta', { pct: falta }) : t('campanhas.canal.passou', { pct: -falta }) })}
           </span>
         )}
         <div className="w-[76px] shrink-0">
@@ -55,12 +57,12 @@ export default function AdAccountSection({
           />
         </div>
         <span className="hidden sm:block w-[96px] text-right text-sm font-semibold text-rl-text tabular-nums">
-          {fmtBRL(derived.daily)}<span className="text-[10px] font-medium text-rl-muted">/dia</span>
+          {fmtBRL(derived.daily)}<span className="text-[10px] font-medium text-rl-muted">{t('campanhas.canal.porDiaSufixo')}</span>
         </span>
         <button
           onClick={onDelete}
           className="p-1.5 text-rl-muted hover:text-red-400 transition-colors shrink-0"
-          title="Remover conta deste canal"
+          title={t('campanhas.contaAnuncio.remover')}
         >
           <Trash2 className="w-4 h-4" />
         </button>

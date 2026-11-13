@@ -16,9 +16,10 @@ import { flattenCampaigns, TIPOS_ANUNCIO, Field } from './DebriefingAdModal'
 import { STATUS_BY_ID, DEFAULT_STATUS, fmtDateBR, todayISO, normalizarPasta } from './debriefingData'
 import {
   ATTACHMENT_BUCKET, FORMATOS, midiaDoArquivo, lerMedidas, formatoDoArquivo, parearFeedStory,
-  caminhoArquivo, espelhoLegado,
+  caminhoArquivo, espelhoLegado, MODOS_GRUPO,
 } from './arquivosCriativo'
 import { uploadFile } from '../../lib/supabase'
+import { useI18n } from '../../i18n'
 
 const ETAPAS_NOME = ['TOPO', 'MEIO', 'FUNDO']
 // Peças prontas entram na fila de subir ou já rodando; "Finalizado" exige
@@ -43,7 +44,7 @@ function proximoNumero(ads, dataISO) {
 
 function nomePadrao({ etapa, tipo, num, dataISO }) {
   const [, mm, dd] = String(dataISO || '').split('-')
-  const code = TIPOS_ANUNCIO.find((t) => t.id === tipo)?.code || 'AD'
+  const code = TIPOS_ANUNCIO.find((tp) => tp.id === tipo)?.code || 'AD'
   return `${etapa}_${code}_AD${String(num).padStart(3, '0')}_${dd}.${mm}`
 }
 
@@ -72,6 +73,7 @@ function paraCriativos(lista, anteriores = []) {
 export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAds = [], pastas = [], onSave, onClose }) {
   const campaigns = useMemo(() => flattenCampaigns(campaignPlan), [campaignPlan])
   const inputRef = useRef(null)
+  const { t } = useI18n()
   const grupoId = useMemo(() => crypto.randomUUID(), [])
 
   const [modo, setModo] = useState('posts')
@@ -110,7 +112,7 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
   async function adicionarArquivos(fileList) {
     const files = [...(fileList || [])].filter((f) => ['image', 'video'].includes(midiaDoArquivo(f)))
     if (!files.length) {
-      setErro('Só imagem e vídeo entram no grupo.')
+      setErro(t('central.grupo.soImagemVideo'))
       return
     }
     setErro('')
@@ -184,27 +186,27 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
 
   const pares = criativos.filter((c) => c.feed && c.story).length
   const bloqueio = !itens.length
-    ? 'Adicione os arquivos do grupo.'
+    ? t('central.grupo.semArquivos')
     : modo === 'carrossel' && itens.length < 2
-      ? 'O carrossel precisa de pelo menos 2 cards.'
+      ? t('central.grupo.carrosselMinimo')
       : planos.some((p) => !p.nome.trim())
-        ? 'Todo anúncio precisa de nome.'
+        ? t('central.grupo.semNome')
         : ''
 
   async function criar() {
     if (bloqueio || progresso) return
-    if (!projectId) { setErro('Projeto sem ID. Recarregue a página antes de subir.'); return }
+    if (!projectId) { setErro(t('central.grupo.semId')); return }
     setErro('')
     const tarefas = planos.flatMap((p) => p.arquivos.map((a) => ({ ...a, adId: p.adId })))
-    const pendentes = tarefas.filter((t) => !porUid[t.uid].path)
+    const pendentes = tarefas.filter((tf) => !porUid[tf.uid].path)
     const caminhos = {}
     let falhas = 0
     setProgresso({ feitos: tarefas.length - pendentes.length, total: tarefas.length })
-    await emLotes(pendentes, 3, async (t) => {
-      const it = porUid[t.uid]
-      const path = caminhoArquivo(projectId, t.adId, t.formato, it.name)
+    await emLotes(pendentes, 3, async (tf) => {
+      const it = porUid[tf.uid]
+      const path = caminhoArquivo(projectId, tf.adId, tf.formato, it.name)
       const ok = await uploadFile(ATTACHMENT_BUCKET, path, it.file).catch(() => null)
-      if (ok) caminhos[t.uid] = path
+      if (ok) caminhos[tf.uid] = path
       else falhas += 1
       setProgresso((p) => ({ ...p, feitos: p.feitos + 1 }))
     })
@@ -212,7 +214,7 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
     setItens((prev) => prev.map((it) => (caminhos[it.uid] ? { ...it, path: caminhos[it.uid] } : it)))
     if (falhas) {
       setProgresso(null)
-      setErro(`${falhas} ${falhas === 1 ? 'arquivo não subiu' : 'arquivos não subiram'}. Clique em criar de novo pra reenviar só ${falhas === 1 ? 'ele' : 'eles'}.`)
+      setErro(t('central.grupo.falhas', { count: falhas }))
       return
     }
 
@@ -221,7 +223,7 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
     const pasta = normalizarPasta(comum.pasta) || null
     const grupo = {
       id: grupoId,
-      nome: pasta || `Grupo de ${fmtDateBR(comum.createdAt)}`,
+      nome: pasta || t('central.grupo.nomePadrao', { data: fmtDateBR(comum.createdAt) }),
       modo,
       criadoEm: now,
     }
@@ -267,8 +269,8 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
     <Modal onClose={subindo ? undefined : onClose} maxWidth="4xl">
       <div className="flex items-start justify-between gap-4 mb-4 pb-4 border-b border-rl-border">
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold mb-1">Novo grupo de anúncios</p>
-          <h3 className="text-lg font-black text-rl-text leading-tight">Subir vários criativos de uma vez</h3>
+          <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold mb-1">{t('central.grupo.kicker')}</p>
+          <h3 className="text-lg font-black text-rl-text leading-tight">{t('central.grupo.titulo')}</h3>
         </div>
         <button
           onClick={onClose}
@@ -286,15 +288,15 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
             ativo={modo === 'posts'}
             onClick={() => setModo('posts')}
             Icon={LayoutGrid}
-            titulo="Posts separados"
-            texto="Cada peça vira um anúncio. O feed e o story da mesma peça ficam juntos no mesmo criativo."
+            titulo={MODOS_GRUPO.posts.label}
+            texto={t('central.grupo.postsTexto')}
           />
           <ModoBotao
             ativo={modo === 'carrossel'}
             onClick={() => setModo('carrossel')}
             Icon={Layers}
-            titulo="Carrossel"
-            texto="Um anúncio só, com os arquivos como cards, na ordem que você deixar."
+            titulo={MODOS_GRUPO.carrossel.label}
+            texto={t('central.grupo.carrosselTexto')}
           />
         </div>
 
@@ -318,10 +320,10 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
           }`}
         >
           {lendo
-            ? <span className="flex items-center gap-2 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Lendo as medidas dos arquivos...</span>
-            : <span className="flex items-center gap-2 text-sm font-semibold"><Upload className="w-4 h-4" /> {itens.length ? 'Adicionar mais arquivos' : 'Arraste os arquivos aqui ou clique pra escolher'}</span>}
+            ? <span className="flex items-center gap-2 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> {t('central.grupo.lendo')}</span>
+            : <span className="flex items-center gap-2 text-sm font-semibold"><Upload className="w-4 h-4" /> {itens.length ? t('central.grupo.adicionarMais') : t('central.grupo.arraste')}</span>}
           <span className="text-[11px] text-rl-muted">
-            Imagens e vídeos. 9:16 entra como story; quadrado e 4:5 como feed.
+            {t('central.grupo.formatosDica')}
           </span>
           <input
             ref={inputRef}
@@ -338,13 +340,13 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
           <div className="space-y-2">
             <div className="flex items-baseline justify-between gap-3 flex-wrap">
               <p className="text-xs font-bold text-rl-text uppercase tracking-wide">
-                {criativos.length} {criativos.length === 1 ? 'criativo' : 'criativos'}
+                {t('central.nCriativos', { count: criativos.length })}
                 <span className="ml-1.5 normal-case font-normal text-rl-muted">
-                  · {itens.length} {itens.length === 1 ? 'arquivo' : 'arquivos'}, {pares} com feed e story
+                  · {t('central.grupo.resumoArquivos', { count: itens.length, pares })}
                 </span>
               </p>
               <p className="text-[11px] text-rl-muted">
-                Arraste um arquivo pra outro criativo pra juntar ou trocar. O formato é o da coluna onde ele fica.
+                {t('central.grupo.arrasteDica')}
               </p>
             </div>
             <div className="rounded-xl border border-rl-border divide-y divide-rl-border/60">
@@ -371,7 +373,7 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
                       type="button"
                       onClick={() => separar(c)}
                       className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all shrink-0"
-                      title="Separar: o story vira outro criativo"
+                      title={t('central.grupo.separar')}
                     >
                       <Scissors className="w-3.5 h-3.5" />
                     </button>
@@ -384,7 +386,7 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
 
         {itens.length > 0 && modo === 'carrossel' && (
           <div className="space-y-2">
-            <Field label="Nome do anúncio" required>
+            <Field label={t('central.grupo.nomeAnuncio')} required>
               <input
                 type="text"
                 value={nomeCarrossel}
@@ -394,9 +396,9 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
               />
             </Field>
             <p className="text-xs font-bold text-rl-text uppercase tracking-wide">
-              {itens.length} {itens.length === 1 ? 'card' : 'cards'}
+              {t('central.grupo.nCards', { count: itens.length })}
               {itens.length > MAX_CARDS_META && (
-                <span className="ml-2 normal-case font-semibold text-rl-gold">O Meta aceita até {MAX_CARDS_META} cards por carrossel.</span>
+                <span className="ml-2 normal-case font-semibold text-rl-gold">{t('central.grupo.maxCards', { max: MAX_CARDS_META })}</span>
               )}
             </p>
             <div className="flex gap-3 overflow-x-auto pb-2">
@@ -409,17 +411,17 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
                       type="button"
                       onClick={() => removerArquivo(it.uid)}
                       className="absolute top-1 right-1 p-0.5 rounded bg-black/60 text-white hover:bg-red-500/80"
-                      title="Tirar do carrossel"
+                      title={t('central.grupo.tirarCarrossel')}
                     >
                       <X className="w-3 h-3" />
                     </button>
                   </div>
                   <div className="flex items-center justify-between">
-                    <button type="button" onClick={() => moverCard(it.uid, -1)} disabled={i === 0} className="p-1 rounded text-rl-muted hover:text-rl-purple disabled:opacity-30" title="Mover pra esquerda">
+                    <button type="button" onClick={() => moverCard(it.uid, -1)} disabled={i === 0} className="p-1 rounded text-rl-muted hover:text-rl-purple disabled:opacity-30" title={t('central.grupo.moverEsquerda')}>
                       <ArrowLeft className="w-3.5 h-3.5" />
                     </button>
                     <span className="text-[10px] text-rl-muted truncate" title={it.name}>{it.name}</span>
-                    <button type="button" onClick={() => moverCard(it.uid, 1)} disabled={i === itens.length - 1} className="p-1 rounded text-rl-muted hover:text-rl-purple disabled:opacity-30" title="Mover pra direita">
+                    <button type="button" onClick={() => moverCard(it.uid, 1)} disabled={i === itens.length - 1} className="p-1 rounded text-rl-muted hover:text-rl-purple disabled:opacity-30" title={t('central.grupo.moverDireita')}>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -431,15 +433,15 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
 
         {/* Dados que valem pro grupo todo */}
         <div className="space-y-3 pt-1">
-          <p className="text-xs font-bold text-rl-text uppercase tracking-wide">Vale pra todos os anúncios do grupo</p>
+          <p className="text-xs font-bold text-rl-text uppercase tracking-wide">{t('central.grupo.valeParaTodos')}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Pasta" hint="Os criativos entram nesta pasta dentro do mês, na Central.">
+            <Field label={t('central.grupo.pasta')} hint={t('central.grupo.pastaDica')}>
               <input
                 type="text"
                 list="grupo-pastas"
                 value={comum.pasta}
                 onChange={(e) => setC('pasta', e.target.value)}
-                placeholder="Ex.: Estáticos com foto"
+                placeholder={t('central.grupo.pastaPlaceholder')}
                 className="input-field w-full"
                 maxLength={60}
               />
@@ -447,7 +449,7 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
                 {pastas.map((p) => <option key={p} value={p} />)}
               </datalist>
             </Field>
-            <Field label="Data de criação" required>
+            <Field label={t('central.grupo.dataCriacao')} required>
               <input
                 type="date"
                 value={comum.createdAt}
@@ -455,7 +457,7 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
                 className="input-field w-full"
               />
             </Field>
-            <Field label="Campanha">
+            <Field label={t('central.grupo.campanha')}>
               <select
                 value={comum.campanhaId}
                 onChange={(e) => {
@@ -465,30 +467,30 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
                 disabled={campaigns.length === 0}
                 className="input-field w-full"
               >
-                <option value="">— sem campanha vinculada —</option>
+                <option value="">{t('central.grupo.semCampanha')}</option>
                 {campaigns.map((c) => (
                   <option key={c.id} value={c.id}>[{c.stageLabel}] {c.name}{c.channel ? ` · ${c.channel}` : ''}</option>
                 ))}
               </select>
             </Field>
-            <Field label="Etapa no nome" hint="Começo do nome padrão (FUNDO_IMG_AD001_DD.MM).">
+            <Field label={t('central.grupo.etapaNome')} hint={t('central.grupo.etapaNomeDica')}>
               <select value={comum.etapa} onChange={(e) => setC('etapa', e.target.value)} className="input-field w-full">
                 {ETAPAS_NOME.map((e) => <option key={e} value={e}>{e}</option>)}
               </select>
             </Field>
-            <Field label="Funil">
+            <Field label={t('central.grupo.funil')}>
               <select value={comum.funilId} onChange={(e) => setC('funilId', e.target.value)} className="input-field w-full">
-                <option value="">— escolha um funil —</option>
+                <option value="">{t('central.grupo.escolhaFunil')}</option>
                 {FUNNELS.map((f) => <option key={f.id} value={f.id}>{f.icon}  {f.label}</option>)}
               </select>
             </Field>
-            <Field label="Status">
+            <Field label={t('central.grupo.status')}>
               <select value={comum.status} onChange={(e) => setC('status', e.target.value)} className="input-field w-full">
                 {STATUS_GRUPO.map((id) => <option key={id} value={id}>{STATUS_BY_ID[id].label}</option>)}
               </select>
             </Field>
           </div>
-          <Field label="Observação (opcional)">
+          <Field label={t('central.grupo.observacao')}>
             <textarea
               value={comum.observacao}
               onChange={(e) => setC('observacao', e.target.value)}
@@ -504,8 +506,8 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
               className="mt-0.5 accent-[#7C3AED]"
             />
             <span>
-              <span className="text-xs font-bold text-rl-text uppercase tracking-wide block">Enviar pra aprovação do cliente</span>
-              <span className="text-[11px] text-rl-muted">Cada criativo aparece no link de aprovação, com todos os formatos dele.</span>
+              <span className="text-xs font-bold text-rl-text uppercase tracking-wide block">{t('central.grupo.enviarAprovacao')}</span>
+              <span className="text-[11px] text-rl-muted">{t('central.grupo.enviarAprovacaoTexto')}</span>
             </span>
           </label>
         </div>
@@ -515,8 +517,8 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
       <div className="mt-4 pt-4 border-t border-rl-border flex items-center justify-between gap-3 flex-wrap">
         <p className={`text-xs ${erro ? 'text-red-500' : 'text-rl-muted'}`}>
           {erro || (subindo
-            ? `Subindo ${progresso.feitos} de ${progresso.total} arquivos...`
-            : bloqueio || `${planos.length} ${planos.length === 1 ? 'anúncio vai ser criado' : 'anúncios vão ser criados'}.`)}
+            ? t('central.grupo.subindo', { feitos: progresso.feitos, total: progresso.total })
+            : bloqueio || t('central.grupo.vaiCriar', { count: planos.length }))}
         </p>
         <div className="flex items-center gap-2">
           <button
@@ -524,7 +526,7 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
             disabled={subindo}
             className="text-sm font-semibold px-4 py-2 rounded-xl border border-rl-border text-rl-subtle hover:text-rl-text transition-all disabled:opacity-40"
           >
-            Cancelar
+            {t('comum.cancelar')}
           </button>
           <button
             onClick={criar}
@@ -532,7 +534,7 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
             className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {subindo && <Loader2 className="w-4 h-4 animate-spin" />}
-            {planos.length > 1 ? `Criar ${planos.length} anúncios` : 'Criar anúncio'}
+            {planos.length > 1 ? t('central.grupo.criarN', { count: planos.length }) : t('central.grupo.criarUm')}
           </button>
         </div>
       </div>
@@ -568,6 +570,7 @@ function Miniatura({ item }) {
 // Lugar de um formato dentro do criativo. Aceita soltar um arquivo arrastado
 // de outro criativo; o arquivo dentro dele também pode ser arrastado.
 function Slot({ item, formato, onSoltar, onRemover }) {
+  const { t } = useI18n()
   const [sobre, setSobre] = useState(false)
   const dims = formato === 'story' ? 'w-11 h-[78px]' : 'w-[62px] h-[78px]'
   return (
@@ -601,14 +604,14 @@ function Slot({ item, formato, onSoltar, onRemover }) {
               type="button"
               onClick={() => onRemover(item.uid)}
               className="absolute top-0.5 right-0.5 p-0.5 rounded bg-black/60 text-white hover:bg-red-500/80"
-              title="Tirar este arquivo"
+              title={t('central.grupo.tirarArquivo')}
             >
               <Trash2 className="w-2.5 h-2.5" />
             </button>
           </div>
         ) : (
           <span className="absolute inset-0 flex items-center justify-center text-[9px] text-rl-muted text-center px-1">
-            sem {FORMATOS[formato].label.toLowerCase()}
+            {t('central.grupo.semFormato', { formato: FORMATOS[formato].label.toLowerCase() })}
           </span>
         )}
       </div>

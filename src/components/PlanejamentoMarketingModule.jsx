@@ -7,9 +7,11 @@ import {
 } from 'lucide-react'
 import { downloadBlob, slugify } from '../lib/htmlToJpg'
 import { exportPlanejamentoMarketingPDF } from '../utils/exportPDF'
+import { t as tAgora, useI18n, localeAtual } from '../i18n'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+// Nomes curtos dos meses no idioma de agora (planejamentoMarketing.mesesCurtos).
+const mesesCurtos = (t = tAgora) => t('planejamentoMarketing.mesesCurtos').split(',')
 
 const DEFAULT_DATA = {
   faturamentoAtual: '',
@@ -26,7 +28,7 @@ const DEFAULT_DATA = {
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 const fmtPct = (n, d=1) => (n == null || isNaN(n) || !isFinite(n)) ? '—' : `${(n*100).toFixed(d)}%`
-const fmtNum = (n) => (n == null || isNaN(n) || !isFinite(n)) ? '—' : Math.ceil(n).toLocaleString('pt-BR')
+const fmtNum = (n) => (n == null || isNaN(n) || !isFinite(n)) ? '—' : Math.ceil(n).toLocaleString(localeAtual())
 const numVal = (v) => { const n = Number(String(v).replace(',','.')); return isNaN(n) ? 0 : n }
 
 // ─── Math helpers ─────────────────────────────────────────────────────────────
@@ -126,7 +128,7 @@ function computePlan(d) {
   const metaIgual = mesesRestantes > 0 ? gap / mesesRestantes : 0
 
   // Meta de faturamento por mês (12 posições).
-  const meta = MONTHS.map((_, i) => {
+  const meta = Array.from({ length: 12 }, (_, i) => {
     if (i < mesesDecorridos) return effReal(i)            // passado → realizado (ou média)
     if (metaBatidaNoRitmo)   return baseFuturo            // já bate a meta → mantém o último mês
     if (mesesRestantes <= 0 || gap <= 0) return null      // sem meses/gap a planejar
@@ -195,7 +197,11 @@ function computePlan(d) {
 
 // ─── Exportação CSV ─────────────────────────────────────────────────────────────
 // Separador `;` + decimal com vírgula + BOM → abre certinho no Excel pt-BR e no Sheets.
+// Rótulos no idioma de quem exporta (planejamentoMarketing.csv.*).
 function buildCSV(data, plan, empresa) {
+  const t = tAgora
+  const C = (k) => t(`planejamentoMarketing.csv.${k}`)
+  const MONTHS = mesesCurtos(t)
   const esc  = (s) => { const v = String(s ?? ''); return /[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v }
   const round= (n) => (n == null || isNaN(n) || !isFinite(n)) ? '' : String(Math.round(n))
   const ceil = (n) => (n == null || isNaN(n) || !isFinite(n)) ? '' : String(Math.ceil(n))
@@ -203,36 +209,36 @@ function buildCSV(data, plan, empresa) {
   const raw  = (v) => (v === '' || v == null) ? '' : String(v).replace('.', ',')
 
   const rows = [
-    ['Planejamento de Marketing', empresa || ''],
-    ['Gerado em', new Date().toLocaleDateString('pt-BR')],
+    [t('planejamentoMarketing.titulo'), empresa || ''],
+    [C('geradoEm'), new Date().toLocaleDateString(localeAtual())],
     [],
-    ['Números-chave'],
-    ['Faturamento até o momento (R$)', round(plan.realizadoTotal)],
-    ['Meses decorridos', round(numVal(data.mesesDecorridos))],
-    ['Meta anual (R$)', round(numVal(data.metaAnual))],
-    ['Ticket médio (R$)', round(numVal(data.ticketMedio))],
-    ['Verba de mídia — mês vigente (R$)', round(numVal(data.verbaMidia))],
-    ['Taxa Lead → MQL (%)', raw(data.taxaLeadMQL)],
-    ['Taxa MQL → SQL (%)', raw(data.taxaMQLSQL)],
-    ['Taxa SQL → Venda (%)', raw(data.taxaSQLVenda)],
+    [C('numerosChave')],
+    [C('faturamentoAtual'), round(plan.realizadoTotal)],
+    [C('mesesDecorridos'), round(numVal(data.mesesDecorridos))],
+    [C('metaAnual'), round(numVal(data.metaAnual))],
+    [C('ticketMedio'), round(numVal(data.ticketMedio))],
+    [C('verbaMidia'), round(numVal(data.verbaMidia))],
+    [C('taxaLeadMql'), raw(data.taxaLeadMQL)],
+    [C('taxaMqlSql'), raw(data.taxaMQLSQL)],
+    [C('taxaSqlVenda'), raw(data.taxaSQLVenda)],
     [],
-    ['Indicadores'],
-    ['Distribuição do crescimento', plan.distribuicao === 'linear' ? 'Linear (suavizado)' : plan.distribuicao === 'igual' ? 'Meta única (igual por mês)' : 'Composto (fixo)'],
-    ['Média mensal (R$)', round(plan.mediaMensal)],
-    ['Projeção mantendo a média (R$)', round(plan.projetadoMedia)],
-    [plan.distribuicao === 'composto' ? 'Crescimento necessário/mês (%)' : 'Crescimento médio/mês (%)', pct(plan.crescimentoRef)],
-    ...(plan.distribuicao === 'igual' ? [['Meta por mês — igual (R$)', round(plan.mesesRestantes > 0 ? plan.gap / plan.mesesRestantes : 0)]] : []),
-    ['Gap para a meta (R$)', round(plan.gap)],
-    ['Investimento total no plano (R$)', round(plan.totals.investimento)],
+    [C('indicadores')],
+    [C('distribuicao'), plan.distribuicao === 'linear' ? C('distLinear') : plan.distribuicao === 'igual' ? C('distIgual') : C('distComposto')],
+    [C('mediaMensal'), round(plan.mediaMensal)],
+    [C('projecaoMedia'), round(plan.projetadoMedia)],
+    [plan.distribuicao === 'composto' ? C('crescimentoNecessario') : C('crescimentoMedio'), pct(plan.crescimentoRef)],
+    ...(plan.distribuicao === 'igual' ? [[C('metaIgual'), round(plan.mesesRestantes > 0 ? plan.gap / plan.mesesRestantes : 0)]] : []),
+    [C('gap'), round(plan.gap)],
+    [C('investimentoTotal'), round(plan.totals.investimento)],
     [],
-    ['Indicador', ...MONTHS, 'Total'],
-    ['Meta de faturamento (R$)', ...plan.rows.map(r => round(r.meta)), round(plan.totals.meta)],
-    ['Crescimento (%)', ...plan.rows.map(r => r.crescimento == null ? '' : pct(r.crescimento)), ''],
-    ['Novas vendas', ...plan.rows.map(r => ceil(r.vendas)), ceil(plan.totals.vendas)],
+    [C('indicador'), ...MONTHS, C('total')],
+    [C('metaFaturamento'), ...plan.rows.map(r => round(r.meta)), round(plan.totals.meta)],
+    [C('crescimento'), ...plan.rows.map(r => r.crescimento == null ? '' : pct(r.crescimento)), ''],
+    [C('novasVendas'), ...plan.rows.map(r => ceil(r.vendas)), ceil(plan.totals.vendas)],
     ['SQLs', ...plan.rows.map(r => ceil(r.sqls)), ceil(plan.totals.sqls)],
     ['MQLs', ...plan.rows.map(r => ceil(r.mqls)), ceil(plan.totals.mqls)],
     ['Leads', ...plan.rows.map(r => ceil(r.leads)), ceil(plan.totals.leads)],
-    ['Investimento em mídia (R$)', ...plan.rows.map(r => round(r.investimento)), round(plan.totals.investimento)],
+    [C('investimentoMidia'), ...plan.rows.map(r => round(r.investimento)), round(plan.totals.investimento)],
     ['CPL (R$)', ...plan.rows.map(r => round(r.cpl)), round(plan.totals.cpl)],
     ['CPMql (R$)', ...plan.rows.map(r => round(r.cpmql)), round(plan.totals.cpmql)],
     ['CPSql (R$)', ...plan.rows.map(r => round(r.cpsql)), round(plan.totals.cpsql)],
@@ -245,10 +251,11 @@ function buildCSV(data, plan, empresa) {
 // ─── Linha editável de Meta/Faturamento ─────────────────────────────────────────
 // Meses passados viram inputs de faturamento realizado; meses futuros são a meta projetada.
 function MetaRow({ metaCells, total, mesesDecorridos, realizado, onEdit }) {
+  const { t } = useI18n()
   return (
     <tr className="border-b border-rl-border/30 font-semibold">
       <th scope="row" className="sticky left-0 z-10 bg-rl-card text-left py-2.5 pr-4 pl-1 whitespace-nowrap text-xs text-rl-text font-semibold">
-        Meta de faturamento
+        {t('planejamentoMarketing.linhas.metaFaturamento')}
       </th>
       {metaCells.map((v, i) => {
         if (i < mesesDecorridos) {
@@ -259,7 +266,7 @@ function MetaRow({ metaCells, total, mesesDecorridos, realizado, onEdit }) {
                 value={realizado?.[i] ?? ''}
                 onChange={(e) => onEdit(i, e.target.value)}
                 placeholder={v == null ? '0' : String(Math.round(v))}
-                title="Faturamento realizado — preencha com o dado real do cliente"
+                title={t('planejamentoMarketing.realizadoDica')}
                 className="w-24 text-right bg-rl-surface border border-rl-border rounded-lg px-2 py-1 text-xs font-mono text-rl-text focus:outline-none focus:border-rl-cyan/60"
               />
             </td>
@@ -313,6 +320,8 @@ function SheetRow({ label, cells, total, format, bold, accent, mesesDecorridos }
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function PlanejamentoMarketingModule({ project }) {
   const { updateProject } = useApp()
+  const { t } = useI18n()
+  const MONTHS = mesesCurtos(t)
   const saveTimer = useRef(null)
   const [saved, setSaved] = useState(false)
 
@@ -368,14 +377,14 @@ export default function PlanejamentoMarketingModule({ project }) {
   }, [data, project])
 
   const kpis = [
-    { label: 'Faturamento até o momento', value: fmtCurrency(plan.realizadoTotal), Icon: DollarSign, color: 'text-rl-text' },
-    { label: `Média mensal (${plan.mesesDecorridos} ${plan.mesesDecorridos === 1 ? 'mês' : 'meses'})`, value: fmtCurrency(plan.mediaMensal), Icon: Calculator, color: 'text-rl-cyan' },
-    { label: 'Meta anual', value: fmtCurrency(plan.metaAnual), Icon: Target, color: 'text-rl-green' },
-    { label: 'Projeção mantendo a média', value: fmtCurrency(plan.projetadoMedia), Icon: LineChart, color: plan.projetadoMedia >= plan.metaAnual && plan.metaAnual > 0 ? 'text-rl-green' : 'text-rl-gold' },
+    { label: t('planejamentoMarketing.kpis.faturamentoAtual'), value: fmtCurrency(plan.realizadoTotal), Icon: DollarSign, color: 'text-rl-text' },
+    { label: t('planejamentoMarketing.kpis.mediaMensal', { count: plan.mesesDecorridos }), value: fmtCurrency(plan.mediaMensal), Icon: Calculator, color: 'text-rl-cyan' },
+    { label: t('planejamentoMarketing.kpis.metaAnual'), value: fmtCurrency(plan.metaAnual), Icon: Target, color: 'text-rl-green' },
+    { label: t('planejamentoMarketing.kpis.projecaoMedia'), value: fmtCurrency(plan.projetadoMedia), Icon: LineChart, color: plan.projetadoMedia >= plan.metaAnual && plan.metaAnual > 0 ? 'text-rl-green' : 'text-rl-gold' },
     plan.distribuicao === 'igual'
-      ? { label: 'Meta por mês (igual)', value: (plan.mesesRestantes > 0 && plan.gap > 0) ? fmtCurrency(plan.gap / plan.mesesRestantes) : '—', Icon: TrendingUp, color: 'text-rl-purple' }
-      : { label: plan.distribuicao === 'linear' ? 'Crescimento médio/mês' : 'Crescimento necessário/mês', value: plan.crescimentoRef != null ? fmtPct(plan.crescimentoRef) : '—', Icon: TrendingUp, color: 'text-rl-purple' },
-    { label: 'Gap para a meta', value: fmtCurrency(plan.gap), Icon: AlertTriangle, color: plan.gap > 0 ? 'text-rl-gold' : 'text-rl-green' },
+      ? { label: t('planejamentoMarketing.kpis.metaIgual'), value: (plan.mesesRestantes > 0 && plan.gap > 0) ? fmtCurrency(plan.gap / plan.mesesRestantes) : '—', Icon: TrendingUp, color: 'text-rl-purple' }
+      : { label: plan.distribuicao === 'linear' ? t('planejamentoMarketing.kpis.crescimentoMedio') : t('planejamentoMarketing.kpis.crescimentoNecessario'), value: plan.crescimentoRef != null ? fmtPct(plan.crescimentoRef) : '—', Icon: TrendingUp, color: 'text-rl-purple' },
+    { label: t('planejamentoMarketing.kpis.gap'), value: fmtCurrency(plan.gap), Icon: AlertTriangle, color: plan.gap > 0 ? 'text-rl-gold' : 'text-rl-green' },
   ]
 
   return (
@@ -385,16 +394,16 @@ export default function PlanejamentoMarketingModule({ project }) {
         <div>
           <h2 className="text-base font-bold text-rl-text flex items-center gap-2">
             <LineChart className="w-5 h-5 text-rl-cyan" />
-            Planejamento de Marketing
+            {t('planejamentoMarketing.titulo')}
           </h2>
           <p className="text-xs text-rl-muted mt-0.5">
-            A partir da meta anual, calcula o crescimento necessário e o funil (leads → vendas) mês a mês.
+            {t('planejamentoMarketing.subtitulo')}
           </p>
         </div>
         <div className="flex items-center gap-3">
           {saved && (
             <span className="flex items-center gap-1.5 text-xs text-rl-green">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Salvo
+              <CheckCircle2 className="w-3.5 h-3.5" /> {t('comum.salvo')}
             </span>
           )}
           <button
@@ -402,38 +411,40 @@ export default function PlanejamentoMarketingModule({ project }) {
             onClick={handleExportCSV}
             className="btn-secondary inline-flex items-center gap-1.5 text-xs px-3 py-2"
           >
-            <Download className="w-3.5 h-3.5" /> Exportar CSV
+            <Download className="w-3.5 h-3.5" /> {t('planejamentoMarketing.exportarCsv')}
           </button>
           <button
             type="button"
             onClick={handleExportPDF}
             className="btn-secondary inline-flex items-center gap-1.5 text-xs px-3 py-2"
           >
-            <FileDown className="w-3.5 h-3.5" /> Baixar PDF
+            <FileDown className="w-3.5 h-3.5" /> {t('planejamentoMarketing.baixarPdf')}
           </button>
         </div>
       </div>
 
       {/* Configuração */}
       <div className="glass-card p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-rl-text">⚙️ Números-chave</h3>
+        <h3 className="text-sm font-semibold text-rl-text">⚙️ {t('planejamentoMarketing.numerosChave')}</h3>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <NumField label="Faturamento até o momento" value={data.faturamentoAtual} prefix="R$"
-            hint="Acumulado no ano (ou preencha mês a mês na tabela abaixo)" onChange={e => set('faturamentoAtual', e.target.value)} />
-          <NumField label="Meses decorridos" value={data.mesesDecorridos} min={1}
-            hint="Quantos meses já fecharam no ano" onChange={e => set('mesesDecorridos', e.target.value)} />
-          <NumField label="Meta anual de faturamento" value={data.metaAnual} prefix="R$"
-            hint="Quanto quer faturar no ano todo" onChange={e => set('metaAnual', e.target.value)} />
-          <NumField label="Ticket médio" value={data.ticketMedio} prefix="R$"
-            hint="Valor médio por venda" onChange={e => set('ticketMedio', e.target.value)} />
-          <NumField label="Verba de mídia (mês vigente)" value={data.verbaMidia} prefix="R$"
-            hint={`Investimento em ${MONTHS[plan.mesesDecorridos] || 'no mês atual'} — cresce junto com a meta`}
+          <NumField label={t('planejamentoMarketing.campos.faturamentoAtual')} value={data.faturamentoAtual} prefix="R$"
+            hint={t('planejamentoMarketing.campos.faturamentoAtualDica')} onChange={e => set('faturamentoAtual', e.target.value)} />
+          <NumField label={t('planejamentoMarketing.campos.mesesDecorridos')} value={data.mesesDecorridos} min={1}
+            hint={t('planejamentoMarketing.campos.mesesDecorridosDica')} onChange={e => set('mesesDecorridos', e.target.value)} />
+          <NumField label={t('planejamentoMarketing.campos.metaAnual')} value={data.metaAnual} prefix="R$"
+            hint={t('planejamentoMarketing.campos.metaAnualDica')} onChange={e => set('metaAnual', e.target.value)} />
+          <NumField label={t('planejamentoMarketing.campos.ticketMedio')} value={data.ticketMedio} prefix="R$"
+            hint={t('planejamentoMarketing.campos.ticketMedioDica')} onChange={e => set('ticketMedio', e.target.value)} />
+          <NumField label={t('planejamentoMarketing.campos.verbaMidia')} value={data.verbaMidia} prefix="R$"
+            hint={MONTHS[plan.mesesDecorridos]
+              ? t('planejamentoMarketing.campos.verbaMidiaDica', { mes: MONTHS[plan.mesesDecorridos] })
+              : t('planejamentoMarketing.campos.verbaMidiaDicaAtual')}
             onChange={e => set('verbaMidia', e.target.value)} />
-          <NumField label="Taxa Lead → MQL" value={data.taxaLeadMQL} suffix="%"
+          <NumField label={t('planejamentoMarketing.campos.taxaLeadMql')} value={data.taxaLeadMQL} suffix="%"
             onChange={e => set('taxaLeadMQL', e.target.value)} />
-          <NumField label="Taxa MQL → SQL" value={data.taxaMQLSQL} suffix="%"
+          <NumField label={t('planejamentoMarketing.campos.taxaMqlSql')} value={data.taxaMQLSQL} suffix="%"
             onChange={e => set('taxaMQLSQL', e.target.value)} />
-          <NumField label="Taxa SQL → Venda" value={data.taxaSQLVenda} suffix="%"
+          <NumField label={t('planejamentoMarketing.campos.taxaSqlVenda')} value={data.taxaSQLVenda} suffix="%"
             onChange={e => set('taxaSQLVenda', e.target.value)} />
         </div>
       </div>
@@ -455,7 +466,7 @@ export default function PlanejamentoMarketingModule({ project }) {
         <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rl-green/8 border border-rl-green/25 text-rl-green">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span className="text-sm font-semibold">
-            No ritmo atual você já bate a meta anual — o plano abaixo mantém o último faturamento.
+            {t('planejamentoMarketing.metaBatida')}
           </span>
         </div>
       )}
@@ -463,46 +474,46 @@ export default function PlanejamentoMarketingModule({ project }) {
       {/* Planilha mês a mês */}
       <div className="glass-card p-5">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
-          <h3 className="text-sm font-semibold text-rl-text">📅 Plano mês a mês</h3>
+          <h3 className="text-sm font-semibold text-rl-text">📅 {t('planejamentoMarketing.planoMes')}</h3>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-rl-muted">Distribuição:</span>
+            <span className="text-xs text-rl-muted">{t('planejamentoMarketing.distribuicao')}</span>
             <div className="flex items-center gap-0.5 bg-rl-surface rounded-lg p-0.5 border border-rl-border">
               {[
-                { k: 'composto', l: 'Composto', t: 'Mesma % todo mês (curva exponencial, concentra no fim do ano)' },
-                { k: 'linear',   l: 'Linear',   t: 'Mesmo incremento em R$ todo mês — a % cai suavemente, curva mais reta' },
-                { k: 'igual',    l: 'Igual',    t: 'Mesma meta em R$ para todos os meses restantes (restante da meta ÷ meses restantes)' },
+                { k: 'composto' },
+                { k: 'linear' },
+                { k: 'igual' },
               ].map(o => (
-                <button key={o.k} type="button" title={o.t} onClick={() => set('distribuicao', o.k)}
+                <button key={o.k} type="button" title={t(`planejamentoMarketing.dist.${o.k}.dica`)} onClick={() => set('distribuicao', o.k)}
                   className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
                     (data.distribuicao || 'composto') === o.k ? 'bg-rl-cyan text-white shadow-glow' : 'text-rl-muted hover:text-rl-text'
                   }`}>
-                  {o.l}
+                  {t(`planejamentoMarketing.dist.${o.k}.rotulo`)}
                 </button>
               ))}
             </div>
           </div>
         </div>
         <p className="text-xs text-rl-muted mb-3">
-          Edite o faturamento realizado dos meses passados (campos). <b>Composto</b>: mesma % todo mês · <b>Linear</b>: % cai suave (curva mais reta) · <b>Igual</b>: mesma meta em R$ todo mês.
+          {t('planejamentoMarketing.edite')} <b>{t('planejamentoMarketing.dist.composto.rotulo')}</b>{t('planejamentoMarketing.legendaComposto')} · <b>{t('planejamentoMarketing.dist.linear.rotulo')}</b>{t('planejamentoMarketing.legendaLinear')} · <b>{t('planejamentoMarketing.dist.igual.rotulo')}</b>{t('planejamentoMarketing.legendaIgual')}
         </p>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-rl-border">
-                <th className="sticky left-0 z-10 bg-rl-card text-left py-2 pr-4 pl-1 text-rl-muted text-xs font-medium">Indicador</th>
+                <th className="sticky left-0 z-10 bg-rl-card text-left py-2 pr-4 pl-1 text-rl-muted text-xs font-medium">{t('planejamentoMarketing.indicador')}</th>
                 {MONTHS.map((m, i) => (
                   <th key={m} className={`py-2 px-3 text-right text-xs font-medium whitespace-nowrap ${i < plan.mesesDecorridos ? 'text-rl-muted/70' : 'text-rl-text'}`}>{m}</th>
                 ))}
-                <th className="py-2 px-3 text-right text-xs font-semibold text-rl-cyan whitespace-nowrap border-l border-rl-border">Total</th>
+                <th className="py-2 px-3 text-right text-xs font-semibold text-rl-cyan whitespace-nowrap border-l border-rl-border">{t('planejamentoMarketing.total')}</th>
               </tr>
             </thead>
             <tbody>
               <MetaRow metaCells={plan.rows.map(r => r.meta)} total={plan.totals.meta}
                 mesesDecorridos={plan.mesesDecorridos} realizado={data.realizado} onEdit={setRealizado} />
-              <SheetRow label="Crescimento" mesesDecorridos={plan.mesesDecorridos}
+              <SheetRow label={t('planejamentoMarketing.linhas.crescimento')} mesesDecorridos={plan.mesesDecorridos}
                 cells={plan.rows.map(r => r.crescimento)} total={null}
                 format={(v) => v == null ? '—' : fmtPct(v)} accent="text-rl-purple" />
-              <SheetRow label="Novas vendas" mesesDecorridos={plan.mesesDecorridos}
+              <SheetRow label={t('planejamentoMarketing.linhas.novasVendas')} mesesDecorridos={plan.mesesDecorridos}
                 cells={plan.rows.map(r => r.vendas)} total={plan.totals.vendas} format={fmtNum} />
               <SheetRow label="SQLs" mesesDecorridos={plan.mesesDecorridos}
                 cells={plan.rows.map(r => r.sqls)} total={plan.totals.sqls} format={fmtNum} accent="text-rl-cyan" />
@@ -510,7 +521,7 @@ export default function PlanejamentoMarketingModule({ project }) {
                 cells={plan.rows.map(r => r.mqls)} total={plan.totals.mqls} format={fmtNum} accent="text-rl-purple" />
               <SheetRow label="Leads" mesesDecorridos={plan.mesesDecorridos}
                 cells={plan.rows.map(r => r.leads)} total={plan.totals.leads} format={fmtNum} accent="text-rl-blue" />
-              <SheetRow label="Investimento em mídia" mesesDecorridos={plan.mesesDecorridos}
+              <SheetRow label={t('planejamentoMarketing.linhas.investimentoMidia')} mesesDecorridos={plan.mesesDecorridos}
                 cells={plan.rows.map(r => r.investimento)} total={plan.totals.investimento}
                 format={fmtCurrency} bold accent="text-rl-gold" />
               <SheetRow label="CPL" mesesDecorridos={plan.mesesDecorridos}
@@ -526,8 +537,8 @@ export default function PlanejamentoMarketingModule({ project }) {
         </div>
         <p className="text-[11px] text-rl-muted mt-3 flex items-center gap-1.5">
           <Users2 className="w-3 h-3 shrink-0" />
-          Funil reverso: Meta ÷ ticket = vendas · vendas ÷ taxa SQL→venda = SQLs · SQLs ÷ taxa MQL→SQL = MQLs · MQLs ÷ taxa Lead→MQL = Leads.
-          A verba cresce no mesmo ritmo da meta; CPL/CPMql/CPSql/CAC = investimento do mês ÷ leads/MQLs/SQLs/vendas (a coluna Total usa o custo médio ponderado).
+          {t('planejamentoMarketing.rodape1')}
+          {' '}{t('planejamentoMarketing.rodape2')}
         </p>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
-import { streamClaude } from '../lib/claude'
+import { streamClaude, instrucaoDeIdioma } from '../lib/claude'
+import { useI18n } from '../i18n'
 import { buildLandingContext, buildLandingCachedPayload } from '../lib/buildContext'
 import { elementToPngBlob, downloadBlob, slugify } from '../lib/htmlToJpg'
 import { elementToHtmlBlob } from '../lib/wireframeHtml'
@@ -199,6 +200,7 @@ function replaceDobra(content, index, newDobra) {
 // devolve só a dobra reescrita; um trecho selecionado no editor vira parte da
 // instrução. Salvar e aprovar passam pelo mesmo `onApprove` → replaceDobra.
 function DobraBlock({ dobra, index, onRefine, onApprove }) {
+  const { t } = useI18n()
   const title = dobraTitle(dobra)
   const refinar = onRefine
     ? (texto, trecho, instrucao, onChunk) =>
@@ -216,7 +218,7 @@ function DobraBlock({ dobra, index, onRefine, onApprove }) {
     <div className="rounded-xl border border-rl-border/50 overflow-hidden">
       {/* Header da dobra */}
       <div className="px-4 py-2.5 bg-rl-surface/40 border-b border-rl-border/40">
-        <p className="text-xs font-bold text-rl-text leading-snug truncate">{title || `Dobra ${index + 1}`}</p>
+        <p className="text-xs font-bold text-rl-text leading-snug truncate">{title || t('landingPage.dobra', { n: index + 1 })}</p>
       </div>
 
       {/* Conteúdo da dobra */}
@@ -235,6 +237,7 @@ function DobraBlock({ dobra, index, onRefine, onApprove }) {
 
 // ─── Copy Card ────────────────────────────────────────────────────────────────
 function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineDobra, onContentChange, onWireframeEdit }) {
+  const { t, locale } = useI18n()
   const [expanded, setExpanded] = useState(index === 0)
   const [copied, setCopied]     = useState(false)
   const [view, setView]         = useState('wireframe') // 'wireframe' | 'texto'
@@ -290,7 +293,7 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
   }
 
   const dateStr = lp.createdAt
-    ? new Date(lp.createdAt).toLocaleDateString('pt-BR', {
+    ? new Date(lp.createdAt).toLocaleDateString(locale, {
         day: '2-digit', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit',
       })
@@ -330,7 +333,7 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
         <div className="flex items-center gap-3 shrink-0 flex-wrap">
           {/* Rating selector */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-rl-muted uppercase tracking-wider">Resultado:</span>
+            <span className="text-[10px] font-bold text-rl-muted uppercase tracking-wider">{t('landingPage.resultado')}</span>
             <RatingSelector value={lp.rating} onChange={onRatingChange} />
           </div>
 
@@ -339,22 +342,22 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
             <button
               onClick={handleCopy}
               className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-purple transition-all"
-              title="Copiar copy completa"
+              title={t('landingPage.copiarTitulo')}
             >
               {copied ? <CheckCheck className="w-3 h-3 text-rl-green" /> : <Copy className="w-3 h-3" />}
-              {copied ? 'Copiado!' : 'Copiar'}
+              {copied ? t('landingPage.copiado') : t('landingPage.copiar')}
             </button>
             <button
               onClick={onRegenerate}
               className="p-1.5 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-blue transition-all"
-              title="Regerar esta copy"
+              title={t('landingPage.regerarTitulo')}
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={onDelete}
               className="p-1.5 rounded-lg bg-rl-surface text-rl-muted hover:text-red-400 transition-all"
-              title="Excluir"
+              title={t('landingPage.excluir')}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -373,7 +376,7 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
         <div className="border-t border-rl-border/40 px-5 py-4">
           {lp.customNote && (
             <div className="mb-5 rounded-xl bg-rl-purple/5 border border-rl-purple/20 px-4 py-3">
-              <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1">Direção criativa aplicada</p>
+              <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1">{t('landingPage.direcaoAplicada')}</p>
               <p className="text-xs text-rl-text italic">"{lp.customNote}"</p>
             </div>
           )}
@@ -389,7 +392,7 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
                       view === 'wireframe' ? 'bg-rl-green/15 text-rl-green' : 'text-rl-muted hover:text-rl-text'
                     }`}
                   >
-                    <LayoutTemplate className="w-3.5 h-3.5" /> Wireframe
+                    <LayoutTemplate className="w-3.5 h-3.5" /> {t('landingPage.wireframe')}
                   </button>
                   <button
                     onClick={() => { setView('texto'); setEditing(false) }}
@@ -397,7 +400,7 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
                       view === 'texto' ? 'bg-rl-green/15 text-rl-green' : 'text-rl-muted hover:text-rl-text'
                     }`}
                   >
-                    <FileText className="w-3.5 h-3.5" /> Texto
+                    <FileText className="w-3.5 h-3.5" /> {t('landingPage.texto')}
                   </button>
                 </div>
                 {view === 'wireframe' && (
@@ -405,20 +408,20 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
                     <button
                       onClick={handleDownloadWireframe}
                       disabled={downloading}
-                      title="Baixar o wireframe como imagem PNG"
+                      title={t('landingPage.baixarPngTitulo')}
                       className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg border bg-rl-surface border-rl-border/40 text-rl-muted hover:text-rl-blue transition-all disabled:opacity-50"
                     >
                       {downloading
-                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Gerando...</>
-                        : <><Download className="w-3.5 h-3.5" /> Baixar PNG</>}
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('landingPage.gerando')}</>
+                        : <><Download className="w-3.5 h-3.5" /> {t('landingPage.baixarPng')}</>}
                     </button>
                     <button
                       onClick={handleDownloadHtml}
                       disabled={downloading}
-                      title="Baixar o wireframe como página HTML (abre em qualquer navegador)"
+                      title={t('landingPage.baixarHtmlTitulo')}
                       className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg border bg-rl-surface border-rl-border/40 text-rl-muted hover:text-rl-blue transition-all disabled:opacity-50"
                     >
-                      <FileCode2 className="w-3.5 h-3.5" /> Baixar HTML
+                      <FileCode2 className="w-3.5 h-3.5" /> {t('landingPage.baixarHtml')}
                     </button>
                     {onWireframeEdit && (
                       <button
@@ -429,7 +432,7 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
                             : 'bg-rl-surface border-rl-border/40 text-rl-muted hover:text-rl-text'
                         }`}
                       >
-                        {editing ? <><Check className="w-3.5 h-3.5" /> Concluir edição</> : <><Pencil className="w-3.5 h-3.5" /> Editar texto</>}
+                        {editing ? <><Check className="w-3.5 h-3.5" /> {t('landingPage.concluirEdicao')}</> : <><Pencil className="w-3.5 h-3.5" /> {t('landingPage.editarTexto')}</>}
                       </button>
                     )}
                   </div>
@@ -440,8 +443,8 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
                 <div>
                   <p className="text-[10px] text-rl-muted mb-2 leading-snug">
                     {editing
-                      ? 'Modo edição: clique em qualquer texto do wireframe para editar. As mudanças salvam ao sair do campo.'
-                      : 'Prévia da copy aplicada no layout. Imagens e vídeo são placeholders — referência para o designer montar a página.'}
+                      ? t('landingPage.modoEdicao')
+                      : t('landingPage.previa')}
                   </p>
                   <div ref={wireframeRef}>
                     <wf.Component
@@ -482,13 +485,14 @@ function CopyForm({
   project, copyCount, onSave, onCancel, isRegen, existingName,
   defaultCustomNote, defaultProductId, defaultPersonaId, defaultGomNum, defaultWireframeType,
 }) {
+  const { t } = useI18n()
   // GOMs disponíveis (separadas do texto gerado no módulo Oferta Matadora)
   const goms = useMemo(
     () => parseGOMs(project.ofertaData?.generatedOffer),
     [project.ofertaData]
   )
 
-  const [name,            setName]            = useState(isRegen ? existingName : `Copy Landing Page ${copyCount + 1}`)
+  const [name,            setName]            = useState(isRegen ? existingName : t('landingPage.nomePadrao', { n: copyCount + 1 }))
   const [wireframeType,   setWireframeType]   = useState(isRegen ? (defaultWireframeType || 'vsl') : 'vsl')
   const [customNote,      setCustomNote]      = useState(defaultCustomNote || '')
   const [loading,         setLoading]         = useState(false)
@@ -537,7 +541,7 @@ function CopyForm({
       })
 
       const baseFields = {
-        name:         name.trim() || (isRegen ? existingName : `Copy Landing Page ${copyCount + 1}`),
+        name:         name.trim() || (isRegen ? existingName : t('landingPage.nomePadrao', { n: copyCount + 1 })),
         customNote:   customNote.trim(),
         productId:    selectedProductId || null,
         productName:  selectedProduct?.nome || null,
@@ -568,7 +572,7 @@ function CopyForm({
         })
         const structured = wf.parse(fullText)
         if (!structured) {
-          throw new Error('A IA retornou um formato inesperado. Tente gerar novamente.')
+          throw new Error(t('landingPage.erroFormato'))
         }
         onSave({
           id:               crypto.randomUUID(),
@@ -591,7 +595,8 @@ function CopyForm({
 
 Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS as informações deste contexto e a direção criativa — não invente dados de empresa, produtos, personas ou números que não estejam aqui. Seja extremamente específico; nunca use frases genéricas ou templates vazios.`
       const { system, messages } = buildLandingCachedPayload({
-        systemPrompt: LANDING_SYSTEM,
+        // Saída lida só pelos cabeçalhos `## ` (splitDobras): os rótulos podem traduzir.
+        systemPrompt: LANDING_SYSTEM + instrucaoDeIdioma({ rotulos: true }),
         contextText,
         instruction,
       })
@@ -608,7 +613,7 @@ Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS 
     } finally {
       setLoading(false)
     }
-  }, [copyCount, customNote, existingName, isRegen, name, onSave, selectedProduct, selectedPersona, selectedGom, selectedProductId, selectedPersonaId, wireframeType])
+  }, [copyCount, customNote, existingName, isRegen, name, onSave, selectedProduct, selectedPersona, selectedGom, selectedProductId, selectedPersonaId, wireframeType, t])
 
 
   return (
@@ -619,7 +624,7 @@ Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS 
           <Globe className="w-4 h-4 text-rl-green" />
         </div>
         <h3 className="text-sm font-bold text-rl-text">
-          {isRegen ? `Regerar: ${existingName}` : 'Nova Copy de Landing Page'}
+          {isRegen ? t('landingPage.regerarTitulo2', { nome: existingName }) : t('landingPage.novaCopyTitulo')}
         </h3>
       </div>
 
@@ -627,15 +632,15 @@ Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS 
       {!isRegen && (
         <div>
           <label className="label-field mb-2">
-            Nome da copy
-            <span className="ml-2 text-[10px] text-rl-muted font-normal normal-case">(para identificação)</span>
+            {t('landingPage.nomeCopy')}
+            <span className="ml-2 text-[10px] text-rl-muted font-normal normal-case">{t('landingPage.paraIdentificacao')}</span>
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="input-field w-full text-sm"
-            placeholder="Ex: Copy Principal, Variação A, Landing de Captação..."
+            placeholder={t('landingPage.nomePlaceholder')}
           />
         </div>
       )}
@@ -644,33 +649,33 @@ Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS 
       <div className="rounded-xl border border-rl-green/30 bg-rl-green/5 p-3 space-y-3">
         <div className="flex items-center gap-2">
           <LayoutTemplate className="w-4 h-4 text-rl-green" />
-          <label className="label-field !mb-0">Tipo de página (wireframe)</label>
+          <label className="label-field !mb-0">{t('landingPage.tipoPagina')}</label>
         </div>
         <p className="text-[11px] text-rl-muted leading-snug">
-          A copy é gerada já no formato da página escolhida — você vê o texto encaixado no wireframe.
+          {t('landingPage.tipoPaginaTexto')}
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {WIREFRAME_TYPES.map((t) => {
-            const active = wireframeType === t.id
+          {WIREFRAME_TYPES.map((w) => {
+            const active = wireframeType === w.id
             return (
               <button
-                key={t.id}
+                key={w.id}
                 type="button"
-                disabled={!t.ready}
-                onClick={() => t.ready && setWireframeType(t.id)}
+                disabled={!w.ready}
+                onClick={() => w.ready && setWireframeType(w.id)}
                 className={`relative flex items-center justify-center gap-1 text-[11px] font-semibold px-2 py-2 rounded-lg border transition-all ${
                   active
                     ? 'bg-rl-green/15 border-rl-green/50 text-rl-green'
-                    : t.ready
+                    : w.ready
                       ? 'bg-rl-surface/60 border-rl-border/40 text-rl-text hover:border-rl-green/30'
                       : 'bg-rl-surface/30 border-rl-border/30 text-rl-muted/60 cursor-not-allowed'
                 }`}
               >
-                {!t.ready && <Lock className="w-2.5 h-2.5" />}
-                {t.label}
-                {!t.ready && (
+                {!w.ready && <Lock className="w-2.5 h-2.5" />}
+                {w.label}
+                {!w.ready && (
                   <span className="absolute -top-1.5 -right-1.5 text-[7px] font-bold uppercase tracking-wider px-1 py-0.5 rounded-full bg-rl-surface border border-rl-border/50 text-rl-muted">
-                    em breve
+                    {t('landingPage.emBreve')}
                   </span>
                 )}
               </button>
@@ -683,27 +688,26 @@ Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS 
       <div className="rounded-xl border border-rl-gold/30 bg-rl-gold/5 p-3 space-y-3">
         <div className="flex items-center gap-2">
           <Zap className="w-4 h-4 text-rl-gold" />
-          <label className="label-field !mb-0">Oferta matadora (base da copy)</label>
+          <label className="label-field !mb-0">{t('landingPage.oferta')}</label>
           <span className={`ml-auto text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${
             selectedGom
               ? 'bg-rl-gold/15 text-rl-gold border-rl-gold/30'
               : 'bg-rl-surface text-rl-muted border-rl-border/50'
           }`}>
-            {selectedGom ? `GOM #${selectedGom.num}` : 'sem oferta'}
+            {selectedGom ? `GOM #${selectedGom.num}` : t('landingPage.semOferta')}
           </span>
         </div>
         {goms.length > 0 ? (
           <>
             <p className="text-[11px] text-rl-muted leading-snug">
-              Escolha qual das ofertas matadoras geradas vai servir de base — ou
-              &ldquo;Nenhuma&rdquo; para gerar a copy sem se basear em oferta.
+              {t('landingPage.ofertaTexto')}
             </p>
             <select
               value={selectedGomNum}
               onChange={(e) => setSelectedGomNum(e.target.value)}
               className="input-field w-full text-sm"
             >
-              <option value="">Nenhuma — não usar oferta matadora</option>
+              <option value="">{t('landingPage.nenhumaOferta')}</option>
               {goms.map((g) => (
                 <option key={g.num} value={g.num}>
                   GOM #{g.num}{g.label ? ` — ${g.label}` : ''}
@@ -718,8 +722,7 @@ Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS 
           </>
         ) : (
           <p className="text-[11px] text-rl-muted leading-snug">
-            Nenhuma oferta matadora gerada. Você pode gerar a copy apenas com a direção criativa abaixo,
-            ou gerar as ofertas no módulo &ldquo;Oferta Matadora&rdquo; para escolher uma como base.
+            {t('landingPage.semOfertasGeradas')}
           </p>
         )}
       </div>
@@ -729,30 +732,29 @@ Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS 
         <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-3">
           <div className="flex items-center gap-2">
             <span className="text-sm">🎯</span>
-            <label className="label-field !mb-0">Foco desta copy</label>
+            <label className="label-field !mb-0">{t('landingPage.foco')}</label>
             {(selectedProductId || selectedPersonaId) && (
               <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rl-green/15 text-rl-green border border-rl-green/30">
-                escopo ativo
+                {t('landingPage.escopoAtivo')}
               </span>
             )}
           </div>
           <p className="text-[11px] text-rl-muted leading-snug">
-            Escolha um produto e/ou persona específicos pra IA focar só neles. Deixe em
-            &ldquo;Todos&rdquo;/&ldquo;Todas&rdquo; pra considerar o cliente inteiro.
+            {t('landingPage.focoTexto')}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {productList.length > 0 && (
               <div>
-                <label className="text-[11px] font-bold text-rl-text block mb-1">📦 Produto/serviço</label>
+                <label className="text-[11px] font-bold text-rl-text block mb-1">{t('landingPage.produto')}</label>
                 <select
                   value={selectedProductId}
                   onChange={(e) => setSelectedProductId(e.target.value)}
                   className="input-field w-full text-sm"
                 >
-                  <option value="">Todos os produtos</option>
+                  <option value="">{t('landingPage.todosProdutos')}</option>
                   {productList.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.nome}{p.tipo === 'servico' ? ' · Serviço' : p.tipo === 'produto' ? ' · Produto' : ''}
+                      {p.nome}{p.tipo === 'servico' ? t('landingPage.servico') : p.tipo === 'produto' ? t('landingPage.produtoTipo') : ''}
                     </option>
                   ))}
                 </select>
@@ -760,13 +762,13 @@ Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS 
             )}
             {personaList.length > 0 && (
               <div>
-                <label className="text-[11px] font-bold text-rl-text block mb-1">👤 Persona / público</label>
+                <label className="text-[11px] font-bold text-rl-text block mb-1">{t('landingPage.persona')}</label>
                 <select
                   value={selectedPersonaId}
                   onChange={(e) => setSelectedPersonaId(e.target.value)}
                   className="input-field w-full text-sm"
                 >
-                  <option value="">Todas as personas</option>
+                  <option value="">{t('landingPage.todasPersonas')}</option>
                   {personaList.map((p) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
@@ -780,19 +782,19 @@ Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS 
       {/* Custom note */}
       <div>
         <label className="label-field mb-2">
-          Personalização / Direção criativa
-          <span className="ml-2 text-[10px] text-rl-muted font-normal normal-case">(opcional — influencia toda a copy)</span>
+          {t('landingPage.direcao')}
+          <span className="ml-2 text-[10px] text-rl-muted font-normal normal-case">{t('landingPage.direcaoDica')}</span>
         </label>
         <textarea
           value={customNote}
           onChange={(e) => setCustomNote(e.target.value)}
-          placeholder='Ex: "Foco em leads que já tentaram outras soluções e falharam. Tom mais empático. Destacar suporte pós-venda. Enfatizar a velocidade de resultados nas primeiras 2 semanas..."'
+          placeholder={t('landingPage.direcaoPlaceholder')}
           rows={3}
           className="input-field w-full text-sm resize-none"
         />
         {customNote.trim() && (
           <p className="text-xs text-rl-green mt-1.5 flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3" /> Direção criativa ativa — será aplicada na geração
+            <CheckCircle2 className="w-3 h-3" /> {t('landingPage.direcaoAtiva')}
           </p>
         )}
       </div>
@@ -800,26 +802,26 @@ Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS 
       {/* Resumo do que será enviado à IA — sem contexto automático */}
       <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3">
         <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-2">
-          A IA vai usar apenas
+          {t('landingPage.iaVaiUsar')}
         </p>
         <ul className="space-y-1 text-xs">
           <li className={selectedGom ? 'text-rl-text' : 'text-rl-muted'}>
             {selectedGom
-              ? `✓ Oferta: GOM #${selectedGom.num}${selectedGom.label ? ` — ${selectedGom.label}` : ''}`
-              : '— Nenhuma oferta matadora selecionada'}
+              ? t('landingPage.usaOferta', { oferta: `GOM #${selectedGom.num}${selectedGom.label ? ` — ${selectedGom.label}` : ''}` })
+              : t('landingPage.semOfertaSelecionada')}
           </li>
           <li className={selectedProduct ? 'text-rl-text' : 'text-rl-muted'}>
-            {selectedProduct ? `✓ Produto: ${selectedProduct.nome}` : '— Produto: nenhum (não enviado)'}
+            {selectedProduct ? t('landingPage.usaProduto', { nome: selectedProduct.nome }) : t('landingPage.semProduto')}
           </li>
           <li className={selectedPersona ? 'text-rl-text' : 'text-rl-muted'}>
-            {selectedPersona ? `✓ Persona: ${selectedPersona.name}` : '— Persona: nenhuma (não enviada)'}
+            {selectedPersona ? t('landingPage.usaPersona', { nome: selectedPersona.name }) : t('landingPage.semPersona')}
           </li>
           <li className={customNote.trim() ? 'text-rl-text' : 'text-rl-muted'}>
-            {customNote.trim() ? '✓ Direção criativa preenchida' : '— Sem direção criativa'}
+            {customNote.trim() ? t('landingPage.usaDirecao') : t('landingPage.semDirecao')}
           </li>
         </ul>
         <p className="text-[10px] text-rl-muted mt-2 leading-snug">
-          Dados de empresa, anexos e demais módulos não são enviados automaticamente.
+          {t('landingPage.naoEnviados')}
         </p>
       </div>
 
@@ -839,12 +841,12 @@ Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS 
           className="btn-primary flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {loading
-            ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando copy completa...</>
-            : <><Sparkles className="w-4 h-4" /> {isRegen ? 'Regerar Copy' : 'Gerar Copy com IA'}</>
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('landingPage.gerandoCopy')}</>
+            : <><Sparkles className="w-4 h-4" /> {isRegen ? t('landingPage.regerarCopy') : t('landingPage.gerarCopy')}</>
           }
         </button>
         <button onClick={onCancel} disabled={loading} className="btn-secondary text-sm">
-          Cancelar
+          {t('landingPage.cancelar')}
         </button>
       </div>
 
@@ -852,7 +854,7 @@ Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS 
       {loading && streamPreview && (
         <div className="rounded-xl bg-rl-surface border border-rl-border/60 p-4 max-h-56 overflow-y-auto">
           <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Loader2 className="w-3 h-3 animate-spin text-rl-green" /> Gerando — aparecerá aqui ao finalizar
+            <Loader2 className="w-3 h-3 animate-spin text-rl-green" /> {t('landingPage.gerandoPreview')}
           </p>
           <pre className="text-xs text-rl-text/70 whitespace-pre-wrap font-sans leading-relaxed">{streamPreview}</pre>
         </div>
@@ -864,6 +866,7 @@ Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function LandingPageModule({ project }) {
   const { updateProject } = useApp()
+  const { t } = useI18n()
 
   const [showForm,    setShowForm]    = useState(false)
   const [regenTarget, setRegenTarget] = useState(null) // { id, name, customNote, productId, personaId, ofertaGomNum } | null
@@ -979,10 +982,9 @@ Reescreva APENAS esta dobra aplicando a melhoria solicitada. Mantenha o mesmo ca
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-rl-text">Criação de landing page</h2>
+          <h2 className="text-xl font-bold text-rl-text">{t('landingPage.titulo')}</h2>
           <p className="text-sm text-rl-muted mt-1">
-            Escolha o formato da página e a IA gera a copy já encaixada no wireframe — você vê o texto
-            aplicado no layout, não um blocão de texto. Salve e compare múltiplas versões.
+            {t('landingPage.subtitulo')}
           </p>
         </div>
         {!showForm && (
@@ -990,7 +992,7 @@ Reescreva APENAS esta dobra aplicando a melhoria solicitada. Mantenha o mesmo ca
             onClick={handleNewCopy}
             className="btn-primary flex items-center gap-2 shrink-0 text-sm"
           >
-            <Plus className="w-4 h-4" /> Nova Copy
+            <Plus className="w-4 h-4" /> {t('landingPage.novaCopy')}
           </button>
         )}
       </div>
@@ -998,30 +1000,29 @@ Reescreva APENAS esta dobra aplicando a melhoria solicitada. Mantenha o mesmo ca
       {/* ── Empty state (no copies yet) ─────────────────────────────────────── */}
       {!showForm && landingPages.length === 0 && (
         <div className="glass-card border border-rl-border/60 p-6">
-          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-4">🧩 Escolha o formato da página</p>
+          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-4">{t('landingPage.escolhaFormato')}</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
-            {WIREFRAME_TYPES.map((t) => (
+            {WIREFRAME_TYPES.map((w) => (
               <div
-                key={t.id}
+                key={w.id}
                 className={`rounded-xl border p-3 flex items-center gap-2 ${
-                  t.ready
+                  w.ready
                     ? 'bg-rl-green/5 border-rl-green/30 text-rl-text'
                     : 'bg-rl-surface/40 border-rl-border/40 text-rl-muted'
                 }`}
               >
-                {t.ready ? <LayoutTemplate className="w-3.5 h-3.5 text-rl-green shrink-0" /> : <Lock className="w-3 h-3 shrink-0" />}
-                <span className="text-[11px] font-semibold leading-tight">{t.label}</span>
-                {!t.ready && <span className="ml-auto text-[8px] uppercase tracking-wider text-rl-muted/70">em breve</span>}
+                {w.ready ? <LayoutTemplate className="w-3.5 h-3.5 text-rl-green shrink-0" /> : <Lock className="w-3 h-3 shrink-0" />}
+                <span className="text-[11px] font-semibold leading-tight">{w.label}</span>
+                {!w.ready && <span className="ml-auto text-[8px] uppercase tracking-wider text-rl-muted/70">{t('landingPage.emBreve')}</span>}
               </div>
             ))}
           </div>
           <p className="text-[11px] text-rl-muted mb-4 leading-snug">
-            A IA escreve a copy já no formato escolhido e mostra o texto encaixado no wireframe — pronto para o
-            designer montar a página. Começando pelo <span className="text-rl-green font-semibold">VSL</span>.
+            {t('landingPage.vazioTexto')} <span className="text-rl-green font-semibold">VSL</span>{t('landingPage.vazioTextoFim')}
           </p>
           <div className="text-center">
             <button onClick={handleNewCopy} className="btn-primary flex items-center gap-2 mx-auto">
-              <Sparkles className="w-4 h-4" /> Gerar primeira copy
+              <Sparkles className="w-4 h-4" /> {t('landingPage.gerarPrimeira')}
             </button>
           </div>
         </div>
@@ -1049,8 +1050,8 @@ Reescreva APENAS esta dobra aplicando a melhoria solicitada. Mantenha o mesmo ca
         <div className="space-y-3">
           {!showForm && (
             <p className="text-xs text-rl-muted">
-              {landingPages.length} copy{landingPages.length !== 1 ? 's' : ''} salva{landingPages.length !== 1 ? 's' : ''}
-              {' '}· clique para expandir
+              {t('landingPage.salvas', { count: landingPages.length })}
+              {' '}{t('landingPage.cliqueExpandir')}
             </p>
           )}
           {landingPages.map((lp, i) => (

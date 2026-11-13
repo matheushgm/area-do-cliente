@@ -1,0 +1,23 @@
+// Anexos (AnexosModule, página do cliente › Cadastro)
+export default {
+  erroCarregar: 'Não foi possível carregar o arquivo.',
+  carregandoPrevia: 'Carregando prévia...',
+  baixar: 'Baixar arquivo',
+  visualizar: 'Visualizar arquivo',
+  remover: 'Remover arquivo',
+  erroTamanho: '"{nome}" excede o limite de {mb} MB por arquivo.',
+  erroTotal: 'Limite total de {mb} MB atingido. Remova arquivos antes de adicionar novos.',
+  erroSalvar: 'Erro ao salvar "{nome}": {msg}',
+  erroLink: 'Erro ao gerar link de download. Tente novamente.',
+  indisponivel: 'Arquivo não disponível para download.',
+  enviando: 'Fazendo upload...',
+  solte: 'Solte arquivos aqui ou clique para selecionar',
+  formatos: 'PDF, DOC, XLS, PNG, JPG, MP4 e mais · Máx. {mb} MB por arquivo · Total: {total} MB',
+  anexados: { one: '{count} arquivo anexado', other: '{count} arquivos anexados' },
+  vazio: 'Nenhum anexo ainda',
+  vazioDica: 'Adicione contratos, briefings, relatórios e documentos importantes',
+  cliqueVisualizar: 'clique para visualizar',
+  salvos: 'Anexos salvos!',
+  salvar: 'Salvar anexos',
+  salvosN: { one: '{count} arquivo salvo com sucesso', other: '{count} arquivos salvos com sucesso' },
+}

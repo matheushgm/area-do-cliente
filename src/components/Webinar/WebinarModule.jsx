@@ -7,17 +7,15 @@ import { exportWebinarPDF } from '../../utils/exportPDF'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
 import Toast from '../UI/Toast'
-import {
-  ETAPAS, ABERTURA_BLOCOS, blankWebinar, aberturaProgress,
-  HISTORIA_REGRAS, HISTORIA_TIPOS, HISTORIA_TRANSICOES,
-  HISTORIA_3A_BLOCOS, HISTORIA_3B_BLOCOS,
-  CONTEUDO_NIVEIS, CONTEUDO_REGRAS, CONTEUDO_ETAPA1, CONTEUDO_TEMAS,
-  CONTEUDO_VALIDACAO, CONTEUDO_ETAPA4, CONTEUDO_ETAPA5, CONTEUDO_ETAPA6,
-  CONTEUDO_ROTEIRO_ABERTURA, CONTEUDO_ROTEIRO_PILARES, CONTEUDO_ROTEIRO_PONTOS,
-  CONTEUDO_SLIDES, CONTEUDO_ETAPA9, CONTEUDO_TRANSICOES, CONTEUDO_CHECKLIST,
-  OA_ETAPAS_LISTA, OA_BLOCOS, OA_OBJECOES_FIXAS, OA_FECHAMENTO,
-} from './webinarData'
+import { blankWebinar, aberturaProgress, webinarNoIdioma } from './webinarData'
 import { Check, X } from 'lucide-react'
+import { useI18n } from '../../i18n'
+
+// Texto com um trecho em negrito: o dicionário marca o lugar com {destaque}.
+function ComDestaque({ texto, destaque }) {
+  const [antes, depois = ''] = texto.split('{destaque}')
+  return <>{antes}<strong>{destaque}</strong>{depois}</>
+}
 
 // `webinars` + `onPersist` permitem usar o mesmo editor fora do app logado
 // (link público pro cliente preencher) — ver src/pages/WebinarPublico.jsx.
@@ -25,6 +23,8 @@ import { Check, X } from 'lucide-react'
 export default function WebinarModule({ project, webinars: webinarsProp, onPersist, publicMode = false }) {
   const { updateProject } = useApp()
   const { toast, showToast } = useToast()
+  const { t, lang } = useI18n()
+  const { ETAPAS } = webinarNoIdioma(lang)
 
   const webinars = useMemo(() => {
     const list = webinarsProp ?? project.webinars
@@ -58,8 +58,8 @@ export default function WebinarModule({ project, webinars: webinarsProp, onPersi
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
-      showToast('Link copiado pro clipboard!')
-    }).catch(() => showToast('Link: ' + url))
+      showToast(t('webinar.linkCopiado'))
+    }).catch(() => showToast(t('webinar.linkToast', { url })))
   }
 
   function createWebinar() {
@@ -67,14 +67,14 @@ export default function WebinarModule({ project, webinars: webinarsProp, onPersi
     persist([...webinars, wb])
     setEditingId(wb.id)
     setActiveEtapa('abertura')
-    showToast('Webinar criado!')
+    showToast(t('webinar.criado'))
   }
 
   function deleteWebinar(id) {
-    if (!window.confirm('Excluir este webinar? Essa ação não pode ser desfeita.')) return
+    if (!window.confirm(t('webinar.confirmarExcluir'))) return
     persist(webinars.filter((w) => w.id !== id))
     if (editingId === id) setEditingId(null)
-    showToast('Webinar excluído.')
+    showToast(t('webinar.excluido'))
   }
 
   function commitRename(id) {
@@ -110,7 +110,7 @@ export default function WebinarModule({ project, webinars: webinarsProp, onPersi
             onClick={() => setEditingId(null)}
             className="flex items-center gap-1 text-xs text-rl-muted hover:text-rl-text transition-colors"
           >
-            <ChevronLeft className="w-4 h-4" /> Meus webinars
+            <ChevronLeft className="w-4 h-4" /> {t('webinar.meusWebinars')}
           </button>
           <div className="flex items-center gap-2 ml-auto">
             <Presentation className="w-4 h-4 text-rl-purple" />
@@ -119,9 +119,9 @@ export default function WebinarModule({ project, webinars: webinarsProp, onPersi
           <button
             onClick={() => exportWebinarPDF(editing, project)}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/30 transition-all shrink-0"
-            title="Baixar o webinar completo em PDF"
+            title={t('webinar.baixarPdfTitulo')}
           >
-            <Download className="w-3.5 h-3.5" /> Baixar PDF
+            <Download className="w-3.5 h-3.5" /> {t('webinar.baixarPdf')}
           </button>
         </div>
 
@@ -166,9 +166,9 @@ export default function WebinarModule({ project, webinars: webinarsProp, onPersi
         {!etapaMeta.built && (
           <div className="glass-card p-10 text-center">
             <div className="text-4xl mb-3">{etapaMeta.emoji}</div>
-            <h3 className="text-base font-bold text-rl-text">Etapa &ldquo;{etapaMeta.label}&rdquo;</h3>
+            <h3 className="text-base font-bold text-rl-text">{t('webinar.etapaTitulo', { nome: etapaMeta.label })}</h3>
             <p className="text-sm text-rl-muted mt-1 max-w-md mx-auto">
-              Esta etapa ainda está em construção. Em breve você poderá preencher os blocos dela aqui.
+              {t('webinar.emConstrucao')}
             </p>
           </div>
         )}
@@ -186,10 +186,9 @@ export default function WebinarModule({ project, webinars: webinarsProp, onPersi
           <Presentation className="w-5 h-5 text-rl-purple" />
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-black text-rl-text leading-tight">Criação de Webinar</h2>
+          <h2 className="text-xl font-black text-rl-text leading-tight">{t('webinar.titulo')}</h2>
           <p className="text-sm text-rl-subtle mt-0.5 max-w-2xl">
-            Construa webinars de conversão etapa por etapa. Cada webinar tem Abertura, História,
-            Conteúdo e Ofertas. Você pode criar quantos webinars quiser.
+            {t('webinar.descricao')}
           </p>
         </div>
         {!publicMode && (
@@ -200,11 +199,11 @@ export default function WebinarModule({ project, webinars: webinarsProp, onPersi
                 ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
                 : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/30'
             }`}
-            title="Cria/copia o link pro cliente montar o webinar"
+            title={t('webinar.compartilharTitulo')}
           >
             {copied
-              ? <><Check className="w-4 h-4" /> Link copiado!</>
-              : <><Link2 className="w-4 h-4" /> Compartilhar com cliente</>
+              ? <><Check className="w-4 h-4" /> {t('webinar.linkCopiadoBotao')}</>
+              : <><Link2 className="w-4 h-4" /> {t('webinar.compartilhar')}</>
             }
           </button>
         )}
@@ -212,7 +211,7 @@ export default function WebinarModule({ project, webinars: webinarsProp, onPersi
           onClick={createWebinar}
           className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all shrink-0"
         >
-          <Plus className="w-4 h-4" /> Novo webinar
+          <Plus className="w-4 h-4" /> {t('webinar.novo')}
         </button>
       </div>
 
@@ -220,14 +219,14 @@ export default function WebinarModule({ project, webinars: webinarsProp, onPersi
         <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-12 px-6 text-center space-y-3">
           <Presentation className="w-9 h-9 text-rl-muted/40 mx-auto" />
           <div>
-            <p className="text-sm font-semibold text-rl-text">Nenhum webinar criado ainda.</p>
-            <p className="text-xs text-rl-muted mt-1">Crie o primeiro pra começar a preencher as etapas.</p>
+            <p className="text-sm font-semibold text-rl-text">{t('webinar.vazioTitulo')}</p>
+            <p className="text-xs text-rl-muted mt-1">{t('webinar.vazioTexto')}</p>
           </div>
           <button
             onClick={createWebinar}
             className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
           >
-            <Plus className="w-4 h-4" /> Criar primeiro webinar
+            <Plus className="w-4 h-4" /> {t('webinar.criarPrimeiro')}
           </button>
         </div>
       ) : (
@@ -259,21 +258,21 @@ export default function WebinarModule({ project, webinars: webinarsProp, onPersi
                     <button
                       onClick={() => exportWebinarPDF(w, project)}
                       className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
-                      title="Baixar PDF"
+                      title={t('webinar.baixarPdf')}
                     >
                       <Download className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => { setRenamingId(w.id); setRenameValue(w.nome) }}
                       className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
-                      title="Renomear"
+                      title={t('webinar.renomear')}
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => deleteWebinar(w.id)}
                       className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
-                      title="Excluir"
+                      title={t('comum.excluir')}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -282,7 +281,7 @@ export default function WebinarModule({ project, webinars: webinarsProp, onPersi
 
                 <div className="mt-3">
                   <div className="flex items-center justify-between text-[11px] text-rl-muted mb-1">
-                    <span>Abertura</span>
+                    <span>{t('webinar.abertura')}</span>
                     <span className="font-bold">{prog.percent}%</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-rl-surface overflow-hidden">
@@ -294,7 +293,7 @@ export default function WebinarModule({ project, webinars: webinarsProp, onPersi
                   onClick={() => { setEditingId(w.id); setActiveEtapa('abertura') }}
                   className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/30 transition-all"
                 >
-                  Abrir webinar <ChevronRight className="w-3.5 h-3.5" />
+                  {t('webinar.abrir')} <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             )
@@ -309,11 +308,14 @@ export default function WebinarModule({ project, webinars: webinarsProp, onPersi
 
 // ─── Form da Abertura (render genérico a partir de ABERTURA_BLOCOS) ───────────
 function AberturaForm({ data, onChange }) {
+  const { lang } = useI18n()
+  const { ABERTURA_BLOCOS } = webinarNoIdioma(lang)
   return <BlocoList blocos={ABERTURA_BLOCOS} data={data} onChange={onChange} />
 }
 
 // ─── Lista de blocos genérica (reusada por Abertura e História) ───────────────
 function BlocoList({ blocos, data, onChange }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-4">
       {blocos.map((bloco) => (
@@ -325,7 +327,7 @@ function BlocoList({ blocos, data, onChange }) {
 
           {bloco.helper && (
             <div className="rounded-xl bg-rl-purple/5 border border-rl-purple/20 p-3 space-y-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-rl-purple">Use as fórmulas</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-rl-purple">{t('webinar.useFormulas')}</p>
               {bloco.helper.map((h, i) => (
                 <p key={i} className="text-[11px] text-rl-subtle">• {h}</p>
               ))}
@@ -343,18 +345,20 @@ function BlocoList({ blocos, data, onChange }) {
 
 // ─── Form da História ─────────────────────────────────────────────────────────
 function HistoriaForm({ data, onChange }) {
+  const { t, lang } = useI18n()
+  const { HISTORIA_REGRAS, HISTORIA_TIPOS, HISTORIA_TRANSICOES, HISTORIA_3A_BLOCOS, HISTORIA_3B_BLOCOS } = webinarNoIdioma(lang)
   const tipo = data.tipo || ''
   return (
     <div className="space-y-4">
       {/* Regras de ouro */}
       <div className="glass-card p-5">
-        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-3">Regras de ouro da história</h3>
+        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-3">{t('webinar.historia.regrasTitulo')}</h3>
         <p className="text-xs text-rl-muted mb-3">
-          História de 5-10 min que gera CONEXÃO e CONFIANÇA pra aumentar a conversão.
+          {t('webinar.historia.regrasTexto')}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="rounded-xl bg-rl-green/5 border border-rl-green/30 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-rl-green mb-2">✓ O que fazer</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-rl-green mb-2">{t('webinar.oQueFazer')}</p>
             <ul className="space-y-1">
               {HISTORIA_REGRAS.fazer.map((r, i) => (
                 <li key={i} className="flex items-start gap-1.5 text-[11px] text-rl-subtle">
@@ -364,7 +368,7 @@ function HistoriaForm({ data, onChange }) {
             </ul>
           </div>
           <div className="rounded-xl bg-red-400/5 border border-red-400/30 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-2">✗ O que NÃO fazer</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-2">{t('webinar.oQueNaoFazer')}</p>
             <ul className="space-y-1">
               {HISTORIA_REGRAS.naoFazer.map((r, i) => (
                 <li key={i} className="flex items-start gap-1.5 text-[11px] text-rl-subtle">
@@ -379,17 +383,17 @@ function HistoriaForm({ data, onChange }) {
       {/* Etapa 1: tipo de história */}
       <div className="glass-card p-5 space-y-3">
         <div>
-          <h3 className="text-sm font-black text-rl-text uppercase tracking-wide">Defina seu tipo de história</h3>
-          <p className="text-xs text-rl-muted mt-0.5">Escolha o que se aplica a você — isso libera a estrutura certa abaixo.</p>
+          <h3 className="text-sm font-black text-rl-text uppercase tracking-wide">{t('webinar.historia.tipoTitulo')}</h3>
+          <p className="text-xs text-rl-muted mt-0.5">{t('webinar.historia.tipoTexto')}</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {HISTORIA_TIPOS.map((t) => {
-            const active = tipo === t.id
+          {HISTORIA_TIPOS.map((tp) => {
+            const active = tipo === tp.id
             return (
               <button
-                key={t.id}
+                key={tp.id}
                 type="button"
-                onClick={() => onChange('tipo', t.id)}
+                onClick={() => onChange('tipo', tp.id)}
                 className={`text-left rounded-xl border-2 p-4 transition-all ${
                   active
                     ? 'bg-rl-purple/10 border-rl-purple/60 shadow-glow'
@@ -402,11 +406,11 @@ function HistoriaForm({ data, onChange }) {
                   }`}>
                     {active && <Check className="w-2.5 h-2.5 text-white" />}
                   </span>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-rl-purple">Opção {t.id}</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-rl-purple">{t('webinar.opcao', { id: tp.id })}</span>
                 </div>
-                <p className={`text-sm font-bold ${active ? 'text-rl-purple' : 'text-rl-text'}`}>{t.label}</p>
-                <p className="text-[11px] text-rl-subtle mt-1 leading-snug">{t.desc}</p>
-                <p className="text-[10px] text-rl-muted mt-2 italic">Ex: {t.example}</p>
+                <p className={`text-sm font-bold ${active ? 'text-rl-purple' : 'text-rl-text'}`}>{tp.label}</p>
+                <p className="text-[11px] text-rl-subtle mt-1 leading-snug">{tp.desc}</p>
+                <p className="text-[10px] text-rl-muted mt-2 italic">{t('webinar.exemploCurto', { texto: tp.example })}</p>
               </button>
             )
           })}
@@ -416,8 +420,8 @@ function HistoriaForm({ data, onChange }) {
       {/* Etapa 2: transições */}
       <div className="glass-card p-5 space-y-4">
         <div>
-          <h3 className="text-sm font-black text-rl-text uppercase tracking-wide">Escolha sua transição</h3>
-          <p className="text-xs text-rl-muted mt-0.5">Como você vai ENTRAR na história. Preencha a que vai usar.</p>
+          <h3 className="text-sm font-black text-rl-text uppercase tracking-wide">{t('webinar.historia.transicaoTitulo')}</h3>
+          <p className="text-xs text-rl-muted mt-0.5">{t('webinar.historia.transicaoTexto')}</p>
         </div>
         {HISTORIA_TRANSICOES.map((tr) => (
           <div key={tr.id} className="rounded-xl border border-rl-border p-3 space-y-2">
@@ -427,7 +431,7 @@ function HistoriaForm({ data, onChange }) {
             </div>
             <FieldRenderer field={tr.field} data={data} onChange={onChange} />
             <div className="rounded-lg bg-rl-purple/5 border border-rl-purple/20 p-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-rl-purple mb-0.5">💡 Sua transição fica</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-rl-purple mb-0.5">{t('webinar.historia.suaTransicao')}</p>
               <p className="text-xs text-rl-text leading-snug">{tr.compute(data || {})}</p>
             </div>
           </div>
@@ -437,20 +441,20 @@ function HistoriaForm({ data, onChange }) {
       {/* Etapa 3: estrutura condicional */}
       {tipo === 'A' && (
         <>
-          <SectionDivider label="Estrutura — Avatar Transformado" />
+          <SectionDivider label={t('webinar.historia.estruturaA')} />
           <BlocoList blocos={HISTORIA_3A_BLOCOS} data={data} onChange={onChange} />
         </>
       )}
       {tipo === 'B' && (
         <>
-          <SectionDivider label="Estrutura — Socorrista" />
+          <SectionDivider label={t('webinar.historia.estruturaB')} />
           <BlocoList blocos={HISTORIA_3B_BLOCOS} data={data} onChange={onChange} />
         </>
       )}
       {!tipo && (
         <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 p-6 text-center">
           <p className="text-sm text-rl-muted">
-            Escolha o <strong>tipo de história</strong> acima pra liberar a estrutura de blocos (3A ou 3B).
+            <ComDestaque texto={t('webinar.historia.escolhaAntes')} destaque={t('webinar.historia.escolhaAntesDestaque')} />
           </p>
         </div>
       )}
@@ -470,13 +474,14 @@ function SectionDivider({ label }) {
 
 // Card de regras "✓ fazer / ✗ não fazer" — compartilhado
 function RulesCard({ titulo, descricao, fazer, naoFazer }) {
+  const { t } = useI18n()
   return (
     <div className="glass-card p-5">
       <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-1">{titulo}</h3>
       {descricao && <p className="text-xs text-rl-muted mb-3">{descricao}</p>}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="rounded-xl bg-rl-green/5 border border-rl-green/30 p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-rl-green mb-2">✓ O que fazer</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-rl-green mb-2">{t('webinar.oQueFazer')}</p>
           <ul className="space-y-1">
             {fazer.map((r, i) => (
               <li key={i} className="flex items-start gap-1.5 text-[11px] text-rl-subtle">
@@ -486,7 +491,7 @@ function RulesCard({ titulo, descricao, fazer, naoFazer }) {
           </ul>
         </div>
         <div className="rounded-xl bg-red-400/5 border border-red-400/30 p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-2">✗ O que NÃO fazer</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-2">{t('webinar.oQueNaoFazer')}</p>
           <ul className="space-y-1">
             {naoFazer.map((r, i) => (
               <li key={i} className="flex items-start gap-1.5 text-[11px] text-rl-subtle">
@@ -502,16 +507,23 @@ function RulesCard({ titulo, descricao, fazer, naoFazer }) {
 
 // ─── Form do Conteúdo ─────────────────────────────────────────────────────────
 function ConteudoForm({ data, onChange }) {
+  const { t, lang } = useI18n()
+  const {
+    CONTEUDO_NIVEIS, CONTEUDO_REGRAS, CONTEUDO_ETAPA1, CONTEUDO_TEMAS,
+    CONTEUDO_VALIDACAO, CONTEUDO_ETAPA4, CONTEUDO_ETAPA5, CONTEUDO_ETAPA6,
+    CONTEUDO_ROTEIRO_ABERTURA, CONTEUDO_ROTEIRO_PILARES, CONTEUDO_ROTEIRO_PONTOS,
+    CONTEUDO_SLIDES, CONTEUDO_ETAPA9, CONTEUDO_TRANSICOES, CONTEUDO_CHECKLIST,
+  } = webinarNoIdioma(lang)
   const tema = data.tema || ''
-  const temaMeta = CONTEUDO_TEMAS.find((t) => t.id === tema) || null
+  const temaMeta = CONTEUDO_TEMAS.find((tm) => tm.id === tema) || null
   const transAtiva = data.transicao_oferta || ''
 
   return (
     <div className="space-y-4">
       {/* 3 níveis de convencimento */}
       <div className="glass-card p-5">
-        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-1">Os 3 níveis de convencimento</h3>
-        <p className="text-xs text-rl-muted mb-3">Seu conteúdo precisa estar no NÍVEL 3.</p>
+        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-1">{t('webinar.conteudo.niveisTitulo')}</h3>
+        <p className="text-xs text-rl-muted mb-3">{t('webinar.conteudo.niveisTexto')}</p>
         <div className="space-y-2">
           {CONTEUDO_NIVEIS.map((n) => {
             const cls = n.tone === 'green'
@@ -521,7 +533,7 @@ function ConteudoForm({ data, onChange }) {
                 : { box: 'bg-red-400/5 border-red-400/30', txt: 'text-red-400' }
             return (
               <div key={n.nivel} className={`rounded-xl border p-3 ${cls.box}`}>
-                <p className={`text-xs font-bold ${cls.txt}`}>Nível {n.nivel} — {n.label}</p>
+                <p className={`text-xs font-bold ${cls.txt}`}>{t('webinar.conteudo.nivel', { n: n.nivel, rotulo: n.label })}</p>
                 <p className="text-[11px] text-rl-subtle mt-0.5">{n.text}</p>
               </div>
             )
@@ -531,7 +543,7 @@ function ConteudoForm({ data, onChange }) {
 
       {/* Regras de ouro */}
       <RulesCard
-        titulo="Regras de ouro do conteúdo"
+        titulo={t('webinar.conteudo.regrasTitulo')}
         fazer={CONTEUDO_REGRAS.fazer}
         naoFazer={CONTEUDO_REGRAS.naoFazer}
       />
@@ -542,24 +554,24 @@ function ConteudoForm({ data, onChange }) {
       {/* Etapa 2: tema */}
       <div className="glass-card p-5 space-y-3">
         <div>
-          <h3 className="text-sm font-black text-rl-text uppercase tracking-wide">ETAPA 2: Tema da aula</h3>
-          <p className="text-xs text-rl-muted mt-0.5">Escolha a estrutura — libera os campos certos abaixo.</p>
+          <h3 className="text-sm font-black text-rl-text uppercase tracking-wide">{t('webinar.conteudo.temaTitulo')}</h3>
+          <p className="text-xs text-rl-muted mt-0.5">{t('webinar.conteudo.temaTexto')}</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {CONTEUDO_TEMAS.map((t) => {
-            const active = tema === t.id
+          {CONTEUDO_TEMAS.map((tm) => {
+            const active = tema === tm.id
             return (
               <button
-                key={t.id}
+                key={tm.id}
                 type="button"
-                onClick={() => onChange('tema', t.id)}
+                onClick={() => onChange('tema', tm.id)}
                 className={`text-left rounded-xl border-2 p-3 transition-all ${
                   active ? 'bg-rl-purple/10 border-rl-purple/60 shadow-glow' : 'bg-rl-surface border-rl-border hover:border-rl-purple/30'
                 }`}
               >
-                <span className="text-[10px] font-black uppercase tracking-wider text-rl-purple">Opção {t.id}</span>
-                <p className={`text-xs font-bold mt-0.5 ${active ? 'text-rl-purple' : 'text-rl-text'}`}>{t.label}</p>
-                <p className="text-[10px] text-rl-muted mt-1">{t.desc}</p>
+                <span className="text-[10px] font-black uppercase tracking-wider text-rl-purple">{t('webinar.opcao', { id: tm.id })}</span>
+                <p className={`text-xs font-bold mt-0.5 ${active ? 'text-rl-purple' : 'text-rl-text'}`}>{tm.label}</p>
+                <p className="text-[10px] text-rl-muted mt-1">{tm.desc}</p>
               </button>
             )
           })}
@@ -575,8 +587,8 @@ function ConteudoForm({ data, onChange }) {
 
       {/* Etapa 3: validação (guia) */}
       <div className="glass-card p-5">
-        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-2">ETAPA 3: Validando o conteúdo</h3>
-        <p className="text-xs text-rl-muted mb-3">Pra cada tópico que você vai ensinar, confira:</p>
+        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-2">{t('webinar.conteudo.validacaoTitulo')}</h3>
+        <p className="text-xs text-rl-muted mb-3">{t('webinar.conteudo.validacaoTexto')}</p>
         <ul className="space-y-1.5">
           {CONTEUDO_VALIDACAO.map((v, i) => (
             <li key={i} className="flex items-start gap-2 text-xs text-rl-subtle">
@@ -596,7 +608,7 @@ function ConteudoForm({ data, onChange }) {
       <BlocoList blocos={CONTEUDO_ETAPA6} data={data} onChange={onChange} />
 
       {/* Etapa 7: roteiro condicional */}
-      <SectionDivider label="ETAPA 7: Roteiro do conteúdo" />
+      <SectionDivider label={t('webinar.conteudo.roteiro')} />
       <div className="glass-card p-5 space-y-3">
         <FieldRenderer field={CONTEUDO_ROTEIRO_ABERTURA} data={data} onChange={onChange} />
       </div>
@@ -604,13 +616,13 @@ function ConteudoForm({ data, onChange }) {
       {(tema === 'B' || tema === 'C') && <BlocoList blocos={CONTEUDO_ROTEIRO_PONTOS} data={data} onChange={onChange} />}
       {!tema && (
         <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 p-4 text-center">
-          <p className="text-xs text-rl-muted">Escolha o <strong>tema da aula</strong> (Etapa 2) pra liberar a estrutura do roteiro.</p>
+          <p className="text-xs text-rl-muted"><ComDestaque texto={t('webinar.conteudo.escolhaTema')} destaque={t('webinar.conteudo.escolhaTemaDestaque')} /></p>
         </div>
       )}
 
       {/* Etapa 8: tipos de slides (guia) */}
       <div className="glass-card p-5">
-        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-3">ETAPA 8: Tipos de slides</h3>
+        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-3">{t('webinar.conteudo.slidesTitulo')}</h3>
         <div className="space-y-2">
           {CONTEUDO_SLIDES.map((s, i) => (
             <div key={i} className="rounded-xl border border-rl-border p-3">
@@ -628,17 +640,17 @@ function ConteudoForm({ data, onChange }) {
       {/* Etapa 10: transição para oferta */}
       <div className="glass-card p-5 space-y-3">
         <div>
-          <h3 className="text-sm font-black text-rl-text uppercase tracking-wide">ETAPA 10: Transição para oferta</h3>
-          <p className="text-xs text-rl-muted mt-0.5">Escolha um modelo e adapte abaixo.</p>
+          <h3 className="text-sm font-black text-rl-text uppercase tracking-wide">{t('webinar.conteudo.transicaoTitulo')}</h3>
+          <p className="text-xs text-rl-muted mt-0.5">{t('webinar.conteudo.transicaoTexto')}</p>
         </div>
         <div className="space-y-2">
-          {CONTEUDO_TRANSICOES.map((t) => {
-            const active = transAtiva === t.id
+          {CONTEUDO_TRANSICOES.map((tr) => {
+            const active = transAtiva === tr.id
             return (
               <button
-                key={t.id}
+                key={tr.id}
                 type="button"
-                onClick={() => onChange('transicao_oferta', active ? '' : t.id)}
+                onClick={() => onChange('transicao_oferta', active ? '' : tr.id)}
                 className={`w-full text-left rounded-xl border p-3 transition-all ${
                   active ? 'bg-rl-purple/10 border-rl-purple/50' : 'bg-rl-surface border-rl-border hover:border-rl-purple/30'
                 }`}
@@ -647,15 +659,15 @@ function ConteudoForm({ data, onChange }) {
                   <span className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${active ? 'border-rl-purple bg-rl-purple' : 'border-rl-border'}`}>
                     {active && <Check className="w-2.5 h-2.5 text-white" />}
                   </span>
-                  <span className="text-xs font-bold text-rl-text">{t.titulo}</span>
+                  <span className="text-xs font-bold text-rl-text">{tr.titulo}</span>
                 </div>
-                <p className="text-[11px] text-rl-subtle italic pl-6">{t.texto}</p>
+                <p className="text-[11px] text-rl-subtle italic pl-6">{tr.texto}</p>
               </button>
             )
           })}
         </div>
         <FieldRenderer
-          field={{ id: 'c_transicao_final', type: 'area', label: 'Sua transição (adapte o modelo escolhido)' }}
+          field={{ id: 'c_transicao_final', type: 'area', label: t('webinar.conteudo.suaTransicao') }}
           data={data}
           onChange={onChange}
         />
@@ -663,7 +675,7 @@ function ConteudoForm({ data, onChange }) {
 
       {/* Checklist final */}
       <div className="glass-card p-5">
-        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-3">Checklist final do conteúdo</h3>
+        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-3">{t('webinar.conteudo.checklistTitulo')}</h3>
         <ul className="space-y-1.5">
           {CONTEUDO_CHECKLIST.map((c, i) => (
             <li key={i} className="flex items-start gap-2 text-xs text-rl-subtle">
@@ -678,12 +690,14 @@ function ConteudoForm({ data, onChange }) {
 
 // ─── Form da Oferta de Agendamento ────────────────────────────────────────────
 function OfertaAgendamentoForm({ data, onChange }) {
+  const { t, lang } = useI18n()
+  const { OA_ETAPAS_LISTA, OA_BLOCOS, OA_OBJECOES_FIXAS, OA_FECHAMENTO } = webinarNoIdioma(lang)
   return (
     <div className="space-y-4">
       {/* Lista das 10 etapas */}
       <div className="glass-card p-5">
-        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-1">As 10 etapas da oferta de agendamento</h3>
-        <p className="text-xs text-rl-muted mb-3">Objetivo: converter o webinar em aplicações para reunião de demonstração.</p>
+        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-1">{t('webinar.oferta.etapasTitulo')}</h3>
+        <p className="text-xs text-rl-muted mb-3">{t('webinar.oferta.etapasTexto')}</p>
         <ol className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
           {OA_ETAPAS_LISTA.map((e, i) => (
             <li key={i} className="flex items-start gap-2 text-xs text-rl-subtle">
@@ -697,16 +711,16 @@ function OfertaAgendamentoForm({ data, onChange }) {
       <BlocoList blocos={OA_BLOCOS} data={data} onChange={onChange} />
 
       {/* Etapa 9 — objeções */}
-      <SectionDivider label="ETAPA 9: Responder objeções + CTA" />
-      <p className="text-xs text-rl-muted -mt-2">Estrutura de cada resposta: Pergunta → Resposta → CTA para agendar.</p>
+      <SectionDivider label={t('webinar.oferta.objecoes')} />
+      <p className="text-xs text-rl-muted -mt-2">{t('webinar.oferta.objecoesTexto')}</p>
       <div className="space-y-3">
         {OA_OBJECOES_FIXAS.map((obj) => (
           <div key={obj.n} className="glass-card p-4 space-y-2">
             <p className="text-sm font-bold text-rl-text">
-              <span className="text-rl-purple">Objeção {obj.n}:</span> &ldquo;{obj.pergunta}&rdquo;
+              <span className="text-rl-purple">{t('webinar.oferta.objecao', { n: obj.n })}</span> &ldquo;{obj.pergunta}&rdquo;
             </p>
             <FieldRenderer
-              field={{ id: `oa_obj${obj.n}_resp`, type: 'area', label: 'Sua resposta' }}
+              field={{ id: `oa_obj${obj.n}_resp`, type: 'area', label: t('webinar.oferta.suaResposta') }}
               data={data}
               onChange={onChange}
             />
@@ -720,19 +734,19 @@ function OfertaAgendamentoForm({ data, onChange }) {
         {/* 3 objeções personalizadas */}
         {[8, 9, 10].map((n) => (
           <div key={n} className="glass-card p-4 space-y-2">
-            <p className="text-sm font-bold text-rl-purple">Objeção {n} (específica do seu nicho)</p>
+            <p className="text-sm font-bold text-rl-purple">{t('webinar.oferta.objecaoNicho', { n })}</p>
             <FieldRenderer
-              field={{ id: `oa_obj${n}_pergunta`, type: 'text', label: 'A objeção' }}
+              field={{ id: `oa_obj${n}_pergunta`, type: 'text', label: t('webinar.oferta.aObjecao') }}
               data={data}
               onChange={onChange}
             />
             <FieldRenderer
-              field={{ id: `oa_obj${n}_resp`, type: 'area', label: 'Sua resposta' }}
+              field={{ id: `oa_obj${n}_resp`, type: 'area', label: t('webinar.oferta.suaResposta') }}
               data={data}
               onChange={onChange}
             />
             <FieldRenderer
-              field={{ id: `oa_obj${n}_cta`, type: 'text', label: 'CTA para agendar' }}
+              field={{ id: `oa_obj${n}_cta`, type: 'text', label: t('webinar.oferta.ctaAgendar') }}
               data={data}
               onChange={onChange}
             />
@@ -747,6 +761,7 @@ function OfertaAgendamentoForm({ data, onChange }) {
 }
 
 function FieldRenderer({ field, data, onChange }) {
+  const { t } = useI18n()
   const f = field
 
   if (f.type === 'alert') {
@@ -837,7 +852,7 @@ function FieldRenderer({ field, data, onChange }) {
                 }`}>
                   {active && <Check className="w-2.5 h-2.5 text-white" />}
                 </span>
-                <span className="italic">&ldquo;{opt}&rdquo;</span>
+                <span className="italic">&ldquo;{f.labels?.[i] ?? opt}&rdquo;</span>
               </button>
             )
           })}
@@ -850,7 +865,7 @@ function FieldRenderer({ field, data, onChange }) {
     return (
       <div>
         <label className="text-xs font-bold text-rl-text block mb-1">{f.label}</label>
-        {f.example && <p className="text-[11px] text-rl-muted mb-2 italic">Exemplo: {f.example}</p>}
+        {f.example && <p className="text-[11px] text-rl-muted mb-2 italic">{t('webinar.exemplo', { texto: f.example })}</p>}
         <div className="space-y-2">
           {f.options.map((opt) => (
             <div key={opt.id}>
@@ -872,7 +887,7 @@ function FieldRenderer({ field, data, onChange }) {
   return (
     <div>
       <label className="text-xs font-bold text-rl-text block mb-1">{f.label}</label>
-      {f.example && <p className="text-[11px] text-rl-muted mb-1.5 italic">Exemplo: {f.example}</p>}
+      {f.example && <p className="text-[11px] text-rl-muted mb-1.5 italic">{t('webinar.exemplo', { texto: f.example })}</p>}
       <div className={f.prefix ? 'flex items-start gap-2' : ''}>
         {f.prefix && (
           <span className="mt-2.5 text-xs font-bold text-rl-purple shrink-0 whitespace-nowrap">{f.prefix}</span>

@@ -2,8 +2,14 @@
 // Camada compartilhada do Wizard de Oferta Matadora (metodologia $100M Offers).
 // Schema, constantes, metadados dos passos, prompts da IA (final + assist).
 // Sem React — importado pelos steps, pela shell e pelos assistentes de IA.
+//
+// Rótulos, dicas e modelos de frase das opções (e títulos dos passos) moram em
+// src/i18n/locales/{pt,en}/ofertaPassos.js, em `dados`, e viram getters no fim do
+// arquivo (mesmo esquema do KickoffQuestions). Ids e `value` ficam aqui e não mudam:
+// são o que vai pro ofertaData. Os prompts continuam em português.
 // ─────────────────────────────────────────────────────────────────────────────
-import { streamClaude } from '../../lib/claude'
+import { streamClaude, instrucaoDeIdioma } from '../../lib/claude'
+import { t, idiomaAtual } from '../../i18n'
 
 // ─── ID curto p/ itens de listas dinâmicas ──────────────────────────────────
 export const uid = () => crypto.randomUUID()
@@ -84,7 +90,16 @@ export const ESFORCO_OPTS = [
   { value: 'dwy', label: 'Faço com ele (DWY)',  hint: 'Acompanho de perto' },
   { value: 'diy', label: 'Ele faz sozinho (DIY)', hint: 'Só entrego o método' },
 ]
+// Os valores são gravados em entrega.meio (e vão no prompt): ficam em português.
 export const MEIO_OPTS = ['Presencial', 'Vídeo', 'Áudio', 'Texto', 'Zoom', 'Dashboard/App', 'WhatsApp']
+const MEIO_CHAVE = {
+  Presencial: 'presencial', Vídeo: 'video', Áudio: 'audio', Texto: 'texto',
+  Zoom: 'zoom', 'Dashboard/App': 'dashboard', WhatsApp: 'whatsapp',
+}
+/** Rótulo do meio de entrega no idioma de agora (o valor gravado continua em pt). */
+export function rotuloMeio(m) {
+  return MEIO_CHAVE[m] ? t(`ofertaPassos.dados.meio.${MEIO_CHAVE[m]}`) : m
+}
 
 export const ESCASSEZ_TIPOS = [
   { value: 'vagas',       label: 'Vagas totais',    tpl: 'Atendemos apenas [X] clientes no total.' },
@@ -256,7 +271,9 @@ const ctx = (project, o) =>
 
 // kind ∈ 'sonho' | 'problemas' | 'solucoes' | 'stack' | 'bonus' | 'garantia' | 'nomes'
 export async function aiAssist({ kind, project, oferta: o }) {
-  let system = 'Você é especialista em ofertas ($100M Offers, Hormozi). Responda SOMENTE com JSON válido, sem texto fora do JSON, sem travessões.'
+  let system = 'Você é especialista em ofertas ($100M Offers, Hormozi). Responda SOMENTE com JSON válido, sem texto fora do JSON, sem travessões.' +
+    instrucaoDeIdioma() +
+    (idiomaAtual() === 'en' ? ' Keep enum values (such as "driver") exactly as specified.' : '')
   let user = ''
 
   if (kind === 'sonho') {
@@ -302,6 +319,26 @@ Gere 5 nomes de oferta usando a fórmula M-A-G-I-C (Magnet, Avatar, Goal, Interv
     onChunk: () => {},
   })
   const parsed = extractJson(text)
-  if (parsed == null) throw new Error('A IA não retornou um formato válido. Tente de novo.')
+  if (parsed == null) throw new Error(t('ofertaPassos.erroFormatoIa'))
   return parsed
 }
+
+// ─── Textos traduzidos (getters) ────────────────────────────────────────────
+function ligar(alvo, campos, chave) {
+  for (const campo of campos) {
+    if (!(campo in alvo)) continue
+    Object.defineProperty(alvo, campo, { enumerable: true, configurable: true, get: () => t(`${chave}.${campo}`) })
+  }
+}
+function ligarTextosDaOferta() {
+  const NS = 'ofertaPassos.dados'
+  for (const d of DRIVERS) ligar(d, ['label', 'hint'], `${NS}.drivers.${d.id}`)
+  for (const o of ATENCAO_OPTS) ligar(o, ['label', 'hint'], `${NS}.atencao.${o.value}`)
+  for (const o of ESFORCO_OPTS) ligar(o, ['label', 'hint'], `${NS}.esforco.${o.value}`)
+  // Modelo de frase vazio (opção "sem escassez/urgência") continua vazio.
+  for (const o of ESCASSEZ_TIPOS) ligar(o, o.tpl ? ['label', 'tpl'] : ['label'], `${NS}.escassez.${o.value}`)
+  for (const o of URGENCIA_TIPOS) ligar(o, o.tpl ? ['label', 'tpl'] : ['label'], `${NS}.urgencia.${o.value}`)
+  for (const o of GARANTIA_TIPOS) ligar(o, ['label', 'dica', 'tplB2c', 'tplB2b'], `${NS}.garantia.${o.value}`)
+  for (const s of STEP_META) ligar(s, ['title', 'subtitle'], `${NS}.passos.${s.id}`)
+}
+ligarTextosDaOferta()

@@ -3,6 +3,7 @@ import { Copy, CheckCheck, FileDown, Pencil, Check, X, Sparkles, Loader2, Trash2
 import MarkdownView from '../Editor/MarkdownView'
 import MarkdownEditor from '../Editor/MarkdownEditor'
 import { exportCreativoSinglePDF } from '../../lib/creativoPDF'
+import { useI18n } from '../../i18n'
 
 // ── Split ─────────────────────────────────────────────────────────────────────
 
@@ -99,6 +100,7 @@ function withOriginalHeading(chunk, edited) {
 // ── ChunkCard ─────────────────────────────────────────────────────────────────
 
 function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelete }) {
+  const { t } = useI18n()
   const { title, body } = parseChunk(item.chunk)
 
   const [copied,        setCopied]        = useState(false)
@@ -183,7 +185,7 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
     setRefineOpen(true)
     setRefinedContent(null)
     setStreamingBody('')
-    setRefineNote(`Mude apenas este trecho, mantendo o restante exatamente igual:\n"${String(trecho || '').trim()}"\n\nO que mudar: `)
+    setRefineNote(t('criativos.resultado.notaTrecho', { trecho: String(trecho || '').trim() }))
   }
 
   return (
@@ -192,7 +194,7 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
       <div className="px-4 py-3 border-b border-rl-border/40 flex items-start justify-between gap-3 bg-rl-surface/40">
         <div className="flex-1 min-w-0">
           <div className="text-[10px] text-rl-muted font-semibold uppercase tracking-wide mb-0.5">
-            Criativo {index + 1}
+            {t('criativos.card.criativoN', { n: index + 1 })}
           </div>
           {title && (
             <p className="text-sm font-semibold text-rl-text leading-snug">{title}</p>
@@ -206,13 +208,13 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
                 onClick={saveEdit}
                 className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg bg-rl-purple/10 border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/20 transition-all"
               >
-                <Check className="w-3 h-3" /> Salvar
+                <Check className="w-3 h-3" /> {t('comum.salvar')}
               </button>
               <button
                 onClick={cancelEdit}
                 className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-red-400 transition-all"
               >
-                <X className="w-3 h-3" /> Cancelar
+                <X className="w-3 h-3" /> {t('comum.cancelar')}
               </button>
             </>
           ) : (
@@ -226,7 +228,7 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
                       : 'bg-rl-purple/10 border-rl-purple/30 text-rl-purple hover:bg-rl-purple/20'
                   }`}
                 >
-                  <Sparkles className="w-3 h-3" /> Refinar
+                  <Sparkles className="w-3 h-3" /> {t('criativos.resultado.refinar')}
                 </button>
               )}
               {onChange && (
@@ -234,7 +236,7 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
                   onClick={startEdit}
                   className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-blue transition-all"
                 >
-                  <Pencil className="w-3 h-3" /> Editar
+                  <Pencil className="w-3 h-3" /> {t('comum.editar')}
                 </button>
               )}
               <button
@@ -249,7 +251,7 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
                 className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-purple transition-all"
               >
                 {copied ? <CheckCheck className="w-3 h-3 text-rl-green" /> : <Copy className="w-3 h-3" />}
-                {copied ? 'Copiado!' : 'Copiar'}
+                {copied ? t('comum.copiado') : t('comum.copiar')}
               </button>
               {/* Excluir — dois cliques, pra não apagar criativo sem querer */}
               {onDelete && (
@@ -259,22 +261,22 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
                       onClick={() => { setConfirmDelete(false); onDelete() }}
                       className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg bg-red-400/10 border border-red-400/30 text-red-400 hover:bg-red-400/20 transition-all"
                     >
-                      <Check className="w-3 h-3" /> Excluir
+                      <Check className="w-3 h-3" /> {t('comum.excluir')}
                     </button>
                     <button
                       onClick={() => setConfirmDelete(false)}
                       className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-text transition-all"
                     >
-                      Cancelar
+                      {t('comum.cancelar')}
                     </button>
                   </span>
                 ) : (
                   <button
                     onClick={() => setConfirmDelete(true)}
-                    title="Excluir este criativo"
+                    title={t('criativos.resultado.excluirCriativo')}
                     className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-red-400 transition-all"
                   >
-                    <Trash2 className="w-3 h-3" /> Excluir
+                    <Trash2 className="w-3 h-3" /> {t('comum.excluir')}
                   </button>
                 )
               )}
@@ -306,13 +308,13 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
           {!refinedContent && !isRefining && (
             <>
               <p className="text-[10px] font-semibold text-rl-purple uppercase tracking-wide pt-3">
-                O que deseja melhorar?
+                {t('criativos.resultado.oQueMelhorar')}
               </p>
               <textarea
                 value={refineNote}
                 onChange={(e) => setRefineNote(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitRefine() }}
-                placeholder="Ex: deixe mais direto, use linguagem mais informal, enfatize o prazo..."
+                placeholder={t('criativos.resultado.refinarPlaceholder')}
                 rows={3}
                 className="w-full bg-rl-surface/60 border border-rl-purple/30 rounded-xl p-3 text-xs text-rl-text leading-relaxed resize-none focus:outline-none focus:border-rl-purple/60 transition-colors placeholder:text-rl-muted/60"
                 autoFocus
@@ -323,13 +325,13 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
                   disabled={!refineNote.trim()}
                   className="flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg bg-rl-purple/10 border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/20 transition-all disabled:opacity-50"
                 >
-                  <Sparkles className="w-3 h-3" /> Refinar
+                  <Sparkles className="w-3 h-3" /> {t('criativos.resultado.refinar')}
                 </button>
                 <button
                   onClick={() => { setRefineOpen(false); setRefineNote('') }}
                   className="text-[10px] px-2.5 py-1 text-rl-muted hover:text-rl-text transition-all"
                 >
-                  Cancelar
+                  {t('comum.cancelar')}
                 </button>
               </div>
             </>
@@ -339,7 +341,7 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
           {isRefining && (
             <>
               <p className="text-[10px] font-semibold text-rl-purple uppercase tracking-wide pt-3 flex items-center gap-1.5">
-                <Loader2 className="w-3 h-3 animate-spin" /> Refinando...
+                <Loader2 className="w-3 h-3 animate-spin" /> {t('criativos.resultado.refinando')}
               </p>
               {streamingBody && (
                 <div className="bg-rl-surface/60 border border-rl-purple/20 rounded-xl p-3">
@@ -353,7 +355,7 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
           {refinedContent && !isRefining && (
             <>
               <p className="text-[10px] font-semibold text-rl-purple uppercase tracking-wide pt-3">
-                Versão refinada
+                {t('criativos.resultado.versaoRefinada')}
               </p>
               <div className="bg-rl-purple/5 border border-rl-purple/30 rounded-xl p-3">
                 <MarkdownView content={refinedContent} />
@@ -363,13 +365,13 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
                   onClick={approveRefine}
                   className="flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition-all"
                 >
-                  <Check className="w-3 h-3" /> Aprovar
+                  <Check className="w-3 h-3" /> {t('criativos.resultado.aprovar')}
                 </button>
                 <button
                   onClick={rejectRefine}
                   className="flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg bg-rl-surface text-rl-muted hover:text-red-400 transition-all"
                 >
-                  <X className="w-3 h-3" /> Recusar e tentar novamente
+                  <X className="w-3 h-3" /> {t('criativos.resultado.recusar')}
                 </button>
               </div>
             </>
@@ -384,6 +386,7 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
 // ── CreativeResultBlock ───────────────────────────────────────────────────────
 
 export default function CreativeResultBlock({ content, type, companyName, onChunkChange, onRefine, onChunkDelete }) {
+  const { t } = useI18n()
   const [allCopied, setAllCopied] = useState(false)
   const items = splitChunks(content)
   const { estudo, tabela } = extrasDoConteudo(content)
@@ -398,19 +401,19 @@ export default function CreativeResultBlock({ content, type, companyName, onChun
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-xs text-rl-muted">
-          {items.length} criativo{items.length !== 1 ? 's' : ''} gerado{items.length !== 1 ? 's' : ''}
+          {t('criativos.resultado.nCriativos', { count: items.length })}
         </span>
         <button
           onClick={copyAll}
           className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
         >
           {allCopied ? <CheckCheck className="w-3.5 h-3.5 text-rl-green" /> : <Copy className="w-3.5 h-3.5" />}
-          {allCopied ? 'Tudo copiado!' : 'Copiar tudo'}
+          {allCopied ? t('criativos.resultado.tudoCopiado') : t('criativos.resultado.copiarTudo')}
         </button>
       </div>
 
       {/* Aberto enquanto os roteiros não começaram a chegar; depois recolhe. */}
-      {estudo && <BlocoExtra titulo="Estudo do público" texto={estudo} aberto={items.length === 0} />}
+      {estudo && <BlocoExtra titulo={t('criativos.resultado.estudoPublico')} texto={estudo} aberto={items.length === 0} />}
 
       {items.map((item, i) => (
         <ChunkCard
@@ -427,7 +430,7 @@ export default function CreativeResultBlock({ content, type, companyName, onChun
         />
       ))}
 
-      {tabela && <BlocoExtra titulo="Tabela do laboratório" texto={tabela} aberto />}
+      {tabela && <BlocoExtra titulo={t('criativos.resultado.tabelaLab')} texto={tabela} aberto />}
     </div>
   )
 }

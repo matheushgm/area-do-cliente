@@ -1,4 +1,5 @@
 import { fmtCurrency, todayISO } from '../../lib/utils'
+import { t, localeAtual } from '../../i18n'
 export const CHANNEL_OPTIONS = ['Meta Ads', 'Google Ads', 'LinkedIn Ads', 'TikTok Ads', 'YouTube Ads']
 
 export const STAGE_KEYS = ['topo', 'meio', 'fundo']
@@ -22,10 +23,11 @@ export const FUNNEL_NAME = 'col-span-3 sm:col-span-1'
 
 export const channelStyle = (name) => CHANNEL_STYLE[name] || { logo: null, color: '#64748B' }
 
+// label/short são getters: saem no idioma atual na hora da leitura.
 export const STAGE_META = {
-  topo:  { label: 'Topo de Funil',  short: 'Topo',  colorClass: 'text-rl-cyan',   bgClass: 'bg-rl-cyan/10',   borderClass: 'border-rl-cyan/20',   dotClass: 'bg-rl-cyan'   },
-  meio:  { label: 'Meio de Funil',  short: 'Meio',  colorClass: 'text-rl-purple', bgClass: 'bg-rl-purple/10', borderClass: 'border-rl-purple/20', dotClass: 'bg-rl-purple' },
-  fundo: { label: 'Fundo de Funil', short: 'Fundo', colorClass: 'text-rl-green',  bgClass: 'bg-rl-green/10',  borderClass: 'border-rl-green/20',  dotClass: 'bg-rl-green'  },
+  topo:  { get label() { return t('campanhas.etapa.topo') },  get short() { return t('campanhas.etapa.topoCurto') },  colorClass: 'text-rl-cyan',   bgClass: 'bg-rl-cyan/10',   borderClass: 'border-rl-cyan/20',   dotClass: 'bg-rl-cyan'   },
+  meio:  { get label() { return t('campanhas.etapa.meio') },  get short() { return t('campanhas.etapa.meioCurto') },  colorClass: 'text-rl-purple', bgClass: 'bg-rl-purple/10', borderClass: 'border-rl-purple/20', dotClass: 'bg-rl-purple' },
+  fundo: { get label() { return t('campanhas.etapa.fundo') }, get short() { return t('campanhas.etapa.fundoCurto') }, colorClass: 'text-rl-green',  bgClass: 'bg-rl-green/10',  borderClass: 'border-rl-green/20',  dotClass: 'bg-rl-green'  },
 }
 
 export function getDaysLeft() {
@@ -36,7 +38,7 @@ export function getDaysLeft() {
 
 export function getMonthLabel() {
   return new Date()
-    .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    .toLocaleDateString(localeAtual(), { month: 'long', year: 'numeric' })
     .replace(/^./, (c) => c.toUpperCase())
 }
 
@@ -67,7 +69,7 @@ export function getDaysBetween(startISO, endISO) {
   return Math.max(diff, 1)
 }
 
-// Label PT-BR para o período do planejamento.
+// Label (no idioma atual) para o período do planejamento.
 // - Se start = hoje e end = último dia do mês corrente → "Maio 2026" (legado)
 // - Se start = hoje e end ≠ último dia → "até DD/MM/YYYY"
 // - Caso contrário → "DD/MM até DD/MM/YYYY"
@@ -84,14 +86,17 @@ export function getPeriodLabel(startDateISO, endDateISO) {
     end.getDate() === lastOfMonth.getDate()
 
   if (isFromToday && endIsLastOfMonth) {
-    return end.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    return end.toLocaleDateString(localeAtual(), { month: 'long', year: 'numeric' })
       .replace(/^./, (c) => c.toUpperCase())
   }
   if (isFromToday) {
-    return `até ${end.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+    return t('campanhas.periodo.ate', { data: end.toLocaleDateString(localeAtual(), { day: '2-digit', month: '2-digit', year: 'numeric' }) })
   }
   const start = new Date(startDateISO + 'T00:00:00')
-  return `${start.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} até ${end.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+  return t('campanhas.periodo.intervalo', {
+    inicio: start.toLocaleDateString(localeAtual(), { day: '2-digit', month: '2-digit' }),
+    fim: end.toLocaleDateString(localeAtual(), { day: '2-digit', month: '2-digit', year: 'numeric' }),
+  })
 }
 
 export const fmtBRL = (n) => fmtCurrency(n, 2)
@@ -166,7 +171,7 @@ export function formatCampaignPeriod(startISO, endISO) {
   if (!startISO || !endISO) return null
   const fmt = (iso) => {
     const d = new Date(iso + 'T00:00:00')
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+    return d.toLocaleDateString(localeAtual(), { day: '2-digit', month: '2-digit' })
   }
   return `${fmt(startISO)} → ${fmt(endISO)}`
 }

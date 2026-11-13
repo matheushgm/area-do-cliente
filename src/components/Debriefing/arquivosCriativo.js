@@ -8,19 +8,21 @@
 // não conhece `arquivos` leem.
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { t } from '../../i18n'
 
 export const ATTACHMENT_BUCKET = 'attachments'
 
+// `label` sai no idioma atual (locales/{pt,en}/central.js); o id é o valor gravado.
 export const FORMATOS = {
-  feed:  { id: 'feed',  label: 'Feed' },
-  story: { id: 'story', label: 'Story' },
-  card:  { id: 'card',  label: 'Card' },
+  feed:  { id: 'feed',  get label() { return t('central.formatos.feed') } },
+  story: { id: 'story', get label() { return t('central.formatos.story') } },
+  card:  { id: 'card',  get label() { return t('central.formatos.card') } },
 }
 
 // Como o lote foi montado no "Grupo de anúncios" (ad.grupo.modo).
 export const MODOS_GRUPO = {
-  posts:     { id: 'posts',     label: 'Posts separados' },
-  carrossel: { id: 'carrossel', label: 'Carrossel' },
+  posts:     { id: 'posts',     get label() { return t('central.modosGrupo.posts') } },
+  carrossel: { id: 'carrossel', get label() { return t('central.modosGrupo.carrossel') } },
 }
 
 export function midiaDoArquivo(file) {
@@ -60,9 +62,9 @@ export function formatoPorMedida(largura, altura) {
 }
 
 export function formatoPorNome(name) {
-  const t = tokens(name)
-  if (t.some((x) => TOKEN_STORY.test(x))) return 'story'
-  if (t.some((x) => TOKEN_FEED.test(x))) return 'feed'
+  const tk = tokens(name)
+  if (tk.some((x) => TOKEN_STORY.test(x))) return 'story'
+  if (tk.some((x) => TOKEN_FEED.test(x))) return 'feed'
   return null
 }
 
@@ -168,10 +170,10 @@ export function espelhoLegado(arquivos) {
 export function resumoArquivos(arquivos) {
   if (!arquivos?.length) return ''
   if (arquivos.some((a) => a.formato === 'card')) {
-    return `Carrossel · ${arquivos.length} ${arquivos.length === 1 ? 'card' : 'cards'}`
+    return t('central.resumoCarrossel', { count: arquivos.length })
   }
   const tem = (f) => arquivos.some((a) => a.formato === f)
-  return [tem('feed') && 'Feed', tem('story') && 'Story'].filter(Boolean).join(' + ') || `${arquivos.length} arquivos`
+  return [tem('feed') && FORMATOS.feed.label, tem('story') && FORMATOS.story.label].filter(Boolean).join(' + ') || t('central.nArquivos', { count: arquivos.length })
 }
 
 export function caminhoArquivo(projectId, adId, formato, name) {

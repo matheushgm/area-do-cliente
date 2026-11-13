@@ -22,6 +22,7 @@ import {
 } from './CampaignPlanner/pullFromDashboard'
 import { normStr } from '../lib/dashboardData'
 import VideoGuide from './VideoGuide'
+import { useI18n, t as tGlobal } from '../i18n'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -51,7 +52,7 @@ function collapseChannels(channels = []) {
  * para o novo formato com array de contas.
  */
 function initAccounts(campaignPlan) {
-  if (!campaignPlan) return [newAccount('Conta Principal')]
+  if (!campaignPlan) return [newAccount(tGlobal('campanhas.contaPrincipal'))]
 
   // Já está no novo formato
   if (Array.isArray(campaignPlan.accounts) && campaignPlan.accounts.length > 0) {
@@ -64,7 +65,7 @@ function initAccounts(campaignPlan) {
   // Formato legado → wrap na primeira conta
   return [{
     id:             crypto.randomUUID(),
-    name:           'Conta Principal',
+    name:           tGlobal('campanhas.contaPrincipal'),
     orcamentoTotal: campaignPlan.orcamentoTotal ?? campaignPlan.totalBudget ?? 0,
     valorJaUsado:   campaignPlan.valorJaUsado || 0,
     channels:       collapseChannels(campaignPlan.channels),
@@ -76,6 +77,7 @@ function initAccounts(campaignPlan) {
 export default function CampaignPlanner({ project, onSave }) {
   const { updateProject } = useApp()
   const { toast, showToast } = useToast()
+  const { t, lang } = useI18n()
   const isMounted = useRef(false)
   const [copied, setCopied] = useState(false)
 
@@ -134,10 +136,11 @@ export default function CampaignPlanner({ project, onSave }) {
 
   const daysLeft     = useMemo(() => getDaysBetween(startDate, endDate),  [startDate, endDate])
   const idealDaily   = daysLeft > 0 ? budgetDisponivel / daysLeft : 0
-  const monthLabel   = useMemo(() => getPeriodLabel(startDate, endDate),  [startDate, endDate])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const monthLabel   = useMemo(() => getPeriodLabel(startDate, endDate),  [startDate, endDate, lang])
   const minEndDate   = useMemo(() => {
-    const t = todayISO()
-    return startDate && startDate > t ? startDate : t
+    const hoje = todayISO()
+    return startDate && startDate > hoje ? startDate : hoje
   }, [startDate])
 
   const derived = useMemo(() => {
@@ -180,13 +183,13 @@ export default function CampaignPlanner({ project, onSave }) {
         const accSum = subs.reduce((s, a) => s + (a.percentage || 0), 0)
         stageErrors.push({
           id: `${ch.id}:contas`, channelId: ch.id, kind: 'accounts',
-          name: `${ch.name} · divisão entre contas`, sum: accSum, valid: accSum === 100,
+          name: t('campanhas.divisaoEntreContas', { canal: ch.name }), sum: accSum, valid: accSum === 100,
         })
         subs.forEach((a) => {
           const sum = stageSum(a.stages)
           stageErrors.push({
             id: `${ch.id}:${a.id}`, channelId: ch.id, kind: 'stages',
-            name: `${ch.name} · ${a.name || 'conta sem nome'}`, sum, valid: sum === 100,
+            name: `${ch.name} · ${a.name || t('campanhas.contaSemNome')}`, sum, valid: sum === 100,
           })
         })
       } else {
@@ -203,7 +206,7 @@ export default function CampaignPlanner({ project, onSave }) {
       stageErrors,
       allValid: (chSum === 100 || channels.length === 0) && stageErrors.every((e) => e.valid),
     }
-  }, [channels])
+  }, [channels, t])
 
   // ── Channel Updaters ───────────────────────────────────────────────────────
 
@@ -327,18 +330,18 @@ export default function CampaignPlanner({ project, onSave }) {
   }, [projectAccountNames, account.name])
 
   const pullScopeLabel = useMemo(() => {
-    if (pullNames.size === 0) return 'nenhuma conta vinculada'
+    if (pullNames.size === 0) return t('campanhas.escopo.nenhuma')
     if (pullNames.size === 1) return [...pullNames][0]
-    return `${pullNames.size} contas do cliente`
-  }, [pullNames])
+    return t('campanhas.escopo.varias', { n: pullNames.size })
+  }, [pullNames, t])
 
   const canPull = !dash.loading && !dash.error && pullNames.size > 0
 
   function pullGuard() {
-    if (dash.loading) { showToast('Ainda carregando os dados de tráfego…', 'error'); return false }
-    if (dash.error)   { showToast('Erro ao carregar tráfego: ' + dash.error, 'error'); return false }
+    if (dash.loading) { showToast(t('campanhas.toast.carregando'), 'error'); return false }
+    if (dash.error)   { showToast(t('campanhas.toast.erroTrafego', { erro: dash.error }), 'error'); return false }
     if (!pullNames.size) {
-      showToast('Vincule uma conta de anúncio a este cliente na seção acima', 'error')
+      showToast(t('campanhas.toast.vincule'), 'error')
       return false
     }
     return true
@@ -352,11 +355,11 @@ export default function CampaignPlanner({ project, onSave }) {
     setStartDate(todayISO())
     setEndDate(defaultEndDateISO())
     if (total === 0) {
-      showToast(`Sem gasto no mês para ${pullScopeLabel}. Datas atualizadas.`, 'error')
+      showToast(t('campanhas.toast.semGasto', { escopo: pullScopeLabel }), 'error')
       return
     }
     showToast(
-      `Já utilizado: ${fmtBRL(total)} (Meta ${fmtBRL(per.meta)} + Google ${fmtBRL(per.google)})`
+      t('campanhas.toast.jaUtilizado', { total: fmtBRL(total), meta: fmtBRL(per.meta), google: fmtBRL(per.google) })
     )
   }
 
@@ -366,12 +369,12 @@ export default function CampaignPlanner({ project, onSave }) {
     const ch = channels.find((c) => c.id === channelId)
     if (!ch) return
     if (!CHANNEL_KEY[ch.name]) {
-      showToast(`${ch.name} não tem dados no dashboard (só Meta e Google Ads)`, 'error')
+      showToast(t('campanhas.toast.canalSemDados', { canal: ch.name }), 'error')
       return
     }
     const plan = pullChannelPlan(dash.raw, ch.name, pullNames)
     if (!plan) {
-      showToast(`Nenhuma campanha ativa de ${ch.name} em ${pullScopeLabel}`, 'error')
+      showToast(t('campanhas.toast.semCampanhaAtiva', { canal: ch.name, escopo: pullScopeLabel }), 'error')
       return
     }
     const share = pullChannelShare(dash.raw, pullNames, channels.map((c) => c.name), ch.name)
@@ -382,17 +385,17 @@ export default function CampaignPlanner({ project, onSave }) {
       : { percentage: share ?? ch.percentage, adAccounts: [], stages: plan.stages, expanded: true }
     )
     const n = plan.activeCount
-    const parts = [`${n} campanha${n === 1 ? '' : 's'} ativa${n === 1 ? '' : 's'}`]
-    if (plan.mode === 'accounts') parts.push(`${plan.adAccounts.length} contas`)
-    if (share != null) parts.push(`${share}% da verba`)
-    if (plan.unmatched > 0) parts.push(`${plan.unmatched} sem marcador de funil no nome → topo`)
+    const parts = [t('campanhas.toast.campanhasAtivas', { count: n })]
+    if (plan.mode === 'accounts') parts.push(t('campanhas.toast.contas', { n: plan.adAccounts.length }))
+    if (share != null) parts.push(t('campanhas.toast.daVerba', { pct: share }))
+    if (plan.unmatched > 0) parts.push(t('campanhas.toast.semMarcador', { n: plan.unmatched }))
     showToast(`${ch.name}: ${parts.join(' · ')}`)
   }
 
   // ── Account Updaters ───────────────────────────────────────────────────────
 
   const addAccount = () => {
-    const next = newAccount(`Conta ${accounts.length + 1}`)
+    const next = newAccount(t('campanhas.contaN', { n: accounts.length + 1 }))
     setAccounts((prev) => [...prev, next])
     setActiveIdx(accounts.length)
   }
@@ -465,8 +468,8 @@ export default function CampaignPlanner({ project, onSave }) {
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
-      showToast('Link copiado pro clipboard!')
-    }).catch(() => showToast('Link: ' + url))
+      showToast(t('campanhas.linkCopiado'))
+    }).catch(() => showToast(t('campanhas.linkToast', { url })))
   }
 
   // ── Computed ───────────────────────────────────────────────────────────────
@@ -482,17 +485,17 @@ export default function CampaignPlanner({ project, onSave }) {
   return (
     <div className="space-y-6">
 
-      <VideoGuide videoId="EOl-qgj4-fY" label="Como preencher o módulo de Campanhas" />
+      <VideoGuide videoId="EOl-qgj4-fY" label={t('campanhas.videoGuia')} />
 
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-rl-green" />
-            Planejamento de Campanhas
+            {t('campanhas.titulo')}
           </h2>
           <p className="text-sm text-rl-muted mt-0.5">
-            Distribua o orçamento por canal, etapa do funil e campanhas individuais
+            {t('campanhas.subtitulo')}
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -502,16 +505,16 @@ export default function CampaignPlanner({ project, onSave }) {
             className={`btn-secondary flex items-center gap-2 text-sm ${
               copied ? 'text-rl-green border-rl-green/30' : ''
             }`}
-            title="Cria/copia o link somente leitura do planejamento pro cliente"
+            title={t('campanhas.linkTitulo')}
           >
             {copied ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
-            {copied ? 'Copiado!' : 'Link'}
+            {copied ? t('comum.copiado') : t('campanhas.link')}
           </button>
           <button
             onClick={() => exportCampaignPDF({ totalBudget, channels: channels.map(({ expanded, ...rest }) => rest) }, project)}
             disabled={channels.length === 0 || totalBudget === 0}
             className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Exportar PDF"
+            title={t('campanhas.exportarPdf')}
           >
             <FileDown className="w-4 h-4" />
             PDF
@@ -531,13 +534,13 @@ export default function CampaignPlanner({ project, onSave }) {
                   : 'bg-rl-surface text-rl-muted hover:text-rl-text'
               }`}
             >
-              {a.name || `Conta ${i + 1}`}
+              {a.name || t('campanhas.contaN', { n: i + 1 })}
             </button>
             {accounts.length > 1 && (
               <button
                 onClick={() => removeAccount(i)}
                 className="p-1 rounded text-rl-muted/50 hover:text-red-400 transition-colors"
-                title="Remover conta"
+                title={t('campanhas.removerConta')}
               >
                 <X className="w-3 h-3" />
               </button>
@@ -548,18 +551,18 @@ export default function CampaignPlanner({ project, onSave }) {
           onClick={addAccount}
           className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-rl-muted hover:text-rl-text border border-dashed border-rl-border hover:border-rl-green/40 transition-all"
         >
-          <Plus className="w-3 h-3" /> Nova Conta
+          <Plus className="w-3 h-3" /> {t('campanhas.novaConta')}
         </button>
       </div>
 
       {/* Account name input */}
       <div className="glass-card px-4 py-3 flex items-center gap-3">
-        <label className="text-xs text-rl-muted shrink-0">Nome da conta</label>
+        <label className="text-xs text-rl-muted shrink-0">{t('campanhas.nomeDaConta')}</label>
         <input
           type="text"
           value={account.name}
           onChange={(e) => renameAccount(activeIdx, e.target.value)}
-          placeholder={`Conta ${activeIdx + 1}`}
+          placeholder={t('campanhas.contaN', { n: activeIdx + 1 })}
           className="input-field py-1.5 text-sm flex-1"
         />
       </div>
@@ -575,11 +578,11 @@ export default function CampaignPlanner({ project, onSave }) {
             <BarChart3 size={18} className="text-rl-purple" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-rl-text leading-tight">Resultados de Tráfego</h2>
-            <p className="text-xs text-rl-muted">Dados reais das contas de anúncio vinculadas a este projeto</p>
+            <h2 className="text-lg font-bold text-rl-text leading-tight">{t('campanhas.resultadosTrafego')}</h2>
+            <p className="text-xs text-rl-muted">{t('campanhas.resultadosTrafegoSub')}</p>
           </div>
           <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rl-border text-xs font-semibold text-rl-muted group-hover:text-rl-text group-hover:bg-rl-surface transition-colors shrink-0">
-            {dashAberto ? 'Minimizar' : 'Mostrar dashboard'}
+            {dashAberto ? t('campanhas.minimizar') : t('campanhas.mostrarDashboard')}
             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${dashAberto ? 'rotate-180' : ''}`} />
           </span>
         </button>
@@ -591,7 +594,7 @@ export default function CampaignPlanner({ project, onSave }) {
         <div className="flex flex-col sm:flex-row sm:items-start gap-4">
           {/* Orçamento Total */}
           <div className="flex-1">
-            <label className="label-field">Orçamento Total do Mês</label>
+            <label className="label-field">{t('campanhas.orcamentoTotal')}</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-rl-muted text-sm pointer-events-none">R$</span>
               <input
@@ -607,7 +610,7 @@ export default function CampaignPlanner({ project, onSave }) {
 
           {/* Já Utilizado */}
           <div className="flex-1">
-            <label className="label-field">Já Utilizado</label>
+            <label className="label-field">{t('campanhas.jaUtilizado')}</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-rl-muted text-sm pointer-events-none">R$</span>
               <input
@@ -625,7 +628,7 @@ export default function CampaignPlanner({ project, onSave }) {
           <div className="flex-1 sm:flex-none sm:min-w-[280px]">
             <label className="label-field flex items-center gap-1.5">
               <CalendarDays className="w-3.5 h-3.5 text-rl-green" />
-              Período do Planejamento
+              {t('campanhas.periodoPlanejamento')}
             </label>
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -640,9 +643,9 @@ export default function CampaignPlanner({ project, onSave }) {
                     if (endDate && v > endDate) setEndDate(v)
                   }}
                   className="input-field w-full"
-                  aria-label="Data de início"
+                  aria-label={t('campanhas.dataInicio')}
                 />
-                <p className="text-[10px] text-rl-muted mt-1 pl-1">Início</p>
+                <p className="text-[10px] text-rl-muted mt-1 pl-1">{t('campanhas.inicio')}</p>
               </div>
               <div>
                 <input
@@ -652,9 +655,9 @@ export default function CampaignPlanner({ project, onSave }) {
                   min={minEndDate}
                   onChange={(e) => setEndDate(e.target.value || defaultEndDateISO())}
                   className="input-field w-full"
-                  aria-label="Data final"
+                  aria-label={t('campanhas.dataFinal')}
                 />
-                <p className="text-[10px] text-rl-muted mt-1 pl-1">Fim</p>
+                <p className="text-[10px] text-rl-muted mt-1 pl-1">{t('campanhas.fim')}</p>
               </div>
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
@@ -662,7 +665,7 @@ export default function CampaignPlanner({ project, onSave }) {
                 {monthLabel}
               </span>
               <span className="text-[11px] text-rl-muted">
-                {daysLeft} {daysLeft === 1 ? 'dia' : 'dias'}
+                {t('comum.dias', { count: daysLeft })}
               </span>
             </div>
           </div>
@@ -674,40 +677,40 @@ export default function CampaignPlanner({ project, onSave }) {
             onClick={handlePullBudget}
             disabled={!canPull}
             className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Preenche 'Já Utilizado' com o gasto do mês (Meta + Google) e ajusta o período de hoje até o fim do mês"
+            title={t('campanhas.puxarDadosTitulo')}
           >
             <DownloadCloud className="w-4 h-4" />
-            Puxar dados
+            {t('campanhas.puxarDados')}
           </button>
           <p className="text-[11px] text-rl-muted">
             {dash.loading
-              ? 'Carregando dados de tráfego…'
+              ? t('campanhas.carregandoTrafego')
               : pullNames.size === 0
-                ? 'Vincule uma conta de anúncio na seção acima para puxar o gasto real'
-                : `Gasto do mês de ${pullScopeLabel} → Já Utilizado · período de hoje até o fim do mês`}
+                ? t('campanhas.vinculeContaPuxar')
+                : t('campanhas.puxarDica', { escopo: pullScopeLabel })}
           </p>
         </div>
 
         {/* Disponível para investir + quanto isso dá por dia */}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-rl-surface border border-rl-border px-4 py-3">
           <div>
-            <p className="text-xs text-rl-muted">Disponível para investir</p>
+            <p className="text-xs text-rl-muted">{t('campanhas.disponivel')}</p>
             <p className="text-[10px] text-rl-muted/60 mt-0.5">
               {fmtBRL(orcamentoTotal)} − {fmtBRL(valorJaUsado)}
             </p>
           </div>
           <div className="flex items-center gap-5">
             <div className="text-right">
-              <p className="text-xs text-rl-muted">Por dia</p>
+              <p className="text-xs text-rl-muted">{t('campanhas.porDia')}</p>
               <p className={`text-lg font-bold ${budgetDisponivel > 0 ? 'text-rl-cyan' : 'text-red-400'}`}>
                 {fmtBRL(idealDaily)}
               </p>
               <p className="text-[10px] text-rl-muted/60">
-                {daysLeft} {daysLeft === 1 ? 'dia restante' : 'dias restantes'}
+                {t('campanhas.diasRestantes', { count: daysLeft })}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-rl-muted">Total</p>
+              <p className="text-xs text-rl-muted">{t('campanhas.total')}</p>
               <p className={`text-lg font-bold ${budgetDisponivel > 0 ? 'text-rl-green' : 'text-red-400'}`}>
                 {fmtBRL(budgetDisponivel)}
               </p>
@@ -730,7 +733,7 @@ export default function CampaignPlanner({ project, onSave }) {
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
-            <p className="text-sm font-semibold text-rl-text">Canais</p>
+            <p className="text-sm font-semibold text-rl-text">{t('campanhas.canais')}</p>
             {channels.length > 1 && (
               <button
                 onClick={() => {
@@ -739,7 +742,7 @@ export default function CampaignPlanner({ project, onSave }) {
                 }}
                 className="text-[11px] font-medium text-rl-muted hover:text-rl-text transition-colors"
               >
-                {channels.every((ch) => ch.expanded) ? 'Fechar todos' : 'Abrir todos'}
+                {channels.every((ch) => ch.expanded) ? t('campanhas.fecharTodos') : t('campanhas.abrirTodos')}
               </button>
             )}
           </div>
@@ -750,8 +753,8 @@ export default function CampaignPlanner({ project, onSave }) {
                 : 'bg-rl-gold/10 border-rl-gold/20 text-rl-gold'
             }`}>
               {validation.chValid
-                ? <><CheckCircle2 className="w-3.5 h-3.5" /> 100% distribuído</>
-                : <><AlertCircle className="w-3.5 h-3.5" /> Restante: {channelRemaining}%</>
+                ? <><CheckCircle2 className="w-3.5 h-3.5" /> {t('campanhas.distribuido')}</>
+                : <><AlertCircle className="w-3.5 h-3.5" /> {t('campanhas.restante', { pct: channelRemaining })}</>
               }
             </div>
           )}
@@ -780,9 +783,9 @@ export default function CampaignPlanner({ project, onSave }) {
         {channels.length === 0 && (
           <div className="glass-card p-8 text-center">
             <DollarSign className="w-8 h-8 text-rl-muted/40 mx-auto mb-2" />
-            <p className="text-sm text-rl-muted">Nenhum canal adicionado ainda</p>
+            <p className="text-sm text-rl-muted">{t('campanhas.semCanais')}</p>
             <p className="text-xs text-rl-muted/60 mt-1">
-              Clique em "+ Adicionar Canal" para começar a distribuir o orçamento
+              {t('campanhas.semCanaisDica')}
             </p>
           </div>
         )}
@@ -817,7 +820,7 @@ export default function CampaignPlanner({ project, onSave }) {
         >
           <Plus className="w-4 h-4" />
           <span className="text-sm font-medium">
-            {canAddChannel ? 'Adicionar Canal' : 'Todos os canais já adicionados'}
+            {canAddChannel ? t('campanhas.adicionarCanal') : t('campanhas.todosCanais')}
           </span>
         </button>
       </div>
@@ -828,13 +831,13 @@ export default function CampaignPlanner({ project, onSave }) {
           <AlertCircle className="w-4 h-4 text-rl-gold shrink-0 mt-0.5" />
           <div className="text-xs text-rl-gold space-y-0.5">
             {!validation.chValid && (
-              <p>A distribuição total dos canais deve somar 100% (atual: {channelSum}%).</p>
+              <p>{t('campanhas.avisoCanais', { pct: channelSum })}</p>
             )}
             {validation.stageErrors
               .filter((e) => !e.valid && channels.find((ch) => ch.id === e.channelId)?.percentage > 0)
               .map((e) => (
                 <p key={e.id}>
-                  {e.name}: {e.kind === 'accounts' ? 'divisão entre as contas' : 'distribuição do funil'} soma {e.sum}% (deve ser 100%).
+                  {t(e.kind === 'accounts' ? 'campanhas.avisoContas' : 'campanhas.avisoFunil', { nome: e.name, pct: e.sum })}
                 </p>
               ))}
           </div>
@@ -845,7 +848,7 @@ export default function CampaignPlanner({ project, onSave }) {
       <div className="flex justify-end pt-2">
         <button onClick={handleSave} className="btn-primary flex items-center gap-2">
           <Save className="w-4 h-4" />
-          Salvar Planejamento
+          {t('campanhas.salvarPlanejamento')}
         </button>
       </div>
 

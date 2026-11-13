@@ -11,7 +11,8 @@ import { useToast } from '../../hooks/useToast'
 import Toast from '../UI/Toast'
 import LPCentralModal from './LPCentralModal'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
-import { LP_STATUS_OPTIONS, LP_STATUS_BY_ID, APROVACAO_BY_ID, fmtDateTimeBR } from './lpCentralData'
+import { LP_STATUS_OPTIONS, LP_STATUS_BY_ID, APROVACAO_BY_ID, rotuloAprovacao, fmtDataLp, fmtDataHoraLp } from './lpCentralData'
+import { useI18n } from '../../i18n'
 
 const EMPTY = { lps: [] }
 const STATUS_ICON = { em_producao: PenTool, no_ar: Globe, desativada: PowerOff }
@@ -19,6 +20,7 @@ const STATUS_ICON = { em_producao: PenTool, no_ar: Globe, desativada: PowerOff }
 export default function LPCentralModule({ project }) {
   const { updateProject } = useApp()
   const { toast, showToast } = useToast()
+  const { t } = useI18n()
 
   const persisted = project.lpCentral || EMPTY
   const [editingLp, setEditingLp] = useState(null) // lp obj | {} | null
@@ -50,14 +52,14 @@ export default function LPCentralModule({ project }) {
       : [...list, lp]
     persist({ ...persisted, lps: next })
     setEditingLp(null)
-    showToast(exists ? 'Landing page atualizada!' : 'Landing page cadastrada!')
+    showToast(exists ? t('lpCentral.toastAtualizada') : t('lpCentral.toastCadastrada'))
   }
 
   function handleDelete(id) {
-    if (!window.confirm('Excluir essa landing page da central?')) return
+    if (!window.confirm(t('lpCentral.confirmarExcluir'))) return
     const next = (persisted.lps || []).filter((x) => x.id !== id)
     persist({ ...persisted, lps: next })
-    showToast('Landing page removida.')
+    showToast(t('lpCentral.toastRemovida'))
   }
 
   function updateLp(id, patch) {
@@ -81,8 +83,8 @@ export default function LPCentralModule({ project }) {
     if (!token) return
     const url = `${window.location.origin}/aprovacao/${token}`
     navigator.clipboard.writeText(url)
-      .then(() => showToast('Link de aprovação copiado!'))
-      .catch(() => showToast('Link: ' + url))
+      .then(() => showToast(t('lpCentral.toastLinkCopiado')))
+      .catch(() => showToast(t('lpCentral.toastLink', { url })))
   }
 
   const hasFilters = filterFunil || filterStatus
@@ -95,9 +97,9 @@ export default function LPCentralModule({ project }) {
           <LayoutTemplate className="w-5 h-5 text-rl-green" />
         </div>
         <div className="flex-1">
-          <h2 className="text-xl font-black text-rl-text leading-tight">Central de Landing Pages</h2>
+          <h2 className="text-xl font-black text-rl-text leading-tight">{t('lpCentral.titulo')}</h2>
           <p className="text-sm text-rl-subtle mt-0.5 max-w-2xl">
-            Banco de landing pages do cliente — com link, funil, status e aprovação. Registre cada LP criada pra organizar o que está no ar e o histórico de páginas.
+            {t('lpCentral.subtitulo')}
           </p>
         </div>
       </div>
@@ -106,14 +108,14 @@ export default function LPCentralModule({ project }) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 text-xs text-rl-muted">
-            <Filter className="w-3.5 h-3.5" /> Filtros:
+            <Filter className="w-3.5 h-3.5" /> {t('lpCentral.filtros')}
           </div>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             className="input-field text-xs py-1.5 pl-3 pr-8 w-auto"
           >
-            <option value="">Todos os status</option>
+            <option value="">{t('lpCentral.todosStatus')}</option>
             {LP_STATUS_OPTIONS.map((s) => (
               <option key={s.id} value={s.id}>{s.label}</option>
             ))}
@@ -123,7 +125,7 @@ export default function LPCentralModule({ project }) {
             onChange={(e) => setFilterFunil(e.target.value)}
             className="input-field text-xs py-1.5 pl-3 pr-8 w-auto"
           >
-            <option value="">Todos os funis</option>
+            <option value="">{t('lpCentral.todosFunis')}</option>
             {FUNNELS.map((f) => (
               <option key={f.id} value={f.id}>{f.label}</option>
             ))}
@@ -133,26 +135,26 @@ export default function LPCentralModule({ project }) {
               onClick={() => { setFilterFunil(''); setFilterStatus('') }}
               className="text-[10px] text-rl-muted hover:text-rl-red transition-colors flex items-center gap-1"
             >
-              <X className="w-3 h-3" /> Limpar
+              <X className="w-3 h-3" /> {t('lpCentral.limpar')}
             </button>
           )}
           <span className="text-xs text-rl-muted ml-1">
-            {visibleLps.length} {visibleLps.length === 1 ? 'landing page' : 'landing pages'}
+            {t('lpCentral.contagem', { count: visibleLps.length })}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleShareAprovacao}
             className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl border border-rl-border text-rl-subtle hover:text-rl-green hover:border-rl-green/40 transition-all"
-            title="Copiar o link em que o cliente aprova ou reprova as landing pages"
+            title={t('lpCentral.linkAprovacaoTitulo')}
           >
-            <Link2 className="w-4 h-4" /> Link de aprovação
+            <Link2 className="w-4 h-4" /> {t('lpCentral.linkAprovacao')}
           </button>
           <button
             onClick={() => setEditingLp({})}
             className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-green text-white shadow-glow hover:bg-rl-green/90 transition-all"
           >
-            <Plus className="w-4 h-4" /> Nova landing page
+            <Plus className="w-4 h-4" /> {t('lpCentral.novaLp')}
           </button>
         </div>
       </div>
@@ -163,7 +165,7 @@ export default function LPCentralModule({ project }) {
       ) : visibleLps.length === 0 ? (
         <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-10 text-center">
           <p className="text-sm text-rl-muted">
-            Nenhuma landing page bate com os filtros atuais.
+            {t('lpCentral.semResultadoFiltro')}
           </p>
         </div>
       ) : (
@@ -172,13 +174,13 @@ export default function LPCentralModule({ project }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-rl-surface/60 border-b border-rl-border">
-                  <Th>Data</Th>
-                  <Th>Nome</Th>
-                  <Th>Funil</Th>
-                  <Th>Status</Th>
-                  <Th>Aprovação</Th>
-                  <Th>Link</Th>
-                  <Th>Obs.</Th>
+                  <Th>{t('lpCentral.col.data')}</Th>
+                  <Th>{t('lpCentral.col.nome')}</Th>
+                  <Th>{t('lpCentral.col.funil')}</Th>
+                  <Th>{t('lpCentral.col.status')}</Th>
+                  <Th>{t('lpCentral.col.aprovacao')}</Th>
+                  <Th>{t('lpCentral.col.link')}</Th>
+                  <Th>{t('lpCentral.col.obs')}</Th>
                   <Th className="w-20"></Th>
                 </tr>
               </thead>
@@ -187,9 +189,7 @@ export default function LPCentralModule({ project }) {
                   const status = LP_STATUS_BY_ID[lp.status || 'em_producao']
                   const StatusIcon = STATUS_ICON[lp.status || 'em_producao'] || Clock
                   const funil = FUNNELS.find((f) => f.id === lp.funilId) || null
-                  const dtStr = lp.createdAt
-                    ? lp.createdAt.split('-').reverse().join('/')
-                    : '—'
+                  const dtStr = lp.createdAt ? fmtDataLp(lp.createdAt) : '—'
 
                   return (
                     <tr
@@ -217,7 +217,7 @@ export default function LPCentralModule({ project }) {
                           lp={lp}
                           onEnviar={() => {
                             updateLp(lp.id, { aprovacao: { status: 'pendente', enviadoEm: new Date().toISOString() } })
-                            showToast('Landing page enviada pra aprovação do cliente!')
+                            showToast(t('lpCentral.toastEnviada'))
                           }}
                         />
                       </Td>
@@ -230,7 +230,7 @@ export default function LPCentralModule({ project }) {
                             onClick={(e) => e.stopPropagation()}
                             className="inline-flex items-center gap-1 text-xs text-rl-green font-semibold hover:underline whitespace-nowrap"
                           >
-                            <ExternalLink className="w-3 h-3" /> Abrir LP
+                            <ExternalLink className="w-3 h-3" /> {t('lpCentral.abrirLp')}
                           </a>
                         ) : (
                           <span className="text-rl-muted italic text-xs">—</span>
@@ -250,14 +250,14 @@ export default function LPCentralModule({ project }) {
                           <button
                             onClick={(e) => { e.stopPropagation(); setEditingLp(lp) }}
                             className="p-1.5 rounded-lg text-rl-muted hover:text-rl-green hover:bg-rl-green/10 transition-all"
-                            title="Editar"
+                            title={t('lpCentral.editar')}
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDelete(lp.id) }}
                             className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
-                            title="Excluir"
+                            title={t('lpCentral.excluir')}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -290,6 +290,7 @@ export default function LPCentralModule({ project }) {
 
 // Célula de aprovação do cliente — mesmo comportamento da Central de anúncios.
 function AprovacaoCell({ lp, onEnviar }) {
+  const { t } = useI18n()
   const info = lp.aprovacao ? APROVACAO_BY_ID[lp.aprovacao.status] : null
 
   if (!info) {
@@ -297,15 +298,15 @@ function AprovacaoCell({ lp, onEnviar }) {
       <button
         onClick={(e) => { e.stopPropagation(); onEnviar() }}
         className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border border-rl-border text-rl-muted hover:text-rl-green hover:border-rl-green/40 transition-all whitespace-nowrap"
-        title="Enviar essa landing page pro cliente aprovar"
+        title={t('lpCentral.enviarTitulo')}
       >
-        <Send className="w-3 h-3" /> Enviar
+        <Send className="w-3 h-3" /> {t('lpCentral.enviar')}
       </button>
     )
   }
 
   const tooltip = lp.aprovacao.status === 'reprovado'
-    ? `Motivo: ${lp.aprovacao.motivo || '—'}\nComo deveria estar: ${lp.aprovacao.sugestao || '—'}`
+    ? t('lpCentral.tooltipReprovado', { motivo: lp.aprovacao.motivo || '—', sugestao: lp.aprovacao.sugestao || '—' })
     : undefined
 
   const marco = lp.aprovacao.status === 'pendente' ? lp.aprovacao.enviadoEm : lp.aprovacao.decididoEm
@@ -317,11 +318,11 @@ function AprovacaoCell({ lp, onEnviar }) {
         style={{ color: info.color, background: info.bgColor, borderColor: info.borderColor }}
         title={tooltip}
       >
-        {info.label}
+        {rotuloAprovacao(lp.aprovacao.status)}
       </span>
       {marco && (
         <span className="text-[9px] text-rl-muted whitespace-nowrap">
-          {fmtDateTimeBR(marco)}
+          {fmtDataHoraLp(marco)}
         </span>
       )}
     </div>
@@ -340,22 +341,23 @@ function Td({ children, className = '' }) {
 }
 
 function EmptyState({ onCreate }) {
+  const { t } = useI18n()
   return (
     <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-10 px-6 text-center space-y-3">
       <LayoutTemplate className="w-8 h-8 text-rl-muted/40 mx-auto" />
       <div>
         <p className="text-sm font-semibold text-rl-text">
-          Nenhuma landing page cadastrada na central ainda.
+          {t('lpCentral.vazioTitulo')}
         </p>
         <p className="text-xs text-rl-muted mt-1 max-w-md mx-auto">
-          Adicione a primeira landing page com link, funil e status pra montar o banco de LPs do cliente.
+          {t('lpCentral.vazioTexto')}
         </p>
       </div>
       <button
         onClick={onCreate}
         className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-green text-white shadow-glow hover:bg-rl-green/90 transition-all"
       >
-        <Plus className="w-4 h-4" /> Adicionar primeira landing page
+        <Plus className="w-4 h-4" /> {t('lpCentral.vazioBotao')}
       </button>
     </div>
   )

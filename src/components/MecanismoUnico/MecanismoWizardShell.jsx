@@ -6,6 +6,7 @@
 import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { STEP_META, computeFilledMap } from './mecanismoShared'
+import { useI18n } from '../../i18n'
 import {
   StepConcorrentes, StepMercado, StepTentativas, StepVilao, StepProva,
   StepDiferente, StepNome, StepPorque, StepMontagem, StepValidacao,
@@ -29,6 +30,7 @@ export default function MecanismoWizardShell({
   finalContent = null,   // node renderizado na última tela
   finalFooter = null,    // node no rodapé da última tela (ex.: Enviar)
 }) {
+  const { t } = useI18n()
   const [stepIndex, setStepIndex] = useState(0)
 
   const step = STEP_META[stepIndex]
@@ -73,7 +75,7 @@ export default function MecanismoWizardShell({
       <div className="glass-card p-5 lg:p-6">
         <div className="mb-4">
           <p className="text-[11px] uppercase tracking-wide text-rl-purple font-semibold">
-            Passo {stepIndex + 1} de {STEP_META.length}{step.optional && ' · opcional'}
+            {t('mecanismo.shell.passoDe', { n: stepIndex + 1, total: STEP_META.length })}{step.optional && t('mecanismo.shell.opcional')}
           </p>
           <h3 className="text-lg font-bold text-rl-text">{step.title}</h3>
           <p className="text-xs text-rl-muted">{step.subtitle}</p>
@@ -91,18 +93,18 @@ export default function MecanismoWizardShell({
           disabled={stepIndex === 0}
           className="btn-secondary flex items-center gap-1.5 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <ChevronLeft className="w-4 h-4" /> Voltar
+          <ChevronLeft className="w-4 h-4" /> {t('comum.voltar')}
         </button>
 
         <div className="flex items-center gap-2">
           {step.optional && !isFinal && (
             <button onClick={() => goTo(stepIndex + 1)} className="text-sm text-rl-muted hover:text-rl-text px-3 py-2">
-              Pular
+              {t('mecanismo.shell.pular')}
             </button>
           )}
           {!isFinal ? (
             <button onClick={() => goTo(stepIndex + 1)} className="btn-primary flex items-center gap-1.5">
-              Continuar <ChevronRight className="w-4 h-4" />
+              {t('mecanismo.shell.continuar')} <ChevronRight className="w-4 h-4" />
             </button>
           ) : (
             finalFooter

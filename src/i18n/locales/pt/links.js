@@ -1,0 +1,20 @@
+// Links Importantes (LinksModule, página do cliente › Cadastro)
+export default {
+  titulo: 'Links Importantes',
+  subtitulo: 'Centralize os links essenciais do cliente para acesso rápido',
+  contagem: { one: '{count} link', other: '{count} links' },
+  redes: 'Redes & Plataformas',
+  website: 'Website',
+  phInstagram: 'https://instagram.com/empresa',
+  phWebsite: 'https://www.empresa.com.br',
+  outros: 'Outros Links',
+  adicionar: 'Adicionar link',
+  cliqueAdicionar: 'Clique para adicionar um link personalizado',
+  linkN: 'Link {n}',
+  descricao: 'Descrição',
+  phDescricao: 'Ex: Notion, Trello, CRM...',
+  salvar: 'Salvar Links',
+  mostrarHeader: 'Mostrar na header',
+  ocultarHeader: 'Ocultar da header',
+  abrir: 'Abrir link',
+}

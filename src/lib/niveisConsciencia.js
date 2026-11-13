@@ -9,6 +9,10 @@
 // resolver e está comparando 2 ou 3 fornecedores ao mesmo tempo.
 //
 // Mantido em sincronia com api/criativos-public.js (edge function autocontida).
+// `label`, `video` e `estatico` entram no prompt e ficam em português; na tela use
+// rotuloNivel(id) / dicaNivel(id), que seguem o idioma (namespace `niveis`).
+
+import { t } from '../i18n'
 
 export const NIVEIS_CONSCIENCIA = [
   {
@@ -54,6 +58,14 @@ export const NIVEIS_CONSCIENCIA = [
 ]
 
 export const NIVEIS_BY_ID = Object.fromEntries(NIVEIS_CONSCIENCIA.map((n) => [n.id, n]))
+
+// Rótulo e dica exibidos na tela, no idioma atual (o `label` do objeto vai para o prompt).
+export function rotuloNivel(id) {
+  return NIVEIS_BY_ID[id] ? t(`niveis.${id}.rotulo`) : id
+}
+export function dicaNivel(id) {
+  return NIVEIS_BY_ID[id] ? t(`niveis.${id}.dica`) : ''
+}
 
 // Bloco de prompt do nível escolhido. Entra na parte NÃO editável do system
 // prompt (estrutura) — se ficasse na metodologia, um override do usuário

@@ -1,6 +1,6 @@
 # Checklist da tradução (português → inglês)
 
-Começou em 09/11/2026. Última atualização: 09/11/2026 (ondas 0 a 2 completas; onda 3 parcial). Como o i18n funciona está no `CLAUDE.md`, seção "Idioma".
+Começou em 09/11/2026. Última atualização: 11/11/2026 (ondas 0 a 3 completas). Como o i18n funciona está no `CLAUDE.md`, seção "Idioma".
 
 ## Como usar
 
@@ -26,9 +26,9 @@ Começou em 09/11/2026. Última atualização: 09/11/2026 (ondas 0 a 2 completas
 | 0 | Base, shell e UI compartilhada | 19 | ✅ 09/11/2026 | 0 |
 | 1 | Telas internas fora do cliente e do VertaTask | 42 | ✅ 09/11/2026 (falta `roteirosExpress.js`, ver 1.5) | 35 |
 | 2 | VertaTask (tarefas, sprints, atividades; o Chat sai) | 83 | ✅ 09/11/2026 | 0 |
-| 3 | Página do cliente e módulos | 133 | 🟡 parcial (09/11/2026): moldura, menu e hub (3.1), Kickoff, Produto/Serviço, Personas e ROI (33 de 133 arquivos) | 2.858 |
+| 3 | Página do cliente e módulos | 133 | ✅ 11/11/2026 (PDFs de `exportPDF.js` na onda 6) | 0 |
 | 4 | Páginas públicas (portal, formulários, aprovações) | 30 | | 905 |
-| 5 | Dashboard de Tráfego | 6 | | 829 |
+| 5 | Dashboard de Tráfego | 6 | | 838 |
 | 6 | PDFs, mensagens das funções `/api/*`, helpers | 75 | 🟡 PDFs de ROI, metas, Personas e Produto | 996 |
 
 A preferência de idioma fica no perfil (`profiles.idioma`, migration 130) e vale para as ondas 0 a 3 e 5; as
@@ -272,6 +272,23 @@ páginas públicas não têm login e seguem a regra da 4.0.
 
 ## Onda 3 — Página do cliente
 
+> **11/11/2026: onda completa.** Os módulos restantes (Cadastro, Oferta, Estratégia, Promessa, Planejamentos,
+> Precificação, Mecanismo, Matriz, Proposta, Webinar, Jornada, NPS, Atas, Resultados, Clarity, CRM, Banco de Dados,
+> Campanhas, Meta Lab, Google Ads, Central de anúncios, Criativos, Central de LPs e Landing Page) foram traduzidos e
+> abertos em inglês no `/dev/hub`. Pontos de atenção:
+> - **IA:** Oferta, Promessa e Google Ads geram no idioma de quem usa mantendo os rótulos que a tela lê (`GOM #`,
+>   `**Headline:**`, `CAMPANHA:`; o `ResultCard` aceita também os rótulos em inglês). Mecanismo (pitch e posicionamento)
+>   com `{ rotulos: true }`. **Criativos com IA continuam gerando em português** (copy lida por regex e enviada ao
+>   cliente). LP: só o fallback de 6 dobras.
+> - **Ficam em pt por serem gravados:** nomes de etapa padrão do CRM, campos do Banco de Dados, opções de checkbox do
+>   Webinar e de NPS (com rótulo traduzido na tela), `MEIO_OPTS` da Oferta, concorrência `Baixo/Médio/Alto` do Google
+>   Ads, nomes de leva e de geração dos Criativos, notificações de ata nova.
+> - **Nascem no idioma de quem cria (editáveis):** frases-modelo e nomes de exemplo da Oferta, roteiro padrão da
+>   Proposta, nomes padrão de grupo, conta, leva e copy de LP.
+> - `src/lib/portalModules.js` ficou em pt (a API importa); os rótulos vêm de `compartilhamento.modulos.<id>`. **Módulo
+>   novo no portal precisa dessa chave.**
+> - Os formulários de valor em reais continuam aceitando vírgula decimal (`parseMoney`), também em inglês.
+
 > **09/11/2026: feito só o que o dono pediu primeiro**: Kickoff, Produto/Serviço, Personas e Cenários de ROI (mais a
 > Calculadora de ROI da onda 1), com os PDFs deles em `exportPDF.js` (`exportROIPDF`, `exportMetasSemanaisPDF`,
 > `exportPersonasPDF`, `exportProdutoServicoPDF`). A moldura do cliente (cartão, menu, hub) e os outros módulos ficam
@@ -310,11 +327,11 @@ páginas públicas não têm login e seguem a regra da 4.0.
 
 ### 3.2 Cliente › Cadastro
 
-- [ ] `src/components/BancoMidiaModule.jsx` — ~22
-- [ ] `src/components/LinksModule.jsx` — ~11
-- [ ] `src/components/AnexosModule.jsx` — ~12
-- [ ] `src/components/CompartilhamentoModule.jsx` — ~32
-- [ ] `src/lib/portalModules.js` — ~11
+- [x] `src/components/BancoMidiaModule.jsx`
+- [x] `src/components/LinksModule.jsx`
+- [x] `src/components/AnexosModule.jsx`
+- [x] `src/components/CompartilhamentoModule.jsx`
+- [x] `src/lib/portalModules.js`
 
 ### 3.3 Cliente › Estratégia
 
@@ -334,116 +351,117 @@ páginas públicas não têm login e seguem a regra da 4.0.
 - [x] `src/lib/kickoffPDF.js`
 - [x] `src/components/ProdutoServicoModule.jsx`
 - [x] `src/pages/PersonaCreator.jsx`
-- [ ] `src/pages/OfertaMatadora.jsx` — ~11
-- [ ] `src/components/OfertaWizard/OfertaWizardShell.jsx` — ~15
-- [ ] `src/components/OfertaWizard/StepComponents.jsx` — ~114
-- [ ] `src/components/OfertaWizard/ofertaShared.js` — ~81
-- [ ] `src/components/EstrategiaV2Module.jsx` — ~73
-- [ ] `src/components/FerramentasModule.jsx` — ~16
-- [ ] `src/components/PromessaModule.jsx` — ~62
-- [ ] `src/components/PlanejamentoAnualModule.jsx` — ~46
-- [ ] `src/components/PlanejamentoMarketingModule.jsx` — ~50
-- [ ] `src/components/Precificacao/PrecificacaoCard.jsx` — ~5
-- [ ] `src/components/Precificacao/PrecificacaoItemModal.jsx` — ~20
-- [ ] `src/components/Precificacao/PrecificacaoModule.jsx` — ~8
-- [ ] `src/components/Precificacao/PrecificacaoProdutoForm.jsx` — ~9
-- [ ] `src/components/Precificacao/PrecificacaoSaasForm.jsx` — ~29
-- [ ] `src/components/Precificacao/PrecificacaoServicoForm.jsx` — ~17
-- [ ] `src/components/Precificacao/precificacaoMath.js` — ~5
-- [ ] `src/components/MecanismoUnico/Fields.jsx` — ~2
-- [ ] `src/components/MecanismoUnico/MecanismoUnicoModule.jsx` — ~106
-- [ ] `src/components/MecanismoUnico/MecanismoWizardShell.jsx` — ~1
-- [ ] `src/components/MecanismoUnico/WizardSteps.jsx` — ~67
-- [ ] `src/components/MecanismoUnico/mecanismoShared.js` — ~20
-- [ ] `src/components/MecanismoUnico/mecanismoUnicoData.js` — ~83
-- [ ] `src/lib/mecanismoUnicoPDF.js` — ~42
-- [ ] `src/components/MatrizObjecao/MatrizObjecaoModule.jsx` — ~20
-- [ ] `src/components/Webinar/WebinarModule.jsx` — ~46
-- [ ] `src/components/Webinar/webinarData.js` — ~341
-- [ ] `src/components/PropostaComercialModule.jsx` — ~1
-- [ ] `src/lib/propostaComercial.js` — ~42
+- [x] `src/pages/OfertaMatadora.jsx`
+- [x] `src/components/OfertaWizard/OfertaWizardShell.jsx`
+- [x] `src/components/OfertaWizard/StepComponents.jsx`
+- [x] `src/components/OfertaWizard/ofertaShared.js`
+- [x] `src/components/EstrategiaV2Module.jsx`
+- [x] `src/components/FerramentasModule.jsx`
+- [x] `src/components/PromessaModule.jsx`
+- [x] `src/components/PlanejamentoAnualModule.jsx`
+- [x] `src/components/PlanejamentoMarketingModule.jsx`
+- [x] `src/components/Precificacao/PrecificacaoCard.jsx`
+- [x] `src/components/Precificacao/PrecificacaoItemModal.jsx`
+- [x] `src/components/Precificacao/PrecificacaoModule.jsx`
+- [x] `src/components/Precificacao/PrecificacaoProdutoForm.jsx`
+- [x] `src/components/Precificacao/PrecificacaoSaasForm.jsx`
+- [x] `src/components/Precificacao/PrecificacaoServicoForm.jsx`
+- [x] `src/components/Precificacao/precificacaoMath.js`
+- [x] `src/components/MecanismoUnico/Fields.jsx`
+- [x] `src/components/MecanismoUnico/MecanismoUnicoModule.jsx`
+- [x] `src/components/MecanismoUnico/MecanismoWizardShell.jsx`
+- [x] `src/components/MecanismoUnico/WizardSteps.jsx`
+- [x] `src/components/MecanismoUnico/mecanismoShared.js`
+- [x] `src/components/MecanismoUnico/mecanismoUnicoData.js`
+- [x] `src/lib/mecanismoUnicoPDF.js`
+- [x] `src/components/MatrizObjecao/MatrizObjecaoModule.jsx`
+- [x] `src/components/Webinar/WebinarModule.jsx`
+- [x] `src/components/Webinar/webinarData.js`
+- [x] `src/components/Webinar/webinarData.en.js` (novo)
+- [x] `src/components/PropostaComercialModule.jsx`
+- [x] `src/lib/propostaComercial.js`
 
 ### 3.4 Cliente › Projetos
 
-- [ ] `src/components/Jornada/JornadaModule.jsx` — ~4
-- [ ] `src/components/Jornada/jornadaPhases.js` — ~37
-- [ ] `src/components/NPSModule.jsx` — ~67
-- [ ] `src/components/MeetingMinutesModule.jsx` — ~69
+- [x] `src/components/Jornada/JornadaModule.jsx`
+- [x] `src/components/Jornada/jornadaPhases.js`
+- [x] `src/components/NPSModule.jsx`
+- [x] `src/components/MeetingMinutesModule.jsx`
 
 ### 3.5 Cliente › Resultados
 
-- [ ] `src/components/ResultadosModule.jsx` — ~6
-- [ ] `src/components/Resultados/AutofillResultados.jsx` — ~7
-- [ ] `src/components/Resultados/B2BResultados.jsx` — ~25
-- [ ] `src/components/Resultados/B2CResultados.jsx` — ~18
-- [ ] `src/components/Resultados/ComparativoCanais.jsx` — ~19
-- [ ] `src/components/Resultados/ContasVinculadas.jsx` — ~13
-- [ ] `src/components/Resultados/FunilDoMes.jsx` — ~2
-- [ ] `src/components/Resultados/GraficosEvolucao.jsx` — ~2
-- [ ] `src/components/Resultados/ModelSelector.jsx` — ~7
-- [ ] `src/components/Resultados/PlanoVsRealizado.jsx` — ~4
-- [ ] `src/components/Resultados/ProjectTrafficDashboard.jsx` — ~5
-- [ ] `src/components/Resultados/ResultadosCharts.jsx` — ~3
-- [ ] `src/components/Resultados/SaveBar.jsx` — ~5
-- [ ] `src/components/Resultados/VendasPorUnidade.jsx` — ~16
-- [ ] `src/components/Resultados/resultadosHelpers.js` — ~6
-- [ ] `src/lib/autofillResultados.js`
-- [ ] `src/components/ClarityModule.jsx` — ~25
-- [ ] `src/lib/clarity.js` — ~3
-- [ ] `src/components/CRMModule.jsx` — ~11
-- [ ] `src/components/BancoDeDadosModule.jsx` — ~98
-- [ ] `src/hooks/useResultadosSave.js`
+- [x] `src/components/ResultadosModule.jsx`
+- [x] `src/components/Resultados/AutofillResultados.jsx`
+- [x] `src/components/Resultados/B2BResultados.jsx`
+- [x] `src/components/Resultados/B2CResultados.jsx`
+- [x] `src/components/Resultados/ComparativoCanais.jsx`
+- [x] `src/components/Resultados/ContasVinculadas.jsx`
+- [x] `src/components/Resultados/FunilDoMes.jsx`
+- [x] `src/components/Resultados/GraficosEvolucao.jsx`
+- [x] `src/components/Resultados/ModelSelector.jsx`
+- [x] `src/components/Resultados/PlanoVsRealizado.jsx`
+- [x] `src/components/Resultados/ProjectTrafficDashboard.jsx`
+- [x] `src/components/Resultados/ResultadosCharts.jsx`
+- [x] `src/components/Resultados/SaveBar.jsx`
+- [x] `src/components/Resultados/VendasPorUnidade.jsx`
+- [x] `src/components/Resultados/resultadosHelpers.js`
+- [x] `src/lib/autofillResultados.js`
+- [x] `src/components/ClarityModule.jsx`
+- [x] `src/lib/clarity.js`
+- [x] `src/components/CRMModule.jsx`
+- [x] `src/components/BancoDeDadosModule.jsx`
+- [x] `src/hooks/useResultadosSave.js`
 
 ### 3.6 Cliente › Planejamento
 
 - [x] `src/components/ROIScenariosModule.jsx`
-- [ ] `src/components/CampaignPlanner.jsx` — ~45
-- [ ] `src/components/CampaignPlanner/AdAccountSection.jsx` — ~1
-- [ ] `src/components/CampaignPlanner/CampaignRow.jsx` — ~6
-- [ ] `src/components/CampaignPlanner/ChannelRow.jsx` — ~10
-- [ ] `src/components/CampaignPlanner/FunnelTable.jsx` — ~1
-- [ ] `src/components/CampaignPlanner/PaceCard.jsx` — ~21
-- [ ] `src/components/CampaignPlanner/campaignHelpers.js` — ~5
-- [ ] `src/components/CampaignPlanner/pullFromDashboard.js` — ~3
-- [ ] `src/components/MetaLabModule.jsx` — ~76
-- [ ] `src/lib/metaLabPDF.js` — ~101
-- [ ] `src/components/GoogleAdsModule.jsx` — ~33
-- [ ] `src/components/GoogleAds/AdsHistory.jsx` — ~9
+- [x] `src/components/CampaignPlanner.jsx`
+- [x] `src/components/CampaignPlanner/AdAccountSection.jsx`
+- [x] `src/components/CampaignPlanner/CampaignRow.jsx`
+- [x] `src/components/CampaignPlanner/ChannelRow.jsx`
+- [x] `src/components/CampaignPlanner/FunnelTable.jsx`
+- [x] `src/components/CampaignPlanner/PaceCard.jsx`
+- [x] `src/components/CampaignPlanner/campaignHelpers.js`
+- [x] `src/components/CampaignPlanner/pullFromDashboard.js`
+- [x] `src/components/MetaLabModule.jsx`
+- [x] `src/lib/metaLabPDF.js`
+- [x] `src/components/GoogleAdsModule.jsx`
+- [x] `src/components/GoogleAds/AdsHistory.jsx`
 
 ### 3.7 Cliente › Criação
 
 > `funis.js` e `niveisConsciencia.js` misturam rótulos e trechos de prompt.
 
-- [ ] `src/components/CriativosModule.jsx` — ~153
-- [ ] `src/components/Criativos/AdWireframePanel.jsx` — ~9
-- [ ] `src/components/Criativos/ContextPreview.jsx` — ~4
-- [ ] `src/components/Criativos/CopyAprovacaoModal.jsx` — ~19
-- [ ] `src/components/Criativos/CreativeCard.jsx` — ~7
-- [ ] `src/components/Criativos/CreativeHistory.jsx` — ~8
-- [ ] `src/components/Criativos/CreativeResultBlock.jsx` — ~14
-- [ ] `src/components/Criativos/CriativoVisualPanel.jsx` — ~26
-- [ ] `src/components/Criativos/ResultBlock.jsx` — ~1
-- [ ] `src/components/Criativos/adWireframes/destaqueDuasFotos.js` — ~19
-- [ ] `src/components/Criativos/adWireframes/shared.js` — ~2
-- [ ] `src/components/Criativos/adWireframes/textoLateral.js` — ~12
-- [ ] `src/components/Criativos/templates/quote.js` — ~1
-- [ ] `src/components/Criativos/templates/tweet.js` — ~1
-- [ ] `src/lib/creativoPDF.js` — ~11
-- [ ] `src/lib/criativoTemplate.js` — ~7
-- [ ] `src/lib/roteiroVideoPDF.js` — ~7
-- [ ] `src/lib/copyLevas.js` — ~1
-- [ ] `src/lib/funis.js` — ~32
-- [ ] `src/lib/niveisConsciencia.js` — ~19
-- [ ] `src/components/Debriefing/CentralAprovacaoModal.jsx` — ~24
-- [ ] `src/components/Debriefing/CreativeTestModal.jsx` — ~18
-- [ ] `src/components/Debriefing/DebriefingAdModal.jsx` — ~67
-- [ ] `src/components/Debriefing/DebriefingModule.jsx` — ~69
-- [ ] `src/components/Debriefing/GrupoAnunciosModal.jsx` — ~36
-- [ ] `src/components/Debriefing/debriefingData.js` — ~12
-- [ ] `src/components/LPCentral/LPCentralModal.jsx` — ~27
-- [ ] `src/components/LPCentral/LPCentralModule.jsx` — ~18
-- [ ] `src/components/LPCentral/lpCentralData.js` — ~2
-- [ ] `src/components/LandingPageModule.jsx` — ~49
+- [x] `src/components/CriativosModule.jsx`
+- [x] `src/components/Criativos/AdWireframePanel.jsx`
+- [x] `src/components/Criativos/ContextPreview.jsx`
+- [x] `src/components/Criativos/CopyAprovacaoModal.jsx`
+- [x] `src/components/Criativos/CreativeCard.jsx`
+- [x] `src/components/Criativos/CreativeHistory.jsx`
+- [x] `src/components/Criativos/CreativeResultBlock.jsx`
+- [x] `src/components/Criativos/CriativoVisualPanel.jsx`
+- [x] `src/components/Criativos/ResultBlock.jsx`
+- [x] `src/components/Criativos/adWireframes/destaqueDuasFotos.js`
+- [x] `src/components/Criativos/adWireframes/shared.js`
+- [x] `src/components/Criativos/adWireframes/textoLateral.js`
+- [x] `src/components/Criativos/templates/quote.js`
+- [x] `src/components/Criativos/templates/tweet.js`
+- [x] `src/lib/creativoPDF.js`
+- [x] `src/lib/criativoTemplate.js`
+- [x] `src/lib/roteiroVideoPDF.js`
+- [x] `src/lib/copyLevas.js`
+- [x] `src/lib/funis.js`
+- [x] `src/lib/niveisConsciencia.js`
+- [x] `src/components/Debriefing/CentralAprovacaoModal.jsx`
+- [x] `src/components/Debriefing/CreativeTestModal.jsx`
+- [x] `src/components/Debriefing/DebriefingAdModal.jsx`
+- [x] `src/components/Debriefing/DebriefingModule.jsx`
+- [x] `src/components/Debriefing/GrupoAnunciosModal.jsx`
+- [x] `src/components/Debriefing/debriefingData.js`
+- [x] `src/components/LPCentral/LPCentralModal.jsx`
+- [x] `src/components/LPCentral/LPCentralModule.jsx`
+- [x] `src/components/LPCentral/lpCentralData.js`
+- [x] `src/components/LandingPageModule.jsx`
 
 ## Onda 4 — Páginas públicas
 
@@ -505,7 +523,7 @@ páginas públicas não têm login e seguem a regra da 4.0.
 `PRIORIDADE_LABEL` ficam para esta onda (use `rotuloPrioridade`/`rotuloTipo` de `playbookSugestoes.js`).
 
 - [ ] `src/pages/DashboardApiTeste.jsx` — ~2
-- [ ] `public/dash-teste/viewer.html` — ~791
+- [ ] `public/dash-teste/viewer.html` — ~800
 - [ ] `public/dash-teste/vendor/dashboardData.js`
 - [ ] `src/lib/dashboardData.js` — ~33
 - [ ] `src/lib/dashCache.js` — ~3
@@ -514,6 +532,12 @@ páginas públicas não têm login e seguem a regra da 4.0.
 ## Onda 6 — Transversais
 
 ### 6.1 PDFs
+
+> Ainda em pt em `exportPDF.js` (11/11/2026): `exportOnboardingPDF`, `exportOfertaPDF`, `exportEstrategiaV2PDF`,
+> `exportPlanejamentoMarketingPDF`, `exportPropostaComercialPDF`, webinar (usar `webinarNoIdioma(idiomaAtual())`),
+> `exportCampaignPDF`, `exportGoogleAdsPDF` (mostra `Baixo/Médio/Alto` cru), `exportResultadosB2BPDF`/`B2CPDF` (hoje
+> recebem `semanasPdf`, tirar ao traduzir). Já traduzidas: ROI, metas, Personas, Produto. Também falta `printDoc.js`
+> (botão de imprimir, `todayLong()` e `<html lang>` fixos em pt).
 
 > Os outros geradores de PDF estão nas ondas das telas que os usam. O PDF sai no idioma de quem gera.
 

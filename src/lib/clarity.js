@@ -5,6 +5,8 @@
 // dimensão (Url, Device, Source…) mais os números da métrica. Aqui juntamos as
 // métricas pela mesma linha de dimensão e agrupamos como a tela precisa.
 
+import { t } from '../i18n'
+
 // Campos numéricos de métrica; todo o resto da linha é valor de dimensão.
 const CAMPOS_METRICA = new Set([
   'sessionsCount', 'sessionsWithMetricPercentage', 'sessionsWithoutMetricPercentage', 'pagesViews', 'subTotal',
@@ -105,10 +107,10 @@ function paramsDe(url) {
 }
 
 export function porPagina(url) {
-  try { const u = new URL(url); return `${u.hostname}${u.pathname === '/' ? '' : u.pathname}` } catch { return url || '(sem URL)' }
+  try { const u = new URL(url); return `${u.hostname}${u.pathname === '/' ? '' : u.pathname}` } catch { return url || t('clarity.vazio.url') }
 }
-export const porAnuncio = (url) => paramsDe(url).get('utm_content') || '(sem utm_content)'
-export const porCampanha = (url) => paramsDe(url).get('utm_campaign') || '(sem utm_campaign)'
+export const porAnuncio = (url) => paramsDe(url).get('utm_content') || t('clarity.vazio.utmContent')
+export const porCampanha = (url) => paramsDe(url).get('utm_campaign') || t('clarity.vazio.utmCampaign')
 
 /** Formata segundos como "1m 05s". */
 export function fmtSeg(s) {

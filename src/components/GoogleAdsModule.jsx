@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useApp } from '../context/AppContext'
-import { streamClaude } from '../lib/claude'
+import { streamClaude, instrucaoDeIdioma } from '../lib/claude'
 import { buildCachedPayload } from '../lib/buildContext'
 import {
   Search, Sparkles, Loader2, AlertTriangle,
@@ -8,16 +8,21 @@ import {
 } from 'lucide-react'
 import AdsHistory, { ResultBlock } from './GoogleAds/AdsHistory'
 import { exportGoogleAdsPDF } from '../utils/exportPDF'
+import { t as tSolto, useI18n } from '../i18n'
+import ptGoogleAds from '../i18n/locales/pt/googleAds.js'
 
 // ─── Campaign Types ────────────────────────────────────────────────────────────
+// Rótulo e descrição em locales/{pt,en}/googleAds.js (tipos.<id>); o prompt usa sempre o pt.
 const CAMPAIGN_TYPES = [
-  { id: 'marca',        label: 'Marca / Brand',    emoji: '🏷️', desc: 'Protege sua marca e captura buscas diretas pelo nome' },
-  { id: 'generico',     label: 'Genérico',          emoji: '🔍', desc: 'Termos genéricos do serviço — maior volume de buscas' },
-  { id: 'concorrentes', label: 'Concorrentes',      emoji: '⚔️', desc: 'Nomes de concorrentes — captura quem busca alternativas' },
-  { id: 'problema',     label: 'Problema / Dor',    emoji: '💊', desc: 'Termos de dor — topo de funil, intenção de resolver' },
+  { id: 'marca',        emoji: '🏷️' },
+  { id: 'generico',     emoji: '🔍' },
+  { id: 'concorrentes', emoji: '⚔️' },
+  { id: 'problema',     emoji: '💊' },
 ]
 
+// Valor gravado (e enviado à IA) em pt; o rótulo vem de googleAds.concorrencia.<chave>.
 const CONCORRENCIA_OPTIONS = ['Baixo', 'Médio', 'Alto']
+const CONCORRENCIA_CHAVE = { Baixo: 'baixo', Médio: 'medio', Alto: 'alto' }
 
 const CONCORRENCIA_STYLE = {
   Baixo: 'text-rl-green  bg-rl-green/10  border-rl-green/30',
@@ -30,7 +35,7 @@ function newKeyword() {
 }
 
 function newGroup(index) {
-  return { id: crypto.randomUUID(), name: `Grupo ${index + 1}`, keywords: [newKeyword()] }
+  return { id: crypto.randomUUID(), name: tSolto('googleAds.grupoN', { n: index + 1 }), keywords: [newKeyword()] }
 }
 
 // ─── System Prompt ─────────────────────────────────────────────────────────────
@@ -119,6 +124,7 @@ Estratégia de Lance: [CPA alvo / Maximizar conversões]
 
 // ─── Keyword Row ───────────────────────────────────────────────────────────────
 function KeywordRow({ kw, onUpdate, onRemove, isOnly }) {
+  const { t } = useI18n()
   return (
     <div className="grid grid-cols-[1fr_72px_32px] sm:grid-cols-[1fr_110px_130px_32px] gap-2 items-start sm:items-center">
       {/* Palavra-chave */}
@@ -126,7 +132,7 @@ function KeywordRow({ kw, onUpdate, onRemove, isOnly }) {
         value={kw.keyword}
         onChange={(e) => onUpdate('keyword', e.target.value)}
         className="input-field text-sm h-8 px-2"
-        placeholder="Ex: gestor de tráfego"
+        placeholder={t('googleAds.palavraPlaceholder')}
       />
 
       {/* Buscas/mês */}
@@ -136,8 +142,8 @@ function KeywordRow({ kw, onUpdate, onRemove, isOnly }) {
         value={kw.buscas}
         onChange={(e) => onUpdate('buscas', e.target.value.replace(/\D/g, ''))}
         className="input-field text-sm h-8 px-2 text-right"
-        placeholder="Buscas"
-        aria-label="Buscas/mês"
+        placeholder={t('googleAds.buscasPlaceholder')}
+        aria-label={t('googleAds.colBuscas')}
       />
 
       {/* Concorrência — no mobile vai pra próxima linha (col-span 2) */}
@@ -146,10 +152,10 @@ function KeywordRow({ kw, onUpdate, onRemove, isOnly }) {
           value={kw.concorrencia}
           onChange={(e) => onUpdate('concorrencia', e.target.value)}
           className={`w-full h-8 pl-2 pr-6 text-xs font-semibold rounded-lg border appearance-none cursor-pointer ${CONCORRENCIA_STYLE[kw.concorrencia]}`}
-          aria-label="Concorrência"
+          aria-label={t('googleAds.colConcorrencia')}
         >
           {CONCORRENCIA_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>Concorrência: {opt}</option>
+            <option key={opt} value={opt}>{t('googleAds.concorrenciaOpcao', { nivel: t(`googleAds.concorrencia.${CONCORRENCIA_CHAVE[opt]}`) })}</option>
           ))}
         </select>
         <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none opacity-60" />
@@ -169,6 +175,7 @@ function KeywordRow({ kw, onUpdate, onRemove, isOnly }) {
 
 // ─── Keyword Group Card ────────────────────────────────────────────────────────
 function KeywordGroupCard({ group, index, onUpdateName, onAddKeyword, onRemoveKeyword, onUpdateKeyword, onRemoveGroup, canRemoveGroup }) {
+  const { t } = useI18n()
   const filledCount = group.keywords.filter((k) => k.keyword.trim()).length
 
   return (
@@ -181,21 +188,21 @@ function KeywordGroupCard({ group, index, onUpdateName, onAddKeyword, onRemoveKe
             value={group.name}
             onChange={(e) => onUpdateName(e.target.value)}
             className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-rl-text focus:outline-none placeholder:text-rl-muted/50"
-            placeholder={`Grupo ${index + 1}`}
+            placeholder={t('googleAds.grupoN', { n: index + 1 })}
           />
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           {filledCount > 0 && (
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rl-cyan/10 text-rl-cyan border border-rl-cyan/20">
-              {filledCount} palavra{filledCount !== 1 ? 's' : ''}
+              {t('googleAds.nPalavras', { count: filledCount })}
             </span>
           )}
           <button
             onClick={onRemoveGroup}
             disabled={!canRemoveGroup}
             className="w-7 h-7 flex items-center justify-center rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
-            title="Remover grupo"
+            title={t('googleAds.removerGrupo')}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -204,9 +211,9 @@ function KeywordGroupCard({ group, index, onUpdateName, onAddKeyword, onRemoveKe
 
       {/* Table header — só visível em sm+ (no mobile cada row já tem placeholders/labels embutidos) */}
       <div className="hidden sm:grid grid-cols-[1fr_110px_130px_32px] gap-2 px-4 pt-3 pb-1.5">
-        <span className="text-[10px] font-semibold text-rl-muted uppercase tracking-wide">Palavra-chave</span>
-        <span className="text-[10px] font-semibold text-rl-muted uppercase tracking-wide text-right">Buscas/mês</span>
-        <span className="text-[10px] font-semibold text-rl-muted uppercase tracking-wide">Concorrência</span>
+        <span className="text-[10px] font-semibold text-rl-muted uppercase tracking-wide">{t('googleAds.colPalavra')}</span>
+        <span className="text-[10px] font-semibold text-rl-muted uppercase tracking-wide text-right">{t('googleAds.colBuscas')}</span>
+        <span className="text-[10px] font-semibold text-rl-muted uppercase tracking-wide">{t('googleAds.colConcorrencia')}</span>
         <span />
       </div>
 
@@ -228,7 +235,7 @@ function KeywordGroupCard({ group, index, onUpdateName, onAddKeyword, onRemoveKe
           className="flex items-center gap-1.5 text-xs text-rl-muted hover:text-rl-cyan transition-colors mt-2"
         >
           <Plus className="w-3.5 h-3.5" />
-          Adicionar palavra-chave
+          {t('googleAds.adicionarPalavra')}
         </button>
       </div>
     </div>
@@ -238,6 +245,8 @@ function KeywordGroupCard({ group, index, onUpdateName, onAddKeyword, onRemoveKe
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function GoogleAdsModule({ project }) {
   const { updateProject } = useApp()
+  const { t } = useI18n()
+  const rotuloTipo = (id) => t(`googleAds.tipos.${id}.label`)
 
   // ── Form state (restored from draft if it exists) ────────────────────────────
   const [keywordGroups, setKeywordGroups] = useState(() => {
@@ -349,13 +358,13 @@ export default function GoogleAdsModule({ project }) {
   }
 
   // ── Derived ──────────────────────────────────────────────────────────────────
-  const selectedTypes  = CAMPAIGN_TYPES.filter((t) => campaignTypes.has(t.id))
+  const selectedTypes  = CAMPAIGN_TYPES.filter((ct) => campaignTypes.has(ct.id))
   const totalKeywords  = keywordGroups.reduce((acc, g) => acc + g.keywords.filter((k) => k.keyword.trim()).length, 0)
   const canGenerate    = campaignTypes.size > 0 && totalKeywords > 0
 
   // ── Build instruction for AI ──────────────────────────────────────────────────
   const buildInstruction = useCallback(() => {
-    const typesStr = selectedTypes.map((t) => `${t.emoji} ${t.label}: ${t.desc}`).join('\n')
+    const typesStr = selectedTypes.map((ct) => `${ct.emoji} ${ptGoogleAds.tipos[ct.id].label}: ${ptGoogleAds.tipos[ct.id].desc}`).join('\n')
     const customSection = customNote.trim()
       ? `\n## INSTRUÇÕES ADICIONAIS\n${customNote.trim()}\n`
       : ''
@@ -399,7 +408,8 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
     setResult(null)
     try {
       const { system, messages } = buildCachedPayload({
-        systemPrompt: GOOGLE_ADS_SYSTEM,
+        // Rótulos do formato ficam em pt: o ResultCard destaca as linhas por eles.
+        systemPrompt: GOOGLE_ADS_SYSTEM + instrucaoDeIdioma(),
         project,
         instruction:  buildInstruction(),
       })
@@ -435,27 +445,27 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-bold text-rl-text mb-1">Google Ads — Estrutura de Campanhas</h2>
+          <h2 className="text-xl font-bold text-rl-text mb-1">{t('googleAds.titulo')}</h2>
           <p className="text-sm text-rl-muted">
-            Adicione os grupos de palavras-chave com volume e concorrência para gerar a estrutura completa de campanhas com RSAs e gatilhos emocionais.
+            {t('googleAds.subtitulo')}
           </p>
         </div>
         <button
           onClick={() => exportGoogleAdsPDF(project)}
           disabled={totalKeywords === 0}
-          title={totalKeywords === 0 ? 'Adicione palavras-chave para exportar' : 'Exportar PDF da estrutura'}
+          title={totalKeywords === 0 ? t('googleAds.exportarSemPalavras') : t('googleAds.exportarTitulo')}
           className="flex items-center gap-2 px-3 py-2 rounded-xl border border-rl-border text-sm text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 hover:bg-rl-purple/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
         >
           <FileDown className="w-4 h-4" />
-          Exportar PDF
+          {t('googleAds.exportarPdf')}
         </button>
       </div>
 
       {/* Metodologia info */}
       <div className="bg-rl-cyan/5 border border-rl-cyan/20 rounded-xl px-4 py-3">
-        <p className="text-xs font-semibold text-rl-cyan mb-1">🍰 Metodologia Bolo de Cenoura Fofinho</p>
+        <p className="text-xs font-semibold text-rl-cyan mb-1">{t('googleAds.metodologiaTitulo')}</p>
         <p className="text-xs text-rl-muted">
-          A palavra pesquisada pelo lead <span className="text-rl-text font-medium">aparece no título do anúncio</span> e espelha a <span className="text-rl-text font-medium">headline da landing page</span> — garantindo máxima relevância e Quality Score.
+          {t('googleAds.metodologia1')}<span className="text-rl-text font-medium">{t('googleAds.metodologia2')}</span>{t('googleAds.metodologia3')}<span className="text-rl-text font-medium">{t('googleAds.metodologia4')}</span>{t('googleAds.metodologia5')}
         </p>
       </div>
 
@@ -463,10 +473,10 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <label className="label-field mb-0">Grupos de Palavras-chave</label>
+            <label className="label-field mb-0">{t('googleAds.gruposTitulo')}</label>
             {totalKeywords > 0 && (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rl-green/10 text-rl-green border border-rl-green/20">
-                {totalKeywords} palavra{totalKeywords !== 1 ? 's' : ''} · {keywordGroups.length} grupo{keywordGroups.length !== 1 ? 's' : ''}
+                {t('googleAds.nPalavras', { count: totalKeywords })} · {t('googleAds.nGrupos', { count: keywordGroups.length })}
               </span>
             )}
           </div>
@@ -491,7 +501,7 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-rl-border text-rl-muted hover:border-rl-cyan/40 hover:text-rl-cyan hover:bg-rl-cyan/5 transition-all text-sm w-full justify-center"
         >
           <Plus className="w-4 h-4" />
-          Adicionar Grupo
+          {t('googleAds.adicionarGrupo')}
         </button>
       </div>
 
@@ -499,23 +509,23 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
       <div>
         <div className="flex items-center justify-between mb-3">
           <label className="label-field mb-0">
-            Campanhas a criar
+            {t('googleAds.campanhasACriar')}
             {campaignTypes.size > 0 && (
               <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rl-purple/20 text-rl-purple border border-rl-purple/30">
-                {campaignTypes.size} selecionada{campaignTypes.size !== 1 ? 's' : ''}
+                {t('googleAds.nSelecionadas', { count: campaignTypes.size })}
               </span>
             )}
           </label>
           <div className="flex gap-2 text-xs text-rl-muted">
             <button
-              onClick={() => setCampaignTypes(new Set(CAMPAIGN_TYPES.map((t) => t.id)))}
+              onClick={() => setCampaignTypes(new Set(CAMPAIGN_TYPES.map((ct) => ct.id)))}
               className="hover:text-rl-purple transition-colors"
             >
-              Todas
+              {t('comum.todas')}
             </button>
             <span>·</span>
             <button onClick={() => setCampaignTypes(new Set())} className="hover:text-rl-purple transition-colors">
-              Limpar
+              {t('comum.limpar')}
             </button>
           </div>
         </div>
@@ -540,9 +550,9 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
                 )}
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-base">{type.emoji}</span>
-                  <span className={`text-xs font-bold pr-4 ${selected ? 'text-rl-purple' : 'text-rl-text'}`}>{type.label}</span>
+                  <span className={`text-xs font-bold pr-4 ${selected ? 'text-rl-purple' : 'text-rl-text'}`}>{rotuloTipo(type.id)}</span>
                 </div>
-                <p className="text-[10px] text-rl-muted leading-snug line-clamp-2">{type.desc}</p>
+                <p className="text-[10px] text-rl-muted leading-snug line-clamp-2">{t(`googleAds.tipos.${type.id}.desc`)}</p>
               </button>
             )
           })}
@@ -552,15 +562,15 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
       {/* ── Custom Note ── */}
       <div>
         <label className="label-field mb-2">
-          Instruções adicionais
-          <span className="ml-2 text-[10px] text-rl-muted font-normal normal-case">(opcional)</span>
+          {t('googleAds.instrucoesAdicionais')}
+          <span className="ml-2 text-[10px] text-rl-muted font-normal normal-case">{t('googleAds.opcional')}</span>
         </label>
         <textarea
           value={customNote}
           onChange={(e) => setCustomNote(e.target.value)}
           rows={2}
           className="input-field w-full text-sm resize-none"
-          placeholder="Ex: não criar campanha de marca pois a empresa é nova, focar em buscas de alta intenção, incluir termos de urgência em todos os grupos..."
+          placeholder={t('googleAds.instrucoesPlaceholder')}
         />
       </div>
 
@@ -587,11 +597,11 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
               }`}
             >
               {saved
-                ? <><CheckCircle2 className="w-4 h-4" /> Configurações salvas!</>
-                : <><Save className="w-4 h-4" /> Salvar configurações</>
+                ? <><CheckCircle2 className="w-4 h-4" /> {t('googleAds.configSalvas')}</>
+                : <><Save className="w-4 h-4" /> {t('googleAds.salvarConfig')}</>
               }
             </button>
-            <span className="text-[10px] text-rl-muted">Salva grupos e tipos sem gerar</span>
+            <span className="text-[10px] text-rl-muted">{t('googleAds.salvarConfigDica')}</span>
           </div>
 
           {/* Generate */}
@@ -602,19 +612,19 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
               className="btn-primary flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {loading
-                ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando estrutura...</>
-                : <><Sparkles className="w-4 h-4" /> Gerar Estrutura Google Ads</>
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('googleAds.gerando')}</>
+                : <><Sparkles className="w-4 h-4" /> {t('googleAds.gerar')}</>
               }
             </button>
             {totalKeywords === 0 && !loading && (
-              <p className="text-xs text-rl-muted">Adicione pelo menos uma palavra-chave para gerar</p>
+              <p className="text-xs text-rl-muted">{t('googleAds.semPalavras')}</p>
             )}
             {!campaignTypes.size && totalKeywords > 0 && !loading && (
-              <p className="text-xs text-rl-muted">Selecione pelo menos um tipo de campanha</p>
+              <p className="text-xs text-rl-muted">{t('googleAds.semTipo')}</p>
             )}
             {canGenerate && !loading && (
               <p className="text-xs text-rl-muted">
-                {selectedTypes.map((t) => t.label).join(' · ')}
+                {selectedTypes.map((ct) => rotuloTipo(ct.id)).join(' · ')}
               </p>
             )}
           </div>
@@ -628,7 +638,7 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
             <div className="flex items-center gap-2">
               <Search className="w-4 h-4 text-rl-cyan" />
               <span className="text-sm font-semibold text-rl-text">
-                {selectedTypes.map((t) => `${t.emoji} ${t.label}`).join(' · ')}
+                {selectedTypes.map((ct) => `${ct.emoji} ${rotuloTipo(ct.id)}`).join(' · ')}
               </span>
             </div>
             <button
@@ -637,7 +647,7 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
             >
               <RotateCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              Regerar
+              {t('googleAds.regerar')}
             </button>
           </div>
 
@@ -647,7 +657,7 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
             onClick={() => setResult(null)}
             className="btn-secondary flex items-center gap-2 text-sm"
           >
-            Alterar configurações
+            {t('googleAds.alterarConfig')}
           </button>
         </div>
       )}

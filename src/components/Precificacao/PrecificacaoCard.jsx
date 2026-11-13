@@ -1,16 +1,18 @@
 import { Pencil, Trash2, Clock, Wrench, Repeat } from 'lucide-react'
 import { fmtMoney } from '../Resultados/resultadosHelpers'
 import { calcularServico, calcularProduto, calcularSaas } from './precificacaoMath'
+import { useI18n } from '../../i18n'
 
 // Card compacto de um item salvo na lista de Precificação.
 // Click no corpo do card → edita; click no lixo → exclui (com confirm).
 export default function PrecificacaoCard({ item, mode, onEdit, onDelete }) {
+  const { t, locale } = useI18n()
   const isSaas = mode === 'saas'
   const result = isSaas ? calcularSaas(item)
     : mode === 'servicos' ? calcularServico(item)
     : calcularProduto(item)
   const updated = item.updatedAt
-    ? new Date(item.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+    ? new Date(item.updatedAt).toLocaleDateString(locale, { day: '2-digit', month: 'short' })
     : null
 
   return (
@@ -20,9 +22,9 @@ export default function PrecificacaoCard({ item, mode, onEdit, onDelete }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-bold text-rl-text truncate">{item.nome || '— sem nome —'}</h4>
+          <h4 className="text-sm font-bold text-rl-text truncate">{item.nome || t('precificacao.semNome')}</h4>
           <div className="flex items-center gap-3 mt-0.5 text-[11px] text-rl-muted">
-            <span>Custo: {fmtMoney(result.custoTotal)}</span>
+            <span>{t('precificacao.custo', { valor: fmtMoney(result.custoTotal) })}</span>
             {updated && (
               <span className="inline-flex items-center gap-1">
                 <Clock className="w-3 h-3" /> {updated}
@@ -35,17 +37,17 @@ export default function PrecificacaoCard({ item, mode, onEdit, onDelete }) {
           <button
             onClick={(e) => { e.stopPropagation(); onEdit() }}
             className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
-            title="Editar"
+            title={t('comum.editar')}
           >
             <Pencil className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={(e) => {
               e.stopPropagation()
-              if (window.confirm(`Excluir "${item.nome || 'este item'}"?`)) onDelete()
+              if (window.confirm(t('precificacao.confirmarExcluir', { nome: item.nome || t('precificacao.esteItem') }))) onDelete()
             }}
             className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
-            title="Excluir"
+            title={t('comum.excluir')}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -56,19 +58,19 @@ export default function PrecificacaoCard({ item, mode, onEdit, onDelete }) {
       <div className="mt-3 pt-3 border-t border-rl-border/60 flex items-end justify-between gap-3">
         <div>
           <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold mb-0.5">
-            {isSaas ? 'Mensalidade' : 'Preço de venda'}
+            {isSaas ? t('precificacao.mensalidade') : t('precificacao.precoVenda')}
           </p>
           <p className={`text-2xl font-black tabular-nums ${result.erro ? 'text-rl-red' : 'text-rl-green'}`}>
             {result.erro ? '—' : fmtMoney(isSaas ? result.mensalidade : result.precoVenda)}
-            {isSaas && !result.erro && <span className="text-xs font-semibold text-rl-green/70">/mês</span>}
+            {isSaas && !result.erro && <span className="text-xs font-semibold text-rl-green/70">{t('precificacao.porMes')}</span>}
           </p>
         </div>
         <div className="flex items-center gap-1.5 text-[10px]">
           <span className="px-2 py-1 rounded-full bg-rl-purple/10 border border-rl-purple/30 text-rl-purple font-bold">
-            Margem {Number(item.margemPct) || 0}%
+            {t('precificacao.margemPct', { pct: Number(item.margemPct) || 0 })}
           </span>
           <span className="px-2 py-1 rounded-full bg-rl-gold/10 border border-rl-gold/30 text-rl-gold font-bold">
-            Imposto {Number(item.impostoPct) || 0}%
+            {t('precificacao.impostoPct', { pct: Number(item.impostoPct) || 0 })}
           </span>
         </div>
       </div>
@@ -78,18 +80,18 @@ export default function PrecificacaoCard({ item, mode, onEdit, onDelete }) {
         <div className="mt-2 flex items-center flex-wrap gap-1.5 text-[10px]">
           {result.temImplantacao ? (
             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-rl-gold/10 border border-rl-gold/30 text-rl-gold font-bold">
-              <Wrench className="w-3 h-3" /> Setup {fmtMoney(result.precoImplantacao)}
+              <Wrench className="w-3 h-3" /> {t('precificacao.setup', { valor: fmtMoney(result.precoImplantacao) })}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-rl-surface border border-rl-border text-rl-muted font-semibold">
-              <Wrench className="w-3 h-3" /> Sem implantação
+              <Wrench className="w-3 h-3" /> {t('precificacao.semImplantacao')}
             </span>
           )}
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-rl-green/10 border border-rl-green/30 text-rl-green font-bold">
             <Repeat className="w-3 h-3" /> LTV {fmtMoney(result.receitaCiclo)}
           </span>
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-rl-surface border border-rl-border text-rl-muted font-semibold">
-            {result.porUsuario ? `${result.numUsuarios} seats` : 'ilimitado'}
+            {result.porUsuario ? t('precificacao.seats', { count: result.numUsuarios }) : t('precificacao.ilimitado')}
           </span>
         </div>
       )}

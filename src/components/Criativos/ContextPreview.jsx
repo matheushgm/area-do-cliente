@@ -1,22 +1,24 @@
 import { useState } from 'react'
+import { useI18n } from '../../i18n'
 
 export default function ContextPreview({ project, collapsed = false }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(!collapsed)
   const hasPersonas    = (project.personas || []).length > 0
   const hasOferta      = !!(project.ofertaData?.nome || project.ofertaData?.resultadoSonho)
   const hasAttachments = (project.attachments || []).length > 0
 
   const items = [
-    { label: 'Onboarding (empresa, produto, objetivo)', ok: !!project.companyName,    detail: project.businessType || 'dados básicos' },
-    { label: 'Personas / ICP',                          ok: hasPersonas,              detail: hasPersonas ? `${project.personas.length} persona${project.personas.length > 1 ? 's' : ''}` : 'nenhuma criada' },
-    { label: 'Oferta Matadora',                         ok: hasOferta,                detail: hasOferta ? (project.ofertaData?.nome || 'configurada') : 'não configurada' },
-    { label: 'Documentos em Anexo',                     ok: hasAttachments,           detail: hasAttachments ? `${project.attachments.length} arquivo${project.attachments.length > 1 ? 's' : ''}` : 'nenhum' },
+    { label: t('criativos.contexto.onboarding'), ok: !!project.companyName, detail: project.businessType || t('criativos.contexto.dadosBasicos') },
+    { label: t('criativos.contexto.personas'),   ok: hasPersonas,           detail: hasPersonas ? t('criativos.contexto.nPersonas', { count: project.personas.length }) : t('criativos.contexto.nenhumaCriada') },
+    { label: t('criativos.contexto.oferta'),     ok: hasOferta,             detail: hasOferta ? (project.ofertaData?.nome || t('criativos.contexto.configurada')) : t('criativos.contexto.naoConfigurada') },
+    { label: t('criativos.contexto.anexos'),     ok: hasAttachments,        detail: hasAttachments ? t('criativos.contexto.nArquivos', { count: project.attachments.length }) : t('criativos.contexto.nenhum') },
   ]
 
   return (
     <div className="glass-card border border-rl-border/60 overflow-hidden">
       <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between px-4 py-3 text-left">
-        <span className="text-xs font-semibold text-rl-muted uppercase tracking-wider">📋 Contexto usado na geração</span>
+        <span className="text-xs font-semibold text-rl-muted uppercase tracking-wider">📋 {t('criativos.contexto.titulo')}</span>
         <span className="text-rl-muted text-xs">{open ? '▲' : '▼'}</span>
       </button>
       {open && (

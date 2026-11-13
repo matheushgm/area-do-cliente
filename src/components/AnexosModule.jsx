@@ -9,6 +9,7 @@ import {
   FileAudio, Archive, Save, CheckCircle2, Loader2, Eye, X,
 } from 'lucide-react'
 import EmptyState from './UI/EmptyState'
+import { useI18n } from '../i18n'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MAX_FILE_MB  = 8
@@ -50,6 +51,7 @@ function canPreview(type) {
 
 // ─── Preview Modal ─────────────────────────────────────────────────────────────
 function PreviewModal({ file, onClose, onDownload }) {
+  const { t } = useI18n()
   const [url, setUrl]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr]        = useState(null)
@@ -64,13 +66,13 @@ function PreviewModal({ file, onClose, onDownload }) {
         href = await getSignedUrl('attachments', file.storage_path)
       }
       if (cancelled) return
-      if (!href) { setErr('Não foi possível carregar o arquivo.'); setLoading(false); return }
+      if (!href) { setErr(t('anexos.erroCarregar')); setLoading(false); return }
       setUrl(href)
       setLoading(false)
     }
     load()
     return () => { cancelled = true }
-  }, [file])
+  }, [file]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isImage = file.type?.startsWith('image/')
   const isPDF   = file.type === 'application/pdf'
@@ -93,14 +95,14 @@ function PreviewModal({ file, onClose, onDownload }) {
             <button
               onClick={() => onDownload(file)}
               className="p-2 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
-              title="Baixar arquivo"
+              title={t('anexos.baixar')}
             >
               <Download className="w-4 h-4" />
             </button>
             <button
               onClick={onClose}
               className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
-              title="Fechar"
+              title={t('comum.fechar')}
             >
               <X className="w-4 h-4" />
             </button>
@@ -112,7 +114,7 @@ function PreviewModal({ file, onClose, onDownload }) {
           {loading && (
             <div className="flex flex-col items-center gap-3 py-16">
               <Loader2 className="w-8 h-8 text-rl-purple animate-spin" />
-              <p className="text-sm text-rl-muted">Carregando prévia...</p>
+              <p className="text-sm text-rl-muted">{t('anexos.carregandoPrevia')}</p>
             </div>
           )}
 
@@ -163,6 +165,7 @@ function PreviewModal({ file, onClose, onDownload }) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function AnexosModule({ project }) {
+  const { t } = useI18n()
   const { updateProject } = useApp()
   const fileInputRef = useRef(null)
   const savedTimer   = useRef(null)
@@ -188,7 +191,7 @@ export default function AnexosModule({ project }) {
 
     for (const file of fileArray) {
       if (file.size > MAX_FILE) {
-        setError(`"${file.name}" excede o limite de ${MAX_FILE_MB} MB por arquivo.`)
+        setError(t('anexos.erroTamanho', { nome: file.name, mb: MAX_FILE_MB }))
         setUploading(false)
         return
       }
@@ -196,7 +199,7 @@ export default function AnexosModule({ project }) {
         + newAttachments.reduce((s, a) => s + a.size, 0)
         + file.size
       if (projectedTotal > MAX_TOTAL) {
-        setError(`Limite total de ${MAX_TOTAL_MB} MB atingido. Remova arquivos antes de adicionar novos.`)
+        setError(t('anexos.erroTotal', { mb: MAX_TOTAL_MB }))
         setUploading(false)
         return
       }
@@ -210,7 +213,7 @@ export default function AnexosModule({ project }) {
           .upload(storagePath, file, { upsert: true })
 
         if (uploadError) {
-          setError(`Erro ao salvar "${file.name}": ${uploadError.message}`)
+          setError(t('anexos.erroSalvar', { nome: file.name, msg: uploadError.message }))
           setUploading(false)
           return
         }
@@ -234,7 +237,7 @@ export default function AnexosModule({ project }) {
     clearTimeout(savedTimer.current)
     setSaved(true)
     savedTimer.current = setTimeout(() => setSaved(false), 3000)
-  }, [attachments, project.id, totalSize, updateProject])
+  }, [attachments, project.id, totalSize, updateProject, t])
 
   // ── Delete ───────────────────────────────────────────────────────────────────
   const handleDelete = useCallback(async (a) => {
@@ -254,13 +257,13 @@ export default function AnexosModule({ project }) {
     if (!href && a.storage_path) {
       href = await getSignedUrl('attachments', a.storage_path)
       if (!href) {
-        setError('Erro ao gerar link de download. Tente novamente.')
+        setError(t('anexos.erroLink'))
         return
       }
     }
 
     if (!href) {
-      setError('Arquivo não disponível para download.')
+      setError(t('anexos.indisponivel'))
       return
     }
 
@@ -270,7 +273,7 @@ export default function AnexosModule({ project }) {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-  }, [])
+  }, [t])
 
   // ── Manual save ───────────────────────────────────────────────────────────────
   const handleSave = useCallback(() => {
@@ -316,10 +319,10 @@ export default function AnexosModule({ project }) {
           }
         </div>
         <p className="text-sm font-semibold text-rl-text mb-1">
-          {uploading ? 'Fazendo upload...' : 'Solte arquivos aqui ou clique para selecionar'}
+          {uploading ? t('anexos.enviando') : t('anexos.solte')}
         </p>
         <p className="text-xs text-rl-muted">
-          PDF, DOC, XLS, PNG, JPG, MP4 e mais · Máx. {MAX_FILE_MB} MB por arquivo · Total: {MAX_TOTAL_MB} MB
+          {t('anexos.formatos', { mb: MAX_FILE_MB, total: MAX_TOTAL_MB })}
         </p>
         <input
           ref={fileInputRef}
@@ -335,7 +338,7 @@ export default function AnexosModule({ project }) {
         <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-400 text-sm">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="ml-auto shrink-0 text-red-400/60 hover:text-red-400">✕</button>
+          <button onClick={() => setError(null)} title={t('comum.fechar')} className="ml-auto shrink-0 text-red-400/60 hover:text-red-400">✕</button>
         </div>
       )}
 
@@ -343,7 +346,7 @@ export default function AnexosModule({ project }) {
       {attachments.length > 0 && (
         <div>
           <div className="flex items-center justify-between text-xs text-rl-muted mb-1.5">
-            <span>{attachments.length} arquivo{attachments.length !== 1 ? 's' : ''} anexado{attachments.length !== 1 ? 's' : ''}</span>
+            <span>{t('anexos.anexados', { count: attachments.length })}</span>
             <span className={pct > 85 ? 'text-rl-gold font-semibold' : ''}>
               {fmtSize(totalSize)} / {MAX_TOTAL_MB} MB
             </span>
@@ -361,8 +364,8 @@ export default function AnexosModule({ project }) {
       {attachments.length === 0 ? (
         <EmptyState
           icon={<Paperclip className="w-8 h-8" />}
-          title="Nenhum anexo ainda"
-          subtitle="Adicione contratos, briefings, relatórios e documentos importantes"
+          title={t('anexos.vazio')}
+          subtitle={t('anexos.vazioDica')}
         />
       ) : (
         <div className="space-y-2">
@@ -377,7 +380,7 @@ export default function AnexosModule({ project }) {
                 className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all ${fileColor(a.type)} ${
                   canPreview(a.type) ? 'hover:scale-110 cursor-pointer' : 'cursor-default'
                 }`}
-                title={canPreview(a.type) ? 'Visualizar arquivo' : undefined}
+                title={canPreview(a.type) ? t('anexos.visualizar') : undefined}
               >
                 <FileIcon type={a.type} />
               </button>
@@ -394,7 +397,7 @@ export default function AnexosModule({ project }) {
                 </p>
                 <p className="text-xs text-rl-muted mt-0.5">
                   {fmtSize(a.size)} · {fmtDate(a.uploadedAt || a.uploaded_at) || '—'}
-                  {canPreview(a.type) && <span className="ml-1.5 text-rl-purple/60">· clique para visualizar</span>}
+                  {canPreview(a.type) && <span className="ml-1.5 text-rl-purple/60">· {t('anexos.cliqueVisualizar')}</span>}
                 </p>
               </div>
 
@@ -403,7 +406,7 @@ export default function AnexosModule({ project }) {
                   <button
                     onClick={() => setPreviewFile(a)}
                     className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
-                    title="Visualizar arquivo"
+                    title={t('anexos.visualizar')}
                   >
                     <Eye className="w-4 h-4" />
                   </button>
@@ -411,14 +414,14 @@ export default function AnexosModule({ project }) {
                 <button
                   onClick={() => handleDownload(a)}
                   className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
-                  title="Baixar arquivo"
+                  title={t('anexos.baixar')}
                 >
                   <Download className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleDelete(a)}
                   className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
-                  title="Remover arquivo"
+                  title={t('anexos.remover')}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -441,15 +444,15 @@ export default function AnexosModule({ project }) {
             }`}
           >
             {saved
-              ? <><CheckCircle2 className="w-4 h-4" /> Anexos salvos!</>
-              : <><Save className="w-4 h-4" /> Salvar anexos</>
+              ? <><CheckCircle2 className="w-4 h-4" /> {t('anexos.salvos')}</>
+              : <><Save className="w-4 h-4" /> {t('anexos.salvar')}</>
             }
           </button>
 
           {saved && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-rl-green/5 border border-rl-green/20 text-rl-green text-xs font-medium">
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              {attachments.length} arquivo{attachments.length !== 1 ? 's' : ''} salvo{attachments.length !== 1 ? 's' : ''} com sucesso
+              {t('anexos.salvosN', { count: attachments.length })}
             </div>
           )}
         </div>

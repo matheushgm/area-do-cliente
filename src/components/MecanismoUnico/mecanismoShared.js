@@ -3,6 +3,8 @@
 // Schema, hidratação, metadados dos passos do wizard e o montador do pitch.
 // Sem React — importado pelo módulo interno, pelo wizard e pela página pública.
 // ─────────────────────────────────────────────────────────────────────────────
+import { t } from '../../i18n'
+import TEXTOS_PT from '../../i18n/locales/pt/mecanismoPassos.js'
 
 // Estado vazio inicial — usado quando project.mecanismoUnico ainda não existe.
 export function newMecanismo() {
@@ -71,18 +73,27 @@ export function hydrateMecanismo(saved) {
 
 // ─── Metadados dos passos (uma decisão por tela) ────────────────────────────
 export const STEP_META = [
-  { id: 'concorrentes', title: 'Seus concorrentes',   subtitle: 'Quem mais disputa esse cliente',      optional: false },
-  { id: 'mercado',      title: 'O padrão do mercado', subtitle: 'O que todo mundo fala igual',         optional: true  },
-  { id: 'tentativas',   title: 'O que ele já tentou', subtitle: 'E por que ELE acha que não deu certo', optional: false },
-  { id: 'vilao',        title: 'O vilão',             subtitle: 'Quem leva a culpa (nunca o cliente)',  optional: false },
-  { id: 'prova',        title: 'Conexão e prova',     subtitle: 'Por que sua explicação é crível',      optional: false },
-  { id: 'diferente',    title: 'O que é diferente',   subtitle: 'Diferente de... eu...',                optional: false },
-  { id: 'nome',         title: 'Nome do mecanismo',   subtitle: 'Batize a sua solução',                 optional: false },
-  { id: 'porque',       title: 'Por que funciona',    subtitle: 'As técnicas que sustentam',            optional: true  },
-  { id: 'montagem',     title: 'Montagem do pitch',   subtitle: 'Junta tudo no esqueleto final',        optional: false },
-  { id: 'validacao',    title: 'Validação',           subtitle: 'Os 7 critérios + teste do amigo',      optional: true  },
-  { id: 'final',        title: 'Pitch pronto',        subtitle: 'Revise o resultado',                   optional: false },
+  { id: 'concorrentes', optional: false },
+  { id: 'mercado', optional: true },
+  { id: 'tentativas', optional: false },
+  { id: 'vilao', optional: false },
+  { id: 'prova', optional: false },
+  { id: 'diferente', optional: false },
+  { id: 'nome', optional: false },
+  { id: 'porque', optional: true },
+  { id: 'montagem', optional: false },
+  { id: 'validacao', optional: true },
+  { id: 'final', optional: false },
 ]
+
+// Título e subtítulo no idioma de agora (getters; o texto mora em mecanismoPassos.passos).
+STEP_META.forEach((s) => {
+  for (const campo of ['title', 'subtitle']) {
+    Object.defineProperty(s, campo, {
+      enumerable: true, configurable: true, get: () => t(`mecanismoPassos.passos.${s.id}.${campo}`),
+    })
+  }
+})
 
 // Progresso de preenchimento por passo (checks da trilha)
 export function computeFilledMap(d = {}) {
@@ -102,12 +113,21 @@ export function computeFilledMap(d = {}) {
 }
 
 // ─── Pitch builder ──────────────────────────────────────────────────────────
-export function buildPitch(d) {
+// `pt: true` monta sempre em português (o pitch que vai no prompt da IA);
+// sem isso, os rótulos seguem o idioma da tela.
+function rotuloPitch(chave, vars, pt) {
+  if (!pt) return t(`mecanismoPassos.pitch.${chave}`, vars)
+  const v = TEXTOS_PT.pitch[chave] || ''
+  return vars ? v.replace(/\{(\w+)\}/g, (m, k) => (vars[k] ?? m)) : v
+}
+
+export function buildPitch(d, { pt = false } = {}) {
+  const L = (chave, vars) => rotuloPitch(chave, vars, pt)
   const parts = []
   const header = [
-    d.euAjudo ? `**Eu ajudo:** ${d.euAjudo}` : null,
-    d.aConseguir ? `**A conseguir:** ${d.aConseguir}` : null,
-    (d.atravesDo || d.nomeMecanismo) ? `**Através do:** ${d.atravesDo || d.nomeMecanismo}` : null,
+    d.euAjudo ? `**${L('euAjudo')}** ${d.euAjudo}` : null,
+    d.aConseguir ? `**${L('aConseguir')}** ${d.aConseguir}` : null,
+    (d.atravesDo || d.nomeMecanismo) ? `**${L('atravesDo')}** ${d.atravesDo || d.nomeMecanismo}` : null,
   ].filter(Boolean).join('\n\n')
   if (header) parts.push(header)
 
@@ -116,18 +136,18 @@ export function buildPitch(d) {
     d.porqueFalhou?.razao,
     d.porqueFalhou?.prova,
   ].filter(Boolean).join(' ')
-  if (falhou) parts.push(`## Por que falhou até agora\n\n${falhou}`)
+  if (falhou) parts.push(`## ${L('porqueFalhou')}\n\n${falhou}`)
 
   const funcionaParts = [
     d.porqueFunciona?.explicacao,
     (d.porqueFunciona?.diferente || d.porqueFunciona?.voce)
-      ? `Diferente de ${d.porqueFunciona?.diferente || '...'}, ${d.porqueFunciona?.voce || '...'}.`
+      ? L('diferenteDe', { deles: d.porqueFunciona?.diferente || '...', voce: d.porqueFunciona?.voce || '...' })
       : null,
   ].filter(Boolean).join(' ')
-  if (funcionaParts) parts.push(`## Por que vai funcionar\n\n${funcionaParts}`)
+  if (funcionaParts) parts.push(`## ${L('porqueFunciona')}\n\n${funcionaParts}`)
 
   if (d.promessaPrazo || d.promessaResultado) {
-    parts.push(`## Promessa\n\nEm ${d.promessaPrazo || '__'}, ${d.promessaResultado || '__'}.`)
+    parts.push(`## ${L('promessa')}\n\n${L('promessaTexto', { prazo: d.promessaPrazo || '__', resultado: d.promessaResultado || '__' })}`)
   }
 
   return parts.join('\n\n')

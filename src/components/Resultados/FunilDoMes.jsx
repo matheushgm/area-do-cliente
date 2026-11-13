@@ -3,31 +3,35 @@
 // contas vinculadas (api/resultados-autofill.js); "Lançado" = o que o time ou o
 // cliente (pelo link) preenche: MQL, SQL, vendas e receita.
 import { Zap, PenLine, ArrowRight } from 'lucide-react'
+import { useI18n } from '../../i18n'
 
+// `label` guarda a chave do rótulo (traduzida no render).
 export const FONTES = {
-  api: { label: 'API', Icon: Zap, cls: 'text-rl-cyan bg-rl-cyan/10 border-rl-cyan/25', dot: 'bg-rl-cyan' },
-  lancado: { label: 'Lançado', Icon: PenLine, cls: 'text-rl-purple bg-rl-purple/10 border-rl-purple/25', dot: 'bg-rl-purple' },
+  api: { label: 'resultados.fonte.api', Icon: Zap, cls: 'text-rl-cyan bg-rl-cyan/10 border-rl-cyan/25', dot: 'bg-rl-cyan' },
+  lancado: { label: 'resultados.fonte.lancado', Icon: PenLine, cls: 'text-rl-purple bg-rl-purple/10 border-rl-purple/25', dot: 'bg-rl-purple' },
 }
 
 export function FonteTag({ fonte, children }) {
+  const { t } = useI18n()
   const f = FONTES[fonte]
   if (!f) return null
   return (
     <span className={`inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide border rounded-full px-1.5 py-0.5 ${f.cls}`}>
-      <f.Icon size={10} /> {children || f.label}
+      <f.Icon size={10} /> {children || t(f.label)}
     </span>
   )
 }
 
 // etapas: [{ key, label, valor (texto pronto), sub?, fonte, conversao? (texto: "36,2% dos leads") }]
 export default function FunilDoMes({ titulo, atualizado, etapas }) {
+  const { t } = useI18n()
   return (
     <div className="rounded-2xl border border-rl-border bg-rl-surface/40 p-4 space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm font-semibold text-rl-text">{titulo}</p>
         <div className="flex items-center gap-3 text-xs text-rl-muted flex-wrap">
-          <span className="flex items-center gap-1.5"><span className={`w-1.5 h-1.5 rounded-full ${FONTES.api.dot}`} /> API{atualizado ? ` · atualizado ${atualizado}` : ''}</span>
-          <span className="flex items-center gap-1.5"><span className={`w-1.5 h-1.5 rounded-full ${FONTES.lancado.dot}`} /> Lançado pelo time ou pelo cliente</span>
+          <span className="flex items-center gap-1.5"><span className={`w-1.5 h-1.5 rounded-full ${FONTES.api.dot}`} /> {t('resultados.fonte.api')}{atualizado ? t('resultados.fonte.atualizado', { quando: atualizado }) : ''}</span>
+          <span className="flex items-center gap-1.5"><span className={`w-1.5 h-1.5 rounded-full ${FONTES.lancado.dot}`} /> {t('resultados.fonte.lancadoPor')}</span>
         </div>
       </div>
       <div className={`grid gap-2 grid-cols-2 sm:grid-cols-3 ${etapas.length >= 6 ? 'xl:grid-cols-6' : 'xl:grid-cols-4'}`}>

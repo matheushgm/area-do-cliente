@@ -1,3 +1,4 @@
+import { t } from '../../../i18n'
 // Template "Quote" — estilo depoimento/aspas, fundo claro com aspas
 // decorativas gigantes em SVG; headline em itálico.
 
@@ -120,7 +121,7 @@ const thumbnail = `data:image/svg+xml;utf8,${encodeURIComponent(`
 export default {
   id: 'quote',
   name: 'Quote',
-  description: 'Estilo depoimento com aspas decorativas, headline em itálico serif',
+  get description() { return t('criativosVisual.templates.quote') },
   thumbnail,
   html,
 }

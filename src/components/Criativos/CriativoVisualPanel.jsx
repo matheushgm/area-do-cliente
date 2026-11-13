@@ -8,6 +8,7 @@ import { elementToJpgBlob, downloadBlob, slugify } from '../../lib/htmlToJpg'
 import { streamClaude } from '../../lib/claude'
 import { useToast } from '../../hooks/useToast'
 import Toast from '../UI/Toast'
+import { useI18n } from '../../i18n'
 
 const SYSTEM_PROMPT = `Você é um designer expert em ads do Meta/Instagram. Receberá um TEMPLATE HTML com placeholders ({{HEADLINE}}, {{SUBHEADLINE}}, {{CTA}}, {{BRAND_COLOR}}, {{COMPANY_NAME}}) e os textos a inserir.
 
@@ -55,6 +56,7 @@ function extractHtml(text) {
 
 export default function CriativoVisualPanel({ project }) {
   const { toast, showToast } = useToast()
+  const { t, locale } = useI18n()
   const [selectedCreativeId, setSelectedCreativeId] = useState('')
   const [selectedTemplateId, setSelectedTemplateId] = useState(TEMPLATES[0].id)
   const [headline, setHeadline]       = useState('')
@@ -76,7 +78,7 @@ export default function CriativoVisualPanel({ project }) {
   }, [project?.creatives])
 
   const selectedCreative = creatives.find((c) => c.id === selectedCreativeId) || null
-  const selectedTemplate = TEMPLATES.find((t) => t.id === selectedTemplateId) || TEMPLATES[0]
+  const selectedTemplate = TEMPLATES.find((tpl) => tpl.id === selectedTemplateId) || TEMPLATES[0]
 
   // Quando o user escolhe uma copy, popula os campos automaticamente
   useEffect(() => {
@@ -105,7 +107,7 @@ export default function CriativoVisualPanel({ project }) {
 
   async function handleGenerateAI() {
     if (!headline.trim()) {
-      showToast('Preencha pelo menos o headline antes de gerar.', 'error')
+      showToast(t('criativosVisual.visual.preenchaHeadlineAntes'), 'error')
       return
     }
     setGenerating(true)
@@ -131,14 +133,14 @@ export default function CriativoVisualPanel({ project }) {
       })
       const cleaned = extractHtml(acc)
       if (!cleaned || !/<!doctype html/i.test(cleaned)) {
-        throw new Error('Resposta da IA não contém HTML válido.')
+        throw new Error(t('criativosVisual.visual.htmlInvalido'))
       }
       setGeneratedHtml(cleaned)
-      showToast('Criativo gerado com IA!')
+      showToast(t('criativosVisual.visual.geradoIa'))
     } catch (e) {
       console.error('[CriativoVisual] erro IA:', e)
-      setErrorMsg(e?.message || 'Erro ao gerar com IA.')
-      showToast('Erro na IA. Você pode usar "Aplicar sem IA".', 'error')
+      setErrorMsg(e?.message || t('criativosVisual.visual.erroGerar'))
+      showToast(t('criativosVisual.visual.erroIa'), 'error')
     } finally {
       setGenerating(false)
     }
@@ -147,11 +149,11 @@ export default function CriativoVisualPanel({ project }) {
   // Aplica os placeholders direto (sem IA) — modo rápido/seguro
   function handleApplyDirect() {
     if (!headline.trim()) {
-      showToast('Preencha pelo menos o headline.', 'error')
+      showToast(t('criativosVisual.visual.preenchaHeadline'), 'error')
       return
     }
     setGeneratedHtml('') // limpa cache da IA; previewHtml volta a usar o template
-    showToast('Aplicado direto no template.')
+    showToast(t('criativosVisual.visual.aplicadoDireto'))
   }
 
   async function handleDownload() {
@@ -160,7 +162,7 @@ export default function CriativoVisualPanel({ project }) {
     try {
       // Renderiza num iframe oculto em 1080×1080 nativo, espera carregar, captura.
       const iframe = hiddenRef.current
-      if (!iframe) throw new Error('Iframe oculto não encontrado.')
+      if (!iframe) throw new Error(t('criativosVisual.visual.iframeNaoEncontrado'))
       iframe.srcdoc = previewHtml
       await new Promise((resolve) => {
         if (iframe.contentDocument?.readyState === 'complete') {
@@ -171,15 +173,15 @@ export default function CriativoVisualPanel({ project }) {
         }
       })
       const body = iframe.contentDocument?.body
-      if (!body) throw new Error('Conteúdo do iframe não acessível.')
+      if (!body) throw new Error(t('criativosVisual.visual.iframeInacessivel'))
       const blob = await elementToJpgBlob(body, { width: 1080, height: 1080, quality: 0.92 })
-      if (!blob) throw new Error('Falha ao gerar a imagem.')
+      if (!blob) throw new Error(t('criativosVisual.visual.falhaImagem'))
       const filename = `${slugify(project?.companyName || 'cliente')}-${selectedTemplate.id}-${Date.now()}.jpg`
       downloadBlob(blob, filename)
-      showToast('JPG baixado!')
+      showToast(t('criativosVisual.visual.jpgBaixado'))
     } catch (e) {
       console.error('[CriativoVisual] erro download:', e)
-      showToast(e?.message || 'Erro ao gerar JPG.', 'error')
+      showToast(e?.message || t('criativosVisual.visual.erroJpg'), 'error')
     } finally {
       setDownloading(false)
     }
@@ -191,10 +193,10 @@ export default function CriativoVisualPanel({ project }) {
       <div>
         <h3 className="text-base font-bold text-rl-text flex items-center gap-2">
           <Wand2 className="w-4 h-4 text-rl-purple" />
-          Gerar criativo visual (JPG 1080×1080)
+          {t('criativosVisual.visual.titulo')}
         </h3>
         <p className="text-xs text-rl-muted mt-0.5">
-          Escolha uma copy já gerada, um template e gere uma imagem pronta pra rodar como anúncio.
+          {t('criativosVisual.visual.subtitulo')}
         </p>
       </div>
 
@@ -203,7 +205,7 @@ export default function CriativoVisualPanel({ project }) {
         <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 p-6 text-center">
           <ImageIcon className="w-8 h-8 text-rl-muted/40 mx-auto mb-2" />
           <p className="text-sm text-rl-muted">
-            Você ainda não tem nenhuma copy gerada. Gere uma copy primeiro na aba <span className="text-rl-text font-semibold">Copy</span> e volta aqui.
+            {t('criativosVisual.visual.semCopyAntes')}<span className="text-rl-text font-semibold">{t('criativosVisual.visual.abaCopy')}</span>{t('criativosVisual.visual.semCopyDepois')}
           </p>
         </div>
       )}
@@ -215,21 +217,21 @@ export default function CriativoVisualPanel({ project }) {
             <div className="space-y-4">
               {/* Selecionar copy */}
               <div>
-                <label className="label-field">Copy gerada</label>
+                <label className="label-field">{t('criativosVisual.visual.copyGerada')}</label>
                 <select
                   value={selectedCreativeId}
                   onChange={(e) => setSelectedCreativeId(e.target.value)}
                   className="input-field w-full"
                 >
-                  <option value="">— Escolha uma copy gerada —</option>
+                  <option value="">{t('criativosVisual.escolhaCopy')}</option>
                   {creatives.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name || c.id}{c.createdAt ? ` · ${new Date(c.createdAt).toLocaleDateString('pt-BR')}` : ''}
+                      {c.name || c.id}{c.createdAt ? ` · ${new Date(c.createdAt).toLocaleDateString(locale)}` : ''}
                     </option>
                   ))}
                 </select>
                 <p className="text-[10px] text-rl-muted mt-1">
-                  Ao escolher, os campos abaixo são pré-preenchidos. Você pode editar.
+                  {t('criativosVisual.visual.preenchidos')}
                 </p>
               </div>
 
@@ -240,19 +242,19 @@ export default function CriativoVisualPanel({ project }) {
                   type="text"
                   value={headline}
                   onChange={(e) => setHeadline(e.target.value)}
-                  placeholder="Ex: Triplique suas vendas em 30 dias"
+                  placeholder={t('criativosVisual.visual.exHeadline')}
                   className="input-field w-full"
                   maxLength={120}
                 />
               </div>
 
               <div>
-                <label className="label-field">Subheadline (opcional)</label>
+                <label className="label-field">{t('criativosVisual.visual.subOpcional')}</label>
                 <input
                   type="text"
                   value={subheadline}
                   onChange={(e) => setSubheadline(e.target.value)}
-                  placeholder="Ex: Sem precisar contratar mais gente"
+                  placeholder={t('criativosVisual.visual.exSub')}
                   className="input-field w-full"
                   maxLength={200}
                 />
@@ -264,14 +266,14 @@ export default function CriativoVisualPanel({ project }) {
                   type="text"
                   value={cta}
                   onChange={(e) => setCta(e.target.value)}
-                  placeholder="Ex: Quero saber mais"
+                  placeholder={t('criativosVisual.visual.exCta')}
                   className="input-field w-full"
                   maxLength={40}
                 />
               </div>
 
               <div>
-                <label className="label-field">Cor de destaque</label>
+                <label className="label-field">{t('criativosVisual.visual.corDestaque')}</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
@@ -293,13 +295,13 @@ export default function CriativoVisualPanel({ project }) {
               <div>
                 <label className="label-field">Template</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {TEMPLATES.map((t) => {
-                    const active = selectedTemplateId === t.id
+                  {TEMPLATES.map((tpl) => {
+                    const active = selectedTemplateId === tpl.id
                     return (
                       <button
-                        key={t.id}
+                        key={tpl.id}
                         type="button"
-                        onClick={() => setSelectedTemplateId(t.id)}
+                        onClick={() => setSelectedTemplateId(tpl.id)}
                         className={`group rounded-xl border overflow-hidden transition-all text-left ${
                           active
                             ? 'border-rl-purple ring-2 ring-rl-purple/30 shadow-glow'
@@ -307,11 +309,11 @@ export default function CriativoVisualPanel({ project }) {
                         }`}
                       >
                         <div className="aspect-square bg-white">
-                          <img src={t.thumbnail} alt={t.name} className="w-full h-full block" />
+                          <img src={tpl.thumbnail} alt={tpl.name} className="w-full h-full block" />
                         </div>
                         <div className="px-2 py-1.5 bg-rl-surface">
-                          <p className={`text-[11px] font-semibold ${active ? 'text-rl-purple' : 'text-rl-text'}`}>{t.name}</p>
-                          <p className="text-[9px] text-rl-muted line-clamp-1">{t.description}</p>
+                          <p className={`text-[11px] font-semibold ${active ? 'text-rl-purple' : 'text-rl-text'}`}>{tpl.name}</p>
+                          <p className="text-[9px] text-rl-muted line-clamp-1">{tpl.description}</p>
                         </div>
                       </button>
                     )
@@ -327,16 +329,16 @@ export default function CriativoVisualPanel({ project }) {
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   {generating
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />Gerando…</>
-                    : <><Sparkles className="w-4 h-4" />Gerar com IA</>
+                    ? <><Loader2 className="w-4 h-4 animate-spin" />{t('criativosVisual.visual.gerando')}</>
+                    : <><Sparkles className="w-4 h-4" />{t('criativosVisual.visual.gerarIa')}</>
                   }
                 </button>
                 <button
                   onClick={handleApplyDirect}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30 transition-all"
-                  title="Substitui os placeholders no template sem chamar a IA"
+                  title={t('criativosVisual.visual.aplicarSemIaDica')}
                 >
-                  Aplicar sem IA
+                  {t('criativosVisual.visual.aplicarSemIa')}
                 </button>
                 <button
                   onClick={handleDownload}
@@ -344,8 +346,8 @@ export default function CriativoVisualPanel({ project }) {
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-rl-green/40 text-rl-green hover:bg-rl-green/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all ml-auto"
                 >
                   {downloading
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />Gerando JPG…</>
-                    : <><Download className="w-4 h-4" />Baixar JPG</>
+                    ? <><Loader2 className="w-4 h-4 animate-spin" />{t('criativosVisual.visual.gerandoJpg')}</>
+                    : <><Download className="w-4 h-4" />{t('criativosVisual.visual.baixarJpg')}</>
                   }
                 </button>
               </div>
@@ -360,7 +362,7 @@ export default function CriativoVisualPanel({ project }) {
 
             {/* Coluna 2: preview visual */}
             <div>
-              <label className="label-field">Preview</label>
+              <label className="label-field">{t('criativosVisual.preview')}</label>
               <div className="rounded-xl border border-rl-border bg-rl-surface/30 p-4 flex items-center justify-center">
                 <div
                   ref={previewRef}
@@ -381,7 +383,7 @@ export default function CriativoVisualPanel({ project }) {
                 </div>
               </div>
               <p className="text-[10px] text-rl-muted mt-2 text-center">
-                Preview em escala 50% (tamanho real: 1080×1080)
+                {t('criativosVisual.previewEscala', { pct: 50, tamanho: '1080×1080' })}
               </p>
             </div>
           </div>

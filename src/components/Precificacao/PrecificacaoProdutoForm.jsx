@@ -1,31 +1,33 @@
 import MoneyInput from '../UI/MoneyInput'
 import PercentInput from '../UI/PercentInput'
+import { useI18n } from '../../i18n'
 
 // Formulário de inputs do modo produto.
 // Recebe os values + onChange(field, val) do parent — não cuida de cálculo
 // nem de persistência (essas responsabilidades ficam no PrecificacaoItemModal).
 export default function PrecificacaoProdutoForm({ values, onChange }) {
+  const { t } = useI18n()
   const set = (field) => (v) => onChange(field, v)
 
   return (
     <div className="space-y-4">
       <Field
-        label="Nome do produto"
-        hint="Como esse produto vai aparecer na lista."
+        label={t('precificacao.produto.nome')}
+        hint={t('precificacao.produto.nomeAjuda')}
       >
         <input
           type="text"
           value={values.nome || ''}
           onChange={(e) => set('nome')(e.target.value)}
-          placeholder="Ex: Camiseta de algodão XG"
+          placeholder={t('precificacao.produto.nomePlaceholder')}
           maxLength={80}
           className="input-field w-full"
         />
       </Field>
 
       <Field
-        label="Custo de aquisição do produto"
-        hint="Quanto foi pago ao fornecedor por unidade (sem frete, embalagem, etc)."
+        label={t('precificacao.produto.custo')}
+        hint={t('precificacao.produto.custoAjuda')}
       >
         <MoneyInput
           value={values.custoProduto}
@@ -35,8 +37,8 @@ export default function PrecificacaoProdutoForm({ values, onChange }) {
       </Field>
 
       <Field
-        label="Custos adicionais (opcional)"
-        hint="Frete, embalagem, etiquetas, taxas — tudo que vai junto ao custo unitário."
+        label={t('precificacao.produto.adicionais')}
+        hint={t('precificacao.produto.adicionaisAjuda')}
       >
         <MoneyInput
           value={values.custosAdicionais}
@@ -47,25 +49,25 @@ export default function PrecificacaoProdutoForm({ values, onChange }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field
-          label="Imposto sobre o faturamento (%)"
-          hint="Ex: Simples Nacional 6%/11%/15,5% — sobre o preço de venda."
+          label={t('precificacao.campos.imposto')}
+          hint={t('precificacao.campos.impostoAjuda')}
         >
           <PercentInput
             value={values.impostoPct}
             onChange={set('impostoPct')}
-            placeholder="Ex: 6"
+            placeholder={t('precificacao.campos.exemplo', { valor: 6 })}
             maxWidth="max-w-none"
           />
         </Field>
 
         <Field
-          label="Margem de lucro desejada (%)"
-          hint="Lucro líquido que sobra depois de custos e impostos."
+          label={t('precificacao.campos.margem')}
+          hint={t('precificacao.campos.margemAjuda')}
         >
           <PercentInput
             value={values.margemPct}
             onChange={set('margemPct')}
-            placeholder="Ex: 40"
+            placeholder={t('precificacao.campos.exemplo', { valor: 40 })}
             maxWidth="max-w-none"
           />
         </Field>

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useColumnWidths, larguraPadrao } from '../hooks/useColumnWidths'
 import ResizeHandle from './UI/ResizeHandle'
+import { useI18n, t as tSolto, localeAtual } from '../i18n'
 
 const DEFAULT_CRM = {
   enabled: false, endpoint: '', method: 'POST', headers: [],
@@ -36,12 +37,12 @@ function exemploPorCampo(c) {
     case 'url':    return 'https://exemplo.com/lp'
     case 'number': return '100'
     case 'date':   return '2026-01-01'
-    case 'select': return (c.options || [])[0] || 'Opção'
-    default:       return `Exemplo ${c.label || c.key}`
+    case 'select': return (c.options || [])[0] || tSolto('bancoDados.exemplo.opcao')
+    default:       return tSolto('bancoDados.exemplo.texto', { campo: c.label || c.key })
   }
 }
 
-// ── Tipos de campo ────────────────────────────────────────────────────────────
+// ── Tipos de campo (o label é traduzido no render por t(`bancoDados.tipos.<id>`)) ────────────────────────────────────────────────────────────
 const FIELD_TYPES = [
   { id: 'text',   label: 'Texto' },
   { id: 'email',  label: 'E-mail' },
@@ -70,17 +71,22 @@ const TEMPLATES = {
   },
   blank: { label: 'Em branco', campos: [] },
 }
+// Os labels dos campos do template são gravados em bancos_dados.campos: ficam em pt.
+// O label do template é traduzido no render (t(`bancoDados.templates.<id>`)).
+
+const ORIGENS = ['webhook', 'manual']
 
 const slugify = (s) =>
   (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'campo'
 
 const fmtDateTime = (iso) =>
-  iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
+  iso ? new Date(iso).toLocaleString(localeAtual(), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
 
 export default function BancoDeDadosModule({ project }) {
   const { user } = useApp()
   const { toast, showToast } = useToast()
+  const { t } = useI18n()
 
   const [bancos, setBancos] = useState([])
   const [selectedId, setSelectedId] = useState(null)
@@ -115,7 +121,7 @@ export default function BancoDeDadosModule({ project }) {
         .eq('project_id', project.id)
         .order('created_at', { ascending: true })
       if (cancelled) return
-      if (error) { console.error('[BancoDeDados]', error.message); showToast('Erro ao carregar', 'error') }
+      if (error) { console.error('[BancoDeDados]', error.message); showToast(tSolto('bancoDados.toast.erroCarregar'), 'error') }
       const list = data || []
       setBancos(list)
       setSelectedId((prev) => prev || list[0]?.id || null)
@@ -160,18 +166,18 @@ export default function BancoDeDadosModule({ project }) {
       .insert({ nome, campos: TEMPLATES[novoTemplate].campos, project_id: project.id, created_by: user?.id || null })
       .select('*')
       .single()
-    if (error) { showToast('Erro ao criar banco', 'error'); return }
+    if (error) { showToast(t('bancoDados.toast.erroCriar'), 'error'); return }
     setBancos((prev) => [...prev, data])
     setSelectedId(data.id)
     setShowCreate(false); setNovoNome(''); setNovoTemplate('leads')
     setTab('webhook')
-    showToast('Banco criado!')
+    showToast(t('bancoDados.toast.criado'))
   }
 
   const excluirBanco = async (b) => {
-    if (!window.confirm(`Excluir "${b.nome}" e todos os registros?`)) return
+    if (!window.confirm(t('bancoDados.confirmarExcluir', { nome: b.nome }))) return
     const { error } = await supabase.from('bancos_dados').delete().eq('id', b.id)
-    if (error) { showToast('Erro ao excluir', 'error'); return }
+    if (error) { showToast(t('bancoDados.toast.erroExcluir'), 'error'); return }
     setBancos((prev) => prev.filter((x) => x.id !== b.id))
     setSelectedId((prev) => (prev === b.id ? null : prev))
   }
@@ -182,7 +188,7 @@ export default function BancoDeDadosModule({ project }) {
       .from('bancos_dados')
       .update({ campos: novosCampos, updated_at: new Date().toISOString() })
       .eq('id', selectedId)
-    if (error) showToast('Erro ao salvar campos', 'error')
+    if (error) showToast(t('bancoDados.toast.erroSalvarCampos'), 'error')
   }
 
   const salvarCrmConfig = async (cfg) => {
@@ -191,8 +197,8 @@ export default function BancoDeDadosModule({ project }) {
       .from('bancos_dados')
       .update({ crm_config: cfg, updated_at: new Date().toISOString() })
       .eq('id', selectedId)
-    if (error) showToast('Erro ao salvar integração', 'error')
-    else showToast('Integração salva!')
+    if (error) showToast(t('bancoDados.toast.erroSalvarIntegracao'), 'error')
+    else showToast(t('bancoDados.toast.integracaoSalva'))
   }
 
   // Link de visualização do cliente (/leads/<share_token>). null = desligado.
@@ -202,7 +208,7 @@ export default function BancoDeDadosModule({ project }) {
       .from('bancos_dados')
       .update({ ...patch, updated_at: new Date().toISOString() })
       .eq('id', selectedId)
-    if (error) { showToast('Erro ao salvar o link', 'error'); return false }
+    if (error) { showToast(t('bancoDados.toast.erroSalvarLink'), 'error'); return false }
     return true
   }
 
@@ -221,7 +227,7 @@ export default function BancoDeDadosModule({ project }) {
       .insert({ banco_id: selectedId, dados: {}, origem: 'manual' })
       .select('*')
       .single()
-    if (error) { showToast('Erro ao adicionar linha', 'error'); return }
+    if (error) { showToast(t('bancoDados.toast.erroAdicionarLinha'), 'error'); return }
     setRegistros((prev) => [data, ...prev])
   }
 
@@ -232,7 +238,7 @@ export default function BancoDeDadosModule({ project }) {
       clearTimeout(saveTimers.current[regId])
       saveTimers.current[regId] = setTimeout(async () => {
         const { error } = await supabase.from('bancos_dados_registros').update({ dados }).eq('id', regId)
-        if (error) showToast('Erro ao salvar', 'error')
+        if (error) showToast(t('bancoDados.toast.erroSalvar'), 'error')
       }, 550)
       return { ...r, dados }
     }))
@@ -274,8 +280,8 @@ export default function BancoDeDadosModule({ project }) {
   }
 
   const exportCSV = () => {
-    const cols = campos.length ? campos : [{ key: '_', label: 'dados' }]
-    const head = [...cols.map((c) => c.label), 'origem', 'data'].join(',')
+    const cols = campos.length ? campos : [{ key: '_', label: t('bancoDados.csv.dados') }]
+    const head = [...cols.map((c) => c.label), t('bancoDados.csv.origem'), t('bancoDados.csv.data')].join(',')
     const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
     const lines = registrosFiltrados.map((r) =>
       [...cols.map((c) => esc(r.dados?.[c.key])), esc(r.origem), esc(fmtDateTime(r.created_at))].join(','))
@@ -289,28 +295,28 @@ export default function BancoDeDadosModule({ project }) {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-bold text-rl-text flex items-center gap-2.5">
-            <Database className="w-5 h-5 text-rl-purple" /> Banco de dados
+            <Database className="w-5 h-5 text-rl-purple" /> {t('bancoDados.titulo')}
           </h2>
           <p className="text-sm text-rl-muted mt-1">
-            Planilhas de captação com campos personalizados e webhook para as landing pages deste cliente.
+            {t('bancoDados.subtitulo')}
           </p>
         </div>
         <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
-          <Plus className="w-4 h-4" /> Novo banco
+          <Plus className="w-4 h-4" /> {t('bancoDados.novoBanco')}
         </button>
       </div>
 
       {loading ? (
         <div className="glass-card p-10 flex items-center justify-center text-rl-muted">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando…
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> {t('comum.carregando')}
         </div>
       ) : bancos.length === 0 ? (
         <div className="glass-card p-10 text-center">
           <Database className="w-10 h-10 text-rl-muted mx-auto mb-3 opacity-50" />
-          <p className="text-rl-text font-medium">Nenhum banco ainda</p>
-          <p className="text-sm text-rl-muted mt-1 mb-4">Crie o primeiro banco de captação de leads deste cliente.</p>
+          <p className="text-rl-text font-medium">{t('bancoDados.vazio.titulo')}</p>
+          <p className="text-sm text-rl-muted mt-1 mb-4">{t('bancoDados.vazio.texto')}</p>
           <button onClick={() => setShowCreate(true)} className="btn-primary inline-flex items-center gap-2 text-sm py-2 px-4">
-            <Plus className="w-4 h-4" /> Criar banco
+            <Plus className="w-4 h-4" /> {t('bancoDados.criarBanco')}
           </button>
         </div>
       ) : (
@@ -332,10 +338,10 @@ export default function BancoDeDadosModule({ project }) {
             <div className="space-y-4 min-w-0">
               <div className="flex items-center gap-1 border-b border-rl-border">
                 {[
-                  { id: 'planilha', label: 'Planilha', Icon: Table2 },
-                  { id: 'campos', label: 'Campos', Icon: Columns3 },
-                  { id: 'webhook', label: 'Webhook', Icon: Webhook },
-                  { id: 'crm', label: 'CRM', Icon: Plug },
+                  { id: 'planilha', label: t('bancoDados.abas.planilha'), Icon: Table2 },
+                  { id: 'campos', label: t('bancoDados.abas.campos'), Icon: Columns3 },
+                  { id: 'webhook', label: t('bancoDados.abas.webhook'), Icon: Webhook },
+                  { id: 'crm', label: t('bancoDados.abas.crm'), Icon: Plug },
                 ].map(({ id, label, Icon }) => (
                   <button key={id} onClick={() => setTab(id)}
                     className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-all ${
@@ -348,12 +354,12 @@ export default function BancoDeDadosModule({ project }) {
                       </span>
                     )}
                     {id === 'crm' && selected?.crm_config?.enabled && (
-                      <span title="Encaminhamento ativo" className="ml-1 w-1.5 h-1.5 rounded-full bg-rl-green" />
+                      <span title={t('bancoDados.encaminhamentoAtivo')} className="ml-1 w-1.5 h-1.5 rounded-full bg-rl-green" />
                     )}
                   </button>
                 ))}
                 <div className="flex-1" />
-                <button onClick={() => excluirBanco(selected)} title="Excluir banco"
+                <button onClick={() => excluirBanco(selected)} title={t('bancoDados.excluirBanco')}
                   className="p-2 text-rl-muted hover:text-red-400 transition-all">
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -377,7 +383,7 @@ export default function BancoDeDadosModule({ project }) {
                   onAddDetectado={(k) => salvarCampos([...campos, { key: k, label: k, type: 'text' }])}
                   onAddCampo={(key) => {
                     const k = slugify(key)
-                    if (!k || campos.some((c) => c.key === k)) { showToast('Chave inválida ou já existe', 'error'); return }
+                    if (!k || campos.some((c) => c.key === k)) { showToast(t('bancoDados.toast.chaveInvalida'), 'error'); return }
                     salvarCampos([...campos, { key: k, label: k, type: 'text' }])
                   }}
                   onRemoveCampo={(key) => salvarCampos(campos.filter((c) => c.key !== key))}
@@ -400,30 +406,30 @@ export default function BancoDeDadosModule({ project }) {
       {showCreate && (
         <Modal onClose={() => setShowCreate(false)} maxWidth="md">
           <div className="p-5 space-y-4">
-            <h3 className="text-lg font-bold text-rl-text">Novo banco</h3>
+            <h3 className="text-lg font-bold text-rl-text">{t('bancoDados.novoBanco')}</h3>
             <div>
-              <label className="text-xs text-rl-muted">Nome</label>
+              <label className="text-xs text-rl-muted">{t('bancoDados.criar.nome')}</label>
               <input autoFocus value={novoNome} onChange={(e) => setNovoNome(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && criarBanco()}
-                placeholder="Ex: Leads LP Aplicação Grátis"
+                placeholder={t('bancoDados.criar.nomePlaceholder')}
                 className="w-full mt-1 bg-rl-surface border border-rl-border rounded-lg px-3 py-2 text-sm text-rl-text outline-none focus:border-rl-purple" />
             </div>
             <div>
-              <label className="text-xs text-rl-muted">Começar com</label>
+              <label className="text-xs text-rl-muted">{t('bancoDados.criar.comecarCom')}</label>
               <div className="mt-1 space-y-2">
-                {Object.entries(TEMPLATES).map(([id, t]) => (
+                {Object.entries(TEMPLATES).map(([id, tpl]) => (
                   <button key={id} onClick={() => setNovoTemplate(id)}
                     className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-all ${
                       novoTemplate === id ? 'border-rl-purple bg-rl-purple/10 text-rl-text' : 'border-rl-border text-rl-muted hover:text-rl-text'
                     }`}>
-                    {t.label} {t.campos.length > 0 && <span className="text-rl-muted">· {t.campos.length} campos</span>}
+                    {t(`bancoDados.templates.${id}`)} {tpl.campos.length > 0 && <span className="text-rl-muted">· {t('bancoDados.nCampos', { count: tpl.campos.length })}</span>}
                   </button>
                 ))}
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm text-rl-muted hover:text-rl-text">Cancelar</button>
-              <button onClick={criarBanco} disabled={!novoNome.trim()} className="btn-primary text-sm py-2 px-4 disabled:opacity-40">Criar</button>
+              <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm text-rl-muted hover:text-rl-text">{t('comum.cancelar')}</button>
+              <button onClick={criarBanco} disabled={!novoNome.trim()} className="btn-primary text-sm py-2 px-4 disabled:opacity-40">{t('bancoDados.criar.criar')}</button>
             </div>
           </div>
         </Modal>
@@ -447,6 +453,7 @@ const novoShareToken = () => crypto.randomUUID().replace(/-/g, '') + crypto.rand
 function ShareModal({ banco, campos, onSave, onClose }) {
   const [copiado, setCopiado] = useState(false)
   const [salvando, setSalvando] = useState(false)
+  const { t } = useI18n()
   const ocultos = new Set(banco.share_ocultos || [])
   const url = banco.share_token
     ? `${window.location.origin}/leads/${banco.share_token}`
@@ -467,47 +474,46 @@ function ShareModal({ banco, campos, onSave, onClose }) {
     <Modal onClose={onClose} maxWidth="lg">
       <div className="p-5 space-y-4">
         <div>
-          <h3 className="text-lg font-bold text-rl-text flex items-center gap-2"><Link2 className="w-5 h-5 text-rl-purple" /> Link do cliente</h3>
+          <h3 className="text-lg font-bold text-rl-text flex items-center gap-2"><Link2 className="w-5 h-5 text-rl-purple" /> {t('bancoDados.share.titulo')}</h3>
           <p className="text-sm text-rl-muted mt-1">
-            O cliente abre sem login e só <strong className="text-rl-text">visualiza</strong> os leads de “{banco.nome}”: busca, filtra por período,
-            ajusta a largura das colunas e abre cada lead. Não edita nem apaga nada.
+            {t('bancoDados.share.texto1')}<strong className="text-rl-text">{t('bancoDados.share.visualiza')}</strong>{t('bancoDados.share.texto2', { nome: banco.nome })}
           </p>
         </div>
 
         {!banco.share_token ? (
           <button onClick={() => run({ share_token: novoShareToken() })} disabled={salvando}
             className="btn-primary flex items-center gap-2 text-sm py-2 px-4 disabled:opacity-50">
-            {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />} Gerar link
+            {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />} {t('bancoDados.share.gerar')}
           </button>
         ) : (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <code className="flex-1 min-w-0 truncate bg-rl-bg border border-rl-border rounded-lg px-3 py-2 text-xs text-rl-green font-mono">{url}</code>
               <button onClick={copiar} className="shrink-0 flex items-center gap-1.5 text-sm border border-rl-border rounded-lg px-3 py-2 text-rl-muted hover:text-rl-text">
-                {copiado ? <Check className="w-4 h-4 text-rl-green" /> : <Copy className="w-4 h-4" />} Copiar
+                {copiado ? <Check className="w-4 h-4 text-rl-green" /> : <Copy className="w-4 h-4" />} {t('comum.copiar')}
               </button>
-              <a href={url} target="_blank" rel="noreferrer" title="Abrir como o cliente vê"
+              <a href={url} target="_blank" rel="noreferrer" title={t('bancoDados.share.abrirComoCliente')}
                 className="shrink-0 flex items-center text-sm border border-rl-border rounded-lg px-3 py-2 text-rl-muted hover:text-rl-text">
                 <Eye className="w-4 h-4" />
               </a>
             </div>
             <div className="flex items-center gap-4 text-xs">
-              <button onClick={() => window.confirm('Gerar um link novo? O link atual para de funcionar.') && run({ share_token: novoShareToken() })}
+              <button onClick={() => window.confirm(t('bancoDados.share.confirmarNovo')) && run({ share_token: novoShareToken() })}
                 disabled={salvando} className="flex items-center gap-1 text-rl-muted hover:text-rl-text">
-                <RotateCcw className="w-3.5 h-3.5" /> Gerar outro link
+                <RotateCcw className="w-3.5 h-3.5" /> {t('bancoDados.share.gerarOutro')}
               </button>
-              <button onClick={() => window.confirm('Desativar o link? O cliente perde o acesso.') && run({ share_token: null })}
+              <button onClick={() => window.confirm(t('bancoDados.share.confirmarDesativar')) && run({ share_token: null })}
                 disabled={salvando} className="flex items-center gap-1 text-red-400 hover:text-red-500">
-                <X className="w-3.5 h-3.5" /> Desativar link
+                <X className="w-3.5 h-3.5" /> {t('bancoDados.share.desativar')}
               </button>
             </div>
           </div>
         )}
 
         <div>
-          <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">Colunas que o cliente vê</label>
+          <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">{t('bancoDados.share.colunas')}</label>
           {campos.length === 0 ? (
-            <p className="text-sm text-rl-muted mt-2">Nenhum campo configurado ainda.</p>
+            <p className="text-sm text-rl-muted mt-2">{t('bancoDados.share.semCampos')}</p>
           ) : (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {campos.map((c) => {
@@ -523,11 +529,11 @@ function ShareModal({ banco, campos, onSave, onClose }) {
               })}
             </div>
           )}
-          <p className="text-[11px] text-rl-muted mt-1.5">Clique para esconder ou mostrar. Origem, status do CRM e campos sem coluna nunca aparecem no link.</p>
+          <p className="text-[11px] text-rl-muted mt-1.5">{t('bancoDados.share.dica')}</p>
         </div>
 
         <div className="flex justify-end pt-1">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-rl-muted hover:text-rl-text">Fechar</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-rl-muted hover:text-rl-text">{t('comum.fechar')}</button>
         </div>
       </div>
     </Modal>
@@ -542,15 +548,16 @@ function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinh
     return o
   }, [campos])
   const { widths, total, startResize, resetCol, reset, customizado } = useColumnWidths(`bd.cols.${bancoId}`, defaults)
+  const { t } = useI18n()
 
   if (!campos.length) {
     return (
       <div className="glass-card p-8 text-center">
         <Columns3 className="w-8 h-8 text-rl-muted mx-auto mb-2 opacity-50" />
-        <p className="text-rl-text font-medium">Sem colunas ainda</p>
-        <p className="text-sm text-rl-muted mt-1 mb-3">Defina os campos que sua planilha vai ter.</p>
+        <p className="text-rl-text font-medium">{t('bancoDados.planilha.semColunas')}</p>
+        <p className="text-sm text-rl-muted mt-1 mb-3">{t('bancoDados.planilha.semColunasTexto')}</p>
         <button onClick={onGoCampos} className="btn-primary inline-flex items-center gap-2 text-sm py-2 px-4">
-          <Columns3 className="w-4 h-4" /> Configurar campos
+          <Columns3 className="w-4 h-4" /> {t('bancoDados.planilha.configurarCampos')}
         </button>
       </div>
     )
@@ -560,26 +567,26 @@ function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinh
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[180px]">
           <Search className="w-4 h-4 text-rl-muted absolute left-3 top-1/2 -translate-y-1/2" />
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar…"
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={t('comum.buscarPlaceholder')}
             className="w-full bg-rl-surface border border-rl-border rounded-lg pl-9 pr-3 py-2 text-sm text-rl-text outline-none focus:border-rl-purple" />
         </div>
         {customizado && (
-          <button onClick={reset} title="Voltar as colunas à largura padrão"
+          <button onClick={reset} title={t('bancoDados.planilha.larguraPadraoDica')}
             className="flex items-center gap-1.5 text-sm text-rl-muted hover:text-rl-text border border-rl-border rounded-lg px-3 py-2">
-            <Columns3 className="w-4 h-4" /> Largura padrão
+            <Columns3 className="w-4 h-4" /> {t('bancoDados.planilha.larguraPadrao')}
           </button>
         )}
-        <button onClick={onShare} title="Link para o cliente só visualizar os leads"
+        <button onClick={onShare} title={t('bancoDados.planilha.linkClienteDica')}
           className={`flex items-center gap-1.5 text-sm border rounded-lg px-3 py-2 ${
             shareAtivo ? 'border-rl-purple/40 text-rl-purple bg-rl-purple/10' : 'border-rl-border text-rl-muted hover:text-rl-text'
           }`}>
-          <Link2 className="w-4 h-4" /> Link do cliente
+          <Link2 className="w-4 h-4" /> {t('bancoDados.share.titulo')}
         </button>
         <button onClick={onExport} className="flex items-center gap-1.5 text-sm text-rl-muted hover:text-rl-text border border-rl-border rounded-lg px-3 py-2">
           <Download className="w-4 h-4" /> CSV
         </button>
         <button onClick={onAddLinha} className="btn-primary flex items-center gap-1.5 text-sm py-2 px-3">
-          <Plus className="w-4 h-4" /> Linha
+          <Plus className="w-4 h-4" /> {t('bancoDados.planilha.linha')}
         </button>
       </div>
 
@@ -593,7 +600,7 @@ function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinh
           </colgroup>
           <thead>
             <tr className="border-b border-rl-border text-rl-muted">
-              {[...campos, { key: '__origem', label: 'Origem' }, { key: '__data', label: 'Data' }].map((c) => (
+              {[...campos, { key: '__origem', label: t('bancoDados.planilha.origem') }, { key: '__data', label: t('bancoDados.planilha.data') }].map((c) => (
                 <th key={c.key} className="relative text-left font-semibold px-3 py-2 text-xs uppercase tracking-wide">
                   <span className="block truncate pr-1">{c.label}</span>
                   <ResizeHandle onPointerDown={(e) => startResize(c.key, e)} onDoubleClick={() => resetCol(c.key)} />
@@ -605,11 +612,11 @@ function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinh
           <tbody>
             {loadingReg ? (
               <tr><td colSpan={campos.length + 3} className="px-3 py-8 text-center text-rl-muted">
-                <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> Carregando…
+                <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> {t('comum.carregando')}
               </td></tr>
             ) : registros.length === 0 ? (
               <tr><td colSpan={campos.length + 3} className="px-3 py-8 text-center text-rl-muted text-sm">
-                Nenhum registro. Os leads das LPs aparecem aqui automaticamente.
+                {t('bancoDados.planilha.semRegistros')}
               </td></tr>
             ) : registros.map((r) => (
               <tr key={r.id} className="border-b border-rl-border/50 hover:bg-rl-surface/40 group">
@@ -621,7 +628,7 @@ function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinh
                 <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden">
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
                     r.origem === 'webhook' ? 'text-rl-green border-rl-green/30 bg-rl-green/10' : 'text-rl-muted border-rl-border'
-                  }`}>{r.origem}</span>
+                  }`}>{ORIGENS.includes(r.origem) ? t(`bancoDados.origens.${r.origem}`) : r.origem}</span>
                   {r.crm_status && (
                     <span title={r.crm_response || ''} className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full border ${
                       r.crm_status === 'ok' ? 'text-rl-green border-rl-green/30 bg-rl-green/10' : 'text-red-400 border-red-400/30 bg-red-400/10'
@@ -630,7 +637,7 @@ function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinh
                 </td>
                 <td className="px-3 py-1.5 text-rl-muted text-xs whitespace-nowrap overflow-hidden text-ellipsis">{fmtDateTime(r.created_at)}</td>
                 <td className="px-1">
-                  <button onClick={() => onDelete(r.id)} className="p-1 text-rl-muted/40 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                  <button onClick={() => onDelete(r.id)} title={t('bancoDados.planilha.excluirLinha')} aria-label={t('bancoDados.planilha.excluirLinha')} className="p-1 text-rl-muted/40 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </td>
@@ -639,7 +646,7 @@ function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinh
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-rl-muted text-center">{registros.length} registro(s)</p>
+      <p className="text-xs text-rl-muted text-center">{t('bancoDados.planilha.nRegistros', { count: registros.length })}</p>
     </div>
   )
 }
@@ -667,6 +674,7 @@ function CellEditor({ field, value, onChange }) {
 // ── Aba Campos ────────────────────────────────────────────────────────────────
 function CamposTab({ campos, onSave }) {
   const [local, setLocal] = useState(campos)
+  const { t } = useI18n()
   useEffect(() => { setLocal(campos) }, [campos])
 
   const dirty = JSON.stringify(local) !== JSON.stringify(campos)
@@ -682,43 +690,43 @@ function CamposTab({ campos, onSave }) {
 
   return (
     <div className="glass-card p-4 space-y-3">
-      <p className="text-sm text-rl-muted">A <strong className="text-rl-text">chave</strong> é o nome que o webhook espera no JSON. O <strong className="text-rl-text">rótulo</strong> é o que aparece na planilha.</p>
+      <p className="text-sm text-rl-muted">{t('bancoDados.campos.ajuda1')}<strong className="text-rl-text">{t('bancoDados.campos.chave')}</strong>{t('bancoDados.campos.ajuda2')}<strong className="text-rl-text">{t('bancoDados.campos.rotulo')}</strong>{t('bancoDados.campos.ajuda3')}</p>
 
       <div className="space-y-2">
         {local.map((c, i) => (
           <div key={i} className="flex items-start gap-2 flex-wrap sm:flex-nowrap bg-rl-surface/50 rounded-lg p-2 border border-rl-border">
             <div className="flex flex-col pt-1.5">
-              <button onClick={() => move(i, -1)} className="text-rl-muted hover:text-rl-text text-[10px] leading-none">▲</button>
-              <button onClick={() => move(i, 1)} className="text-rl-muted hover:text-rl-text text-[10px] leading-none">▼</button>
+              <button onClick={() => move(i, -1)} title={t('bancoDados.campos.subir')} aria-label={t('bancoDados.campos.subir')} className="text-rl-muted hover:text-rl-text text-[10px] leading-none">▲</button>
+              <button onClick={() => move(i, 1)} title={t('bancoDados.campos.descer')} aria-label={t('bancoDados.campos.descer')} className="text-rl-muted hover:text-rl-text text-[10px] leading-none">▼</button>
             </div>
             <div className="flex-1 min-w-[120px]">
-              <label className="text-[10px] text-rl-muted">Rótulo</label>
+              <label className="text-[10px] text-rl-muted">{t('bancoDados.campos.rotuloLabel')}</label>
               <input value={c.label} onChange={(e) => {
                 const label = e.target.value
                 const auto = !c.key || c.key === slugify(c.label)
                 update(i, auto ? { label, key: slugify(label) } : { label })
-              }} placeholder="Nome do campo"
+              }} placeholder={t('bancoDados.campos.nomePlaceholder')}
                 className="w-full bg-rl-bg border border-rl-border rounded-md px-2 py-1.5 text-sm text-rl-text outline-none focus:border-rl-purple" />
             </div>
             <div className="flex-1 min-w-[120px]">
-              <label className="text-[10px] text-rl-muted">Chave (webhook)</label>
-              <input value={c.key} onChange={(e) => update(i, { key: slugify(e.target.value) })} placeholder="chave_json"
+              <label className="text-[10px] text-rl-muted">{t('bancoDados.campos.chaveLabel')}</label>
+              <input value={c.key} onChange={(e) => update(i, { key: slugify(e.target.value) })} placeholder={t('bancoDados.campos.chavePlaceholder')}
                 className="w-full bg-rl-bg border border-rl-border rounded-md px-2 py-1.5 text-sm text-rl-text font-mono outline-none focus:border-rl-purple" />
             </div>
             <div className="min-w-[130px]">
-              <label className="text-[10px] text-rl-muted">Tipo</label>
+              <label className="text-[10px] text-rl-muted">{t('bancoDados.campos.tipo')}</label>
               <select value={c.type} onChange={(e) => update(i, { type: e.target.value })}
                 className="w-full bg-rl-bg border border-rl-border rounded-md px-2 py-1.5 text-sm text-rl-text outline-none focus:border-rl-purple">
-                {FIELD_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                {FIELD_TYPES.map((ft) => <option key={ft.id} value={ft.id}>{t(`bancoDados.tipos.${ft.id}`)}</option>)}
               </select>
             </div>
-            <button onClick={() => remove(i)} className="p-1.5 mt-4 text-rl-muted hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+            <button onClick={() => remove(i)} title={t('bancoDados.campos.remover')} aria-label={t('bancoDados.campos.remover')} className="p-1.5 mt-4 text-rl-muted hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
             {c.type === 'select' && (
               <div className="w-full">
-                <label className="text-[10px] text-rl-muted">Opções do dropdown (uma por linha)</label>
+                <label className="text-[10px] text-rl-muted">{t('bancoDados.campos.opcoes')}</label>
                 <textarea rows={3} value={(c.options || []).join('\n')}
                   onChange={(e) => update(i, { options: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })}
-                  placeholder={'Novo\nEm contato\nGanho\nPerdido'}
+                  placeholder={t('bancoDados.campos.opcoesPlaceholder')}
                   className="w-full bg-rl-bg border border-rl-border rounded-md px-2 py-1.5 text-sm text-rl-text outline-none focus:border-rl-purple resize-y" />
               </div>
             )}
@@ -728,10 +736,10 @@ function CamposTab({ campos, onSave }) {
 
       <div className="flex items-center justify-between pt-1">
         <button onClick={add} className="flex items-center gap-1.5 text-sm text-rl-purple hover:underline">
-          <Plus className="w-4 h-4" /> Adicionar campo
+          <Plus className="w-4 h-4" /> {t('bancoDados.campos.adicionar')}
         </button>
         <button onClick={() => onSave(local)} disabled={!dirty}
-          className="btn-primary text-sm py-2 px-4 disabled:opacity-40">Salvar campos</button>
+          className="btn-primary text-sm py-2 px-4 disabled:opacity-40">{t('bancoDados.campos.salvar')}</button>
       </div>
     </div>
   )
@@ -740,6 +748,9 @@ function CamposTab({ campos, onSave }) {
 // ── Aba Webhook ───────────────────────────────────────────────────────────────
 function WebhookTab({ url, campos, copied, onCopy, detectados, onAddDetectado, onAddCampo, onRemoveCampo }) {
   const [novoCampo, setNovoCampo] = useState('')
+  const { t } = useI18n()
+  // O snippet e o prompt abaixo vão para a LP do cliente (formulário, mensagem de erro que o
+  // visitante vê), então ficam em pt de propósito, independente do idioma da tela.
   const snippet = `<form id="rl-form">
 ${campos.map((c) => `  <input name="${c.key}" placeholder="${c.label}">`).join('\n')}
   <button type="submit">Enviar</button>
@@ -798,24 +809,24 @@ Regra final: não altere nada visual — apenas a lógica de envio (submit) do f
   return (
     <div className="space-y-4">
       <div className="glass-card p-4 space-y-2">
-        <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">URL do webhook</label>
+        <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">{t('bancoDados.webhook.url')}</label>
         <div className="flex items-center gap-2">
           <code className="flex-1 min-w-0 truncate bg-rl-bg border border-rl-border rounded-lg px-3 py-2 text-xs text-rl-green font-mono">{url}</code>
-          <button onClick={() => onCopy(url, 'url')} className="shrink-0 flex items-center gap-1.5 text-sm border border-rl-border rounded-lg px-3 py-2 text-rl-muted hover:text-rl-text">
+          <button onClick={() => onCopy(url, 'url')} title={t('comum.copiar')} aria-label={t('comum.copiar')} className="shrink-0 flex items-center gap-1.5 text-sm border border-rl-border rounded-lg px-3 py-2 text-rl-muted hover:text-rl-text">
             {copied === 'url' ? <Check className="w-4 h-4 text-rl-green" /> : <Copy className="w-4 h-4" />}
           </button>
         </div>
-        <p className="text-xs text-rl-muted">Faça um <strong className="text-rl-text">POST</strong> (JSON ou form) para essa URL. As chaves do JSON que baterem com os campos abaixo viram colunas.</p>
+        <p className="text-xs text-rl-muted">{t('bancoDados.webhook.ajuda1')}<strong className="text-rl-text">POST</strong>{t('bancoDados.webhook.ajuda2')}</p>
       </div>
 
       <div className="glass-card p-4">
-        <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">Campos esperados</label>
+        <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">{t('bancoDados.webhook.esperados')}</label>
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {campos.length === 0 && <span className="text-sm text-rl-muted">Nenhum campo definido ainda.</span>}
+          {campos.length === 0 && <span className="text-sm text-rl-muted">{t('bancoDados.webhook.semCampos')}</span>}
           {campos.map((c) => (
             <span key={c.key} className="text-xs font-mono bg-rl-surface border border-rl-border rounded-md pl-2 pr-1 py-1 text-rl-text flex items-center gap-1">
               {c.key}
-              <button onClick={() => onRemoveCampo(c.key)} title="Remover campo"
+              <button onClick={() => onRemoveCampo(c.key)} title={t('bancoDados.campos.remover')}
                 className="text-rl-muted/50 hover:text-red-400 transition-colors">
                 <X className="w-3 h-3" />
               </button>
@@ -827,22 +838,22 @@ Regra final: não altere nada visual — apenas a lógica de envio (submit) do f
           className="flex items-center gap-2 mt-3"
         >
           <input value={novoCampo} onChange={(e) => setNovoCampo(e.target.value)}
-            placeholder="nova_chave (ex: cargo, cidade)"
+            placeholder={t('bancoDados.webhook.novaChave')}
             className="flex-1 min-w-0 bg-rl-bg border border-rl-border rounded-md px-2 py-1.5 text-sm text-rl-text font-mono outline-none focus:border-rl-purple" />
           <button type="submit" disabled={!novoCampo.trim()}
             className="btn-primary text-sm py-1.5 px-3 flex items-center gap-1 disabled:opacity-40">
-            <Plus className="w-3.5 h-3.5" /> Adicionar
+            <Plus className="w-3.5 h-3.5" /> {t('comum.adicionar')}
           </button>
         </form>
         <p className="text-[11px] text-rl-muted mt-1.5">
-          Novo campo entra como texto e vira coluna na planilha. Para mudar o tipo (dropdown etc.), use a aba <strong className="text-rl-text">Campos</strong>. A <strong className="text-rl-text">chave</strong> precisa ser igual ao <code className="text-rl-text">name</code> que o formulário envia.
+          {t('bancoDados.webhook.dica1')}<strong className="text-rl-text">{t('bancoDados.abas.campos')}</strong>{t('bancoDados.webhook.dica2')}<strong className="text-rl-text">{t('bancoDados.campos.chave')}</strong>{t('bancoDados.webhook.dica3')}<code className="text-rl-text">name</code>{t('bancoDados.webhook.dica4')}
         </p>
       </div>
 
       {detectados.length > 0 && (
         <div className="glass-card p-4 border border-rl-gold/30">
-          <label className="text-xs font-semibold text-rl-gold uppercase tracking-wide">Campos recebidos sem coluna</label>
-          <p className="text-xs text-rl-muted mt-1 mb-2">Chegaram via webhook mas não têm coluna. Clique para adicionar.</p>
+          <label className="text-xs font-semibold text-rl-gold uppercase tracking-wide">{t('bancoDados.webhook.detectados')}</label>
+          <p className="text-xs text-rl-muted mt-1 mb-2">{t('bancoDados.webhook.detectadosTexto')}</p>
           <div className="flex flex-wrap gap-1.5">
             {detectados.map((k) => (
               <button key={k} onClick={() => onAddDetectado(k)}
@@ -856,20 +867,20 @@ Regra final: não altere nada visual — apenas a lógica de envio (submit) do f
 
       <div className="glass-card p-4 space-y-2 border border-rl-purple/30">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-semibold text-rl-purple uppercase tracking-wide flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Prompt para IA (Lovable, v0, Bolt…)</label>
+          <label className="text-xs font-semibold text-rl-purple uppercase tracking-wide flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> {t('bancoDados.webhook.prompt')}</label>
           <button onClick={() => onCopy(promptText, 'prompt')} className="flex items-center gap-1.5 text-sm border border-rl-border rounded-lg px-3 py-1.5 text-rl-muted hover:text-rl-text">
-            {copied === 'prompt' ? <Check className="w-4 h-4 text-rl-green" /> : <Copy className="w-4 h-4" />} Copiar
+            {copied === 'prompt' ? <Check className="w-4 h-4 text-rl-green" /> : <Copy className="w-4 h-4" />} {t('comum.copiar')}
           </button>
         </div>
-        <p className="text-xs text-rl-muted">Cole na página feita por IA para conectar o formulário a este banco. O prompt <strong className="text-rl-text">se atualiza sozinho</strong> conforme você adiciona ou remove campos acima.</p>
+        <p className="text-xs text-rl-muted">{t('bancoDados.webhook.promptAjuda1')}<strong className="text-rl-text">{t('bancoDados.webhook.promptAjuda2')}</strong>{t('bancoDados.webhook.promptAjuda3')}</p>
         <pre className="bg-rl-bg border border-rl-border rounded-lg p-3 text-[11px] text-rl-text/90 whitespace-pre-wrap overflow-x-auto">{promptText}</pre>
       </div>
 
       <div className="glass-card p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide flex items-center gap-1.5"><Code2 className="w-3.5 h-3.5" /> Snippet HTML (alternativa sem IA)</label>
+          <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide flex items-center gap-1.5"><Code2 className="w-3.5 h-3.5" /> {t('bancoDados.webhook.snippet')}</label>
           <button onClick={() => onCopy(snippet, 'snippet')} className="flex items-center gap-1.5 text-sm border border-rl-border rounded-lg px-3 py-1.5 text-rl-muted hover:text-rl-text">
-            {copied === 'snippet' ? <Check className="w-4 h-4 text-rl-green" /> : <Copy className="w-4 h-4" />} Copiar
+            {copied === 'snippet' ? <Check className="w-4 h-4 text-rl-green" /> : <Copy className="w-4 h-4" />} {t('comum.copiar')}
           </button>
         </div>
         <pre className="bg-rl-bg border border-rl-border rounded-lg p-3 text-[11px] text-rl-text/90 font-mono overflow-x-auto">{snippet}</pre>
@@ -889,6 +900,7 @@ function CrmTab({ cfgInicial, campos, amostra, onSave }) {
   const [loadingTest, setLoadingTest] = useState(false)
   const [teste, setTeste] = useState(null)
   const [copiado, setCopiado] = useState('')
+  const { t } = useI18n()
 
   const set = (patch) => setCfg((p) => ({ ...p, ...patch }))
   const setHeader = (i, patch) => setCfg((p) => ({ ...p, headers: p.headers.map((h, idx) => (idx === i ? { ...h, ...patch } : h)) }))
@@ -903,7 +915,7 @@ function CrmTab({ cfgInicial, campos, amostra, onSave }) {
       campos, endpoint: cfg.endpoint, docsText: cfg.docsText, docsUrl: cfg.docsUrl,
     })
     setLoadingIa(false)
-    if (!ok) { setIaAviso(payload?.error || 'Falha ao gerar a configuração.'); return }
+    if (!ok) { setIaAviso(payload?.error || t('bancoDados.crm.falhaIa')); return }
     const c = payload.config || {}
     set({
       endpoint: c.endpoint || cfg.endpoint,
@@ -912,7 +924,7 @@ function CrmTab({ cfgInicial, campos, amostra, onSave }) {
       bodyTemplate: c.bodyTemplate || '',
       notas: c.notas || '',
     })
-    if (payload.docsAviso) setIaAviso(`Não consegui ler o link (${payload.docsAviso}). Usei apenas o texto colado.`)
+    if (payload.docsAviso) setIaAviso(t('bancoDados.crm.avisoLink', { aviso: payload.docsAviso }))
   }
 
   const testar = async () => {
@@ -933,11 +945,10 @@ function CrmTab({ cfgInicial, campos, amostra, onSave }) {
       <div className="glass-card p-4 flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-[220px]">
           <h3 className="text-sm font-semibold text-rl-text flex items-center gap-2">
-            <Plug className="w-4 h-4 text-rl-purple" /> Encaminhar leads para o CRM
+            <Plug className="w-4 h-4 text-rl-purple" /> {t('bancoDados.crm.titulo')}
           </h3>
           <p className="text-xs text-rl-muted mt-1">
-            Todo lead que cair neste banco é enviado automaticamente para o CRM do cliente.
-            Se o CRM falhar, o lead <strong className="text-rl-text">continua salvo aqui</strong> e o erro fica registrado na planilha.
+            {t('bancoDados.crm.texto1')}<strong className="text-rl-text">{t('bancoDados.crm.texto2')}</strong>{t('bancoDados.crm.texto3')}
           </p>
         </div>
         <label className={`flex items-center gap-2 text-sm shrink-0 ${podeAtivar ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>
@@ -945,12 +956,12 @@ function CrmTab({ cfgInicial, campos, amostra, onSave }) {
             onChange={(e) => set({ enabled: e.target.checked })}
             className="w-4 h-4 accent-current text-rl-purple" />
           <span className={cfg.enabled ? 'text-rl-green font-medium' : 'text-rl-muted'}>
-            {cfg.enabled ? 'Ativo' : 'Desativado'}
+            {cfg.enabled ? t('bancoDados.crm.ativo') : t('bancoDados.crm.desativado')}
           </span>
         </label>
         {!podeAtivar && (
           <p className="w-full text-[11px] text-rl-gold flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5" /> Configure o endpoint e o mapeamento abaixo para poder ativar.
+            <AlertTriangle className="w-3.5 h-3.5" /> {t('bancoDados.crm.configureParaAtivar')}
           </p>
         )}
       </div>
@@ -958,35 +969,35 @@ function CrmTab({ cfgInicial, campos, amostra, onSave }) {
       {/* Configurar com IA */}
       <div className="glass-card p-4 space-y-3 border border-rl-purple/30">
         <label className="text-xs font-semibold text-rl-purple uppercase tracking-wide flex items-center gap-1.5">
-          <Wand2 className="w-3.5 h-3.5" /> Configurar com IA
+          <Wand2 className="w-3.5 h-3.5" /> {t('bancoDados.crm.configurarIa')}
         </label>
         <p className="text-xs text-rl-muted">
-          Cole o link e/ou o trecho da documentação da API do CRM. A IA lê, entende os campos e monta a integração pra você.
+          {t('bancoDados.crm.configurarIaTexto')}
         </p>
         <input value={cfg.docsUrl} onChange={(e) => set({ docsUrl: e.target.value })}
-          placeholder="https://docs.seucrm.com/api/criar-lead (opcional)"
+          placeholder={t('bancoDados.crm.docsUrlPlaceholder')}
           className="w-full bg-rl-bg border border-rl-border rounded-md px-3 py-2 text-sm text-rl-text outline-none focus:border-rl-purple" />
         <textarea rows={5} value={cfg.docsText} onChange={(e) => set({ docsText: e.target.value })}
-          placeholder="Cole aqui o trecho da documentação (endpoint, campos do corpo, autenticação). Mais confiável que o link."
+          placeholder={t('bancoDados.crm.docsTextoPlaceholder')}
           className="w-full bg-rl-bg border border-rl-border rounded-md px-3 py-2 text-sm text-rl-text outline-none focus:border-rl-purple resize-y" />
         <div className="flex items-center gap-3 flex-wrap">
           <button onClick={gerarComIa} disabled={loadingIa || (!cfg.docsText.trim() && !cfg.docsUrl.trim())}
             className="btn-primary flex items-center gap-2 text-sm py-2 px-4 disabled:opacity-40">
             {loadingIa ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-            {loadingIa ? 'Lendo a documentação…' : 'Gerar configuração com IA'}
+            {loadingIa ? t('bancoDados.crm.lendoDocs') : t('bancoDados.crm.gerarIa')}
           </button>
           {iaAviso && <span className="text-xs text-rl-gold flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{iaAviso}</span>}
         </div>
         {cfg.notas && (
           <div className="text-xs text-rl-text bg-rl-surface border border-rl-border rounded-md p-2.5">
-            <strong className="text-rl-purple">Notas da IA:</strong> {cfg.notas}
+            <strong className="text-rl-purple">{t('bancoDados.crm.notasIa')}</strong> {cfg.notas}
           </div>
         )}
       </div>
 
       {/* Requisição */}
       <div className="glass-card p-4 space-y-3">
-        <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">Requisição</label>
+        <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">{t('bancoDados.crm.requisicao')}</label>
         <div className="flex gap-2">
           <select value={cfg.method} onChange={(e) => set({ method: e.target.value })}
             className="bg-rl-bg border border-rl-border rounded-md px-2 py-2 text-sm text-rl-text outline-none focus:border-rl-purple">
@@ -999,37 +1010,37 @@ function CrmTab({ cfgInicial, campos, amostra, onSave }) {
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-rl-muted">Headers (autenticação)</span>
+            <span className="text-[11px] text-rl-muted">{t('bancoDados.crm.headers')}</span>
             <button onClick={addHeader} className="text-xs text-rl-purple hover:underline flex items-center gap-1">
               <Plus className="w-3.5 h-3.5" /> Header
             </button>
           </div>
-          {(cfg.headers || []).length === 0 && <p className="text-xs text-rl-muted/70">Nenhum header. A maioria dos CRMs pede um <code className="text-rl-text">Authorization</code>.</p>}
+          {(cfg.headers || []).length === 0 && <p className="text-xs text-rl-muted/70">{t('bancoDados.crm.semHeaders1')}<code className="text-rl-text">Authorization</code>{t('bancoDados.crm.semHeaders2')}</p>}
           {(cfg.headers || []).map((h, i) => (
             <div key={i} className="flex items-center gap-2">
               <input value={h.key} onChange={(e) => setHeader(i, { key: e.target.value })} placeholder="Authorization"
                 className="flex-1 min-w-0 bg-rl-bg border border-rl-border rounded-md px-2 py-1.5 text-sm text-rl-text font-mono outline-none focus:border-rl-purple" />
-              <input value={h.value} onChange={(e) => setHeader(i, { value: e.target.value })} placeholder="Bearer sua_chave"
+              <input value={h.value} onChange={(e) => setHeader(i, { value: e.target.value })} placeholder={t('bancoDados.crm.bearerPlaceholder')}
                 className="flex-1 min-w-0 bg-rl-bg border border-rl-border rounded-md px-2 py-1.5 text-sm text-rl-text font-mono outline-none focus:border-rl-purple" />
-              <button onClick={() => rmHeader(i)} className="p-1.5 text-rl-muted hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => rmHeader(i)} title={t('comum.remover')} aria-label={t('comum.remover')} className="p-1.5 text-rl-muted hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
           <p className="text-[11px] text-rl-muted flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5 text-rl-gold shrink-0" />
-            A chave fica salva no banco e é visível para o time logado. Substitua os marcadores <code className="text-rl-text">&lt;SUA_API_KEY&gt;</code> pela chave real.
+            {t('bancoDados.crm.avisoChave1')}<code className="text-rl-text">&lt;SUA_API_KEY&gt;</code>{t('bancoDados.crm.avisoChave2')}
           </p>
         </div>
       </div>
 
       {/* Mapeamento */}
       <div className="glass-card p-4 space-y-2">
-        <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">Mapeamento — corpo do POST</label>
+        <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">{t('bancoDados.crm.mapeamento')}</label>
         <p className="text-xs text-rl-muted">
-          JSON que será enviado ao CRM. Use <code className="text-rl-text">{'{{chave}}'}</code> para injetar os dados do lead.
+          {t('bancoDados.crm.mapeamentoTexto1')}<code className="text-rl-text">{'{{chave}}'}</code>{t('bancoDados.crm.mapeamentoTexto2')}
         </p>
         <div className="flex flex-wrap gap-1.5">
           {campos.map((c) => (
-            <button key={c.key} onClick={() => copiar(`{{${c.key}}}`, c.key)} title="Copiar placeholder"
+            <button key={c.key} onClick={() => copiar(`{{${c.key}}}`, c.key)} title={t('bancoDados.crm.copiarMarcador')}
               className="text-[11px] font-mono bg-rl-surface border border-rl-border rounded-md px-2 py-1 text-rl-text hover:border-rl-purple">
               {copiado === c.key ? <Check className="w-3 h-3 inline text-rl-green" /> : `{{${c.key}}}`}
             </button>
@@ -1044,12 +1055,12 @@ function CrmTab({ cfgInicial, campos, amostra, onSave }) {
       <div className="glass-card p-4 space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">Testar envio</label>
-            <p className="text-xs text-rl-muted mt-0.5">Manda um lead de exemplo para o CRM agora. Não grava nada.</p>
+            <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">{t('bancoDados.crm.testar')}</label>
+            <p className="text-xs text-rl-muted mt-0.5">{t('bancoDados.crm.testarTexto')}</p>
           </div>
           <button onClick={testar} disabled={loadingTest || !cfg.endpoint?.trim()}
             className="flex items-center gap-2 text-sm border border-rl-border rounded-lg px-3 py-2 text-rl-text hover:border-rl-purple disabled:opacity-40">
-            {loadingTest ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Testar envio
+            {loadingTest ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} {t('bancoDados.crm.testar')}
           </button>
         </div>
 
@@ -1061,18 +1072,18 @@ function CrmTab({ cfgInicial, campos, amostra, onSave }) {
               <span className={`inline-block text-xs px-2 py-1 rounded-full border ${
                 teste.ok ? 'text-rl-green border-rl-green/30 bg-rl-green/10' : 'text-red-400 border-red-400/30 bg-red-400/10'
               }`}>
-                {teste.ok ? 'Sucesso' : 'Falhou'} — HTTP {teste.status}
+                {teste.ok ? t('bancoDados.crm.sucesso') : t('bancoDados.crm.falhou')} — HTTP {teste.status}
               </span>
             )}
             {teste.sent && (
               <div>
-                <p className="text-[11px] text-rl-muted mb-1">Corpo enviado:</p>
+                <p className="text-[11px] text-rl-muted mb-1">{t('bancoDados.crm.corpoEnviado')}</p>
                 <pre className="bg-rl-bg border border-rl-border rounded-md p-2 text-[11px] text-rl-text/90 font-mono overflow-x-auto">{teste.sent}</pre>
               </div>
             )}
             {teste.response && (
               <div>
-                <p className="text-[11px] text-rl-muted mb-1">Resposta do CRM:</p>
+                <p className="text-[11px] text-rl-muted mb-1">{t('bancoDados.crm.resposta')}</p>
                 <pre className="bg-rl-bg border border-rl-border rounded-md p-2 text-[11px] text-rl-text/90 font-mono overflow-x-auto whitespace-pre-wrap">{teste.response}</pre>
               </div>
             )}
@@ -1081,7 +1092,7 @@ function CrmTab({ cfgInicial, campos, amostra, onSave }) {
       </div>
 
       <div className="flex justify-end">
-        <button onClick={() => onSave(cfg)} className="btn-primary text-sm py-2 px-5">Salvar integração</button>
+        <button onClick={() => onSave(cfg)} className="btn-primary text-sm py-2 px-5">{t('bancoDados.crm.salvar')}</button>
       </div>
     </div>
   )
