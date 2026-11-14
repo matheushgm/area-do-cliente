@@ -30,6 +30,7 @@ export default {
   minimizar: 'Minimizar',
   mostrarDashboard: 'Mostrar dashboard',
   orcamentoTotal: 'Orçamento Total do Mês',
+  orcamentoSyncRoi: 'É o mesmo Orçamento em Mídia da Calculadora de ROI: mudou aqui, muda lá.',
   jaUtilizado: 'Já Utilizado',
   periodoPlanejamento: 'Período do Planejamento',
   dataInicio: 'Data de início',

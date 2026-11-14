@@ -29,6 +29,7 @@ export default {
   minimizar: 'Minimize',
   mostrarDashboard: 'Show dashboard',
   orcamentoTotal: 'Total Monthly Budget',
+  orcamentoSyncRoi: 'Same as the Ad Budget in the ROI Calculator: change it here and it changes there.',
   jaUtilizado: 'Already Spent',
   periodoPlanejamento: 'Planning Period',
   dataInicio: 'Start date',

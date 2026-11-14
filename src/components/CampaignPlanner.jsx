@@ -23,6 +23,7 @@ import {
 import { normStr } from '../lib/dashboardData'
 import VideoGuide from './VideoGuide'
 import { useI18n, t as tGlobal } from '../i18n'
+import { orcamentoDoRoi } from '../lib/orcamentoSync'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -51,8 +52,9 @@ function collapseChannels(channels = []) {
  * Migra o formato legado (plan com orcamentoTotal/channels na raiz)
  * para o novo formato com array de contas.
  */
-function initAccounts(campaignPlan) {
-  if (!campaignPlan) return [newAccount(tGlobal('campanhas.contaPrincipal'))]
+function initAccounts(campaignPlan, orcamentoRoi = 0) {
+  // Plano novo nasce com o Orçamento em Mídia da Calculadora de ROI (src/lib/orcamentoSync.js).
+  if (!campaignPlan) return [{ ...newAccount(tGlobal('campanhas.contaPrincipal')), orcamentoTotal: orcamentoRoi || 0 }]
 
   // Já está no novo formato
   if (Array.isArray(campaignPlan.accounts) && campaignPlan.accounts.length > 0) {
@@ -100,7 +102,7 @@ export default function CampaignPlanner({ project, onSave }) {
   // canal; sem isso ele diz que as contas vinculadas não têm dado.
   const dash = useDashboardData({ source: 'api', projectId: project.id, dias: 62, canais: true })
 
-  const [accounts,  setAccounts]  = useState(() => initAccounts(project.campaignPlan))
+  const [accounts,  setAccounts]  = useState(() => initAccounts(project.campaignPlan, orcamentoDoRoi(project.roiCalc)))
   const [activeIdx, setActiveIdx] = useState(0)
   const [startDate, setStartDate] = useState(() => project.campaignPlan?.startDate || todayISO())
   const [endDate,   setEndDate]   = useState(() => project.campaignPlan?.endDate   || defaultEndDateISO())
@@ -606,6 +608,9 @@ export default function CampaignPlanner({ project, onSave }) {
                 placeholder="0"
               />
             </div>
+            {activeIdx === 0 && (
+              <p className="text-xs text-rl-muted mt-1">{t('campanhas.orcamentoSyncRoi')}</p>
+            )}
           </div>
 
           {/* Já Utilizado */}

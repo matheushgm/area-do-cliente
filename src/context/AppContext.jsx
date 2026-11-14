@@ -9,6 +9,7 @@ import {
 import { supabase } from "../lib/supabase";
 import { limparCacheDash } from "../lib/dashCache";
 import { t, definirIdioma, idiomaSalvoLocal } from "../i18n";
+import { sincronizarOrcamento } from "../lib/orcamentoSync";
 
 const AppContext = createContext();
 export { AppContext };
@@ -1187,9 +1188,11 @@ export function AppProvider({ children }) {
     [user],
   );
 
-  const updateProject = useCallback((id, patch) => {
+  const updateProject = useCallback((id, patchOriginal) => {
     setProjects((prev) => {
       const before = prev.find((p) => p.id === id);
+      // Orçamento do mês: Planejamento de Campanhas e Calculadora de ROI andam juntos.
+      const patch = sincronizarOrcamento(before, patchOriginal);
       const updated = prev.map((p) => {
         if (p.id !== id) return p;
         const merged = { ...p, ...patch };

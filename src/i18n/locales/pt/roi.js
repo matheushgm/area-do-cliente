@@ -37,6 +37,7 @@ export default {
     investimento: 'Investimento',
     orcamentoMidia: 'Orçamento em Mídia',
     verbaAnuncios: 'Verba para anúncios',
+    verbaAnunciosSync: 'Verba para anúncios. É o mesmo Orçamento Total do Mês do Planejamento de Campanhas (1ª conta): mudou aqui, muda lá.',
     custoMarketing: 'Custo de Marketing',
     feeGestao: 'Fee de gestão / assessoria',
     totalInvestido: 'Total investido',

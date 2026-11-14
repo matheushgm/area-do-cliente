@@ -182,6 +182,7 @@ export default function ROIScenariosModule({ project, onSave }) {
           onSave={onSave}
           overrideCalc={active.calc || undefined}
           onPersist={handlePersistActive}
+          sincronizaCampanha={active?.id === cenarios[0]?.id}
         />
       )}
     </div>

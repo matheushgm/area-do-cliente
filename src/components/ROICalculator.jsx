@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Calculator, Target, DollarSign, Save, BarChart3, TrendingUp, AlertCircle, FileDown, CalendarDays } from 'lucide-react'
 import { getWeekRanges, MONTH_NAMES } from './Resultados/resultadosHelpers'
+import { calcularResultadoRoi, orcamentoDoPlano } from '../lib/orcamentoSync'
 import { exportROIPDF, exportMetasSemanaisPDF } from '../utils/exportPDF'
 import { fmtCurrency } from '../lib/utils'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
@@ -62,7 +63,9 @@ const BENCHMARKS = {
 // dentro de um orquestrador de múltiplos cenários (ROIScenariosModule). Quando
 // passados, o componente lê o calc do cenário e persiste via onPersist em vez
 // de escrever direto em project.roiCalc. Sem eles, comportamento original.
-export default function ROICalculator({ project, onSave, overrideCalc = undefined, onPersist = undefined }) {
+// `sincronizaCampanha`: o Orçamento em Mídia deste cálculo é o mesmo do Planejamento
+// de Campanhas (só o 1º cenário; ver src/lib/orcamentoSync.js). Só muda o aviso.
+export default function ROICalculator({ project, onSave, overrideCalc = undefined, onPersist = undefined, sincronizaCampanha = true }) {
   const { updateProject } = useApp()
   const { t, lang, locale } = useI18n()
   const [benchmarkType, setBenchmarkType] = useState(null)
@@ -73,7 +76,8 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
   const mesAtual   = lang === 'pt' ? MONTH_NAMES[now.getMonth()] : now.toLocaleDateString(locale, { month: 'long' })
 
   const [calc, setCalc] = useState(() => ({
-    mediaOrcamento:  Number(project.mediaBudget)    || 5000,
+    // Calculadora nova nasce com o orçamento do Planejamento de Campanhas, se houver.
+    mediaOrcamento:  orcamentoDoPlano(project.campaignPlan) || Number(project.mediaBudget) || 5000,
     custoMarketing:  Number(project.managementFee)  || 2000,
     ticketMedio:     Number(project.averageTicket)  || 500,
     qtdCompras:      1,
@@ -89,32 +93,7 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
     setCalc((prev) => {
       const next = { ...prev, [field]: val }
       // Recompute result synchronously so roiResult stays in sync with roiCalc
-      const { mediaOrcamento: mo, custoMarketing: cm, ticketMedio: tm, qtdCompras: qc,
-              margemBruta: mb, roiDesejado: rd, taxaLead2MQL: tl, taxaMQL2SQL: ts, taxaSQL2Venda: tv } = next
-      const totalInv   = mo + cm
-      const lucroVenda = tm * qc * (mb / 100)
-      const freshResult = lucroVenda ? (() => {
-        const retAlvo  = totalInv * (1 + rd / 100)
-        const vendas   = Math.ceil(retAlvo / lucroVenda)
-        const sqls     = tv ? Math.ceil(vendas / (tv / 100)) : Infinity
-        const mqls     = ts ? Math.ceil(sqls   / (ts / 100)) : Infinity
-        const leads    = tl ? Math.ceil(mqls   / (tl / 100)) : Infinity
-        const fat      = vendas * tm * qc
-        const lBruto   = fat * (mb / 100)
-        return {
-          totalInvestimento: totalInv, lucroPorVenda: lucroVenda,
-          vendasNecessarias: vendas, sqlsNecessarios: sqls, mqlsNecessarios: mqls, leadsNecessarios: leads,
-          faturamento: fat, lucroBruto: lBruto, lucroLiquido: lBruto - totalInv,
-          // CAC = (mídia + marketing) / vendas — custo total de aquisição por cliente
-          cac:             vendas ? totalInv / vendas : Infinity,
-          vendasBreakeven: Math.ceil(totalInv / lucroVenda),
-          // CPL/CPMQL/CPSQL usam APENAS o orçamento de mídia (não inclui marketing)
-          // porque são métricas de performance dos canais pagos.
-          custoPorLead:    leads  ? mo / leads  : Infinity,
-          custoPorMQL:     mqls   ? mo / mqls   : Infinity,
-          custoPorSQL:     sqls   ? mo / sqls   : Infinity,
-        }
-      })() : null
+      const freshResult = calcularResultadoRoi(next)
       if (onPersist) {
         onPersist(next, freshResult)
       } else {
@@ -289,7 +268,7 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
                 value={calc.mediaOrcamento}
                 onChange={(v) => set('mediaOrcamento', v)}
                 prefix="R$"
-                hint={t('roi.calc.verbaAnuncios')}
+                hint={sincronizaCampanha ? t('roi.calc.verbaAnunciosSync') : t('roi.calc.verbaAnuncios')}
               />
               <NumInput
                 label={t('roi.calc.custoMarketing')}

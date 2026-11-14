@@ -36,6 +36,7 @@ export default {
     investimento: 'Investment',
     orcamentoMidia: 'Ad Budget',
     verbaAnuncios: 'Budget for ads',
+    verbaAnunciosSync: 'Budget for ads. Same as the Total Monthly Budget in Campaign Planning (1st account): change it here and it changes there.',
     custoMarketing: 'Marketing Cost',
     feeGestao: 'Management / agency fee',
     totalInvestido: 'Total invested',
