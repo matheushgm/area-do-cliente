@@ -1656,12 +1656,15 @@ Atas) foi removida em 2026-10-26 a pedido do Matheus. Abaixo de `xl` as colunas 
   como régua, custo alto = ≥ 1,5× a média (`FATOR_ACIMA_MEDIA`), e o anúncio abaixo da média fica no
   ar mesmo acima da meta. Textos `adCplAltoMedia` / `gCampCplAltoMedia` e `T.regua` em
   `playbookTextos.js`; a chave da sugestão não muda. Escalar continua só pela meta.
-  **Mínimo de 2 anúncios por conjunto (2026-11-14, `MIN_ADS_CONJUNTO`):** antes de sugerir pausa
-  (`ad_sem_conv`, `ad_cpl_alto`, `topo_gancho`), o motor conta os anúncios ativos do conjunto
-  (`adset_id`, senão campanha + conjunto) e desconta do pior pro menos pior (sem conversão antes de
-  custo alto). Se a pausa deixaria menos de 2, a sugestão vira `meta:ad_trocar:<ad_id>` (texto
-  `T.regras.adTrocar`, tipo Subir Criativo): sobe o substituto e só depois pausa. `ad_trocar` fica
-  fora de `REGRA_AUTOMATICA`, então é sempre `manual` na fila.
+  **Último anúncio do conjunto (2026-11-14, `MIN_ADS_CONJUNTO = 1`, `separarPausaTroca`):** antes
+  de sugerir pausa (`ad_sem_conv`, `ad_cpl_alto`, `topo_gancho`), o motor conta os anúncios ativos do
+  conjunto (`adset_id`, senão campanha + conjunto) e desconta do pior pro menos pior (sem conversão
+  antes de custo alto). O último ativo nunca é pausado sozinho: se outro conjunto ativo da mesma
+  campanha está melhor (com conversão, custo menor que o do anúncio e abaixo do corte da régua; no
+  topo, gancho ≥ 30%), vira `meta:conj_desligar:<ad_id>` (`T.regras.conjDesligar`: pausa anúncio e
+  conjunto, verba pro conjunto melhor); senão vira `meta:ad_trocar:<ad_id>` (`T.regras.adTrocar`,
+  sobe o substituto e só depois pausa). As duas chaves ficam fora de `REGRA_AUTOMATICA` (sempre
+  `manual`).
 - **Resultados de Tráfego** (seção `trafego`, slug `resultados-de-trafego`; `TrafegoModule` em
   `src/components/ResultadosModule.jsx`): `ContasVinculadas` (vincular/desvincular contas de anúncio,
   `dashboard_accounts.project_id`, busca e aviso quando a conta está em outro cliente) e
