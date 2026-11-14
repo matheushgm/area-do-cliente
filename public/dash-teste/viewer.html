@@ -511,6 +511,10 @@
   .dt-root .dp-trigger .ico { width:14px; height:14px; }
   /* Botão "BD" ao lado da data: link externo com a cara do seletor de período */
   .dt-root a.cp-bd-btn { text-decoration:none; }
+  /* Botão do módulo Banco de dados (nativo) colado no nome do cliente: o nome
+     deixa de ocupar a sobra e o botão empurra os badges para a direita. */
+  @media(min-width:769px){ .dt-root .cp-client-name.cp-name-fit { flex:0 1 auto; } }
+  .dt-root a.cp-bancodados-btn { text-decoration:none; margin-right:auto; }
   .dt-root a.cp-bd-btn .ico:last-child { width:12px; height:12px; opacity:.55; }
   .dt-root .dp-range { color:var(--fx-muted,rgb(var(--dt-text-2))); font-weight:600; }
   .dt-root .dp-caret { color:var(--fx-faint,rgb(var(--rl-muted))); font-size:10px; }
@@ -6030,10 +6034,15 @@ function renderClient() {
       <div class="wk-foot"><button class="btn" id="wkCopy">${ic('copy','📋')} Copiar</button></div>
     </div></div>` : ''
 
+  // Módulo Banco de dados (nativo da Área do Cliente) do projeto vinculado à
+  // conta, ao lado do nome. Abre em nova aba. Fora do link público.
+  const pidBanco = SHARED ? null : state.accounts[client]?.projectId
+  const bancoDadosBtn = pidBanco ? `<a class="cp-weekly-btn cp-bancodados-btn" href="/cliente/${encodeURIComponent(pidBanco)}/banco-de-dados" target="_blank" rel="noopener" title="Abrir o Banco de dados do cliente">${ic('database','🗄️')} Banco de dados</a>` : ''
+
   app.innerHTML = `
     <div class="cp-header">
       ${SHARED || (EMBED && !EMBED_LISTA) ? '' : `<button class="cp-back" id="cpBack">${ic('back','←')} Voltar</button>`}
-      <div class="cp-client-name">${esc(client)}</div>
+      <div class="cp-client-name${bancoDadosBtn ? ' cp-name-fit' : ''}">${esc(client)}</div>${bancoDadosBtn}
       <div class="cp-badges">
         <span class="cp-channel-badge">${chIco(isMeta?'meta':'google')} ${isMeta?'Meta Ads':'Google Ads'}</span>
         ${squadBadge}
