@@ -109,6 +109,14 @@ const pt = {
       ev: {},
       passos: () => ['Pausar o anúncio e marcar _TESTADO', 'Se for o único anúncio priorizado do conjunto, subir um substituto antes'],
     },
+    adTrocar: {
+      titulo: ({ nome, n }) => `Trocar o criativo "${nome}" (${n === 1 ? 'único anúncio ativo do conjunto' : `conjunto com só ${n} anúncios ativos`})`,
+      acao: ({ n }) => `Subir um criativo novo neste conjunto e só pausar este depois que o novo começar a entregar. Desligar agora deixaria o conjunto ${n <= 1 ? 'sem nenhum anúncio e sem entrega' : `com ${n - 1} anúncio só`}.`,
+      regra: 'todo conjunto fica com no mínimo 2 anúncios ativos: quando a pausa deixaria menos que isso, o anúncio ruim é trocado (sobe o substituto, depois pausa e marca _TESTADO), nunca só desligado',
+      complemento: ({ n }) => (n <= 1 ? 'Ele é o único anúncio ativo do conjunto, então desligar sem substituto para a entrega.' : `O conjunto tem só ${n} anúncios ativos e precisa manter no mínimo 2.`),
+      ev: { ativosConj: 'Anúncios ativos no conjunto' },
+      passos: () => ['Puxar um criativo da gaveta ou briefar um novo, com gancho diferente deste', 'Subir o novo no mesmo conjunto', 'Quando o novo começar a entregar, pausar este e marcar _TESTADO'],
+    },
     ctrBaixo: {
       titulo: ({ camp, ctr }) => `Trocar criativos da campanha "${camp}" (CTR ${ctr})`,
       acao: () => 'Subir 3 criativos novos nesta campanha, com gancho diferente dos atuais.',
@@ -331,6 +339,14 @@ const en = {
       contexto: ({ conj, camp, lbl, x, j, nota, frase }) => `In the ad set "${conj}" of the campaign "${camp}", this ad's ${lbl} is ${x}× the account's real average in ${j}.${nota}${frase}`,
       ev: {},
       passos: () => ['Pause the ad and tag it _TESTADO', 'If it is the only prioritized ad in the ad set, launch a replacement first'],
+    },
+    adTrocar: {
+      titulo: ({ nome, n }) => `Replace the creative "${nome}" (${n === 1 ? 'only active ad in the ad set' : `ad set with only ${n} active ads`})`,
+      acao: ({ n }) => `Launch a new creative in this ad set and pause this one only after the new one starts delivering. Pausing now would leave the ad set ${n <= 1 ? 'with no ads and no delivery' : `with only ${n - 1} ad`}.`,
+      regra: 'every ad set keeps at least 2 active ads: when a pause would leave fewer than that, the weak ad is replaced (launch the substitute, then pause and tag _TESTADO), never just paused',
+      complemento: ({ n }) => (n <= 1 ? 'It is the only active ad in the ad set, so pausing it without a substitute stops delivery.' : `The ad set has only ${n} active ads and must keep at least 2.`),
+      ev: { ativosConj: 'Active ads in the ad set' },
+      passos: () => ['Pick a creative from the backlog or brief a new one, with a different hook', 'Launch it in the same ad set', 'Once the new one starts delivering, pause this one and tag it _TESTADO'],
     },
     ctrBaixo: {
       titulo: ({ camp, ctr }) => `Replace the creatives in the campaign "${camp}" (CTR ${ctr})`,

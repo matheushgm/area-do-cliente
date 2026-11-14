@@ -1656,6 +1656,12 @@ Atas) foi removida em 2026-10-26 a pedido do Matheus. Abaixo de `xl` as colunas 
   como régua, custo alto = ≥ 1,5× a média (`FATOR_ACIMA_MEDIA`), e o anúncio abaixo da média fica no
   ar mesmo acima da meta. Textos `adCplAltoMedia` / `gCampCplAltoMedia` e `T.regua` em
   `playbookTextos.js`; a chave da sugestão não muda. Escalar continua só pela meta.
+  **Mínimo de 2 anúncios por conjunto (2026-11-14, `MIN_ADS_CONJUNTO`):** antes de sugerir pausa
+  (`ad_sem_conv`, `ad_cpl_alto`, `topo_gancho`), o motor conta os anúncios ativos do conjunto
+  (`adset_id`, senão campanha + conjunto) e desconta do pior pro menos pior (sem conversão antes de
+  custo alto). Se a pausa deixaria menos de 2, a sugestão vira `meta:ad_trocar:<ad_id>` (texto
+  `T.regras.adTrocar`, tipo Subir Criativo): sobe o substituto e só depois pausa. `ad_trocar` fica
+  fora de `REGRA_AUTOMATICA`, então é sempre `manual` na fila.
 - **Resultados de Tráfego** (seção `trafego`, slug `resultados-de-trafego`; `TrafegoModule` em
   `src/components/ResultadosModule.jsx`): `ContasVinculadas` (vincular/desvincular contas de anúncio,
   `dashboard_accounts.project_id`, busca e aviso quando a conta está em outro cliente) e

@@ -98,6 +98,10 @@ function metaDe(metas, metrica) {
 export const DIVERGENCIA_MEDIA = 1.5 // média real / meta a partir da qual a meta não serve de régua
 export const FATOR_ACIMA_MEDIA = 1.5 // com a média como régua, custo alto = ≥ 1,5× a média
 export const MIN_CONV_MEDIA = 5 // conversões mínimas em 14 dias pra confiar na média
+// Mínimo de anúncios ativos por conjunto (regra do Matheus, 14/11/2026). Pausar o
+// último anúncio para a entrega do conjunto; quando a pausa deixaria menos que isso,
+// a sugestão vira "trocar o criativo" (sobe o substituto, depois pausa), nunca só desligar.
+export const MIN_ADS_CONJUNTO = 2
 
 export function reguaDeCusto(meta, media) {
   if (media != null && media > 0 && (!meta || media >= meta * DIVERGENCIA_MEDIA)) {
@@ -415,19 +419,55 @@ function regrasMeta(rowsMeta, metas, conta) {
   // de anúncios diferentes só porque o nome coincide. Linhas antigas sem ad_id
   // caem no fallback campanha + conjunto + nome.
   const SEP = '\u0001'
-  const porAd = groupRows(atualConv, (r) => {
+  const chaveAd = (r) => {
     if (!r['Nome do Anúncio']) return null
     const id = (r.ad_id || '').toString().trim()
     return id ? `id${SEP}${id}` : ['nm', r['Nome da campanha'] || '', r['Conjunto de Anúncio'] || '', r['Nome do Anúncio']].join(SEP)
-  })
+  }
+  const porAd = groupRows(atualConv, chaveAd)
+  // Anúncios ativos por conjunto (qualquer funil), pra trava de MIN_ADS_CONJUNTO.
+  // Conta anúncio com linha na janela e último status ativo.
+  const chaveConj = (r) => {
+    const id = (r.adset_id || '').toString().trim()
+    return id ? `id${SEP}${id}` : ['nm', r['Nome da campanha'] || '', r['Conjunto de Anúncio'] || ''].join(SEP)
+  }
+  const restamNoConj = new Map()
+  for (const rs of groupRows(atual, chaveAd).values()) {
+    if (isPaused(ultimoStatus(rs, '_d', META_STATUS_AD))) continue
+    const c = chaveConj(rs.reduce((b, r) => (!b || r._d > b._d ? r : b), null))
+    restamNoConj.set(c, (restamNoConj.get(c) || 0) + 1)
+  }
+  // Decide, do pior pro menos pior, quem pode ser pausado sem deixar o conjunto
+  // com menos de MIN_ADS_CONJUNTO ativos. Quem não pode vira troca de criativo.
+  const separarPausaTroca = (itens) => {
+    const pausar = [], trocar = []
+    for (const it of itens) {
+      const n = restamNoConj.get(it.cj) ?? 1
+      if (n - 1 >= MIN_ADS_CONJUNTO) { restamNoConj.set(it.cj, n - 1); pausar.push(it) }
+      else trocar.push({ ...it, ativosConj: n, orig: it })
+    }
+    return { pausar, trocar }
+  }
+  // Card de troca: mesmo diagnóstico do card de pausa, ação de subir substituto antes.
+  const cardTroca = (base, n, prioridade) => {
+    const R = T.regras.adTrocar
+    return sugestao({
+      ...base,
+      chave: base.chave.replace(/^meta:(ad_sem_conv|ad_cpl_alto|topo_gancho):/, 'meta:ad_trocar:'),
+      prioridade,
+      titulo: `${pref}${R.titulo({ nome: base.entidade, n })}`,
+      acao: R.acao({ n }),
+      regra: R.regra,
+      contexto: `${base.contexto} ${R.complemento({ n })}`,
+      evidencias: [...base.evidencias, { label: R.ev.ativosConj, valor: String(n) }],
+      passos: R.passos(),
+      tipo: 'Subir Criativo', horas: 1,
+    })
+  }
   // Mesmo anúncio (mesma chave) nos 7 dias ANTERIORES: o veredito de 7 dias sozinho
   // engana quando o anúncio vinha convertendo e secou na semana (visto no Gerenciador
   // com 30 dias, onde o total aparece). A janela exata vai no texto pra poder conferir.
-  const porAdAnt = groupRows(w.anterior.filter(ehConversao), (r) => {
-    if (!r['Nome do Anúncio']) return null
-    const id = (r.ad_id || '').toString().trim()
-    return id ? `id${SEP}${id}` : ['nm', r['Nome da campanha'] || '', r['Conjunto de Anúncio'] || '', r['Nome do Anúncio']].join(SEP)
-  })
+  const porAdAnt = groupRows(w.anterior.filter(ehConversao), chaveAd)
   const janelaTxt = T.periodo(fmtDia(w.inicio), fmtDia(w.fim))
   const janelaAntTxt = T.periodo(fmtDia(addDays(w.inicio, -7)), fmtDia(addDays(w.inicio, -1)))
   // Evidência e frase do histórico (anúncio) — vazio se o anúncio não rodou na semana anterior
@@ -460,17 +500,22 @@ function regrasMeta(rowsMeta, metas, conta) {
     const link = distintos(rs, 'Link do anúncio')[0] || null
     const ids = { adsetId: idDe(rs, 'adset_id'), campaignId: idDe(rs, 'campaign_id') }
     const ant = porAdAnt.has(k) ? aggMeta(porAdAnt.get(k)) : null
-    const item = { nome, camp, conj, adId, link, ids, a, ant, metrica, meta, rg }
+    const item = { nome, camp, conj, adId, link, ids, a, ant, metrica, meta, rg, cj: chaveConj(ultimo) }
     const corte = rg ? rg.valor * rg.fator : null
     if (a.conv === 0 && a.spend >= gastoMin) semConv.push(item)
     else if (corte && a.conv > 0 && a.cpl >= corte && a.spend >= corte) cplAlto.push(item)
   }
-  for (const { nome, camp, conj, adId, link, ids, a, ant, metrica, rg } of semConv.sort((x, y) => y.a.spend - x.a.spend).slice(0, 5)) {
+  // Sem conversão é pior que custo alto: entra primeiro na fila da trava do conjunto.
+  semConv.sort((x, y) => y.a.spend - x.a.spend)
+  cplAlto.sort((x, y) => y.a.cpl / y.rg.valor - x.a.cpl / x.rg.valor)
+  const ehSemConv = new Set(semConv)
+  const { pausar, trocar } = separarPausaTroca([...semConv, ...cplAlto])
+  const cardSemConv = ({ nome, camp, conj, adId, link, ids, a, ant, metrica, rg }) => {
     const h = historico(ant, rg, T.metrica[metrica])
     // Convertia na semana anterior e secou: ainda vale agir, mas não como urgência cega
     const vinhaConvertendo = h.bom
     const R = T.regras.adSemConv
-    out.push(sugestao({
+    return {
       chave: `meta:ad_sem_conv:${adId || `${camp}::${conj}::${nome}`}`, canal, prioridade: vinhaConvertendo ? 'alta' : 'urgente', entidade: nome,
       titulo: `${pref}${R.titulo({ nome, gasto: fmtMoney(a.spend) })}`,
       acao: R.acao(),
@@ -488,16 +533,15 @@ function regrasMeta(rowsMeta, metas, conta) {
       ],
       passos: R.passos(),
       horas: 0.5,
-    }))
+    }
   }
-  // Ordem: quem está mais acima da régua primeiro (só os 5 piores viram sugestão)
-  for (const { nome, camp, conj, adId, link, ids, a, ant, metrica, meta, rg } of cplAlto.sort((x, y) => y.a.cpl / y.rg.valor - x.a.cpl / x.rg.valor).slice(0, 5)) {
+  const cardCplAlto = ({ nome, camp, conj, adId, link, ids, a, ant, metrica, meta, rg }) => {
     const lbl = T.metrica[metrica]
     const h = historico(ant, rg, lbl)
     const porMedia = rg.fonte === 'media'
     const R = porMedia ? T.regras.adCplAltoMedia : T.regras.adCplAlto
     const x = fmtDec(a.cpl / rg.valor, 1)
-    out.push(sugestao({
+    return {
       chave: `meta:ad_cpl_alto:${adId || `${camp}::${conj}::${nome}`}`, canal, prioridade: 'alta', entidade: nome,
       titulo: `${pref}${R.titulo({ nome, lbl, cpl: fmtMoney(a.cpl), meta: fmtMoney(rg.valor), media: fmtMoney(rg.valor) })}`,
       acao: R.acao({ lbl, x }),
@@ -515,7 +559,13 @@ function regrasMeta(rowsMeta, metas, conta) {
       ],
       passos: R.passos(),
       horas: 0.5,
-    }))
+    }
+  }
+  // Só os 5 piores de cada regra viram sugestão
+  for (const it of pausar.filter((i) => ehSemConv.has(i)).slice(0, 5)) out.push(sugestao(cardSemConv(it)))
+  for (const it of pausar.filter((i) => !ehSemConv.has(i)).slice(0, 5)) out.push(sugestao(cardCplAlto(it)))
+  for (const it of trocar.slice(0, 5)) {
+    out.push(cardTroca(ehSemConv.has(it.orig) ? cardSemConv(it) : cardCplAlto(it), it.ativosConj, 'alta'))
   }
 
   // Por campanha
@@ -656,11 +706,7 @@ function regrasMeta(rowsMeta, metas, conta) {
   // Protocolo: taxa de gancho acima de 30%, tempo médio bom acima de 10 s,
   // renovar criativos a cada 7 dias mantendo os melhores. Visitas ao perfil e
   // seguidores não chegam ao dash, então ficam de fora aqui.
-  const porAdTopo = groupRows(atual.filter((r) => funilDe(r) === 'topo'), (r) => {
-    if (!r['Nome do Anúncio']) return null
-    const id = (r.ad_id || '').toString().trim()
-    return id ? `id${SEP}${id}` : ['nm', r['Nome da campanha'] || '', r['Conjunto de Anúncio'] || '', r['Nome do Anúncio']].join(SEP)
-  })
+  const porAdTopo = groupRows(atual.filter((r) => funilDe(r) === 'topo'), chaveAd)
   const ganchoBaixo = []
   for (const [k, rs] of porAdTopo) {
     if (isPaused(ultimoStatus(rs, '_d', META_STATUS_AD))) continue
@@ -671,13 +717,15 @@ function regrasMeta(rowsMeta, metas, conta) {
       ganchoBaixo.push({
         nome: ultimo['Nome do Anúncio'], camp: ultimo['Nome da campanha'] || '', conj: ultimo['Conjunto de Anúncio'] || '',
         adId: k.startsWith('id' + SEP) ? k.slice(3) : null, link: distintos(rs, 'Link do anúncio')[0] || null, a,
-        adsetId: idDe(rs, 'adset_id'), campaignId: idDe(rs, 'campaign_id'),
+        adsetId: idDe(rs, 'adset_id'), campaignId: idDe(rs, 'campaign_id'), cj: chaveConj(ultimo),
       })
     }
   }
-  for (const { nome, camp, conj, adId, link, adsetId, campaignId, a } of ganchoBaixo.sort((x, y) => x.a.gancho - y.a.gancho).slice(0, 5)) {
+  // Mesma trava do conjunto: o vídeo só é pausado se sobrarem MIN_ADS_CONJUNTO ativos
+  const topo = separarPausaTroca(ganchoBaixo.sort((x, y) => x.a.gancho - y.a.gancho))
+  const cardTopo = ({ nome, camp, conj, adId, link, adsetId, campaignId, a }) => {
     const R = T.regras.topoGancho
-    out.push(sugestao({
+    return {
       chave: `meta:topo_gancho:${adId || `${camp}::${conj}::${nome}`}`, canal, prioridade: 'media', entidade: nome,
       titulo: `${pref}${R.titulo({ nome, gancho: fmtPct(a.gancho, 0) })}`,
       acao: R.acao(),
@@ -693,8 +741,10 @@ function regrasMeta(rowsMeta, metas, conta) {
       ],
       passos: R.passos(),
       tipo: 'Subir Criativo', horas: 1,
-    }))
+    }
   }
+  for (const it of topo.pausar.slice(0, 5)) out.push(sugestao(cardTopo(it)))
+  for (const it of topo.trocar.slice(0, 5)) out.push(cardTroca(cardTopo(it), it.ativosConj, 'media'))
 
   // Estrutura do playbook por faixa de verba
   if (tot.spend > 0) {
