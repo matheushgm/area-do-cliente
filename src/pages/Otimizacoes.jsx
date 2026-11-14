@@ -213,35 +213,182 @@ function diasAtras(iso) {
   return Math.round((Date.parse(dia(new Date())) - Date.parse(dia(iso))) / 86400000)
 }
 
+const STATUS_FILTROS = [
+  ['todos', 'otimizacoes.historico.statusTodas'],
+  ['aceita', 'otimizacoes.historico.statusAceitas'],
+  ['recusada', 'otimizacoes.historico.statusRecusadas'],
+  ['descartada', 'otimizacoes.historico.statusAdiadas'],
+]
+const STATUS_CHIP_ATIVO = {
+  todos: 'bg-rl-purple text-white border-rl-purple',
+  aceita: 'bg-rl-green text-white border-rl-green',
+  recusada: 'bg-rl-red text-white border-rl-red',
+  descartada: 'bg-rl-muted text-white border-rl-muted',
+}
+const ehAdiada = (d) => !['aceita', 'recusada'].includes(d.status)
+
+function Chip({ ativo, clsAtivo, onClick, children }) {
+  return (
+    <button onClick={onClick}
+      className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap ${ativo ? clsAtivo || 'bg-rl-purple text-white border-rl-purple' : 'bg-rl-card text-rl-subtle border-rl-border hover:text-rl-text'}`}>
+      {children}
+    </button>
+  )
+}
+
+// Lupa de clientes: lista os clientes do histórico do que tem mais otimizações
+// para o que tem menos (contando com os outros filtros aplicados) e filtra por um.
+function LupaCliente({ clientes, selecionado, onSelecionar }) {
+  const { t } = useI18n()
+  const [aberta, setAberta] = useState(false)
+  const [texto, setTexto] = useState('')
+  const busca = texto.trim().toLowerCase()
+  const lista = clientes.filter((c) => !busca || c.nome.toLowerCase().includes(busca))
+  const atual = clientes.find((c) => c.id === selecionado)
+
+  if (selecionado) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold pl-3 pr-1.5 py-1.5 rounded-full border bg-rl-purple/10 text-rl-purple border-rl-purple/30 max-w-full">
+        <Search className="w-3.5 h-3.5 shrink-0" />
+        <span className="truncate">{atual?.nome || t('otimizacoes.cliente')}</span>
+        <span className="opacity-70 tabular-nums">{atual?.n ?? 0}</span>
+        <button onClick={() => onSelecionar(null)} className="p-0.5 rounded-full hover:bg-rl-purple/20" aria-label={t('otimizacoes.historico.tirarFiltroCliente')}><X className="w-3.5 h-3.5" /></button>
+      </span>
+    )
+  }
+  return (
+    <div className="relative w-full sm:w-64">
+      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-rl-muted pointer-events-none" />
+      <input
+        value={texto}
+        onChange={(e) => { setTexto(e.target.value); setAberta(true) }}
+        onFocus={() => setAberta(true)}
+        onBlur={() => setTimeout(() => setAberta(false), 150)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') { setAberta(false); e.currentTarget.blur() }
+          if (e.key === 'Enter' && lista[0]) { onSelecionar(lista[0].id); setTexto(''); setAberta(false) }
+        }}
+        placeholder={t('otimizacoes.filtros.buscarCliente')}
+        className="input-field text-sm !py-2 !pl-8 !pr-3 !w-full"
+      />
+      {aberta && (
+        <div className="absolute z-30 mt-1 left-0 right-0 max-h-72 overflow-auto rounded-xl border border-rl-border bg-rl-card shadow-lg py-1">
+          <p className="px-3 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-rl-muted">{t('otimizacoes.historico.maisOtimizacoesPrimeiro')}</p>
+          {lista.length === 0 && <p className="px-3 py-2 text-xs text-rl-muted">{t('otimizacoes.historico.semClienteComNome')}</p>}
+          {lista.map((c) => (
+            <button key={c.id} onMouseDown={(e) => e.preventDefault()} onClick={() => { onSelecionar(c.id); setTexto(''); setAberta(false) }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm text-rl-text hover:bg-rl-surface">
+              <span className="flex-1 truncate">{c.nome}</span>
+              {c.aceitas > 0 && <span className="text-[10px] font-semibold text-rl-green tabular-nums" title={t('otimizacoes.historico.statusAceitas')}>{c.aceitas}✓</span>}
+              {c.recusadas > 0 && <span className="text-[10px] font-semibold text-rl-red tabular-nums" title={t('otimizacoes.historico.statusRecusadas')}>{c.recusadas}✕</span>}
+              <span className="text-[11px] font-bold min-w-[24px] text-center px-1.5 py-0.5 rounded-full bg-rl-surface border border-rl-border text-rl-subtle tabular-nums">{c.n}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Historico({ itens, onReabrir, onAbrir, onCriarTarefa }) {
   const { t, locale } = useI18n()
   const [periodo, setPeriodo] = useState('todos')
+  const [status, setStatus] = useState('todos')
+  const [clienteId, setClienteId] = useState(null)
+  const [ordem, setOrdem] = useState('recentes') // 'recentes' | 'cliente'
   const comIdade = useMemo(() => itens.map((d) => ({ d, n: diasAtras(d.decidida_em || d.created_at) })), [itens])
+
+  // Cada contador olha os OUTROS filtros, pra mostrar quanto sobra ao clicar nele.
+  const okPeriodo = PERIODOS.find(([id]) => id === periodo)[2]
+  const okStatusDe = (st) => (d) => st === 'todos' || (st === 'descartada' ? ehAdiada(d) : d.status === st)
+  const okStatus = okStatusDe(status)
+  const okCliente = (d) => !clienteId || d.project_id === clienteId
+
+  const clientes = useMemo(() => {
+    const m = new Map()
+    for (const { d, n } of comIdade) {
+      if (!okPeriodo(n) || !okStatus(d)) continue
+      const c = m.get(d.project_id) || { id: d.project_id, nome: d.nomeCliente, n: 0, aceitas: 0, recusadas: 0 }
+      c.n++
+      if (d.status === 'aceita') c.aceitas++
+      if (d.status === 'recusada') c.recusadas++
+      m.set(d.project_id, c)
+    }
+    return [...m.values()].sort((a, b) => b.n - a.n || a.nome.localeCompare(b.nome, 'pt-BR'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comIdade, periodo, status])
+
   const visiveis = useMemo(() => {
-    const ok = PERIODOS.find(([id]) => id === periodo)[2]
-    return comIdade.filter(({ n }) => ok(n)).map(({ d }) => d)
-  }, [comIdade, periodo])
+    const lista = comIdade.filter(({ d, n }) => okPeriodo(n) && okStatus(d) && okCliente(d)).map(({ d }) => d)
+    if (ordem !== 'cliente') return lista
+    const pos = new Map(clientes.map((c, i) => [c.id, i]))
+    return [...lista].sort((a, b) => (pos.get(a.project_id) ?? 1e9) - (pos.get(b.project_id) ?? 1e9))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comIdade, periodo, status, clienteId, ordem, clientes])
+
+  const filtrando = periodo !== 'todos' || status !== 'todos' || !!clienteId
   if (!itens.length) return <p className="text-sm text-rl-subtle text-center py-10">{t('otimizacoes.historico.vazio')}</p>
+  const temAdiadas = itens.some(ehAdiada)
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap gap-1.5 pb-1">
-        {PERIODOS.map(([id, label, ok]) => {
-          const n = comIdade.filter((x) => ok(x.n)).length
-          const ativo = periodo === id
-          return (
-            <button key={id} onClick={() => setPeriodo(id)}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${ativo ? 'bg-rl-purple text-white border-rl-purple' : 'bg-rl-card text-rl-subtle border-rl-border hover:text-rl-text'}`}>
-              {t(label)} <span className={ativo ? 'opacity-80' : 'text-rl-muted'}>{n}</span>
+      <div className="glass-card border border-rl-border/60 p-2.5 space-y-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="flex flex-wrap gap-1.5">
+            {STATUS_FILTROS.filter(([id]) => id !== 'descartada' || temAdiadas).map(([id, label]) => {
+              const ok = okStatusDe(id)
+              const n = comIdade.filter(({ d, n: idade }) => okPeriodo(idade) && okCliente(d) && ok(d)).length
+              const ativo = status === id
+              return (
+                <Chip key={id} ativo={ativo} clsAtivo={STATUS_CHIP_ATIVO[id]} onClick={() => setStatus(id)}>
+                  {t(label)} <span className={ativo ? 'opacity-80' : 'text-rl-muted'}>{n}</span>
+                </Chip>
+              )
+            })}
+          </div>
+          <div className="flex items-center gap-2 sm:ml-auto flex-wrap sm:flex-nowrap">
+            <LupaCliente clientes={clientes} selecionado={clienteId} onSelecionar={setClienteId} />
+            {!clienteId && (
+              <select value={ordem} onChange={(e) => setOrdem(e.target.value)} title={t('otimizacoes.historico.ordenarTitle')}
+                className={`input-field !w-full sm:!w-auto text-sm !py-2 !px-3 !pr-8 shrink-0 ${ordem !== 'recentes' ? '!border-rl-purple/50 !text-rl-purple' : ''}`}>
+                <option value="recentes">{t('otimizacoes.historico.maisRecentes')}</option>
+                <option value="cliente">{t('otimizacoes.historico.clienteMaisOtimizacoes')}</option>
+              </select>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {PERIODOS.map(([id, label, ok]) => {
+            const n = comIdade.filter(({ d, n: idade }) => ok(idade) && okStatus(d) && okCliente(d)).length
+            return (
+              <Chip key={id} ativo={periodo === id} onClick={() => setPeriodo(id)}>
+                {t(label)} <span className={periodo === id ? 'opacity-80' : 'text-rl-muted'}>{n}</span>
+              </Chip>
+            )
+          })}
+          {filtrando && (
+            <button onClick={() => { setPeriodo('todos'); setStatus('todos'); setClienteId(null) }} className="text-xs text-rl-muted hover:text-rl-text flex items-center gap-1 px-2 py-1.5 ml-auto" title={t('otimizacoes.filtros.limparTitle')}>
+              <X className="w-3.5 h-3.5" /> {t('otimizacoes.filtros.limpar')}
             </button>
-          )
-        })}
+          )}
+        </div>
       </div>
-      {!visiveis.length && <p className="text-sm text-rl-subtle text-center py-10">{t('otimizacoes.historico.vazioPeriodo')}</p>}
-      {visiveis.map((d) => {
+      {!visiveis.length && <p className="text-sm text-rl-subtle text-center py-10">{t(filtrando && periodo === 'todos' ? 'otimizacoes.historico.vazioFiltros' : 'otimizacoes.historico.vazioPeriodo')}</p>}
+      {visiveis.map((d, i) => {
         const cam = d.payload?.caminho || {}
         const niveis = [[t('sugestoes.niveis.campanha'), d.campanha || cam.campanha], [t('sugestoes.niveis.conjunto'), d.conjunto || cam.conjunto], [t('sugestoes.niveis.anuncio'), d.anuncio || cam.anuncio]].filter(([, v]) => v)
+        const cabecalho = ordem === 'cliente' && !clienteId && (i === 0 || visiveis[i - 1].project_id !== d.project_id)
+        const resumo = cabecalho ? clientes.find((c) => c.id === d.project_id) : null
         return (
-          <div key={d.id} className="glass-card border border-rl-border/60 p-3">
+          <div key={d.id} className="space-y-2">
+          {cabecalho && (
+            <div className={`flex items-center gap-2 px-1 flex-wrap ${i > 0 ? 'pt-4' : ''}`}>
+              <button onClick={() => setClienteId(d.project_id)} className="text-base font-bold text-rl-text hover:text-rl-purple truncate" title={t('otimizacoes.historico.verSoCliente')}>{d.nomeCliente}</button>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-rl-surface border border-rl-border text-rl-subtle tabular-nums">{t('otimizacoes.historico.nOtimizacoes', { count: resumo?.n || 0 })}</span>
+              {resumo?.aceitas > 0 && <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border bg-rl-green/10 text-rl-green border-rl-green/30">{t('otimizacoes.historico.nAceitas', { count: resumo.aceitas })}</span>}
+              {resumo?.recusadas > 0 && <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border bg-rl-red/10 text-rl-red border-rl-red/30">{t('otimizacoes.historico.nRecusadas', { count: resumo.recusadas })}</span>}
+            </div>
+          )}
+          <div className="glass-card border border-rl-border/60 p-3">
             <div className="flex items-start gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -290,6 +437,7 @@ function Historico({ itens, onReabrir, onAbrir, onCriarTarefa }) {
               )}
             </div>
           </div>
+          </div>
         )
       })}
     </div>
@@ -311,6 +459,7 @@ export default function Otimizacoes() {
   const [prioridade, setPrioridade] = useState('todas')
   const [canal, setCanal] = useState('todos')
   const [squad, setSquad] = useState('todos')
+  const [ordemPend, setOrdemPend] = useState('urgencia') // 'urgencia' | 'quantidade'
   const [criada, setCriada] = useState(null) // última tarefa criada ao aceitar: { titulo, url, ... }
 
   const projetoPorId = useMemo(() => new Map((projects || []).map((p) => [p.id, p])), [projects])
@@ -319,7 +468,7 @@ export default function Otimizacoes() {
 
   const q = busca.trim().toLowerCase()
   const grupos = useMemo(() => {
-    return sg.grupos
+    const lista = sg.grupos
       .filter((g) => squad === 'todos' || String(projetoPorId.get(g.projectId)?.squad || '') === String(squad))
       .filter((g) => !q || g.nome.toLowerCase().includes(q) || (g.responsavel || '').toLowerCase().includes(q))
       .map((g) => ({
@@ -329,7 +478,9 @@ export default function Otimizacoes() {
           (canal === 'todos' || s.canal === canal)),
       }))
       .filter((g) => g.sugestoes.length > 0)
-  }, [sg.grupos, q, prioridade, canal, squad, projetoPorId])
+    // sg.grupos já vem por urgência; "quantidade" = cliente com mais sugestões primeiro
+    return ordemPend === 'quantidade' ? [...lista].sort((a, b) => b.sugestoes.length - a.sugestoes.length) : lista
+  }, [sg.grupos, q, prioridade, canal, squad, projetoPorId, ordemPend])
 
   // Clientes que batem com a busca mas NÃO têm sugestão pendente: a busca também
   // serve pra confirmar que um cliente está em dia. Separa quem foi analisado de
@@ -458,6 +609,10 @@ export default function Otimizacoes() {
                     <option value="todos">{t('otimizacoes.filtros.metaEGoogle')}</option>
                     <option value="meta">{t('otimizacoes.filtros.soMeta')}</option>
                     <option value="google">{t('otimizacoes.filtros.soGoogle')}</option>
+                  </select>
+                  <select value={ordemPend} onChange={(e) => setOrdemPend(e.target.value)} title={t('otimizacoes.filtros.ordenarClientes')} className={`${SELECT} !w-full sm:!w-auto col-span-2 ${ordemPend !== 'urgencia' ? '!border-rl-purple/50 !text-rl-purple' : ''}`}>
+                    <option value="urgencia">{t('otimizacoes.filtros.maisUrgentes')}</option>
+                    <option value="quantidade">{t('otimizacoes.filtros.maisOtimizacoes')}</option>
                   </select>
                 </div>
                 {filtrando && (
