@@ -89,6 +89,24 @@ function metaDe(metas, metrica) {
   return v > 0 ? Number(v) : null
 }
 
+// ─── Régua de custo: meta da calculadora ou média real da conta ──────────────
+// Pedido do Matheus em 14/11/2026: a calculadora de ROI nem sempre está preenchida
+// e às vezes pede um custo que a conta nunca fez. Quando a meta está vazia ou o custo
+// médio real da conta (14 dias, fundo + meio, mesma métrica) passa de 1,5× a meta, a
+// régua de "custo alto" passa a ser a média: um anúncio acima da meta mas abaixo da
+// média fica no ar, e saem os que custam bem acima da média (≥ 1,5×).
+export const DIVERGENCIA_MEDIA = 1.5 // média real / meta a partir da qual a meta não serve de régua
+export const FATOR_ACIMA_MEDIA = 1.5 // com a média como régua, custo alto = ≥ 1,5× a média
+export const MIN_CONV_MEDIA = 5 // conversões mínimas em 14 dias pra confiar na média
+
+export function reguaDeCusto(meta, media) {
+  if (media != null && media > 0 && (!meta || media >= meta * DIVERGENCIA_MEDIA)) {
+    return { valor: media, fonte: 'media', fator: FATOR_ACIMA_MEDIA, meta: meta || null, media }
+  }
+  if (meta) return { valor: meta, fonte: 'meta', fator: 2, meta, media: media ?? null }
+  return null
+}
+
 // Metas da conta a partir do mapa `accounts` do dashboard (cpl_targets_public).
 export function metasDaConta(acc) {
   return {
@@ -343,6 +361,17 @@ function regrasMeta(rowsMeta, metas, conta) {
   const atualConv = atual.filter(ehConversao)
   const tot = aggMeta(atual)
   const totConv = aggMeta(atualConv)
+  // Custo médio real da conta por métrica (14 dias, fundo + meio), base da régua de custo
+  const conv14 = [...atualConv, ...w.anterior.filter(ehConversao)]
+  const mediaReal = {}
+  for (const mt of ['lead', 'mql', 'compra']) {
+    const ag = aggMeta(conv14.filter((r) => metricaDaLinha(r, metas) === mt))
+    mediaReal[mt] = ag.conv >= MIN_CONV_MEDIA ? ag.cpl : null
+  }
+  const notaRegua = (rg, lbl) => (rg?.fonte === 'media'
+    ? T.regua.nota({ lbl, media: fmtMoney(rg.media), meta: rg.meta ? fmtMoney(rg.meta) : null })
+    : '')
+  const evidMedia = (rg, lbl) => (rg?.media != null ? [{ label: T.regua.mediaLabel(lbl), valor: fmtMoney(rg.media) }] : [])
 
   // Sem entrega: gastou na semana anterior e zerou nos últimos 2 dias
   const ultimos2 = atual.filter((r) => r._d >= addDays(w.fim, -1))
@@ -402,13 +431,15 @@ function regrasMeta(rowsMeta, metas, conta) {
   const janelaTxt = T.periodo(fmtDia(w.inicio), fmtDia(w.fim))
   const janelaAntTxt = T.periodo(fmtDia(addDays(w.inicio, -7)), fmtDia(addDays(w.inicio, -1)))
   // Evidência e frase do histórico (anúncio) — vazio se o anúncio não rodou na semana anterior
-  const historico = (ant, metaCpl = null, lbl = 'CPL') => {
+  // `rg` = régua de custo (reguaDeCusto): meta da calculadora ou média real da conta
+  const historico = (ant, rg = null, lbl = 'CPL') => {
     const H = T.historico
     if (!ant || ant.spend <= 0) return { frase: '', evid: [{ label: H.naoRodouLabel, valor: H.naoRodou }] }
     const evid = [{ label: H.label(janelaAntTxt), valor: H.valor({ conv: fmtInt(ant.conv), gasto: fmtMoney(ant.spend), lbl, cpl: ant.cpl != null ? fmtMoney(ant.cpl) : null }) }]
-    const bom = metaCpl && ant.cpl != null && ant.cpl <= metaCpl * 2
+    const ref = rg?.valor ?? null
+    const bom = ref && ant.cpl != null && ant.cpl <= ref * rg.fator
     const frase = ant.conv > 0
-      ? H.converteu({ j: janelaAntTxt, conv: fmtInt(ant.conv), plural: ant.conv > 1, lbl, cpl: fmtMoney(ant.cpl), bom, x: metaCpl ? fmtDec(ant.cpl / metaCpl, 1) : null })
+      ? H.converteu({ j: janelaAntTxt, conv: fmtInt(ant.conv), plural: ant.conv > 1, lbl, cpl: fmtMoney(ant.cpl), bom, x: ref ? fmtDec(ant.cpl / ref, 1) : null, media: rg?.fonte === 'media' })
       : H.naoConverteu({ j: janelaAntTxt, gasto: fmtMoney(ant.spend) })
     return { frase, evid, bom }
   }
@@ -419,7 +450,8 @@ function regrasMeta(rowsMeta, metas, conta) {
     if (a.dias < 3) continue // nunca antes de 72h
     const metrica = metricaDe(rs, metas)
     const meta = metaDe(metas, metrica)
-    const gastoMin = meta ? Math.max(GASTO_MINIMO_SEM_RESULTADO, meta * 2) : GASTO_MINIMO_SEM_RESULTADO
+    const rg = reguaDeCusto(meta, mediaReal[metrica])
+    const gastoMin = rg ? Math.max(GASTO_MINIMO_SEM_RESULTADO, rg.valor * 2) : GASTO_MINIMO_SEM_RESULTADO
     const ultimo = rs.reduce((b, r) => (!b || r._d > b._d ? r : b), null)
     const nome = ultimo['Nome do Anúncio']
     const camp = ultimo['Nome da campanha'] || ''
@@ -428,12 +460,13 @@ function regrasMeta(rowsMeta, metas, conta) {
     const link = distintos(rs, 'Link do anúncio')[0] || null
     const ids = { adsetId: idDe(rs, 'adset_id'), campaignId: idDe(rs, 'campaign_id') }
     const ant = porAdAnt.has(k) ? aggMeta(porAdAnt.get(k)) : null
-    const item = { nome, camp, conj, adId, link, ids, a, ant, metrica, meta }
+    const item = { nome, camp, conj, adId, link, ids, a, ant, metrica, meta, rg }
+    const corte = rg ? rg.valor * rg.fator : null
     if (a.conv === 0 && a.spend >= gastoMin) semConv.push(item)
-    else if (meta && a.conv > 0 && a.cpl >= meta * 2 && a.spend >= meta * 2) cplAlto.push(item)
+    else if (corte && a.conv > 0 && a.cpl >= corte && a.spend >= corte) cplAlto.push(item)
   }
-  for (const { nome, camp, conj, adId, link, ids, a, ant, metrica, meta } of semConv.sort((x, y) => y.a.spend - x.a.spend).slice(0, 5)) {
-    const h = historico(ant, meta, T.metrica[metrica])
+  for (const { nome, camp, conj, adId, link, ids, a, ant, metrica, rg } of semConv.sort((x, y) => y.a.spend - x.a.spend).slice(0, 5)) {
+    const h = historico(ant, rg, T.metrica[metrica])
     // Convertia na semana anterior e secou: ainda vale agir, mas não como urgência cega
     const vinhaConvertendo = h.bom
     const R = T.regras.adSemConv
@@ -448,6 +481,7 @@ function regrasMeta(rowsMeta, metas, conta) {
         { label: T.ev.janela, valor: janelaTxt },
         { label: T.ev.gasto, valor: fmtMoney(a.spend) },
         { label: T.ev.conversoes, valor: '0' },
+        ...evidMedia(rg, T.metrica[metrica]),
         ...h.evid,
         { label: T.ev.ctrLink, valor: fmtPct(a.ctr) },
         { label: R.ev.diasNoAr, valor: String(a.dias) },
@@ -456,23 +490,26 @@ function regrasMeta(rowsMeta, metas, conta) {
       horas: 0.5,
     }))
   }
-  for (const { nome, camp, conj, adId, link, ids, a, ant, metrica, meta } of cplAlto.sort((x, y) => y.a.cpl / y.meta - x.a.cpl / x.meta).slice(0, 5)) {
+  // Ordem: quem está mais acima da régua primeiro (só os 5 piores viram sugestão)
+  for (const { nome, camp, conj, adId, link, ids, a, ant, metrica, meta, rg } of cplAlto.sort((x, y) => y.a.cpl / y.rg.valor - x.a.cpl / x.rg.valor).slice(0, 5)) {
     const lbl = T.metrica[metrica]
-    const h = historico(ant, meta, lbl)
-    const R = T.regras.adCplAlto
-    const x = fmtDec(a.cpl / meta, 1)
+    const h = historico(ant, rg, lbl)
+    const porMedia = rg.fonte === 'media'
+    const R = porMedia ? T.regras.adCplAltoMedia : T.regras.adCplAlto
+    const x = fmtDec(a.cpl / rg.valor, 1)
     out.push(sugestao({
       chave: `meta:ad_cpl_alto:${adId || `${camp}::${conj}::${nome}`}`, canal, prioridade: 'alta', entidade: nome,
-      titulo: `${pref}${R.titulo({ nome, lbl, cpl: fmtMoney(a.cpl), meta: fmtMoney(meta) })}`,
+      titulo: `${pref}${R.titulo({ nome, lbl, cpl: fmtMoney(a.cpl), meta: fmtMoney(rg.valor), media: fmtMoney(rg.valor) })}`,
       acao: R.acao({ lbl, x }),
       caminho: contaCam({ campanha: camp, conjunto: conj, anuncio: nome, adId, link, ...ids }),
       regra: R.regra,
-      contexto: R.contexto({ conj, camp, lbl, x, j: janelaTxt, frase: h.frase }),
+      contexto: R.contexto({ conj, camp, lbl, x, j: janelaTxt, frase: h.frase, nota: notaRegua(rg, lbl) }),
       evidencias: [
         { label: T.ev.janela, valor: janelaTxt },
         ...h.evid,
         { label: lbl.charAt(0).toUpperCase() + lbl.slice(1), valor: fmtMoney(a.cpl) },
-        { label: T.metricaMeta[metrica], valor: fmtMoney(meta) },
+        ...(meta ? [{ label: T.metricaMeta[metrica], valor: fmtMoney(meta) }] : []),
+        ...evidMedia(rg, lbl),
         { label: T.ev.gasto, valor: fmtMoney(a.spend) },
         { label: T.ev.conversoes, valor: fmtInt(a.conv) },
       ],
@@ -710,7 +747,11 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
   const tot = aggGoogle(atual)
   const canal = 'google'
   const pref = conta ? `[${conta}] ` : ''
-  const gastoMin = metaCpl ? Math.max(GASTO_MINIMO_SEM_RESULTADO, metaCpl * 2) : GASTO_MINIMO_SEM_RESULTADO
+  // Régua de custo do Google: meta da calculadora ou CPL médio real da conta em 14 dias
+  const tot14 = aggGoogle([...atual, ...w.anterior])
+  const rg = reguaDeCusto(metaCpl, tot14.conv >= MIN_CONV_MEDIA ? tot14.cpl : null)
+  const gastoMin = rg ? Math.max(GASTO_MINIMO_SEM_RESULTADO, rg.valor * 2) : GASTO_MINIMO_SEM_RESULTADO
+  const corte = rg ? rg.valor * rg.fator : null
 
   const customerId = idDe(atual, 'customer_id')
   const contaCam = (extra = {}) => caminhoDe(canal, { customerId, ...extra })
@@ -735,18 +776,21 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
         passos: R.passos(),
         horas: 1,
       }))
-    } else if (metaCpl && a.conv > 0 && a.cpl >= metaCpl * 2 && a.spend >= metaCpl * 2) {
-      const R = T.regras.gCampCplAlto
+    } else if (corte && a.conv > 0 && a.cpl >= corte && a.spend >= corte) {
+      const porMedia = rg.fonte === 'media'
+      const R = porMedia ? T.regras.gCampCplAltoMedia : T.regras.gCampCplAlto
+      const nota = porMedia ? T.regua.nota({ lbl: 'CPL', media: fmtMoney(rg.media), meta: rg.meta ? fmtMoney(rg.meta) : null }) : ''
       out.push(sugestao({
         chave: `google:camp_cpl_alto:${camp}`, canal, prioridade: 'alta', entidade: camp,
-        titulo: `${pref}${R.titulo({ camp, cpl: fmtMoney(a.cpl), meta: fmtMoney(metaCpl) })}`,
+        titulo: `${pref}${R.titulo({ camp, cpl: fmtMoney(a.cpl), meta: fmtMoney(rg.valor), media: fmtMoney(rg.valor) })}`,
         acao: R.acao(),
         caminho: contaCam({ campanha: camp, campaignId: idDe(rs, 'campaign_id') }),
         regra: R.regra,
-        contexto: R.contexto({ x: fmtDec(a.cpl / metaCpl, 1), conv: fmtInt(a.conv) }),
+        contexto: R.contexto({ x: fmtDec(a.cpl / rg.valor, 1), conv: fmtInt(a.conv), nota }),
         evidencias: [
           { label: T.ev.cpl, valor: fmtMoney(a.cpl) },
-          { label: T.ev.metaCpl, valor: fmtMoney(metaCpl) },
+          ...(metaCpl ? [{ label: T.ev.metaCpl, valor: fmtMoney(metaCpl) }] : []),
+          ...(rg.media != null ? [{ label: T.regua.mediaLabel('CPL'), valor: fmtMoney(rg.media) }] : []),
           { label: T.ev.gasto, valor: fmtMoney(a.spend) },
           { label: T.ev.taxaConversao, valor: fmtPct(a.convRate, 1) },
         ],
@@ -754,7 +798,7 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
         horas: 1,
       }))
     }
-    if (a.conv > 0 && a.perdaOrcamento != null && a.perdaOrcamento >= 30 && (!metaCpl || a.cpl <= metaCpl)) {
+    if (a.conv > 0 && a.perdaOrcamento != null && a.perdaOrcamento >= 30 && (!rg || a.cpl <= rg.valor)) {
       const R = T.regras.gPerdaOrcamento
       out.push(sugestao({
         chave: `google:perda_orcamento:${camp}`, canal, prioridade: 'media', entidade: camp,

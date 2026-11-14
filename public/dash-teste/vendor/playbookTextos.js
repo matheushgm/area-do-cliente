@@ -59,9 +59,16 @@ const pt = {
     naoRodou: 'não rodou',
     label: (j) => `7 dias anteriores (${j})`,
     valor: ({ conv, gasto, lbl, cpl }) => `${conv} conv. por ${gasto}${cpl ? `, ${lbl} ${cpl}` : ''}`,
-    converteu: ({ j, conv, plural, lbl, cpl, bom, x }) =>
-      ` Na semana anterior (${j}) ele gerou ${conv} ${plural ? 'conversões' : 'conversão'} com ${lbl} ${cpl}${bom ? ', dentro do aceitável, então a queda é recente' : x ? ` (${x}× a meta), já acima do aceitável` : ''}.`,
+    converteu: ({ j, conv, plural, lbl, cpl, bom, x, media }) =>
+      ` Na semana anterior (${j}) ele gerou ${conv} ${plural ? 'conversões' : 'conversão'} com ${lbl} ${cpl}${bom ? ', dentro do aceitável, então a queda é recente' : x ? ` (${x}× ${media ? 'a média da conta' : 'a meta'}), já acima do aceitável` : ''}.`,
     naoConverteu: ({ j, gasto }) => ` Na semana anterior (${j}) também não converteu (${gasto}).`,
+  },
+  // Régua de custo: meta da calculadora ou média real da conta (reguaDeCusto)
+  regua: {
+    mediaLabel: (lbl) => `${lbl.charAt(0).toUpperCase() + lbl.slice(1)} médio da conta (14 dias)`,
+    nota: ({ lbl, media, meta }) => meta
+      ? ` A meta da calculadora (${meta}) está muito abaixo do ${lbl} médio real da conta (${media}), então a régua usada é a média.`
+      : ` A conta não tem meta de ${lbl} na calculadora, então a régua usada é o ${lbl} médio real da conta (${media}).`,
   },
   regras: {
     semEntrega: {
@@ -93,6 +100,14 @@ const pt = {
       acao: ({ lbl, x }) => `Pausar este anúncio (${lbl} ${x}× a meta) e marcar _TESTADO.`,
       regra: 'anúncio priorizado com custo acima de 2× a meta e gasto ≥ 2× a meta é desligado e marcado _TESTADO (CPL pra lead, custo por MQL pra MQL, CAC pra venda)',
       contexto: ({ conj, camp, lbl, x, j, frase }) => `No conjunto "${conj}" da campanha "${camp}", este anúncio está com ${lbl} ${x}× a meta em ${j}.${frase}`,
+      ev: {},
+      passos: () => ['Pausar o anúncio e marcar _TESTADO', 'Se for o único anúncio priorizado do conjunto, subir um substituto antes'],
+    },
+    adCplAltoMedia: {
+      titulo: ({ nome, lbl, cpl, media }) => `Desligar o anúncio "${nome}" (${lbl} ${cpl}, média da conta ${media})`,
+      acao: ({ lbl, x }) => `Pausar este anúncio (${lbl} ${x}× a média real da conta) e marcar _TESTADO.`,
+      regra: 'com a meta da calculadora vazia ou descalibrada (média real ≥ 1,5× a meta), a régua é o custo médio real da conta em 14 dias: anúncio com custo ≥ 1,5× a média e gasto ≥ 1,5× a média é desligado e marcado _TESTADO; quem está abaixo da média fica no ar',
+      contexto: ({ conj, camp, lbl, x, j, nota, frase }) => `No conjunto "${conj}" da campanha "${camp}", este anúncio está com ${lbl} ${x}× a média real da conta em ${j}.${nota}${frase}`,
       ev: {},
       passos: () => ['Pausar o anúncio e marcar _TESTADO', 'Se for o único anúncio priorizado do conjunto, subir um substituto antes'],
     },
@@ -172,6 +187,14 @@ const pt = {
       contexto: ({ gasto, dias }) => `Gastou ${gasto} em ${dias} dias sem conversão.`,
       ev: {},
       passos: () => ['Abrir o relatório de termos de pesquisa e negativar em correspondência exata o que não é cliente', 'Conferir se a conversão está disparando na LP', 'Se não houver termo bom, reduzir o orçamento em 20%'],
+    },
+    gCampCplAltoMedia: {
+      titulo: ({ camp, cpl, media }) => `Reduzir orçamento -20% da campanha "${camp}" (CPL ${cpl}, média da conta ${media})`,
+      acao: () => 'Reduzir o orçamento diário desta campanha em 20%.',
+      regra: 'com a meta da calculadora vazia ou descalibrada, a régua é o CPL médio real da conta Google em 14 dias: campanha com CPL ≥ 1,5× a média perde até -20% por dia',
+      contexto: ({ x, conv, nota }) => `CPL ${x}× a média real da conta com ${conv} conversões.${nota}`,
+      ev: {},
+      passos: () => ['Reduzir o orçamento diário em 20%', 'Negativar termos ruins em exata', 'Revisar grupos com CPL acima da média'],
     },
     gCampCplAlto: {
       titulo: ({ camp, cpl, meta }) => `Reduzir orçamento -20% da campanha "${camp}" (CPL ${cpl}, meta ${meta})`,
@@ -260,9 +283,15 @@ const en = {
     naoRodou: "didn't run",
     label: (j) => `Previous 7 days (${j})`,
     valor: ({ conv, gasto, lbl, cpl }) => `${conv} conv. for ${gasto}${cpl ? `, ${lbl} ${cpl}` : ''}`,
-    converteu: ({ j, conv, plural, lbl, cpl, bom, x }) =>
-      ` In the previous week (${j}) it generated ${conv} ${plural ? 'conversions' : 'conversion'} at a ${lbl} of ${cpl}${bom ? ', within the acceptable range, so the drop is recent' : x ? ` (${x}× the target), already above the acceptable range` : ''}.`,
+    converteu: ({ j, conv, plural, lbl, cpl, bom, x, media }) =>
+      ` In the previous week (${j}) it generated ${conv} ${plural ? 'conversions' : 'conversion'} at a ${lbl} of ${cpl}${bom ? ', within the acceptable range, so the drop is recent' : x ? ` (${x}× ${media ? 'the account average' : 'the target'}), already above the acceptable range` : ''}.`,
     naoConverteu: ({ j, gasto }) => ` It didn't convert in the previous week either (${j}, ${gasto} spent).`,
+  },
+  regua: {
+    mediaLabel: (lbl) => `Account average ${lbl} (14 days)`,
+    nota: ({ lbl, media, meta }) => meta
+      ? ` The ROI calculator target (${meta}) is far below the account's real average ${lbl} (${media}), so the average is used as the benchmark.`
+      : ` The account has no ${lbl} target in the ROI calculator, so the account's real average ${lbl} (${media}) is used as the benchmark.`,
   },
   regras: {
     semEntrega: {
@@ -294,6 +323,14 @@ const en = {
       acao: ({ lbl, x }) => `Pause this ad (${lbl} at ${x}× the target) and tag it _TESTADO.`,
       regra: 'a prioritized ad costing more than 2× the target, with spend ≥ 2× the target, is paused and tagged _TESTADO (CPL for leads, cost per MQL for MQLs, CAC for sales)',
       contexto: ({ conj, camp, lbl, x, j, frase }) => `In the ad set "${conj}" of the campaign "${camp}", this ad's ${lbl} is ${x}× the target in ${j}.${frase}`,
+      ev: {},
+      passos: () => ['Pause the ad and tag it _TESTADO', 'If it is the only prioritized ad in the ad set, launch a replacement first'],
+    },
+    adCplAltoMedia: {
+      titulo: ({ nome, lbl, cpl, media }) => `Pause the ad "${nome}" (${lbl} ${cpl}, account average ${media})`,
+      acao: ({ lbl, x }) => `Pause this ad (${lbl} at ${x}× the account's real average) and tag it _TESTADO.`,
+      regra: "when the ROI calculator target is missing or off (real average ≥ 1.5× the target), the benchmark is the account's real average cost over 14 days: an ad costing ≥ 1.5× the average, with spend ≥ 1.5× the average, is paused and tagged _TESTADO; ads below the average stay live",
+      contexto: ({ conj, camp, lbl, x, j, nota, frase }) => `In the ad set "${conj}" of the campaign "${camp}", this ad's ${lbl} is ${x}× the account's real average in ${j}.${nota}${frase}`,
       ev: {},
       passos: () => ['Pause the ad and tag it _TESTADO', 'If it is the only prioritized ad in the ad set, launch a replacement first'],
     },
@@ -373,6 +410,14 @@ const en = {
       contexto: ({ gasto, dias }) => `Spent ${gasto} over ${dias} days with no conversions.`,
       ev: {},
       passos: () => ["Open the search terms report and add exact-match negatives for anything that isn't a customer", 'Check that the conversion fires on the LP', 'If there are no good terms, cut the budget by 20%'],
+    },
+    gCampCplAltoMedia: {
+      titulo: ({ camp, cpl, media }) => `Cut the budget of the campaign "${camp}" by 20% (CPL ${cpl}, account average ${media})`,
+      acao: () => "Cut this campaign's daily budget by 20%.",
+      regra: "when the ROI calculator target is missing or off, the benchmark is the Google account's real average CPL over 14 days: a campaign with CPL ≥ 1.5× the average loses up to 20% per day",
+      contexto: ({ x, conv, nota }) => `CPL at ${x}× the account's real average with ${conv} conversions.${nota}`,
+      ev: {},
+      passos: () => ['Cut the daily budget by 20%', 'Add bad terms as exact-match negatives', 'Review ad groups with above-average CPL'],
     },
     gCampCplAlto: {
       titulo: ({ camp, cpl, meta }) => `Cut the budget of the campaign "${camp}" by 20% (CPL ${cpl}, target ${meta})`,

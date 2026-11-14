@@ -1649,6 +1649,13 @@ Atas) foi removida em 2026-10-26 a pedido do Matheus. Abaixo de `xl` as colunas 
   orçamento ≥ 30%, CTR < 2%, taxa de conversão < 5%. Conversão Meta = coluna `Conversões`
   (fallback CFG). Cada sugestão tem `chave` estável; o estado vive em `projeto_sugestoes`
   (aceita → some; descartada → volta após `valida_ate`, 14 dias).
+  **Régua de custo (2026-11-14, `reguaDeCusto`):** as regras de custo alto, sem conversão e perda
+  por orçamento comparam com a meta da calculadora **ou com o custo médio real da conta** (14 dias,
+  fundo + meio, mesma métrica; no Google, a conta inteira), quando a meta está vazia ou a média
+  passa de 1,5× a meta (`DIVERGENCIA_MEDIA`) e há ≥ 5 conversões (`MIN_CONV_MEDIA`). Com a média
+  como régua, custo alto = ≥ 1,5× a média (`FATOR_ACIMA_MEDIA`), e o anúncio abaixo da média fica no
+  ar mesmo acima da meta. Textos `adCplAltoMedia` / `gCampCplAltoMedia` e `T.regua` em
+  `playbookTextos.js`; a chave da sugestão não muda. Escalar continua só pela meta.
 - **Resultados de Tráfego** (seção `trafego`, slug `resultados-de-trafego`; `TrafegoModule` em
   `src/components/ResultadosModule.jsx`): `ContasVinculadas` (vincular/desvincular contas de anúncio,
   `dashboard_accounts.project_id`, busca e aviso quando a conta está em outro cliente) e
