@@ -270,8 +270,9 @@ function corDaData(valor, item) {
 }
 
 /** `min`/`max` (datas da própria tarefa) bloqueiam no calendário os dias que deixariam o
- *  início depois do vencimento; `motivoMin`/`motivoMax` dizem por quê. */
-export function DataCampo({ valor, onChange, item, formato = 'numerica', placeholder: placeholderPedido, render = null, limpavel = true, className = '', min = null, max = null, motivoMin = '', motivoMax = '' }) {
+ *  início depois do vencimento; `motivoMin`/`motivoMax` dizem por quê. `capacidade` pinta os dias
+ *  pela carga dos responsáveis (ver `CalendarioPrazo`). */
+export function DataCampo({ valor, onChange, item, formato = 'numerica', placeholder: placeholderPedido, render = null, limpavel = true, className = '', min = null, max = null, motivoMin = '', motivoMax = '', capacidade = null }) {
   const { t } = useI18n()
   const placeholder = placeholderPedido ?? t('tarefaCampos.semData')
   const ref = useRef(null)
@@ -294,7 +295,7 @@ export function DataCampo({ valor, onChange, item, formato = 'numerica', placeho
         </button>
       )}
       <PopoverCalendario anchorRef={ref} open={aberto} onClose={() => setAberto(false)} valor={paraInputDate(valor)} onEscolher={(v) => onChange(deInputDate(v))}
-        min={paraInputDate(min)} max={paraInputDate(max)} motivoMin={motivoMin} motivoMax={motivoMax} />
+        min={paraInputDate(min)} max={paraInputDate(max)} motivoMin={motivoMin} motivoMax={motivoMax} capacidade={capacidade} />
     </span>
   )
 }

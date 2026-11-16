@@ -424,6 +424,19 @@ export default {
     anexos: 'Anexos',
   },
   calendario: {
+    capacidade: {
+      maisFactivel: 'Mais factível',
+      lendo: 'Lendo a carga de {nomes}…',
+      erro: 'Não deu para ler a carga: {erro}',
+      verde: 'Livre',
+      amarelo: 'Cheio, cabe algo',
+      vermelho: 'Sem tempo',
+      base: 'Tarefa de {horas}, carga de {nomes}',
+      diaPessoa: '{nome}: {carga} de {cap} ocupadas, {livre} livre',
+      faltam: 'não cabe até aqui (faltam {faltam})',
+      sugerida: 'Data mais factível',
+      semFactivel: 'Nenhum dia livre nos próximos 60 dias úteis',
+    },
     atalho: {
       hoje: 'Hoje',
       amanha: 'Amanhã',

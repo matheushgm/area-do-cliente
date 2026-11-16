@@ -423,6 +423,19 @@ export default {
     anexos: 'Attachments',
   },
   calendario: {
+    capacidade: {
+      maisFactivel: 'Most feasible',
+      lendo: 'Reading {nomes}’s workload…',
+      erro: 'Couldn’t read the workload: {erro}',
+      verde: 'Free',
+      amarelo: 'Busy, room for a little',
+      vermelho: 'No time',
+      base: '{horas} task, workload of {nomes}',
+      diaPessoa: '{nome}: {carga} of {cap} booked, {livre} free',
+      faltam: 'doesn’t fit by this day ({faltam} short)',
+      sugerida: 'Most feasible date',
+      semFactivel: 'No free day in the next 60 business days',
+    },
     atalho: {
       hoje: 'Today',
       amanha: 'Tomorrow',

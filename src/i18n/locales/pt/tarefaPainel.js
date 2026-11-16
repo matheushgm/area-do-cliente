@@ -147,6 +147,9 @@ export default {
   },
   // tarefa nova
   nova: {
+    maisFactivel: 'mais factível: {data}',
+    maisFactivelTitulo: 'Primeiro dia com folga na carga de {nomes} (Atividades), para uma tarefa de {horas}. Clique para usar.',
+    lendoCarga: 'lendo a carga…',
     listaTarefa: 'Lista da tarefa',
     escolherLista: 'escolher lista',
     escolhaLista: 'escolha a lista',

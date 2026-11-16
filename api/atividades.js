@@ -164,6 +164,46 @@ async function actionCarga(body, ctx) {
   return { data: { hoje, geradoEm: new Date().toISOString(), pessoas, erros, config: { capacidade_padrao_horas_dia: cfg.capacidade_padrao_horas_dia, dias_atraso_maximo: cfg.dias_atraso_maximo, horizonte_dias_uteis: cfg.horizonte_dias_uteis } } }
 }
 
+/**
+ * Disponibilidade dia a dia dos responsáveis de uma tarefa nova (calendário de
+ * vencimento do VertaTask): a mesma agenda da Capacidade do time, no horizonte
+ * inteiro (60 dias úteis), só com os números de cada dia. Lê só o espelho.
+ */
+async function actionDisponibilidade(body) {
+  const ids = (Array.isArray(body.assignees) ? body.assignees : []).filter((v) => v != null && v !== '')
+  if (ids.length === 0) return { status: 400, error: 'Informe ao menos um responsável.' }
+  if (ids.length > 8) return { status: 400, error: 'No máximo 8 pessoas por chamada.' }
+  const cfg = await carregarConfig()
+  const hoje = hojeISO()
+  const n = Number(cfg.horizonte_dias_uteis) || 60
+  const pessoas = []
+  const erros = []
+  const mapas = await carregarMapas()
+  await Promise.all(resolverPessoas(ids, mapas).map(async ({ chave, perfil, erro }) => {
+    if (!perfil) { erros.push({ chave, error: erro }); return }
+    try {
+      const tasks = await abertasDe(perfil.id, mapas)
+      // a capacidade por pessoa da config é chaveada pelo clickup_user_id
+      const p = planejarParaPessoa({ clickupUserId: perfil.clickup_user_id || chave, tasks, horas: null, config: cfg, hoje, diasResumo: n })
+      pessoas.push({
+        chave, profileId: perfil.id, capacidadeDia: p.capacidadeDia,
+        dias: p.resumo.map((d) => ({ data: d.data, capacidade: d.capacidade, carga: d.carga, livre: d.livre, tarefas: d.tarefas })),
+      })
+    } catch (e) {
+      erros.push({ chave, profileId: perfil.id, error: e?.message || 'Falha ao ler as tarefas' })
+    }
+  }))
+  return {
+    data: {
+      hoje, pessoas, erros,
+      config: {
+        horas_por_tipo: cfg.horas_por_tipo, horas_por_dificuldade: cfg.horas_por_dificuldade,
+        horas_padrao_sem_estimativa: cfg.horas_padrao_sem_estimativa,
+      },
+    },
+  }
+}
+
 /** Relatório de concluídas: tudo que fechou entre `desde` e `ate` (inclusive). */
 async function actionConcluidas(body, ctx) {
   const hoje = hojeISO()
@@ -418,6 +458,17 @@ export default async function handler(req, res) {
       return res.status(200).json({ config: await carregarConfig() })
     } catch (e) {
       return res.status(502).json({ error: { message: e?.message || 'Erro ao ler configuração' } })
+    }
+  }
+
+  // Disponibilidade também só lê o espelho (tarefas_*): não precisa do token do ClickUp
+  if (action === 'disponibilidade') {
+    try {
+      const out = await actionDisponibilidade(body)
+      if (out.error) return res.status(out.status || 400).json({ error: { message: out.error } })
+      return res.status(200).json(out.data)
+    } catch (e) {
+      return res.status(502).json({ error: { message: e?.message || 'Erro ao ler a carga' } })
     }
   }
 

@@ -67,3 +67,12 @@ export function criarAtividade(payload) {
 export function tarefasConcluidas({ desde, ate, refresh = false }) {
   return call('concluidas', { desde, ate, refresh })
 }
+
+/**
+ * Agenda dia a dia (60 dias úteis) dos responsáveis de uma tarefa nova, para pintar o
+ * calendário de vencimento do VertaTask. `assignees` = uuid do perfil ou clickup_user_id.
+ * Lê só o espelho; devolve também as horas por tipo/dificuldade da config.
+ */
+export function disponibilidadeResponsaveis({ assignees }) {
+  return call('disponibilidade', { assignees })
+}

@@ -10,7 +10,9 @@ import { Propriedade, DepartamentoCampo, Checklists } from './TarefaPanel'
 import { Secao, ListaSubtarefas, ListaRelacoes } from './SecoesTarefa'
 import { TIPOS_RELACAO, ROTULO_DIRETO } from './TarefaExtras'
 import { useBuscaRelacao } from '../../hooks/useBuscaRelacao'
-import { statusDaLista, statusInicial, novoId } from '../../lib/tarefas'
+import { useCapacidadeResponsaveis } from '../../hooks/useCapacidadeResponsaveis'
+import { fmtCurto, fmtHoras, COR_PONTO } from './Calendario'
+import { statusDaLista, statusInicial, novoId, paraInputDate, deInputDate } from '../../lib/tarefas'
 import { useI18n } from '../../i18n'
 
 const semAcento = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -62,6 +64,26 @@ function ListaCampo({ grupos, valor, onChange }) {
   )
 }
 
+/** Ao lado do vencimento: a data mais factível pela carga dos responsáveis, com um clique para usar. */
+function SugestaoVencimento({ capacidade, valor, min, onUsar }) {
+  const { t } = useI18n()
+  if (!capacidade) return null
+  if (capacidade.carregando) return <span className="text-[11px] text-ln-t4 ln-shimmer">{t('tarefaPainel.nova.lendoCarga')}</span>
+  const sug = capacidade.sugerida
+  // já escolhida, ou antes do início (o calendário bloquearia)
+  if (!sug || paraInputDate(valor) === sug || (min && sug < paraInputDate(min))) return null
+  return (
+    <button
+      type="button" onClick={() => onUsar(sug)}
+      title={t('tarefaPainel.nova.maisFactivelTitulo', { nomes: capacidade.nomes.join(', '), horas: fmtHoras(capacidade.horas) })}
+      className={`inline-flex items-center gap-1.5 h-6 px-2 rounded-md text-[11px] font-medium text-ln-t3 border border-ln-ink/[0.08] hover:text-ln-accent hover:border-ln-accent/40 hover:bg-ln-accent/[0.05] ${FOCO}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${COR_PONTO[capacidade.nivelSugerida] || 'bg-ln-green'}`} aria-hidden="true" />
+      {t('tarefaPainel.nova.maisFactivel', { data: fmtCurto(sug) })}
+    </button>
+  )
+}
+
 /**
  * grupos = [{ pasta, listas }] com as listas que podem receber a tarefa; inicial = valores
  * pré-preenchidos (lista_id, responsaveis). onCriar(payload) devolve { data } ou { error }.
@@ -84,6 +106,8 @@ export default function NovaTarefaPanel({ grupos, listasMap, inicial, membros, m
   const statuses = useMemo(() => (lista ? statusDaLista(lista) : []), [lista])
   // status escolhido que não existe na lista nova volta ao inicial dela
   const status = statuses.find((s) => s.key === f.status) || statusInicial(statuses)
+  // carga dos responsáveis (mesma agenda do Atividades): pinta o calendário do vencimento e sugere a data
+  const capacidade = useCapacidadeResponsaveis(f.responsaveis, membrosMap, f)
 
   async function criar() {
     if (salvando) return
@@ -130,7 +154,10 @@ export default function NovaTarefaPanel({ grupos, listasMap, inicial, membros, m
             </Propriedade>
             <Propriedade label={t('tarefaPainel.prop.prioridade')}><PrioridadeCampo valor={f.prioridade} onChange={(v) => mudar({ prioridade: v })} /></Propriedade>
             <Propriedade label={t('tarefaPainel.prop.inicio')}><DataCampo valor={f.data_inicio} placeholder={t('tarefaPainel.definir')} {...limitesInicio(f)} onChange={(v) => mudar({ data_inicio: v })} /></Propriedade>
-            <Propriedade label={t('tarefaPainel.prop.vencimento')}><DataCampo valor={f.data_vencimento} placeholder={t('tarefaPainel.definir')} {...limitesVencimento(f)} onChange={(v) => mudar({ data_vencimento: v })} /></Propriedade>
+            <Propriedade label={t('tarefaPainel.prop.vencimento')}>
+              <DataCampo valor={f.data_vencimento} placeholder={t('tarefaPainel.definir')} {...limitesVencimento(f)} capacidade={capacidade} onChange={(v) => mudar({ data_vencimento: v })} />
+              <SugestaoVencimento capacidade={capacidade} valor={f.data_vencimento} min={f.data_inicio} onUsar={(d) => mudar({ data_vencimento: deInputDate(d) })} />
+            </Propriedade>
             <Propriedade label={t('tarefaPainel.prop.estimativa')}><EstimativaCampo valor={f.estimativa_min} onChange={(v) => mudar({ estimativa_min: v })} /></Propriedade>
             <Propriedade label={t('tarefaPainel.prop.tipo')}><TipoTarefaCampo valor={f.tipo_tarefa} onChange={(v) => mudar({ tipo_tarefa: v })} /></Propriedade>
             <Propriedade label={t('tarefaPainel.prop.departamento')}><DepartamentoCampo valor={f.departamento} onChange={(v) => mudar({ departamento: v })} /></Propriedade>

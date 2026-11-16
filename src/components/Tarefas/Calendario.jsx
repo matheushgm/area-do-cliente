@@ -6,6 +6,9 @@
 // substituto do <input type="date"> com o mesmo calendário. Valores 'yyyy-mm-dd'.
 // `min`/`max` bloqueiam os dias fora do intervalo (ex.: vencimento antes do início, que o
 // ClickUp recusa); `motivoMin`/`motivoMax` explicam o bloqueio no rodapé e no título do dia.
+// `capacidade` (opcional, de useCapacidadeResponsaveis) pinta cada dia pela carga dos responsáveis
+// (verde livre, amarelo cheio mas cabe algo, vermelho sem tempo), marca a data mais factível e
+// põe o atalho "Mais factível" no topo. Regra em src/lib/capacidadeCalendario.js.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { Popover, FOCO } from './Campos'
@@ -25,11 +28,31 @@ const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 const deYmd = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d) }
 const somaDias = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x }
 const ymAdd = (ym, n) => { const [y, m] = ym.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); return ymd(d).slice(0, 7) }
-const fmtCurto = (s) => { const d = deYmd(s); return ehPt() ? `${DOW_CURTO[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}` : `${diaCurto(d)} ${d.getMonth() + 1}/${d.getDate()}` }
+export const fmtCurto = (s) => { const d = deYmd(s); return ehPt() ? `${DOW_CURTO[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}` : `${diaCurto(d)} ${d.getMonth() + 1}/${d.getDate()}` }
 export const fmtDataLonga = (s) => {
   const d = deYmd(s)
   if (!ehPt()) return d.toLocaleDateString(localeAtual(), { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })
   return `${DOW_CURTO[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`
+}
+
+// Cores da capacidade (fundo do dia, ponto dos atalhos e da legenda)
+const COR_DIA = {
+  verde: 'bg-ln-green/[0.16] text-ln-t1 hover:bg-ln-green/30',
+  amarelo: 'bg-ln-yellow/[0.22] text-ln-t1 hover:bg-ln-yellow/35',
+  vermelho: 'bg-ln-red/[0.14] text-ln-red hover:bg-ln-red/25',
+}
+export const COR_PONTO = { verde: 'bg-ln-green', amarelo: 'bg-ln-yellow', vermelho: 'bg-ln-red' }
+export const fmtHoras = (h) => {
+  const n = Number(h) || 0
+  if (n > 0 && n < 1) return `${Math.round(n * 60)} min`
+  return `${(Math.round(n * 10) / 10).toLocaleString(localeAtual())}h`
+}
+/** Título do dia pintado: uma linha por responsável. */
+function tituloCapacidade(info, t) {
+  return info.pessoas.map((p) => {
+    const linha = t('tarefas.calendario.capacidade.diaPessoa', { nome: p.nome, carga: fmtHoras(p.carga), cap: fmtHoras(p.capacidade), livre: fmtHoras(p.livre) })
+    return p.faltam > 0 ? `${linha}; ${t('tarefas.calendario.capacidade.faltam', { faltam: fmtHoras(p.faltam) })}` : linha
+  }).join('\n')
 }
 
 /** Atalhos de prazo, calculados a partir de hoje. */
@@ -56,16 +79,21 @@ function lerDigitada(txt, hoje) {
 }
 
 /** valor: 'yyyy-mm-dd' ou ''; onEscolher('yyyy-mm-dd' | '') — '' = sem data. */
-export function CalendarioPrazo({ valor, onEscolher, min = '', max = '', motivoMin = '', motivoMax = '' }) {
+export function CalendarioPrazo({ valor, onEscolher, min = '', max = '', motivoMin = '', motivoMax = '', capacidade = null }) {
   const { t } = useI18n()
   const hoje = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }, [])
   const hojeS = ymd(hoje)
-  const [mes, setMes] = useState((valor || hojeS).slice(0, 7))
-  const [foco, setFoco] = useState(valor || hojeS)
+  const [mes, setMes] = useState((valor || capacidade?.sugerida || hojeS).slice(0, 7))
+  const [foco, setFoco] = useState(valor || capacidade?.sugerida || hojeS)
   const [digitado, setDigitado] = useState('')
   const [erro, setErro] = useState(false)
   const gridRef = useRef(null)
-  const lista = useMemo(() => atalhos(hoje), [hoje])
+  const sugerida = capacidade?.sugerida || ''
+  const lista = useMemo(() => {
+    const base = atalhos(hoje)
+    return sugerida ? [{ chave: 'factivel', valor: sugerida }, ...base] : base
+  }, [hoje, sugerida])
+  const capDe = (dia) => (capacidade && dia >= hojeS ? capacidade.porDia?.get(dia) || null : null)
   const textoMin = min ? (motivoMin ? t('tarefas.calendario.motivoData', { motivo: motivoMin, data: fmtCurto(min) }) : t('tarefas.calendario.antesDe', { data: fmtCurto(min) })) : ''
   const textoMax = max ? (motivoMax ? t('tarefas.calendario.motivoData', { motivo: motivoMax, data: fmtCurto(max) }) : t('tarefas.calendario.depoisDe', { data: fmtCurto(max) })) : ''
   const foraDoIntervalo = (dia) => (min && dia < min ? textoMin : max && dia > max ? textoMax : '')
@@ -105,12 +133,18 @@ export function CalendarioPrazo({ valor, onEscolher, min = '', max = '', motivoM
       <div className="flex sm:flex-col gap-0.5 p-2 sm:w-[196px] shrink-0 overflow-x-auto bg-ln-ink/[0.025] border-b sm:border-b-0 sm:border-r border-ln-ink/[0.06]">
         {lista.map((a) => {
           const bloqueio = foraDoIntervalo(a.valor)
+          const cap = capDe(a.valor)
+          const factivel = a.chave === 'factivel'
           return (
             <button
-              key={a.chave} type="button" onClick={() => onEscolher(a.valor)} disabled={!!bloqueio} title={bloqueio || undefined}
-              className={`shrink-0 flex items-center justify-between gap-3 h-8 px-2.5 rounded-md text-[12px] font-medium text-left whitespace-nowrap transition-colors duration-150 ${bloqueio ? 'text-ln-t4 opacity-50 cursor-not-allowed' : a.valor === valor ? 'bg-ln-accent/10 text-ln-accent' : 'text-ln-t2 hover:bg-ln-accent/[0.07] hover:text-ln-accent'} ${FOCO}`}
+              key={a.chave} type="button" onClick={() => onEscolher(a.valor)} disabled={!!bloqueio} title={bloqueio || (cap ? tituloCapacidade(cap, t) : undefined)}
+              className={`shrink-0 flex items-center justify-between gap-3 h-8 px-2.5 rounded-md text-[12px] font-medium text-left whitespace-nowrap transition-colors duration-150 ${bloqueio ? 'text-ln-t4 opacity-50 cursor-not-allowed' : a.valor === valor ? 'bg-ln-accent/10 text-ln-accent' : factivel ? 'text-ln-t1 font-semibold hover:bg-ln-accent/[0.07] hover:text-ln-accent' : 'text-ln-t2 hover:bg-ln-accent/[0.07] hover:text-ln-accent'} ${FOCO}`}
             >
-              {t(`tarefas.calendario.atalho.${a.chave}`)}<span className="hidden sm:inline text-[11px] text-ln-t4 tabular">{fmtCurto(a.valor)}</span>
+              <span className="inline-flex items-center gap-1.5">
+                {cap && <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${COR_PONTO[cap.nivel]}`} aria-hidden="true" />}
+                {factivel ? t('tarefas.calendario.capacidade.maisFactivel') : t(`tarefas.calendario.atalho.${a.chave}`)}
+              </span>
+              <span className="hidden sm:inline text-[11px] text-ln-t4 tabular">{fmtCurto(a.valor)}</span>
             </button>
           )
         })}
@@ -135,20 +169,26 @@ export function CalendarioPrazo({ valor, onEscolher, min = '', max = '', motivoM
             const escolhido = dia === valor, ehHoje = dia === hojeS, passado = dia < hojeS
             const fds = [0, 6].includes(deYmd(dia).getDay())
             const bloqueio = foraDoIntervalo(dia)
+            const cap = capDe(dia)
+            const ehSugerida = dia === sugerida
+            const titulo = bloqueio || (cap ? `${ehSugerida ? `${t('tarefas.calendario.capacidade.sugerida')}\n` : ''}${tituloCapacidade(cap, t)}` : undefined)
             return (
               <button
                 key={dia} type="button" data-dia={dia} data-foco={dia === foco ? '1' : undefined}
                 tabIndex={dia === foco || (!foco.startsWith(mes) && i === 0) ? 0 : -1}
                 onClick={() => { if (!bloqueio) onEscolher(dia) }} onFocus={() => setFoco(dia)}
-                aria-label={fmtDataLonga(dia)} aria-pressed={escolhido} aria-disabled={bloqueio ? true : undefined} title={bloqueio || undefined}
-                className={`h-8 rounded-md text-[12px] tabular transition-colors duration-150 ${FOCO} ${
+                aria-label={cap ? `${fmtDataLonga(dia)}, ${t(`tarefas.calendario.capacidade.${cap.nivel}`)}${ehSugerida ? `, ${t('tarefas.calendario.capacidade.sugerida')}` : ''}` : fmtDataLonga(dia)}
+                aria-pressed={escolhido} aria-disabled={bloqueio ? true : undefined} title={titulo}
+                className={`relative h-8 rounded-md text-[12px] tabular transition-colors duration-150 ${FOCO} ${
                   bloqueio ? 'text-ln-t4 opacity-40 line-through cursor-not-allowed'
                   : escolhido ? 'bg-ln-accent text-white font-semibold'
-                    : ehHoje ? 'text-ln-accent font-semibold ring-1 ring-inset ring-ln-accent/40 hover:bg-ln-accent/10'
-                      : `${passado ? 'text-ln-t4' : fds ? 'text-ln-t3' : 'text-ln-t2'} font-medium hover:bg-ln-accent/10 hover:text-ln-accent`
+                    : cap ? `${COR_DIA[cap.nivel]} font-medium ${ehHoje ? 'font-semibold ring-1 ring-inset ring-ln-accent/50' : ''} ${ehSugerida ? 'font-semibold ring-[1.5px] ring-inset ring-ln-green' : ''}`
+                      : ehHoje ? 'text-ln-accent font-semibold ring-1 ring-inset ring-ln-accent/40 hover:bg-ln-accent/10'
+                        : `${passado ? 'text-ln-t4' : fds ? 'text-ln-t3' : 'text-ln-t2'} font-medium hover:bg-ln-accent/10 hover:text-ln-accent`
                 }`}
               >
                 {i + 1}
+                {ehSugerida && !escolhido && <span className="absolute left-1/2 -translate-x-1/2 bottom-[3px] w-1 h-1 rounded-full bg-ln-green" aria-hidden="true" />}
               </button>
             )
           })}
@@ -164,6 +204,7 @@ export function CalendarioPrazo({ valor, onEscolher, min = '', max = '', motivoM
             <button type="button" onClick={() => { setMes(hojeS.slice(0, 7)); setFoco(hojeS) }} className={`h-7 px-2 rounded-md text-[12px] font-medium text-ln-t3 hover:text-ln-accent hover:bg-ln-accent/[0.07] ${FOCO}`}>{t('tarefas.calendario.hoje')}</button>
           )}
         </div>
+        {capacidade && <LegendaCapacidade capacidade={capacidade} />}
         {(min || max) && (
           <p className="px-3 pb-2.5 -mt-1 text-[11px] leading-snug text-ln-t4">
             {t('tarefas.calendario.bloqueado', { textos: [textoMin, textoMax].filter(Boolean).join(' · ') })}
@@ -174,12 +215,33 @@ export function CalendarioPrazo({ valor, onEscolher, min = '', max = '', motivoM
   )
 }
 
+/** Rodapé do calendário com capacidade: legenda das cores e de quem é a carga (ou o estado da leitura). */
+function LegendaCapacidade({ capacidade }) {
+  const { t } = useI18n()
+  const nomes = (capacidade.nomes || []).join(', ')
+  if (capacidade.carregando) return <p className="px-3 pb-2.5 -mt-1 text-[11px] text-ln-t4 ln-shimmer">{t('tarefas.calendario.capacidade.lendo', { nomes })}</p>
+  if (capacidade.erro && !capacidade.porDia?.size) return <p className="px-3 pb-2.5 -mt-1 text-[11px] text-ln-red">{t('tarefas.calendario.capacidade.erro', { erro: capacidade.erro })}</p>
+  return (
+    <div className="px-3 pb-2.5 -mt-1 flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-ln-t3">
+        {['verde', 'amarelo', 'vermelho'].map((n) => (
+          <span key={n} className="inline-flex items-center gap-1"><span className={`w-2 h-2 rounded-sm ${COR_PONTO[n]}`} aria-hidden="true" />{t(`tarefas.calendario.capacidade.${n}`)}</span>
+        ))}
+      </div>
+      <p className="text-[11px] leading-snug text-ln-t4">
+        {t('tarefas.calendario.capacidade.base', { horas: fmtHoras(capacidade.horas), nomes })}
+        {!capacidade.sugerida && <> · {t('tarefas.calendario.capacidade.semFactivel')}</>}
+      </p>
+    </div>
+  )
+}
+
 /** Gatilho + Popover do calendário (largura cabe no celular). */
 export function PopoverCalendario({ anchorRef, open, onClose, valor, onEscolher, ...limites }) {
   const vw = typeof window === 'undefined' ? 1024 : window.innerWidth
   // no celular os atalhos viram uma faixa em cima do mês e o conjunto fica mais alto
   return (
-    <Popover anchorRef={anchorRef} open={open} onClose={onClose} width={Math.min(446, vw - 16)} alturaMax={vw < 640 ? 480 : 340}>
+    <Popover anchorRef={anchorRef} open={open} onClose={onClose} width={Math.min(446, vw - 16)} alturaMax={vw < 640 ? 520 : limites.capacidade ? 400 : 340}>
       <CalendarioPrazo valor={valor} onEscolher={(v) => { onEscolher(v); onClose() }} {...limites} />
     </Popover>
   )

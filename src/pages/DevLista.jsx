@@ -12,6 +12,9 @@ import { agruparItens, filtrarItens, statusDasListas, AGRUPAMENTOS } from '../li
 // Fixture gitignored: via glob para o build da Vercel (clone limpo, sem a pasta) não quebrar.
 const fixtures = import.meta.glob('../dev/fixtures/tarefas.json', { eager: true, import: 'default' })
 const fixture = fixtures['../dev/fixtures/tarefas.json'] || { pastas: [], listas: [], itens: [], perfis: [], projetos: [] }
+// agenda dia a dia do time (capacidade no calendário da tarefa nova), mesma resposta de action=disponibilidade
+const fixDisp = import.meta.glob('../dev/fixtures/disponibilidade.json', { eager: true, import: 'default' })
+if (fixDisp['../dev/fixtures/disponibilidade.json']) window.__DEV_DISPONIBILIDADE = fixDisp['../dev/fixtures/disponibilidade.json']
 
 // Dados fixos, montados uma vez (como no app, os objetos das tarefas não mudam a cada render;
 // senão as linhas memorizadas da ListaView redesenhariam sempre). `?x=N` multiplica as

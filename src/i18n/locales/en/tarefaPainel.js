@@ -141,6 +141,9 @@ export default {
     arquivar: 'Archive',
   },
   nova: {
+    maisFactivel: 'most feasible: {data}',
+    maisFactivelTitulo: 'First day with room in {nomes}’s workload (Activities) for a {horas} task. Click to use it.',
+    lendoCarga: 'reading workload…',
     listaTarefa: 'Task list',
     escolherLista: 'choose a list',
     escolhaLista: 'choose the list first',

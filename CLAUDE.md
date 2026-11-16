@@ -783,6 +783,17 @@ todo `authenticated`; as quatro estão na publicação realtime).
   responsável já é ela. Com o painel aberto e largura < 1600, a lista esconde tipo,
   dificuldade, criada e conclusão (`compacto`). Seleção e tarefa aberta vivem na URL
   (`?pasta=`, `?lista=`, `?minhas=1`, `?tarefa=`). Preferências em `localStorage` (`tarefas.*`).
+- **Capacidade no calendário da tarefa nova (2026-11-16):** no `NovaTarefaPanel`, escolhido o responsável, o
+  calendário do Vencimento pinta cada dia útil pela carga dele no Atividades: **vermelho** = sem tempo (menos de 15 min
+  livres no dia, ou a tarefa não cabe até ali somando o livre de hoje até o dia), **amarelo** = cabe, mas o dia já está
+  75%+ ocupado, **verde** = cabe e o dia está tranquilo; com vários responsáveis vale a pior. A **data mais factível** é o
+  primeiro verde (sem verde, o primeiro amarelo): vira o atalho "Mais factível" no topo do calendário, um contorno verde no
+  dia e o botão "mais factível: dd/mm" ao lado do campo, que só preenche no clique (nada é preenchido sozinho). O título de
+  cada dia diz horas ocupadas/livres por pessoa. As horas da tarefa seguem o motor (estimativa > tipo > padrão) e mudam
+  na hora. Dados: `action=disponibilidade` de `api/atividades.js` (agenda de 60 dias úteis por pessoa, `planejarParaPessoa`,
+  só lê o espelho, não precisa do token do ClickUp); regra pura em `src/lib/capacidadeCalendario.js`; hook
+  `useCapacidadeResponsaveis` (cache de 2 min por pessoa); `DataCampo`/`CalendarioPrazo` aceitam `capacidade` (sem ela, nada
+  muda). Sem login: `/dev/lista` → "+ Tarefa" lê `src/dev/fixtures/disponibilidade.json` (gitignored, a resposta da action).
 - **Área compartilhada (2026-10-26):** a página é só a moldura (coluna de pastas, cabeçalho, sincronização,
   Intake, Cycles, Templates, Pages, Analytics, Chat, Atividades). A área de tarefas inteira (abas de views,
   barra, Lista/Quadro/Calendário/Gantt, sidebars da view, seleção em massa, "Aplicar template", painel da
