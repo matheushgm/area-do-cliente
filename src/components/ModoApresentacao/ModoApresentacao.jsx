@@ -13,7 +13,7 @@ import { useApresentacaoTarefas, dependeDoCliente } from '../../hooks/useApresen
 import { ResultadosEmbed } from '../ProjetoHub/HubCentro'
 import { ResultadosConteudo } from '../ResultadosModule'
 import NovaTarefaClickUpModal from '../ProjetoHub/NovaTarefaClickUpModal'
-import { CATEGORIAS, mudancasDoGerenciador, mudancasRegistradas } from '../../lib/otimizacoesLeigo'
+import { CATEGORIAS, mudancasDoGerenciador, mudancasRegistradas, totalMudancas } from '../../lib/otimizacoesLeigo'
 import { bucketVencimento, paraData, inicioDoDia } from '../../lib/tarefas'
 import { hojeISO } from '../../lib/atividadesCarga'
 import { addDays, fmtBR } from '../../lib/dashboardData'
@@ -169,7 +169,7 @@ function TelaOtimizacoes({ dash, hub, contas = [] }) {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {CATEGORIAS.filter((c) => c.id !== 'outras').map((c) => {
               const Icon = ICONES[c.icone]
-              const n = porCat.get(c.id).length
+              const n = totalMudancas(porCat.get(c.id))
               return (
                 <div key={c.id} className={`glass-card p-4 text-center ${n === 0 ? 'opacity-60' : ''}`}>
                   <span className="w-9 h-9 rounded-full fx-soft flex items-center justify-center mx-auto mb-2"><Icon className="w-4 h-4" /></span>
@@ -194,7 +194,7 @@ function TelaOtimizacoes({ dash, hub, contas = [] }) {
                 <div className="flex items-start gap-3 mb-3">
                   <span className="w-10 h-10 rounded-full fx-soft flex items-center justify-center shrink-0"><Icon className="w-5 h-5" /></span>
                   <div className="min-w-0">
-                    <p className="text-base font-bold text-rl-text">{c.label} <span className="text-rl-muted font-medium">({lista.length})</span></p>
+                    <p className="text-base font-bold text-rl-text">{c.label} <span className="text-rl-muted font-medium">({totalMudancas(lista)})</span></p>
                     <p className="text-sm text-rl-subtle">{c.porque}</p>
                   </div>
                 </div>

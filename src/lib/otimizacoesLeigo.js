@@ -63,7 +63,8 @@ const L = (k, vars) => t(`otimizacoes.leigo.${k}`, vars)
  */
 export function mudancasDoGerenciador({ meta = [], google = [] }, de, ate) {
   const out = []
-  const add = (cat, canal, texto) => out.push({ origem: 'gerenciador', cat, canal, texto })
+  // qtd = quantas mudanças o item representa (um item pode listar vários anúncios).
+  const add = (cat, canal, texto, qtd = 1) => out.push({ origem: 'gerenciador', cat, canal, texto, qtd })
 
   // ── Meta ──────────────────────────────────────────────────────────────────
   {
@@ -84,7 +85,7 @@ export function mudancasDoGerenciador({ meta = [], google = [] }, de, ate) {
         const conjAt = agrupar(rs, (r) => r['Conjunto de Anúncio'])
         const conjAnt = agrupar(campAnt.get(camp), (r) => r['Conjunto de Anúncio'])
         const novos = [...conjAt].filter(([n, x]) => !conjAnt.has(n) && soma(x, 'meta') > 0).map(([n]) => n)
-        if (novos.length) add('publico', 'meta', L('meta.publicos', { count: novos.length, camp, lista: lista(novos) }))
+        if (novos.length) add('publico', 'meta', L('meta.publicos', { count: novos.length, camp, lista: lista(novos) }), novos.length)
       }
     }
     for (const [camp, rs] of campAnt) {
@@ -99,8 +100,8 @@ export function mudancasDoGerenciador({ meta = [], google = [] }, de, ate) {
       else if (isPaused(ultimoStatus(rs)) && !isPaused(ultimoStatus(adAnt.get(ad) || []))) pausados.push(ad)
     }
     for (const [ad, rs] of adAnt) if (!adAt.has(ad) && soma(rs, 'meta') >= 20) pausados.push(ad)
-    if (novos.length) add('novoAnuncio', 'meta', L('meta.anunciosNovos', { count: novos.length, lista: lista(novos) }))
-    if (pausados.length) add('pausou', 'meta', L('meta.anunciosPausados', { count: pausados.length, lista: lista(pausados) }))
+    if (novos.length) add('novoAnuncio', 'meta', L('meta.anunciosNovos', { count: novos.length, lista: lista(novos) }), novos.length)
+    if (pausados.length) add('pausou', 'meta', L('meta.anunciosPausados', { count: pausados.length, lista: lista(pausados) }), pausados.length)
   }
 
   // ── Google ────────────────────────────────────────────────────────────────
@@ -154,3 +155,6 @@ export function mudancasRegistradas(otimizacoes, de, ate) {
 }
 
 export const CFG_REF = CFG
+
+/** Total de mudanças de uma lista de itens (soma qtd; item sem qtd vale 1). */
+export const totalMudancas = (itens) => (itens || []).reduce((s, i) => s + (i.qtd || 1), 0)

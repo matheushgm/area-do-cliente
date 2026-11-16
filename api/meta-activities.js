@@ -60,8 +60,9 @@ const INATIVO = /^inativ/i
 // Traduz os eventos brutos de UMA conta em itens para o cliente.
 function traduzir(events) {
   const itens = []
-  const add = (ev, cat, texto, nivel) => itens.push({
-    origem: 'log', canal: 'meta', cat, texto, nivel, data: diaBR(ev.event_time), autor: ev.actor_name || null,
+  // qtd = quantas mudanças o item representa ("2 anúncios novos subiram" vale 2).
+  const add = (ev, cat, texto, nivel, qtd = 1) => itens.push({
+    origem: 'log', canal: 'meta', cat, texto, nivel, qtd, data: diaBR(ev.event_time), autor: ev.actor_name || null,
   })
   const novosAds = new Map() // dia -> nomes
 
@@ -100,7 +101,7 @@ function traduzir(events) {
   }
   for (const [, { ev, nomes }] of novosAds) {
     const n = nomes.length
-    add(ev, 'novoAnuncio', `${n} ${n === 1 ? 'anúncio novo subiu' : 'anúncios novos subiram'}: ${lista(nomes)}.`, 'anuncio')
+    add(ev, 'novoAnuncio', `${n} ${n === 1 ? 'anúncio novo subiu' : 'anúncios novos subiram'}: ${lista(nomes)}.`, 'anuncio', n)
   }
   // Ruído de lançamento: o que acontece junto com a criação (reativar, ajustar
   // público do conjunto recém-criado) já está dito no próprio "criado". E o log
