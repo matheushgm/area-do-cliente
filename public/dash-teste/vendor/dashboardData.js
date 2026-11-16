@@ -136,14 +136,21 @@ export function buildPeriod(p1s, p1e) {
   }
 }
 
+// Âncora dos presets relativos (Hoje, Ontem, Últimos N dias, Esta semana, Este
+// mês...): o dia de HOJE no calendário, como no gerenciador do Meta. Antes era o
+// último dia COM DADOS das linhas recebidas, e uma conta parada (ex.: RGM sem
+// gasto desde 10/11) fazia "Últimos 7 dias" virar 04 a 10/11 em pleno dia 16.
+// Só devolve null quando não há nenhuma linha (o seletor mostra "sem dados").
+export function anchorDay(rows, dateKey) {
+  return maxDate(rows, dateKey) ? localDateStr(new Date()) : null
+}
+
 export function periodFromDays(rows, dateKey, days) {
-  const max = maxDate(rows, dateKey); if (!max) return null
-  // Ancora no último dia FECHADO: "hoje" fica de fora da janela (os dados do
+  const today = anchorDay(rows, dateKey); if (!today) return null
+  // Termina no último dia FECHADO: "hoje" fica de fora da janela (os dados do
   // dia corrente ainda estão incompletos). Ex.: preset "7 dias" = ontem e os 6
-  // dias anteriores. Se o dado mais recente já for anterior a hoje, usa-o direto.
-  const today = localDateStr(new Date())
-  const end = max >= today ? addDays(max, -1) : max
-  if (!end) return null
+  // dias anteriores, mesmo que a conta não tenha dado nesses dias.
+  const end = addDays(today, -1)
   return buildPeriod(addDays(end, -(days - 1)), end)
 }
 
@@ -181,13 +188,13 @@ export function monthBounds(iso, offset) {
 // Compartilhado entre a página do dashboard e o board scoped da seção Resultados.
 export function computeMainPeriod(channelRows, channel, days, from, to) {
   const dateKey = CFG[channel].dateKey
-  if (days === 'today') { const m = maxDate(channelRows, dateKey); return m ? buildPeriod(m, m) : null }
-  if (days === 'yesterday') { const m = maxDate(channelRows, dateKey); if (!m) return null; const y = addDays(m, -1); return buildPeriod(y, y) }
-  if (days === 'today_yesterday') { const m = maxDate(channelRows, dateKey); return m ? buildPeriod(addDays(m, -1), m) : null }
+  if (days === 'today') { const m = anchorDay(channelRows, dateKey); return m ? buildPeriod(m, m) : null }
+  if (days === 'yesterday') { const m = anchorDay(channelRows, dateKey); if (!m) return null; const y = addDays(m, -1); return buildPeriod(y, y) }
+  if (days === 'today_yesterday') { const m = anchorDay(channelRows, dateKey); return m ? buildPeriod(addDays(m, -1), m) : null }
   if (days === 'this_week' || days === 'last_week') {
-    // Semana em curso: do domingo até o último dia com dados (hoje incluído,
+    // Semana em curso: do domingo até hoje (incluído,
     // parcial). Semana passada: domingo a sábado fechados.
-    const max = maxDate(channelRows, dateKey); if (!max) return null
+    const max = anchorDay(channelRows, dateKey); if (!max) return null
     const { start, end } = weekBounds(max, days === 'this_week' ? 0 : -1)
     return buildPeriod(start, days === 'this_week' ? max : end)
   }
@@ -198,12 +205,12 @@ export function computeMainPeriod(channelRows, channel, days, from, to) {
     return r ? buildPeriod(r.min, r.max) : null
   }
   if (days === 'this_month' || days === 'last_month') {
-    // "Este mês" é o acumulado do mês em curso: vai do dia 1 até o último dia COM
-    // DADOS, hoje incluído (parcial, como todo acumulado do dia corrente). Antes
+    // "Este mês" é o acumulado do mês em curso: vai do dia 1 até hoje (sem olhar se a conta tem
+    // dado nele), parcial como todo acumulado do dia corrente. Antes
     // parava em ontem, e o mês nunca mostrava o que já tinha acontecido hoje.
     // "Mês passado" ancora no mesmo dia: no dia 1, ancorar em ontem jogava a
     // conta para dois meses atrás.
-    const max = maxDate(channelRows, dateKey); if (!max) return null
+    const max = anchorDay(channelRows, dateKey); if (!max) return null
     const { start, end } = monthBounds(max, days === 'this_month' ? 0 : -1)
     return buildPeriod(start, days === 'this_month' ? max : end)
   }
