@@ -212,6 +212,14 @@ monta o `Authorization: Bearer` das chamadas a `/api/*`.
 | `attachments` | N por projeto | `attachments` (array — delete+insert) |
 | `produtos` | N por projeto | `produtos` (array — `{ id, nome, tipo, answers }`) — tabela gerenciada pelo `ProdutoServicoModule` |
 
+**Orçamento do mês sincronizado (2026-11-14, `src/lib/orcamentoSync.js`):** o "Orçamento Total do Mês" da 1ª conta
+do `campaign_plans` e o `media_orcamento` do 1º cenário da Calculadora de ROI são o mesmo número. `updateProject`
+passa todo patch por `sincronizarOrcamento(projetoAntes, patch)`: mudou o orçamento de um lado (valor > 0 e
+diferente do anterior), o mesmo patch leva `campaignPlan` ou `roiCalc` + `roiResult` + `roiCenarios[0]` para o
+outro. Editar outro campo não sincroniza, então projeto já divergente fica assim até mexerem no orçamento. Plano
+novo nasce com o orçamento do ROI e calculadora nova com o do plano. Escrita direta no banco (scripts, rotinas)
+não passa por aqui: grave nos dois. A conta do resultado do ROI é `calcularResultadoRoi` (usada pelo `ROICalculator`).
+
 #### `addProject` — ID externo
 
 `addProject(data)` aceita `data.id` se fornecido; caso contrário gera um `crypto.randomUUID()` internamente. Isso permite que `NewOnboarding` gere o UUID antes de fazer o upload dos arquivos para o Storage, garantindo que o path `{projectId}/arquivo.ext` seja consistente com o projeto criado.
