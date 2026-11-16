@@ -283,7 +283,7 @@ const inicioSub = (s, statuses, onMudarStatus) => (
   <span onClick={(e) => e.stopPropagation()}><StatusCampo item={s} statuses={statuses} modo="icon" onChange={(st) => onMudarStatus(s, st)} /></span>
 )
 const fimSub = (s, membrosMap, onAtualizar) => (<>
-  <DataCampo valor={s.data_vencimento} item={s} formato="curta" placeholder="" {...limitesVencimento(s)} onChange={(v) => onAtualizar(s.id, { data_vencimento: v })} />
+  <DataCampo valor={s.data_vencimento} item={s} carga membrosMap={membrosMap} formato="curta" placeholder="" {...limitesVencimento(s)} onChange={(v) => onAtualizar(s.id, { data_vencimento: v })} />
   <Avatares item={s} membrosMap={membrosMap} size={16} max={2} vazio={false} />
 </>)
 const RECUO = 18
@@ -399,7 +399,7 @@ export default function TarefaPanel({
           </Propriedade>
           <Propriedade label={t('tarefaPainel.prop.prioridade')}><PrioridadeCampo valor={item.prioridade} onChange={(v) => onAtualizar(item.id, { prioridade: v })} /></Propriedade>
           <Propriedade label={t('tarefaPainel.prop.inicio')}><DataCampo valor={item.data_inicio} placeholder={t('tarefaPainel.definir')} {...limitesInicio(item)} onChange={(v) => onAtualizar(item.id, { data_inicio: v })} /></Propriedade>
-          <Propriedade label={t('tarefaPainel.prop.vencimento')}><DataCampo valor={item.data_vencimento} item={item} placeholder={t('tarefaPainel.definir')} {...limitesVencimento(item)} onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} /></Propriedade>
+          <Propriedade label={t('tarefaPainel.prop.vencimento')}><DataCampo valor={item.data_vencimento} item={item} carga membrosMap={membrosMap} placeholder={t('tarefaPainel.definir')} {...limitesVencimento(item)} onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} /></Propriedade>
           <Propriedade label={t('tarefaPainel.prop.cycle')}>
             <RelacaoCampo
               valor={item.ciclo_id} cor="#2A25F0" vazio={t('tarefaPainel.nenhumCycle')}

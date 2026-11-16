@@ -22,20 +22,23 @@ function nomesCurtos(ids, membrosMap) {
 }
 
 // No /dev/lista (só em DEV) a resposta vem de window.__DEV_DISPONIBILIDADE, no formato da API.
-function lerDisponibilidade(assignees) {
+function lerDisponibilidade(assignees, excluir) {
   const dev = import.meta.env.DEV && typeof window !== 'undefined' ? window.__DEV_DISPONIBILIDADE : null
   if (dev) return new Promise((ok) => setTimeout(() => ok({ ...dev, pessoas: dev.pessoas.filter((p) => assignees.includes(p.profileId)) }), 400))
-  return disponibilidadeResponsaveis({ assignees })
+  return disponibilidadeResponsaveis({ assignees, excluir })
 }
 
 /**
  * @param {string[]} responsaveis  uuids dos perfis
  * @param {Map} membrosMap         id → perfil (para o nome)
  * @param {object} tarefa          { estimativa_min, tipo_tarefa, dificuldade }
+ * @param {string|null} excluirId  tarefa que já existe e está mudando de data: sai da agenda
+ *                                 (senão as horas dela contariam duas vezes)
  */
-export function useCapacidadeResponsaveis(responsaveis, membrosMap, tarefa) {
+export function useCapacidadeResponsaveis(responsaveis, membrosMap, tarefa, excluirId = null) {
   const ids = useMemo(() => [...new Set((responsaveis || []).filter(Boolean))].sort(), [responsaveis])
-  const chave = ids.join(',')
+  const chave = `${ids.join(',')}|${excluirId || ''}`
+  const k = (id) => `${id}|${excluirId || ''}` // entrada do cache por pessoa e tarefa excluída
   const [dados, setDados] = useState({ chave: '', pessoas: [], hoje: null, erro: '' })
   const [carregando, setCarregando] = useState(false)
 
@@ -43,19 +46,19 @@ export function useCapacidadeResponsaveis(responsaveis, membrosMap, tarefa) {
     if (!ids.length) return
     let vivo = true
     const agora = Date.now()
-    const frescos = ids.filter((id) => cache.has(id) && agora - cache.get(id).em < TTL_MS)
+    const frescos = ids.filter((id) => cache.has(k(id)) && agora - cache.get(k(id)).em < TTL_MS)
     const montar = (erro = '') => ({
       chave,
-      pessoas: ids.filter((id) => cache.has(id)).map((id) => ({ id, dias: cache.get(id).dias })),
-      hoje: ids.map((id) => cache.get(id)?.hoje).find(Boolean) || null,
+      pessoas: ids.filter((id) => cache.has(k(id))).map((id) => ({ id, dias: cache.get(k(id)).dias })),
+      hoje: ids.map((id) => cache.get(k(id))?.hoje).find(Boolean) || null,
       erro,
     })
     if (frescos.length === ids.length && configCache) { setDados(montar()); return }
     setCarregando(true)
     const faltam = ids.filter((id) => !frescos.includes(id))
-    lerDisponibilidade(faltam.length ? faltam : ids)
+    lerDisponibilidade(faltam.length ? faltam : ids, excluirId)
       .then((r) => {
-        for (const p of r?.pessoas || []) cache.set(p.profileId || p.chave, { em: Date.now(), dias: p.dias, hoje: r.hoje })
+        for (const p of r?.pessoas || []) cache.set(k(p.profileId || p.chave), { em: Date.now(), dias: p.dias, hoje: r.hoje })
         if (r?.config) configCache = r.config
         const semLeitura = (r?.erros || []).length
         if (vivo) setDados(montar(semLeitura ? (r.erros[0]?.error || 'erro') : ''))

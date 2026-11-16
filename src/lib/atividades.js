@@ -71,8 +71,9 @@ export function tarefasConcluidas({ desde, ate, refresh = false }) {
 /**
  * Agenda dia a dia (60 dias úteis) dos responsáveis de uma tarefa nova, para pintar o
  * calendário de vencimento do VertaTask. `assignees` = uuid do perfil ou clickup_user_id.
- * Lê só o espelho; devolve também as horas por tipo/dificuldade da config.
+ * Lê só o espelho; devolve também as horas por tipo/dificuldade da config. `excluir` = uuid da
+ * tarefa que já existe e está mudando de data (sai da agenda para não contar duas vezes).
  */
-export function disponibilidadeResponsaveis({ assignees }) {
-  return call('disponibilidade', { assignees })
+export function disponibilidadeResponsaveis({ assignees, excluir = null }) {
+  return call('disponibilidade', { assignees, excluir })
 }

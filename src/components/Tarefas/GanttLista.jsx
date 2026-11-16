@@ -24,7 +24,7 @@ function CelulaGantt({ k, item, ctx }) {
     const campo = k === 'inicio' ? 'data_inicio' : 'data_vencimento'
     const lim = k === 'inicio' ? limitesInicio(item) : limitesVencimento(item)
     return (
-      <DataCampo valor={item[campo]} item={item} placeholder="" {...lim} onChange={(v) => ctx.onAtualizar(item.id, { [campo]: v })}
+      <DataCampo valor={item[campo]} item={item} carga={k === 'venc'} membrosMap={ctx.membrosMap} placeholder="" {...lim} onChange={(v) => ctx.onAtualizar(item.id, { [campo]: v })}
         render={<span className="text-[13px] tabular whitespace-nowrap text-ln-t2">{item[campo] ? fmtDataNumerica(item[campo]) : '—'}</span>} />
     )
   }

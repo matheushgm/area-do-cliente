@@ -794,6 +794,11 @@ todo `authenticated`; as quatro estão na publicação realtime).
   só lê o espelho, não precisa do token do ClickUp); regra pura em `src/lib/capacidadeCalendario.js`; hook
   `useCapacidadeResponsaveis` (cache de 2 min por pessoa); `DataCampo`/`CalendarioPrazo` aceitam `capacidade` (sem ela, nada
   muda). Sem login: `/dev/lista` → "+ Tarefa" lê `src/dev/fixtures/disponibilidade.json` (gitignored, a resposta da action).
+  **Também nas tarefas que já existem** (2026-11-16): o vencimento da Lista, do Quadro, do Gantt e do painel da tarefa
+  (inclusive as subtarefas) usa `DataCampo` com `carga`: só ao abrir o calendário lê a carga dos responsáveis da tarefa
+  (uma leitura por calendário aberto, nunca por linha), com `excluir` = id da tarefa (ela sai da agenda, senão as horas
+  dela contariam duas vezes) e as horas dela (estimativa > tipo > dificuldade). Concluída ou sem responsável fica sem cor.
+  Com o vencimento vazio ou já passado, o calendário pula para o mês da data sugerida.
 - **Área compartilhada (2026-10-26):** a página é só a moldura (coluna de pastas, cabeçalho, sincronização,
   Intake, Cycles, Templates, Pages, Analytics, Chat, Atividades). A área de tarefas inteira (abas de views,
   barra, Lista/Quadro/Calendário/Gantt, sidebars da view, seleção em massa, "Aplicar template", painel da

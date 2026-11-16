@@ -2,7 +2,7 @@
 // prioridade, dropdowns, estimativa), na linguagem visual do Linear (tokens
 // ln-*, mesma do módulo Atividades). Todos abrem um Popover em portal, para
 // não serem cortados pela rolagem da tabela.
-import { useState, useEffect, useRef, useLayoutEffect } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, Search, X, Clock3, Plus, User, Flag, CalendarDays } from 'lucide-react'
 import {
@@ -10,6 +10,8 @@ import {
   fmtDataNumerica, fmtDataCurta, paraInputDate, deInputDate, fmtEstimativa, parseEstimativa, paraData, inicioDoDia,
 } from '../../lib/tarefas'
 import { PopoverCalendario } from './Calendario'
+import { useCapacidadeResponsaveis } from '../../hooks/useCapacidadeResponsaveis'
+import { useApp } from '../../context/AppContext'
 import { useI18n, t as tAgora } from '../../i18n'
 
 export const FOCO = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ln-t2'
@@ -269,15 +271,32 @@ function corDaData(valor, item) {
   return 'text-ln-t3'
 }
 
+/** Calendário de uma tarefa que já existe pintado pela carga dos responsáveis dela. Só monta com o
+ *  calendário aberto (a lista tem centenas de linhas: uma leitura por linha seria demais) e tira a
+ *  própria tarefa da agenda, senão as horas dela contariam duas vezes. */
+function PopoverCalendarioComCarga({ item, membrosMap, ...props }) {
+  const { teamMembers } = useApp()
+  const mapa = useMemo(() => membrosMap || new Map((teamMembers || []).map((m) => [m.id, m])), [membrosMap, teamMembers])
+  const capacidade = useCapacidadeResponsaveis(item.responsaveis, mapa, item, item.id || null)
+  return <PopoverCalendario {...props} capacidade={capacidade} />
+}
+
 /** `min`/`max` (datas da própria tarefa) bloqueiam no calendário os dias que deixariam o
  *  início depois do vencimento; `motivoMin`/`motivoMax` dizem por quê. `capacidade` pinta os dias
- *  pela carga dos responsáveis (ver `CalendarioPrazo`). */
-export function DataCampo({ valor, onChange, item, formato = 'numerica', placeholder: placeholderPedido, render = null, limpavel = true, className = '', min = null, max = null, motivoMin = '', motivoMax = '', capacidade = null }) {
+ *  pela carga dos responsáveis (ver `CalendarioPrazo`); `carga` faz o mesmo sozinho para a tarefa
+ *  `item` (responsáveis, horas), lendo a carga só quando o calendário abre. */
+export function DataCampo({ valor, onChange, item, formato = 'numerica', placeholder: placeholderPedido, render = null, limpavel = true, className = '', min = null, max = null, motivoMin = '', motivoMax = '', capacidade = null, carga = false, membrosMap = null }) {
   const { t } = useI18n()
   const placeholder = placeholderPedido ?? t('tarefaCampos.semData')
   const ref = useRef(null)
   const [aberto, setAberto] = useState(false)
   const texto = valor ? (formato === 'curta' ? fmtDataCurta(valor) : fmtDataNumerica(valor)) : ''
+  // concluída não recebe trabalho; sem responsável não há carga para mostrar
+  const comCarga = carga && !capacidade && item?.responsaveis?.length > 0 && item.status_tipo !== 'closed'
+  const propsCalendario = {
+    anchorRef: ref, open: aberto, onClose: () => setAberto(false), valor: paraInputDate(valor), onEscolher: (v) => onChange(deInputDate(v)),
+    min: paraInputDate(min), max: paraInputDate(max), motivoMin, motivoMax,
+  }
   return (
     <span className={`relative inline-flex items-center gap-1 group/data min-w-0 ${className}`} onClick={(e) => e.stopPropagation()}>
       <button
@@ -294,8 +313,11 @@ export function DataCampo({ valor, onChange, item, formato = 'numerica', placeho
           <X className="w-3 h-3" />
         </button>
       )}
-      <PopoverCalendario anchorRef={ref} open={aberto} onClose={() => setAberto(false)} valor={paraInputDate(valor)} onEscolher={(v) => onChange(deInputDate(v))}
-        min={paraInputDate(min)} max={paraInputDate(max)} motivoMin={motivoMin} motivoMax={motivoMax} capacidade={capacidade} />
+      {comCarga && aberto ? (
+        <PopoverCalendarioComCarga item={item} membrosMap={membrosMap} {...propsCalendario} />
+      ) : (
+        <PopoverCalendario {...propsCalendario} capacidade={capacidade} />
+      )}
     </span>
   )
 }

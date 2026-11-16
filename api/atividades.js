@@ -168,11 +168,14 @@ async function actionCarga(body, ctx) {
  * Disponibilidade dia a dia dos responsáveis de uma tarefa nova (calendário de
  * vencimento do VertaTask): a mesma agenda da Capacidade do time, no horizonte
  * inteiro (60 dias úteis), só com os números de cada dia. Lê só o espelho.
+ * `excluir` (uuid de tarefas_itens) tira da agenda a tarefa cuja data está sendo mudada.
  */
 async function actionDisponibilidade(body) {
   const ids = (Array.isArray(body.assignees) ? body.assignees : []).filter((v) => v != null && v !== '')
   if (ids.length === 0) return { status: 400, error: 'Informe ao menos um responsável.' }
   if (ids.length > 8) return { status: 400, error: 'No máximo 8 pessoas por chamada.' }
+  // tarefa que já existe (mudar o vencimento dela): sai da agenda, senão contaria duas vezes
+  const excluir = typeof body.excluir === 'string' && body.excluir ? body.excluir : null
   const cfg = await carregarConfig()
   const hoje = hojeISO()
   const n = Number(cfg.horizonte_dias_uteis) || 60
@@ -182,7 +185,7 @@ async function actionDisponibilidade(body) {
   await Promise.all(resolverPessoas(ids, mapas).map(async ({ chave, perfil, erro }) => {
     if (!perfil) { erros.push({ chave, error: erro }); return }
     try {
-      const tasks = await abertasDe(perfil.id, mapas)
+      const tasks = (await abertasDe(perfil.id, mapas)).filter((t) => !excluir || t.vertatask_id !== excluir)
       // a capacidade por pessoa da config é chaveada pelo clickup_user_id
       const p = planejarParaPessoa({ clickupUserId: perfil.clickup_user_id || chave, tasks, horas: null, config: cfg, hoje, diasResumo: n })
       pessoas.push({

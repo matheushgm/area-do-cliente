@@ -45,7 +45,7 @@ function Card({ item, filhos, ctx, arrastavel, onArrastar }) {
       )}
       <div className="flex items-center gap-2.5 mt-2.5 min-w-0">
         <PrioridadeCampo valor={item.prioridade} comTexto={false} onChange={(v) => onAtualizar(item.id, { prioridade: v })} />
-        <DataCampo valor={item.data_vencimento} item={item} formato="curta" {...limitesVencimento(item)} onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} />
+        <DataCampo valor={item.data_vencimento} item={item} carga membrosMap={membrosMap} formato="curta" {...limitesVencimento(item)} onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} />
         <span className="flex items-center gap-2 ml-auto text-[11px] text-ln-t4 tabular">
           {filhos.length > 0 && <span className="inline-flex items-center gap-0.5" title={tr('tarefas.lista.subtarefas')}><CornerDownRight className="w-3 h-3" />{filhos.length}</span>}
           {check.total > 0 && <span className="inline-flex items-center gap-0.5" title={tr('tarefas.lista.checklist')}><ListChecks className="w-3 h-3" />{check.feitos}/{check.total}</span>}

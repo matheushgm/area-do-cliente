@@ -93,6 +93,14 @@ export function CalendarioPrazo({ valor, onEscolher, min = '', max = '', motivoM
     const base = atalhos(hoje)
     return sugerida ? [{ chave: 'factivel', valor: sugerida }, ...base] : base
   }, [hoje, sugerida])
+  // a carga chega depois de abrir: com vencimento vazio ou já passado, leva o mês até a data sugerida
+  const pulouRef = useRef(false)
+  useEffect(() => {
+    if (!sugerida || pulouRef.current || (valor && valor >= hojeS)) return
+    pulouRef.current = true
+    setMes(sugerida.slice(0, 7)) // eslint-disable-line react-hooks/set-state-in-effect
+    setFoco(sugerida)
+  }, [sugerida, valor, hojeS])
   const capDe = (dia) => (capacidade && dia >= hojeS ? capacidade.porDia?.get(dia) || null : null)
   const textoMin = min ? (motivoMin ? t('tarefas.calendario.motivoData', { motivo: motivoMin, data: fmtCurto(min) }) : t('tarefas.calendario.antesDe', { data: fmtCurto(min) })) : ''
   const textoMax = max ? (motivoMax ? t('tarefas.calendario.motivoData', { motivo: motivoMax, data: fmtCurto(max) }) : t('tarefas.calendario.depoisDe', { data: fmtCurto(max) })) : ''
