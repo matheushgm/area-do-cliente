@@ -214,6 +214,7 @@ export const UNIDADES_POR_PROJETO = {
     { id: 'goiania',  label: 'Goiânia'  },
     { id: 'osasco',   label: 'Osasco'   },
     { id: 'morumbi',  label: 'Morumbi'  },
+    { id: 'tiete',    label: 'Tietê'    },
   ],
   // Universo Park — duas business units
   '91b37dbb-73e1-4ff6-970f-8e523d46711b': [
@@ -242,6 +243,8 @@ export const ANUNCIOS_POR_UNIDADE = {
     goiania: { meta: /goi[aâ]nia/i,          google: ['Nacional Kart - Goiânia']   },
     osasco:  { meta: /osasco/i,              google: ['Nacional Kart - Osasco']    },
     morumbi: { meta: /morumbi/i,             google: ['Nacional Kart - Morumbi']   },
+    // Tietê (Tietê Plaza) só roda no Meta (campanha Fundo_ABO_Tiete); não tem conta Google.
+    tiete:   { meta: /tiet[eê]/i,            google: []                            },
   },
 }
 

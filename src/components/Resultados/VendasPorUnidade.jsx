@@ -34,6 +34,8 @@ const COLS_CLASS = {
   3: 'lg:grid-cols-3',
   4: 'lg:grid-cols-4',
   5: 'lg:grid-cols-5',
+  // 5 lojas + total: 3 por linha no notebook, os 6 numa linha só em tela larga.
+  6: 'lg:grid-cols-3 2xl:grid-cols-6',
 }
 
 // Soma { vendas, valorVendas } de várias entradas de unidade.
@@ -392,9 +394,11 @@ export default function VendasPorUnidade({
   )
   const hasData = totalMes.vendas > 0 || totalMes.valorVendas > 0
 
-  // Uma coluna por unidade + o card de total, até o limite de 5.
+  // Uma coluna por unidade + o card de total. Até 6 cards cabem numa linha;
+  // acima disso volta para 5 por linha.
   // Classes escritas por extenso porque o Tailwind não lê nome montado em runtime.
-  const resumoCols = COLS_CLASS[Math.min(unidades.length + 1, 5)] || 'lg:grid-cols-3'
+  const nCards = unidades.length + 1
+  const resumoCols = COLS_CLASS[nCards <= 6 ? nCards : 5] || 'lg:grid-cols-3'
 
   return (
     <div className="space-y-4">
