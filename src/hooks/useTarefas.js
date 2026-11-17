@@ -242,6 +242,8 @@ export function useTarefas(user) {
       descricao: payload.descricao || null,
       status: st?.key || 'a fazer',
       status_tipo: st?.tipo || 'open',
+      // tarefa que já nasce concluída (o trigger da migration 136 garante o mesmo no banco)
+      data_conclusao: st?.tipo === 'closed' ? new Date().toISOString() : null,
       prioridade: payload.prioridade || null,
       responsaveis: payload.responsaveis || [],
       data_inicio: payload.data_inicio || null,

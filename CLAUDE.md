@@ -843,7 +843,9 @@ todo `authenticated`; as quatro estão na publicação realtime).
   colunas em cada grupo e usa as colunas na ordem do ClickUp: Nome · Status (pill preenchida,
   BACKLOG cinza) · Tipo de tarefa (pill colorida) · Responsável · Data criada · Data de vencimento
   ("há N dias"/"ontem" em vermelho até 7 dias, "Hoje" verde, "Amanhã" amarelo) · Data de conclusão
-  (`data_conclusao`, só leitura: gravada ao ir para um status de concluída, aqui por `mudarStatus` ou no ClickUp por
+  (`data_conclusao`, só leitura: gravada ao ir para um status de concluída ou ao criar já concluída; o trigger
+  `trg_tarefas_itens_data_conclusao` da migration 136 garante isso em todo caminho e não deixa a sincronização apagá-la,
+  já que o ClickUp devolve `date_done` vazio para tarefa que nasce fechada; aqui por `mudarStatus`/`criarTarefa` ou no ClickUp por
   `date_done`; também ordena e é campo dos filtros avançados) · Prioridade
   (bandeira) · Sprints (= Cycle, `ciclo_id`) · Estimativa de tempo (ampulheta) · Cliente (pílula cinza discreta,
   com o projeto da pasta). A coluna Pontos do Sprint foi retirada a pedido do Matheus. Os editores de
