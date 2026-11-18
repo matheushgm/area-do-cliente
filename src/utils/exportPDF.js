@@ -1,4 +1,4 @@
-import { fmtCurrency, fmtNum, escapeHtml } from '../lib/utils'
+import { fmtCurrency, projectCurrency, fmtNum, escapeHtml } from '../lib/utils'
 import { t, localeAtual } from '../i18n'
 import { printDocument, docHeader, markdownToHtml, PAGE_CSS } from '../lib/printDoc'
 import { BUSINESS_LABELS, MATURITY_LABELS } from '../lib/constants'
@@ -276,23 +276,25 @@ const pctLocal = (n) => (n == null || n === '' || isNaN(Number(n))
 
 export function exportROIPDF(calc, result, project) {
   if (!result) return
+  const moeda = projectCurrency(project)
+  const money = (n) => fmtCurrency(n, 2, moeda)
 
   const body = `
     <section>
       <div class="section-title">💰 ${L('roi.investimento')}</div>
       <div class="grid grid-3">
-        <div class="field"><div class="field-label">${L('roi.orcamentoMidia')}</div><div class="field-value purple">${fmtBRL(calc.mediaOrcamento)}</div></div>
-        <div class="field"><div class="field-label">${L('roi.custoMarketing')}</div><div class="field-value">${fmtBRL(calc.custoMarketing)}</div></div>
-        <div class="field"><div class="field-label">${L('roi.totalInvestido')}</div><div class="field-value" style="font-size:16px">${fmtBRL(result.totalInvestimento)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.orcamentoMidia')}</div><div class="field-value purple">${money(calc.mediaOrcamento)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.custoMarketing')}</div><div class="field-value">${money(calc.custoMarketing)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.totalInvestido')}</div><div class="field-value" style="font-size:16px">${money(result.totalInvestimento)}</div></div>
       </div>
     </section>
     <section>
       <div class="section-title">📦 ${L('roi.produtoServico')}</div>
       <div class="grid grid-4">
-        <div class="field"><div class="field-label">${L('roi.ticketMedio')}</div><div class="field-value">${fmtBRL(calc.ticketMedio)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.ticketMedio')}</div><div class="field-value">${money(calc.ticketMedio)}</div></div>
         <div class="field"><div class="field-label">${L('roi.compras')}</div><div class="field-value">${calc.qtdCompras}x</div></div>
         <div class="field"><div class="field-label">${L('roi.margemBruta')}</div><div class="field-value">${pctLocal(calc.margemBruta)}</div></div>
-        <div class="field"><div class="field-label">${L('roi.lucroPorVenda')}</div><div class="field-value green">${fmtBRL(result.lucroPorVenda)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.lucroPorVenda')}</div><div class="field-value green">${money(result.lucroPorVenda)}</div></div>
       </div>
     </section>
     <section>
@@ -306,26 +308,26 @@ export function exportROIPDF(calc, result, project) {
     <section>
       <div class="section-title">📊 ${L('roi.metasPara', { roi: pctLocal(calc.roiDesejado) })}</div>
       <div class="grid grid-4">
-        <div class="field"><div class="field-label">${L('roi.leadsNecessarios')}</div><div class="field-value purple" style="font-size:20px">${fmtNum(result.leadsNecessarios)}</div><div class="field-label" style="margin-top:4px">CPL: ${fmtBRL(result.custoPorLead)}</div></div>
-        <div class="field"><div class="field-label">${L('roi.mqlsNecessarios')}</div><div class="field-value cyan" style="font-size:20px">${fmtNum(result.mqlsNecessarios)}</div><div class="field-label" style="margin-top:4px">CPM: ${fmtBRL(result.custoPorMQL)}</div></div>
-        <div class="field"><div class="field-label">${L('roi.sqlsNecessarios')}</div><div class="field-value" style="font-size:20px;color:#0891b2">${fmtNum(result.sqlsNecessarios)}</div><div class="field-label" style="margin-top:4px">CPS: ${fmtBRL(result.custoPorSQL)}</div></div>
-        <div class="field"><div class="field-label">${L('roi.vendasNecessarias')}</div><div class="field-value green" style="font-size:20px">${fmtNum(result.vendasNecessarias)}</div><div class="field-label" style="margin-top:4px">CAC: ${fmtBRL(result.cac)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.leadsNecessarios')}</div><div class="field-value purple" style="font-size:20px">${fmtNum(result.leadsNecessarios)}</div><div class="field-label" style="margin-top:4px">CPL: ${money(result.custoPorLead)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.mqlsNecessarios')}</div><div class="field-value cyan" style="font-size:20px">${fmtNum(result.mqlsNecessarios)}</div><div class="field-label" style="margin-top:4px">CPM: ${money(result.custoPorMQL)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.sqlsNecessarios')}</div><div class="field-value" style="font-size:20px;color:#0891b2">${fmtNum(result.sqlsNecessarios)}</div><div class="field-label" style="margin-top:4px">CPS: ${money(result.custoPorSQL)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.vendasNecessarias')}</div><div class="field-value green" style="font-size:20px">${fmtNum(result.vendasNecessarias)}</div><div class="field-label" style="margin-top:4px">CAC: ${money(result.cac)}</div></div>
       </div>
     </section>
     <section>
       <div class="section-title">💹 ${L('roi.financeiro')}</div>
       <div class="grid grid-4">
-        <div class="field"><div class="field-label">${L('roi.totalInvestido')}</div><div class="field-value">${fmtBRL(result.totalInvestimento)}</div></div>
-        <div class="field"><div class="field-label">${L('roi.faturamentoAlvo')}</div><div class="field-value purple">${fmtBRL(result.faturamento)}</div></div>
-        <div class="field"><div class="field-label">${L('roi.lucroBruto')}</div><div class="field-value cyan">${fmtBRL(result.lucroBruto)}</div></div>
-        <div class="field"><div class="field-label">${L('roi.lucroLiquido')}</div><div class="field-value ${result.lucroLiquido >= 0 ? 'green' : 'red'}">${fmtBRL(result.lucroLiquido)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.totalInvestido')}</div><div class="field-value">${money(result.totalInvestimento)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.faturamentoAlvo')}</div><div class="field-value purple">${money(result.faturamento)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.lucroBruto')}</div><div class="field-value cyan">${money(result.lucroBruto)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.lucroLiquido')}</div><div class="field-value ${result.lucroLiquido >= 0 ? 'green' : 'red'}">${money(result.lucroLiquido)}</div></div>
       </div>
     </section>
     <section>
       <div class="section-title">⚖️ ${L('roi.pontoEquilibrio')}</div>
       <div class="grid grid-2">
         <div class="field"><div class="field-label">${L('roi.vendasMinimas')}</div><div class="field-value gold" style="font-size:18px">${L('roi.nVendas', { count: result.vendasBreakeven, n: fmtNum(result.vendasBreakeven) })}</div></div>
-        <div class="field"><div class="field-label">CAC</div><div class="field-value gold" style="font-size:18px">${fmtBRL(result.cac)}</div></div>
+        <div class="field"><div class="field-label">CAC</div><div class="field-value gold" style="font-size:18px">${money(result.cac)}</div></div>
       </div>
     </section>
   `
@@ -341,6 +343,8 @@ export function exportROIPDF(calc, result, project) {
 // calculados no componente e passados prontos.
 export function exportMetasSemanaisPDF(calc, result, project, numSemanas, mesAtual) {
   if (!result) return
+  const moeda = projectCurrency(project)
+  const money = (n) => fmtCurrency(n, 2, moeda)
 
   const semanas = Math.max(Number(numSemanas) || 1, 1)
 
@@ -374,8 +378,8 @@ export function exportMetasSemanaisPDF(calc, result, project, numSemanas, mesAtu
     <section>
       <div class="section-title">💸 ${L('roi.custoMarketing')}</div>
       <div class="grid grid-2">
-        <div class="field"><div class="field-label">${L('metas.porSemana')}</div><div class="field-value gold" style="font-size:18px">${fmtBRL(calc.custoMarketing / semanas)}</div></div>
-        <div class="field"><div class="field-label">${L('metas.totalNoMes')}</div><div class="field-value">${fmtBRL(calc.custoMarketing)}</div></div>
+        <div class="field"><div class="field-label">${L('metas.porSemana')}</div><div class="field-value gold" style="font-size:18px">${money(calc.custoMarketing / semanas)}</div></div>
+        <div class="field"><div class="field-label">${L('metas.totalNoMes')}</div><div class="field-value">${money(calc.custoMarketing)}</div></div>
       </div>
     </section>
   `

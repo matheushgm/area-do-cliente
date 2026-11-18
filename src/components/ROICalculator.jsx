@@ -3,7 +3,7 @@ import { Calculator, Target, DollarSign, Save, BarChart3, TrendingUp, AlertCircl
 import { getWeekRanges, MONTH_NAMES } from './Resultados/resultadosHelpers'
 import { calcularResultadoRoi, orcamentoDoPlano } from '../lib/orcamentoSync'
 import { exportROIPDF, exportMetasSemanaisPDF } from '../utils/exportPDF'
-import { fmtCurrency } from '../lib/utils'
+import { fmtCurrency, projectCurrency, currencySymbol } from '../lib/utils'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { useApp } from '../context/AppContext'
 import VideoGuide from './VideoGuide'
@@ -68,6 +68,10 @@ const BENCHMARKS = {
 export default function ROICalculator({ project, onSave, overrideCalc = undefined, onPersist = undefined, sincronizaCampanha = true }) {
   const { updateProject } = useApp()
   const { t, lang, locale } = useI18n()
+  // Moeda do projeto (USD só para os projetos listados em projectCurrency; o resto segue BRL)
+  const moeda        = projectCurrency(project)
+  const moedaSimbolo = currencySymbol(moeda)
+  const money = (n) => fmtCurrency(n, 0, moeda)
   const [benchmarkType, setBenchmarkType] = useState(null)
   const [activeTab, setActiveTab] = useState('calculadora')
 
@@ -240,10 +244,10 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
               <div className="glass-card p-4 flex items-center justify-between">
                 <div>
                   <p className="text-xs text-rl-muted">{t('roi.calc.custoMarketingSemana')}</p>
-                  <p className="text-[10px] text-rl-muted/70">{t('roi.calc.divisaoSemanas', { valor: fmtCurrency(calc.custoMarketing), n: numSemanas })}</p>
+                  <p className="text-[10px] text-rl-muted/70">{t('roi.calc.divisaoSemanas', { valor: money(calc.custoMarketing), n: numSemanas })}</p>
                 </div>
                 <span className="text-lg font-bold text-rl-gold">
-                  {fmtCurrency(calc.custoMarketing / numSemanas)}
+                  {money(calc.custoMarketing / numSemanas)}
                 </span>
               </div>
             </>
@@ -267,21 +271,21 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
                 label={t('roi.calc.orcamentoMidia')}
                 value={calc.mediaOrcamento}
                 onChange={(v) => set('mediaOrcamento', v)}
-                prefix="R$"
+                prefix={moedaSimbolo}
                 hint={sincronizaCampanha ? t('roi.calc.verbaAnunciosSync') : t('roi.calc.verbaAnuncios')}
               />
               <NumInput
                 label={t('roi.calc.custoMarketing')}
                 value={calc.custoMarketing}
                 onChange={(v) => set('custoMarketing', v)}
-                prefix="R$"
+                prefix={moedaSimbolo}
                 hint={t('roi.calc.feeGestao')}
               />
             </div>
             {result && (
               <div className="flex items-center justify-between rounded-lg bg-rl-surface px-4 py-2.5">
                 <span className="text-xs text-rl-muted">{t('roi.calc.totalInvestido')}</span>
-                <span className="text-sm font-bold text-rl-text">{fmtCurrency(result.totalInvestimento)}</span>
+                <span className="text-sm font-bold text-rl-text">{money(result.totalInvestimento)}</span>
               </div>
             )}
           </div>
@@ -296,7 +300,7 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
                 label={t('roi.calc.ticketMedio')}
                 value={calc.ticketMedio}
                 onChange={(v) => set('ticketMedio', v)}
-                prefix="R$"
+                prefix={moedaSimbolo}
               />
               <NumInput
                 label={t('roi.calc.compras')}
@@ -318,7 +322,7 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
             {result && (
               <div className="flex items-center justify-between rounded-lg bg-rl-surface px-4 py-2.5">
                 <span className="text-xs text-rl-muted">{t('roi.calc.lucroVenda')}</span>
-                <span className="text-sm font-bold text-rl-green">{fmtCurrency(result.lucroPorVenda)}</span>
+                <span className="text-sm font-bold text-rl-green">{money(result.lucroPorVenda)}</span>
               </div>
             )}
           </div>
@@ -448,7 +452,7 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
                       <p className="text-xs text-rl-muted">{row.label}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <span className="text-sm font-semibold text-rl-text">{fmtCurrency(row.cost)}</span>
+                      <span className="text-sm font-semibold text-rl-text">{money(row.cost)}</span>
                       <span className="text-[10px] text-rl-muted">{row.costLabel}</span>
                       {row.rate !== null && (
                         <span className="text-[10px] text-rl-muted bg-rl-surface px-1.5 py-0.5 rounded-md">
@@ -471,26 +475,26 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-rl-surface p-3">
                   <p className="text-xs text-rl-muted mb-1">{t('roi.calc.totalInvestidoCard')}</p>
-                  <p className="text-base font-bold text-rl-text">{fmtCurrency(result.totalInvestimento)}</p>
+                  <p className="text-base font-bold text-rl-text">{money(result.totalInvestimento)}</p>
                 </div>
                 <div className="rounded-xl bg-rl-surface p-3">
                   <p className="text-xs text-rl-muted mb-1">{t('roi.calc.faturamentoAlvo')}</p>
-                  <p className="text-base font-bold text-rl-purple">{fmtCurrency(result.faturamento)}</p>
+                  <p className="text-base font-bold text-rl-purple">{money(result.faturamento)}</p>
                 </div>
                 <div className="rounded-xl bg-rl-surface p-3">
                   <p className="text-xs text-rl-muted mb-1">{t('roi.calc.lucroBruto')}</p>
-                  <p className="text-base font-bold text-rl-cyan">{fmtCurrency(result.lucroBruto)}</p>
+                  <p className="text-base font-bold text-rl-cyan">{money(result.lucroBruto)}</p>
                 </div>
                 <div className={`rounded-xl p-3 ${result.lucroLiquido >= 0 ? 'bg-rl-green/10' : 'bg-rl-red/10'}`}>
                   <p className="text-xs text-rl-muted mb-1">{t('roi.calc.lucroLiquido')}</p>
                   <p className={`text-base font-bold ${result.lucroLiquido >= 0 ? 'text-rl-green' : 'text-rl-red'}`}>
-                    {fmtCurrency(result.lucroLiquido)}
+                    {money(result.lucroLiquido)}
                   </p>
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-lg bg-rl-surface px-4 py-2.5 mt-1">
                 <span className="text-xs text-rl-muted">{t('roi.calc.cacCompleto')}</span>
-                <span className="text-sm font-bold text-rl-gold">{fmtCurrency(result.cac)}</span>
+                <span className="text-sm font-bold text-rl-gold">{money(result.cac)}</span>
               </div>
               <div className="rounded-lg border border-rl-border px-4 py-2.5 flex items-center justify-between">
                 <div>

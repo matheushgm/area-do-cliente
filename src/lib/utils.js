@@ -13,13 +13,30 @@ export function iniciais(nome) {
   return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase()
 }
 
-// Moeda BRL no formato do idioma atual; `decimals` = casas decimais (0 por padrão). Vazio/NaN/∞ → '—'.
-export function fmtCurrency(n, decimals = 0) {
+// Moeda (BRL por padrão) no formato do idioma atual; `decimals` = casas decimais (0 por padrão). Vazio/NaN/∞ → '—'.
+// `currency` aceita qualquer código ISO ('USD' sai como "US$ 1.234" em pt).
+export function fmtCurrency(n, decimals = 0, currency = 'BRL') {
   const v = Number(n)
   if (n == null || n === '' || isNaN(v) || !isFinite(v)) return '—'
   return v.toLocaleString(localeAtual(), {
-    style: 'currency', currency: 'BRL', minimumFractionDigits: decimals, maximumFractionDigits: decimals,
+    style: 'currency', currency, minimumFractionDigits: decimals, maximumFractionDigits: decimals,
   })
+}
+
+// Projetos cujos valores (por enquanto, só a Calculadora de ROI) são em dólar.
+// Vitae Medical Concierge: cliente canadense, ticket e fee em US$.
+const USD_PROJECT_IDS = new Set([
+  '8474c159-a059-4a10-84ae-59e0f902f83b', // Vitae Medical Concierge
+])
+
+// Moeda do projeto: 'USD' para os projetos acima, 'BRL' para o resto.
+export function projectCurrency(project) {
+  return project?.id && USD_PROJECT_IDS.has(project.id) ? 'USD' : 'BRL'
+}
+
+// Símbolo curto para prefixo de input ("R$", "US$").
+export function currencySymbol(currency = 'BRL') {
+  return currency === 'USD' ? 'US$' : 'R$'
 }
 
 // Inteiro no formato do idioma atual ("12.345" / "12,345"); ∞ vira "∞".
