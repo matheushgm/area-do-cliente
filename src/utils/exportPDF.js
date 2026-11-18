@@ -1296,7 +1296,8 @@ export function exportEstrategiaV2PDF(project, data) {
             </tr>
             ${c.linkSite ? `<tr><td>Site</td><td style="word-break:break-all"><a href="${esc(c.linkSite)}" style="color:#164496">${esc(c.linkSite)}</a></td></tr>` : ''}
             ${c.linkInstagram ? `<tr><td>Instagram</td><td style="word-break:break-all"><a href="${esc(c.linkInstagram)}" style="color:#164496">${esc(c.linkInstagram)}</a></td></tr>` : ''}
-            ${c.metaAds && c.linkBiblioteca ? `<tr><td>Biblioteca de Anúncios</td><td style="word-break:break-all">${esc(c.linkBiblioteca)}</td></tr>` : ''}
+            ${c.metaAds && c.linkBiblioteca ? `<tr><td>Anúncios no Meta</td><td style="word-break:break-all">${esc(c.linkBiblioteca)}</td></tr>` : ''}
+            ${c.googleAds && c.linkBibliotecaGoogle ? `<tr><td>Anúncios no Google</td><td style="word-break:break-all">${esc(c.linkBibliotecaGoogle)}</td></tr>` : ''}
             ${c.grandePromessa ? `<tr><td>Grande Promessa</td><td>${esc(c.grandePromessa)}</td></tr>` : ''}
             ${c.comunicacao ? `<tr><td>Comunicação</td><td>${esc(c.comunicacao)}</td></tr>` : ''}
           </table>

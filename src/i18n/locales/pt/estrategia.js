@@ -41,6 +41,7 @@ export default {
     fazMeta: 'Faz Meta Ads?',
     fazGoogle: 'Faz Google Ads?',
     biblioteca: 'Link da Biblioteca de Anúncios (Meta)',
+    bibliotecaGoogle: 'Link da Central de Transparência de Anúncios (Google)',
     promessa: 'Grande Promessa',
     promessaPh: 'Qual é a principal promessa que eles fazem para o cliente?',
     comunicacao: 'Comunicação Usada',

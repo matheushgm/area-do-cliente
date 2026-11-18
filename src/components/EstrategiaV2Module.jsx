@@ -144,7 +144,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
 
   // ── Concorrentes ──────────────────────────────────────────────────────────
   const addConcorrente = useCallback(() => {
-    const novo = { id: crypto.randomUUID(), nome: '', linkSite: '', linkInstagram: '', metaAds: false, googleAds: false, linkBiblioteca: '', grandePromessa: '', comunicacao: '' }
+    const novo = { id: crypto.randomUUID(), nome: '', linkSite: '', linkInstagram: '', metaAds: false, googleAds: false, linkBiblioteca: '', linkBibliotecaGoogle: '', grandePromessa: '', comunicacao: '' }
     setConcorrentes(prev => { setActiveTab(prev.length); return [...prev, novo] })
   }, [])
 
@@ -457,6 +457,22 @@ export default function EstrategiaV2Module({ project, onSave }) {
                     value={c.linkBiblioteca}
                     onChange={e => updateConcorrente(c.id, { linkBiblioteca: e.target.value })}
                     placeholder="https://www.facebook.com/ads/library/..."
+                    className="input-field w-full text-sm"
+                  />
+                </div>
+              )}
+
+              {/* Link da Central de Transparência do Google (só se googleAds) */}
+              {c.googleAds && (
+                <div>
+                  <label className="text-xs font-semibold text-rl-muted uppercase tracking-wider block mb-1.5 flex items-center gap-1">
+                    <Link className="w-3 h-3" /> {t('estrategia.benchmark.bibliotecaGoogle')}
+                  </label>
+                  <input
+                    type="url"
+                    value={c.linkBibliotecaGoogle || ''}
+                    onChange={e => updateConcorrente(c.id, { linkBibliotecaGoogle: e.target.value })}
+                    placeholder="https://adstransparency.google.com/..."
                     className="input-field w-full text-sm"
                   />
                 </div>

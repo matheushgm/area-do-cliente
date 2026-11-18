@@ -40,6 +40,7 @@ export default {
     fazMeta: 'Runs Meta Ads?',
     fazGoogle: 'Runs Google Ads?',
     biblioteca: 'Ad Library link (Meta)',
+    bibliotecaGoogle: 'Ads Transparency Center link (Google)',
     promessa: 'Big Promise',
     promessaPh: 'What’s the main promise they make to customers?',
     comunicacao: 'Messaging',

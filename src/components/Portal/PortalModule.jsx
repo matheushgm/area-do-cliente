@@ -469,7 +469,8 @@ function Estrategia({ data }) {
                 <div className="flex flex-wrap gap-3 mt-1.5 text-xs">
                   {c.linkSite && <ExtLink href={c.linkSite}>Site</ExtLink>}
                   {c.linkInstagram && <ExtLink href={c.linkInstagram}>Instagram</ExtLink>}
-                  {c.linkBiblioteca && <ExtLink href={c.linkBiblioteca}>Biblioteca de anúncios</ExtLink>}
+                  {c.linkBiblioteca && <ExtLink href={c.linkBiblioteca}>Anúncios no Meta</ExtLink>}
+                  {c.linkBibliotecaGoogle && <ExtLink href={c.linkBibliotecaGoogle}>Anúncios no Google</ExtLink>}
                 </div>
                 {c.metaAds && <div className="mt-2"><PreText text={c.metaAds} /></div>}
               </div>
