@@ -661,6 +661,11 @@
     border-top:1px solid var(--fx-border,rgb(var(--rl-scroll-track))); }
   .dt-root .cols-nota { flex:1; font-size:10.5px; line-height:1.35; color:var(--fx-faint,rgb(var(--rl-muted))); }
   .dt-root .cols-foot .dp-btn { padding:6px 10px; font-size:11.5px; }
+  /* Menu "Colunas" das tabelas da conta: só liga/desliga, sem arrastar. */
+  .dt-root .tcols-pop .cols-item { cursor:default; }
+  .dt-root .tcols-wrap { margin-left:6px; }
+  .dt-root .tcols-wrap .dp-trigger { font-size:12px; }
+  @media(max-width:768px){ .dt-root .tcols-wrap { display:none; } }
   .dt-root .cols-foot .dp-btn[disabled] { opacity:.45; cursor:default; }
 
   /* Filtro de saldo: a regra ("Menor ou igual a") e o campo do valor na mesma
@@ -1375,6 +1380,10 @@ const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:
                 // colunas da tabela da visão Padrão: ordem escolhida (sem a coluna fixa;
                 // null = a do catálogo) e ids escondidos. Ver ACCT_COLS/colOrder.
                 colOrder:null, colOff:[],
+                // colunas escondidas nas tabelas do Meta na página da conta, por tabela
+                // ({ 'meta-camp': ['impr', …] }), e qual menu "Colunas" está aberto.
+                // Salvo à parte (TBL_COLS_KEY), vale também no viewer embutido.
+                tblColOff:{}, tblColsPop:null,
                 // agrupamentos da visão Padrão (interruptores da barra de filtros):
                 // por status (seções Crítico/Queda/Estável/Melhora) e por cliente
                 // (contas do mesmo projeto num quadrante só). Ambos ligados = visão de sempre.
@@ -4074,9 +4083,9 @@ function stVazioHTML() {
   const n = ST_NIVEIS[state.stAplicado.nivel], ativo = state.stFiltro === 'ativos'
   return `<div class="empty">${n.fem ? 'Nenhuma' : 'Nenhum'} ${n.nome} ${ativo ? 'ativ' : 'inativ'}${n.fem ? 'a' : 'o'} no período.<button type="button" class="st-filtro-reset" data-stfiltro="todos">Mostrar todos</button></div>`
 }
-const stFiltroHTML = () => `<div class="st-filtro-bar"><span class="st-filtro-lbl">Mostrar</span>
+const stFiltroHTML = (extra = '') => `<div class="st-filtro-bar"><span class="st-filtro-lbl">Mostrar</span>
   <div class="mg-switch" role="tablist" aria-label="Filtrar por status">${ST_FILTROS.map(([v, l]) =>
-    `<button type="button" role="tab" aria-selected="${state.stFiltro === v}" class="mg-sw${state.stFiltro === v ? ' active' : ''}" data-stfiltro="${v}">${l}</button>`).join('')}</div></div>`
+    `<button type="button" role="tab" aria-selected="${state.stFiltro === v}" class="mg-sw${state.stFiltro === v ? ' active' : ''}" data-stfiltro="${v}">${l}</button>`).join('')}</div>${extra}</div>`
 
 // ─── Cards mobile das tabelas (campanha / conjunto / anúncio / grupo) ─────────
 // No retrato a tabela de 9–14 colunas vira rolagem lateral e esconde justamente
@@ -4162,11 +4171,87 @@ const mqlDaLinha = r => state.tblMql === 'col' ? num(r['MQL'])
 const mqlGastoDaLinha = r => state.tblMql === 'col' ? num(r['Valor investido'])
   : state.tblMql === 'tipo' && MQL_TIPO_RE.test(r['Tipo de resultado'] || '') ? num(r['Valor investido']) : 0
 const MQL_COLS = [['MQL','mql',it=>it.x.mql], ['CPMQL','cpmql',it=>it.cpmql]]
-// Insere MQL e CPMQL antes da coluna Conv., quando a conta rastreia MQL.
-const tblComMql = cols => { if (!state.tblMql) return cols
+// ─── Colunas SQL e Custo/SQL (só em conta com SQL rastreado) ──────────────────
+// Coluna "SQL" do coletor (conversão personalizada da conta, ex.: Matheus
+// Business = "SQL", lead agendado no CRM e devolvido ao Meta pela CAPI). Mesma
+// regra do MQL: aparece quando a conta tem SQL em alguma linha carregada, de
+// qualquer período. Custo/SQL = gasto ÷ SQL do grupo.
+function sqlRastreado(client, ch) {
+  if (ch !== 'meta' || !client) return false
+  const rows = rawRows(ch, client)
+  const m = state._sqlTem
+  if (m && m.rows === rows) return m.tem
+  const tem = rows.some(r => num(r['SQL']) > 0)
+  state._sqlTem = { rows, tem }
+  return tem
+}
+const sqlDaLinha = r => state.tblSql ? num(r['SQL']) : 0
+const SQL_COLS = [['SQL','sql',it=>it.x.sql], ['Custo/SQL','cpsql',it=>it.cpsql]]
+const cpSqlOf = x => x.sql > 0 ? x.spend / x.sql : null
+// Insere MQL/CPMQL e SQL/Custo por SQL antes da coluna Conv., quando a conta rastreia.
+const tblComMql = cols => { const extra = [...(state.tblMql ? MQL_COLS : []), ...(state.tblSql ? SQL_COLS : [])]
+  if (!extra.length) return cols
   const i = cols.findIndex(c => c[1] === 'conv')
-  return [...cols.slice(0, i), ...MQL_COLS, ...cols.slice(i)] }
-const mqlCells = it => state.tblMql ? `<td>${fmtNum(it.x.mql)}</td><td>${it.cpmql != null ? fmtMoney(it.cpmql) : '—'}</td>` : ''
+  return [...cols.slice(0, i), ...extra, ...cols.slice(i)] }
+const mqlCells = it => (state.tblMql ? `<td>${fmtNum(it.x.mql)}</td><td>${it.cpmql != null ? fmtMoney(it.cpmql) : '—'}</td>` : '')
+  + (state.tblSql ? `<td>${fmtNum(it.x.sql)}</td><td>${it.cpsql != null ? fmtMoney(it.cpsql) : '—'}</td>` : '')
+// Chips dos cards mobile com as mesmas colunas.
+const mqlChips = it => [state.tblMql&&['MQL',fmtNum(it.x.mql)], state.tblMql&&['CPMQL',it.cpmql!=null?fmtMoney(it.cpmql):'—'],
+  state.tblSql&&['SQL',fmtNum(it.x.sql)], state.tblSql&&['Custo/SQL',it.cpsql!=null?fmtMoney(it.cpsql):'—']]
+
+// ─── Menu "Colunas" das tabelas do Meta (campanha / conjunto / anúncio) ───────
+// Escolhe quais métricas aparecem. A 1ª coluna (o nome) é fixa: é o link do
+// drill. As células de cada linha saem na mesma ordem das colunas declaradas,
+// então esconder é só CSS por índice (nth-child) com escopo na tabela; a
+// ordenação e os cards mobile continuam iguais. A escolha vale para todas as
+// contas e fica no navegador (TBL_COLS_KEY).
+const TBL_COLS_KEY = 'rl_dash_tblcols'
+try { const v = JSON.parse(localStorage.getItem(TBL_COLS_KEY) || 'null'); if (v && typeof v === 'object') state.tblColOff = v } catch (e) {}
+const tblColsSalvar = () => { try { localStorage.setItem(TBL_COLS_KEY, JSON.stringify(state.tblColOff)) } catch (e) {} }
+const tblColOffOf = id => (state.tblColOff && state.tblColOff[id]) || []
+const TBL_COLS_NOME = { 'meta-camp':'campanhas', 'meta-adset':'conjuntos', 'meta-ad':'anúncios' }
+// A tabela em tela: dentro de um conjunto = anúncios; dentro de uma campanha =
+// conjuntos; no topo, a sub-aba (Campanhas / Conjuntos / Anúncios).
+function tblColsNivel() {
+  if (state.drillAdset) return ['meta-ad', tblComMql(META_AD_COLS)]
+  if (state.drillCampaign) return ['meta-adset', tblComMql(META_ADSET_COLS)]
+  if (state.sub === 0) return ['meta-camp', tblComMql(META_CAMP_COLS)]
+  if (state.sub === 1) return ['meta-adset', tblComMql(META_ADSET_COLS)]
+  if (state.sub === 2) return ['meta-ad', tblComMql(META_AD_COLS)]
+  return null
+}
+function tblColsCSS(id, cols) {
+  const off = new Set(tblColOffOf(id))
+  const sel = cols.map((c, i) => i > 0 && off.has(c[1]) ? `.dt-root table[data-tbl="${id}"] tr > :nth-child(${i + 1})` : null).filter(Boolean)
+  return sel.length ? `<style>${sel.join(',')}{display:none}</style>` : ''
+}
+function tblColsMenuHTML() {
+  const n = tblColsNivel(); if (!n) return ''
+  const [id, cols] = n, off = new Set(tblColOffOf(id)), aberto = state.tblColsPop === id
+  const opc = cols.slice(1), vis = 1 + opc.filter(c => !off.has(c[1])).length
+  return `<span class="bwrap tcols-wrap"><button class="dp-trigger icon-trigger${aberto ? ' open' : ''}${off.size ? ' on' : ''}" id="tblColsBtn" data-tbl="${id}" aria-haspopup="dialog" aria-expanded="${aberto}" aria-label="Colunas da tabela de ${TBL_COLS_NOME[id]}" title="Métricas da tabela de ${TBL_COLS_NOME[id]}: ${vis} de ${cols.length} visíveis. Escolha quais aparecem.">
+      ${ic('columns','▦')}<span class="dp-name">Colunas</span><span class="dp-count">${vis}/${cols.length}</span><span class="dp-caret">▾</span></button>
+    ${!aberto ? '' : `<div class="bpop cols-pop tcols-pop right" role="dialog" aria-label="Colunas da tabela">
+      <div class="cols-fixa">${em('🔒')} ${esc(cols[0][0])}<span class="cols-tag">fixa</span></div>
+      <div class="cols-list">${opc.map(c => { const on = !off.has(c[1])
+        return `<div class="cols-item${on ? '' : ' off'}">
+          <button class="cols-check${on ? ' on' : ''}" data-tcol="${c[1]}" role="checkbox" aria-checked="${on}" title="${on ? 'Esconder' : 'Mostrar'} a coluna ${esc(c[0])}">${on ? '✓' : ''}</button>
+          <span class="cols-label" data-tcol="${c[1]}">${esc(c[0])}</span></div>` }).join('')}</div>
+      <div class="cols-foot"><span class="cols-nota">Vale para a tabela de ${TBL_COLS_NOME[id]} de todas as contas.</span>
+        <button class="dp-btn" id="tblColsTodas"${off.size ? '' : ' disabled'}>Mostrar todas</button></div>
+    </div>`}</span>`
+}
+function tblColsOnDoc(ev) { const t = ev.target; if (!t || t.isConnected === false) return; if (!(t.closest && t.closest('.tcols-wrap'))) tblColsFechar() }
+function tblColsOnKey(ev) { if (ev.key === 'Escape') tblColsFechar() }
+function tblColsFechar() {
+  document.removeEventListener('click', tblColsOnDoc); document.removeEventListener('keydown', tblColsOnKey)
+  if (state.tblColsPop) { state.tblColsPop = null; renderClient() }
+}
+function tblColsToggle(id) {
+  if (state.tblColsPop === id) return tblColsFechar()
+  state.tblColsPop = id; renderClient()
+  setTimeout(() => { document.addEventListener('click', tblColsOnDoc); document.addEventListener('keydown', tblColsOnKey) }, 0)
+}
 // ─── Orçamento (ABO × CBO e verba diária) ─────────────────────────────────────
 // Vem do snapshot de status (meta_status), então é a verba de AGORA, não a do
 // período. CBO = verba na campanha; ABO = verba em cada conjunto, e a verba da
@@ -4194,14 +4279,14 @@ const META_CAMP_COLS = [
 function tblMetaCampaigns(rows, prevRows){
   const g = groupBy(rows, r=>r['Nome da campanha'], {
     spend:r=>M(r,'Valor investido'), conv:metaConv, leads:metaConv, result:metaResult,
-    impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link'), mql:mqlDaLinha, mqlSp:mqlGastoDaLinha })
+    impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link'), mql:mqlDaLinha, mqlSp:mqlGastoDaLinha, sql:sqlDaLinha })
   if(!g.length) return tblEmpty('Sem campanhas no período.')
   const pv = prevMapOf(prevRows, r=>r['Nome da campanha'], metaResult)
   const acct = acctOf(rows)
   const flags = g.filter(x=>x.spend>0&&x.result===0).map(x=>`🚨 ${esc(x.key)} — gasto sem resultado`)
   const cols = tblComMql(META_CAMP_COLS)
   const items = g.map((x,i)=>({ x, top:i===0&&x.result>0, nome:x.key, cpl:x.conv>0?x.spend/x.conv:null,
-    cpmql:x.mql>0?x.mqlSp/x.mql:null, tx:x.clicks>0?x.conv/x.clicks:null,
+    cpmql:x.mql>0?x.mqlSp/x.mql:null, cpsql:cpSqlOf(x), tx:x.clicks>0?x.conv/x.clicks:null,
     // Status de AGORA (snapshot por campaign_id); a linha é só o último recurso.
     st:stCampMeta(acct,x.key,x._rows),
     orc:snapEntry(acct,'campanha',(x._rows.find(r=>r['campaign_id'])||{})['campaign_id'],x.key,x._rows),
@@ -4218,9 +4303,9 @@ function tblMetaCampaigns(rows, prevRows){
     return mRowCard({ attr:`data-camp="${esc(x.key)}"`, nome:x.key, top, st:stHtml,
       alert:(x.spend>0&&x.result===0)?'gasto sem resultado':'',
       hero:[['Resultado',`${fmtNum(x.result)}`,`${varMini(x.result, pv[x.key])} ${esc(rl)}`],['Gasto',fmtMoney(x.spend)],['CPL',cpl!=null?fmtMoney(cpl):'—']],
-      chips:mChips([it.orc&&it.orc.orc&&['Orçamento',`${it.orc.orc} · ${verbaCell(it.orc,'campanha')}`],state.tblMql&&['MQL',fmtNum(x.mql)],state.tblMql&&['CPMQL',it.cpmql!=null?fmtMoney(it.cpmql):'—'],x.conv!==x.result&&['Conv.',fmtNum(x.conv)],['Tx. Conv.',txCell(x.conv,x.clicks)],['Impr.',fmtNum(x.impr)],['Cliques',fmtNum(x.clicks)]]) })
+      chips:mChips([it.orc&&it.orc.orc&&['Orçamento',`${it.orc.orc} · ${verbaCell(it.orc,'campanha')}`],...mqlChips(it),x.conv!==x.result&&['Conv.',fmtNum(x.conv)],['Tx. Conv.',txCell(x.conv,x.clicks)],['Impr.',fmtNum(x.impr)],['Cliques',fmtNum(x.clicks)]]) })
   })
-  return flagRow(flags,'red')+`<div class="dt-wrap has-m"><table><thead><tr>${tblThead('meta-camp', cols)}</tr></thead><tbody>${body}</tbody></table></div>`
+  return flagRow(flags,'red')+`${tblColsCSS('meta-camp', cols)}<div class="dt-wrap has-m"><table data-tbl="meta-camp"><thead><tr>${tblThead('meta-camp', cols)}</tr></thead><tbody>${body}</tbody></table></div>`
     + mList('meta-camp', [['Resultado','result'],['Gasto','spend'],['CPL','cpl','asc'],['Nome','nome','asc']], cards)
 }
 const META_ADSET_COLS = [
@@ -4230,7 +4315,7 @@ const META_ADSET_COLS = [
   ['CTR Link','ctr',it=>it.ctr], ['CPM','cpm',it=>it.cpm], ['Impressões','impr',it=>it.x.impr] ]
 function tblMetaAdsets(rows, prevRows){
   const g = groupBy(rows, metaAdsetKey, {
-    spend:r=>M(r,'Valor investido'), conv:metaConv, impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link'), mql:mqlDaLinha, mqlSp:mqlGastoDaLinha })
+    spend:r=>M(r,'Valor investido'), conv:metaConv, impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link'), mql:mqlDaLinha, mqlSp:mqlGastoDaLinha, sql:sqlDaLinha })
   if(!g.length) return tblEmpty('Sem conjuntos no período.')
   const pv = prevMapOf(prevRows, metaAdsetKey, metaConv)
   // Nome pra exibir (vários conjuntos podem ter o MESMO nome — key é o adset_id).
@@ -4239,7 +4324,7 @@ function tblMetaAdsets(rows, prevRows){
   const acct = acctOf(rows)
   const cols = tblComMql(META_ADSET_COLS)
   const items = g.map((x,i)=>{ const nm=nameOf(x)
-    return { x, top:i===0&&x.conv>0, nome:nm, cpl:x.conv>0?x.spend/x.conv:null, cpmql:x.mql>0?x.mqlSp/x.mql:null, tx:x.clicks>0?x.conv/x.clicks:null,
+    return { x, top:i===0&&x.conv>0, nome:nm, cpl:x.conv>0?x.spend/x.conv:null, cpmql:x.mql>0?x.mqlSp/x.mql:null, cpsql:cpSqlOf(x), tx:x.clicks>0?x.conv/x.clicks:null,
       ctr:x.impr>0?x.clicks/x.impr*100:null, cpm:x.impr>0?x.spend/x.impr*1000:null,
       st:stAdsetMeta(acct,nm,x._rows),
       orc:snapEntry(acct,'conjunto',(x._rows.find(r=>r['adset_id'])||{})['adset_id'],nm,x._rows),
@@ -4252,9 +4337,9 @@ function tblMetaAdsets(rows, prevRows){
     return mRowCard({ attr:`data-adset="${esc(x.key)}" data-adset-name="${esc(nm)}"`, nome:nm, top, st:stHtml,
       alert:(x.spend>0&&x.conv===0)?'gasto sem resultado':'',
       hero:[['Conv.',fmtNum(x.conv),varMini(x.conv, pv[x.key])],['Gasto',fmtMoney(x.spend)],['CPL',cpl!=null?fmtMoney(cpl):'—']],
-      chips:mChips([it.orc&&it.orc.orc&&['Verba diária',verbaCell(it.orc,'conjunto')],['Anúncios ativos',ativos==null?'—':`<span class="${ativos>0?'good':'fl'}">${ativos}</span>`],state.tblMql&&['MQL',fmtNum(x.mql)],state.tblMql&&['CPMQL',it.cpmql!=null?fmtMoney(it.cpmql):'—'],['Tx. Conv.',txCell(x.conv,x.clicks)],['CTR Link',ctrCell(ctr)],['CPM',cpm!=null?fmtMoney(cpm):'—'],['Impr.',fmtNum(x.impr)]]) })
+      chips:mChips([it.orc&&it.orc.orc&&['Verba diária',verbaCell(it.orc,'conjunto')],['Anúncios ativos',ativos==null?'—':`<span class="${ativos>0?'good':'fl'}">${ativos}</span>`],...mqlChips(it),['Tx. Conv.',txCell(x.conv,x.clicks)],['CTR Link',ctrCell(ctr)],['CPM',cpm!=null?fmtMoney(cpm):'—'],['Impr.',fmtNum(x.impr)]]) })
   })
-  return flagRow(flags,'red')+`<div class="dt-wrap has-m"><table><thead><tr>${tblThead('meta-adset', cols)}</tr></thead><tbody>${body}</tbody></table></div>`
+  return flagRow(flags,'red')+`${tblColsCSS('meta-adset', cols)}<div class="dt-wrap has-m"><table data-tbl="meta-adset"><thead><tr>${tblThead('meta-adset', cols)}</tr></thead><tbody>${body}</tbody></table></div>`
     + mList('meta-adset', [['Conversões','conv'],['Gasto','spend'],['CPL','cpl','asc'],['Nome','nome','asc']], cards)
 }
 // Agrupa por ad_id — uma linha por ANÚNCIO, como no Gerenciador. O mesmo
@@ -4277,7 +4362,7 @@ function tblMetaAds(rows, prevRows, todas = rows){
     h3:r=>M(r,'Número de vezes que assistiram os 3 primeiros segundos'), vv:r=>M(r,'Número de vezes que o vídeo foi exibido'),
     p25:r=>M(r,'Número de vezes que assistiram 25% do vídeo'), p50:r=>M(r,'Número de vezes que assistiram 50% do vídeo'),
     p75:r=>M(r,'Número de vezes que assistiram 75% do vídeo'), p100:r=>M(r,'Número de vezes que assistiram 100% do vídeo'),
-    mql:mqlDaLinha, mqlSp:mqlGastoDaLinha })
+    mql:mqlDaLinha, mqlSp:mqlGastoDaLinha, sql:sqlDaLinha })
   // Anúncios ATIVOS que não tiveram entrega no período entram zerados no fim da
   // tabela: o insight só devolve linha para anúncio com impressão, então quem
   // subiu ontem (ou parou de entregar sem ser pausado) sumia daqui e a tabela
@@ -4299,7 +4384,7 @@ function tblMetaAds(rows, prevRows, todas = rows){
   const cols = tblComMql(META_AD_COLS)
   const items = g.map((x,i)=>{ const pct = p => x.vv>0 ? p/x.vv*100 : null
     return { x, top:i===0&&x.conv>0, nome:x._rows[0]?.['Nome do Anúncio'] || x.key,
-      cpl:x.conv>0?x.spend/x.conv:null, cpmql:x.mql>0?x.mqlSp/x.mql:null, tx:x.clicks>0?x.conv/x.clicks:null,
+      cpl:x.conv>0?x.spend/x.conv:null, cpmql:x.mql>0?x.mqlSp/x.mql:null, cpsql:cpSqlOf(x), tx:x.clicks>0?x.conv/x.clicks:null,
       ctr:x.impr>0?x.clicks/x.impr*100:null, cpm:x.impr>0?x.spend/x.impr*1000:null,
       hook:pct(x.h3), p25:pct(x.p25), p50:pct(x.p50), p75:pct(x.p75), p100:pct(x.p100),
       st:adGroupCell(acct,x._rows), paused:!isActiveStatus(adGroupStatus(acct,x._rows).entry.status) } })
@@ -4337,7 +4422,7 @@ function tblMetaAds(rows, prevRows, todas = rows){
     const sub = `sem entrega${conjunto ? ' · ' + esc(conjunto) : ''}`
     return `<tr><td class="ad-name" title="${esc(nome)}${conjunto?` · conjunto: ${esc(conjunto)}`:''} — ativo na conta, mas sem nenhuma impressão no período.">
       <span class="ad-name-flex"><span class="ad-name-txt">${esc(nome)}<span class="ad-sub">${sub}</span></span>${prevBtn}${destBtn}</span></td>
-      <td>${stHtml}</td>${state.tblMql ? '<td><span class="fl">0</span></td><td>—</td>' : ''}<td><span class="fl">0</span></td><td><span class="fl">${fmtMoney(0)}</span></td><td>—</td>
+      <td>${stHtml}</td>${state.tblMql ? '<td><span class="fl">0</span></td><td>—</td>' : ''}${state.tblSql ? '<td><span class="fl">0</span></td><td>—</td>' : ''}<td><span class="fl">0</span></td><td><span class="fl">${fmtMoney(0)}</span></td><td>—</td>
       <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`
   }).join('')
   const cards = tblSorted('meta-ad', items, cols).map(it=>{ const {x,top,nome,cpl,ctr,cpm,st:stHtml,paused}=it
@@ -4347,7 +4432,7 @@ function tblMetaAds(rows, prevRows, todas = rows){
     return mRowCard({ nome, top, st:stHtml, dim:paused, alert:(x.spend>0&&x.conv===0)?'gasto sem resultado':'',
       sub:conjunto?`<span class="m-sub-txt">${esc(conjunto)}</span>`:'',
       hero:[['Conv.',fmtNum(x.conv),varMini(x.conv, pv[x.key])],['Gasto',fmtMoney(x.spend)],['CPL',cpl!=null?fmtMoney(cpl):'—']],
-      chips:mChips([state.tblMql&&['MQL',fmtNum(x.mql)],state.tblMql&&['CPMQL',it.cpmql!=null?fmtMoney(it.cpmql):'—'],['Tx. Conv.',txCell(x.conv,x.clicks)],['Hook 3s',hookCell(x.h3,x.vv)],['CTR Link',ctrCell(ctr)],['CPM',cpm!=null?fmtMoney(cpm):'—'],
+      chips:mChips([...mqlChips(it),['Tx. Conv.',txCell(x.conv,x.clicks)],['Hook 3s',hookCell(x.h3,x.vv)],['CTR Link',ctrCell(ctr)],['CPM',cpm!=null?fmtMoney(cpm):'—'],
         x.vv>0&&['Retenção 25/50/75/100%',`${pctVid(x.p25,x.vv)} · ${pctVid(x.p50,x.vv)} · ${pctVid(x.p75,x.vv)} · ${pctVid(x.p100,x.vv)}`]]),
       acts:adId?`<button class="ad-prev-btn" data-adid="${esc(adId)}" data-adname="${esc(nome)}">${ic('eye','👁')} Ver anúncio</button>${SHARED?'':` <button class="ad-dest-btn" data-adid="${esc(adId)}" data-adname="${esc(nome)}" data-destino="${esc(destino)}">${ic('external','🔗')} Destino</button>`}`:'' })
   })
@@ -4360,7 +4445,7 @@ function tblMetaAds(rows, prevRows, todas = rows){
       hero:[['Conv.','0'],['Gasto',fmtMoney(0)],['CPL','—']],
       acts:`<button class="ad-prev-btn" data-adid="${esc(id)}" data-adname="${esc(nome)}">${ic('eye','👁')} Ver anúncio</button>` })
   })
-  return flagRow(flags,'red')+`<div class="dt-wrap has-m"><table><thead><tr>${tblThead('meta-ad', cols)}</tr></thead><tbody>${body}${bodySem}</tbody></table></div>`
+  return flagRow(flags,'red')+`${tblColsCSS('meta-ad', cols)}<div class="dt-wrap has-m"><table data-tbl="meta-ad"><thead><tr>${tblThead('meta-ad', cols)}</tr></thead><tbody>${body}${bodySem}</tbody></table></div>`
     + mList('meta-ad', [['Conversões','conv'],['Gasto','spend'],['CPL','cpl','asc'],['Hook 3s','hook'],['CTR Link','ctr'],['Nome','nome','asc']], [...cards, ...cardsSem])
 }
 const G_CAMP_COLS = [
@@ -4845,6 +4930,9 @@ function aggMetrics(rows, isMeta) {
     const mqlSpend = colMql > 0 ? spend : typeRows.reduce((a,r)=>a+num(r['Valor investido']),0)
     const mqlLabel = colMql > 0 ? 'MQL' : (typeRows.length ? (typeRows[0]['Tipo de resultado'] || 'MQL') : 'MQL')
     const hasMql = colMql > 0 || typeRows.length > 0
+    // SQL: coluna secundária do coletor (conversão personalizada, ex.: Matheus
+    // Business). Custo por SQL = gasto do escopo ÷ SQL.
+    const sql = rows.reduce((a,r)=>a+num(r['SQL']),0)
     // Taxa de conversão = conversões ÷ CLIQUES NO LINK (definido pelo Matheus em
     // 2026-10-05). A visualização da página de destino (LPV) perde quem clica e
     // não carrega a página, então inflava a taxa; a base agora é sempre o clique.
@@ -4874,6 +4962,7 @@ function aggMetrics(rows, isMeta) {
       hasEcom, carts, checkouts, cpCart:carts>0?spend/carts:null, cpCheckout:checkouts>0?spend/checkouts:null,
       clickToCart:clicks>0?carts/clicks*100:null, cartToCheckout:carts>0?checkouts/carts*100:null, checkoutToPurchase:checkouts>0?purchases/checkouts*100:null,
       hasMql, mql, leads, mqlLabel, cpMql:mql>0?mqlSpend/mql:null, leadToMql:convGen>0?mql/convGen*100:null,
+      sql, cpSql:sql>0?spend/sql:null, convToSql:convGen>0?sql/convGen*100:null,
       lpv, lpRate, convGen, convByType, cpConvGen:convGen>0?spend/convGen:null, cpLead:leads>0?spend/leads:null,
       purchaseRate: clicks>0?purchases/clicks*100:null }
   }
@@ -4959,7 +5048,19 @@ function perfMqlTilesHTML(cur, prv) {
       ${tileHTML('Taxa de conversão', fmtPctVal(cur.lpRate), pctVar(cur.lpRate, prv.lpRate), false, lpHint)}
       ${tileHTML(esc(cur.mqlLabel), fmtInt(cur.mql), pctVar(cur.mql, prv.mql), false, 'MQL: lead qualificado pelo marketing (evento personalizado do pixel).')}
       ${tileHTML('Custo por MQL', fmtMoney(cur.cpMql), pctVar(cur.cpMql, prv.cpMql), true, 'Gasto ÷ MQL.')}
-      ${tileHTML('Avanço Conv.→MQL', fmtPctVal(cur.leadToMql), pctVar(cur.leadToMql, prv.leadToMql), false, 'MQL ÷ conversões.')}`
+      ${tileHTML('Avanço Conv.→MQL', fmtPctVal(cur.leadToMql), pctVar(cur.leadToMql, prv.leadToMql), false, 'MQL ÷ conversões.')}${perfSqlTilesHTML(cur, prv)}`
+}
+// SQL (conversão personalizada da conta): só nas contas que rastreiam SQL. O
+// avanço parte das conversões, não do MQL: o MQL e o SQL vêm de eventos
+// diferentes (no Matheus Business o MQL do pixel quase não dispara) e SQL ÷ MQL
+// passava de 100%.
+const perfTemSql = () => !!state.openClient && sqlRastreado(state.openClient.client, state.openClient.channel)
+function perfSqlTilesHTML(cur, prv) {
+  if (!perfTemSql()) return ''
+  return `
+      ${tileHTML('SQL', fmtInt(cur.sql), pctVar(cur.sql, prv.sql), false, 'SQL: lead que agendou com o comercial (conversão personalizada "SQL", enviada pelo CRM ao Meta). Conta no dia do agendamento.')}
+      ${tileHTML('Custo por SQL', fmtMoney(cur.cpSql), pctVar(cur.cpSql, prv.cpSql), true, 'Gasto ÷ SQL.')}
+      ${tileHTML('Avanço Conv.→SQL', fmtPctVal(cur.convToSql), pctVar(cur.convToSql, prv.convToSql), false, 'SQL ÷ conversões.')}`
 }
 // Visão E-commerce: só as métricas padrão de compra do Meta (a conversão é a
 // própria compra). Nada de lead/conversa/custom aqui.
@@ -5462,6 +5563,7 @@ function initQuadrantCharts(period, rows, channel, isMeta) {
 function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, period, pace, filtros) {
   const isMeta = channel === 'meta'
   state.tblMql = tblMqlModo(state.openClient?.client, channel)
+  state.tblSql = sqlRastreado(state.openClient?.client, channel)
   // A busca vale para o nível em tela: ao trocar de sub-aba, entrar/sair de
   // campanha/conjunto ou de cliente ela é limpa.
   const tblKey = [state.openClient?.client, channel, state.sub, state.drillCampaign, state.drillAdset, state.drillSub].join('|')
@@ -5496,7 +5598,7 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
   // Filtro Ativos / Inativos: só nas tabelas de campanha, conjunto e anúncio do
   // Meta (Landing pages agrupa por link, não tem status).
   state.stAplicado = null
-  const stBar = isMeta && (state.drillCampaign || state.drillAdset || state.sub <= 2) ? stFiltroHTML() : ''
+  const stBar = isMeta && (state.drillCampaign || state.drillAdset || state.sub <= 2) ? stFiltroHTML(tblColsMenuHTML()) : ''
   // Drill dentro da aba
   if (state.drillCampaign || state.drillAdset) {
     let body, bc
@@ -6184,6 +6286,23 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   app.querySelectorAll('[data-perfview]').forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation(); state.perfView[client]=b.dataset.perfview; renderClient() })
   // Filtro Ativos / Inativos das tabelas (vale para todos os níveis e contas, fica salvo)
   app.querySelectorAll('[data-stfiltro]').forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation(); state.stFiltro=b.dataset.stfiltro; renderClient() })
+  // Menu "Colunas" das tabelas do Meta: marcar/desmarcar mantém o menu aberto.
+  const tcBtn=document.getElementById('tblColsBtn')
+  if (tcBtn) {
+    const id = tcBtn.dataset.tbl
+    tcBtn.onclick=(ev)=>{ ev.stopPropagation(); tblColsToggle(id) }
+    app.querySelectorAll('[data-tcol]').forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation()
+      const k=b.dataset.tcol, off=new Set(tblColOffOf(id))
+      if (off.has(k)) off.delete(k)
+      else {
+        off.add(k)
+        // Escondeu a coluna que ordena a tabela: volta à ordem natural.
+        if (tblSortOf(id).key === k && state.tblSort) delete state.tblSort[id]
+      }
+      state.tblColOff = { ...state.tblColOff, [id]: [...off] }; tblColsSalvar(); renderClient() })
+    const todas=document.getElementById('tblColsTodas')
+    if (todas) todas.onclick=(ev)=>{ ev.stopPropagation(); const o={ ...state.tblColOff }; delete o[id]; state.tblColOff=o; tblColsSalvar(); renderClient() }
+  }
 
   // Drill (aba campanhas)
   const bcBack=document.getElementById('bcBack')
