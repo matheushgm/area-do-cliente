@@ -5201,17 +5201,27 @@ function otmSugestoes(client, ch) {
   const rows = rawRows(ch, client)
   if (!rows.length) return []
   const acc = state.accounts[client] || {}
-  const key = [client, ch, rows.length, acc.cplTarget?.value ?? '', acc.cacTarget ?? '', acc.mqlTarget ?? '', acc.metricaFormulario || '', acc.projectId || ''].join('|')
+  // Orçamento de agora (ABO/CBO e verba diária) do snapshot de status da conta, pra
+  // regra de remanejar verba entre conjuntos. Antes de o status chegar, a regra usa
+  // a marca ABO/CBO do nome; o memo recalcula quando ele chega.
+  const snapA = ch === 'meta' && state.statusSnap ? state.statusSnap[client] : null
+  const key = [client, ch, rows.length, acc.cplTarget?.value ?? '', acc.cacTarget ?? '', acc.mqlTarget ?? '', acc.metricaFormulario || '', acc.projectId || '', snapA ? 's' : ''].join('|')
   const m = state._otmMemo
-  if (m && m.key === key && m.rows === rows) return m.sugs
+  if (m && m.key === key && m.rows === rows && m.snap === snapA) return m.sugs
+  let orcamentos = null
+  if (snapA) {
+    orcamentos = new Map()
+    for (const lvl of ['campanha', 'conjunto'])
+      for (const [id, e] of Object.entries(snapA[lvl] || {})) orcamentos.set(String(id), { orc: e.orc, orcDia: e.orcDia, orcTotal: e.orcTotal })
+  }
   let sugs = []
   try {
     sugs = gerarSugestoesConta({
       meta: ch === 'meta' ? rows : [], google: ch === 'meta' ? [] : rows,
-      metas: metasDaConta(acc), conta: client, varias: otmVarias(client),
+      metas: metasDaConta(acc), conta: client, varias: otmVarias(client), orcamentos,
     }).map(s => ({ ...s, projectId: acc.projectId || null }))
   } catch (e) { console.error('Otimizações: falha ao calcular as sugestões', e) }
-  state._otmMemo = { key, rows, sugs }
+  state._otmMemo = { key, rows, sugs, snap: snapA }
   return sugs
 }
 const otmPendentes = (client, ch) => { const dec = otmDecMap(client), hoje = hojeSP()

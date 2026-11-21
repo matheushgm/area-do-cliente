@@ -88,11 +88,11 @@ export function useSugestoesGlobais(dash) {
   const todas = useMemo(() => {
     const out = []
     for (const [pid, rows] of porProjeto) {
-      const sugs = gerarSugestoesProjeto({ meta: rows.meta, google: rows.google, accounts: dash.accounts || {} })
+      const sugs = gerarSugestoesProjeto({ meta: rows.meta, google: rows.google, accounts: dash.accounts || {}, metaStatus: dash.metaStatus })
       for (const s of sugs) out.push({ ...s, projectId: pid })
     }
     return out
-  }, [porProjeto, dash.accounts, lang]) // eslint-disable-line react-hooks/exhaustive-deps -- lang: o motor lê o idioma na hora, então regera o texto na troca
+  }, [porProjeto, dash.accounts, dash.metaStatus, lang]) // eslint-disable-line react-hooks/exhaustive-deps -- lang: o motor lê o idioma na hora, então regera o texto na troca
 
   const hoje = hojeISO()
   const statusPorChave = useMemo(() => {

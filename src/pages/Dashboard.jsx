@@ -729,7 +729,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { t } = useI18n()
   const { openSidebar } = useOutletContext()
-  const dash = useDashboardData({ source: 'api', dias: 20 })
+  const dash = useDashboardData({ source: 'api', dias: 20, status: true })
   const [deleteTarget, setDeleteTarget] = useState(null)
   // O filtro mora na URL (`/?lista=`) para sobreviver a refresh e poder ser
   // linkado — a AppSidebar lê o mesmo parâmetro em vez de receber por prop.

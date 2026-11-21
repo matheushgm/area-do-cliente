@@ -60,8 +60,8 @@ export function useSugestoesHub(dash, hub) {
   // `lang`: o texto das sugestões sai no idioma atual, então a troca de idioma regera.
   const { lang } = useI18n()
   const todas = useMemo(() => gerarSugestoesProjeto({
-    meta: dash.raw?.meta || [], google: dash.raw?.google || [], accounts: dash.accounts || {},
-  }), [dash.raw, dash.accounts, lang]) // eslint-disable-line react-hooks/exhaustive-deps
+    meta: dash.raw?.meta || [], google: dash.raw?.google || [], accounts: dash.accounts || {}, metaStatus: dash.metaStatus,
+  }), [dash.raw, dash.accounts, dash.metaStatus, lang]) // eslint-disable-line react-hooks/exhaustive-deps
   const hoje = hojeISO()
   const statusPorChave = useMemo(() => new Map(hub.sugestoesStatus.map((s) => [s.chave, s])), [hub.sugestoesStatus])
   const pendentes = useMemo(() => todas.filter((s) => {

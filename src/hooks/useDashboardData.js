@@ -78,8 +78,13 @@ async function loadSheets(source = 'sheets', { accountNames = null, dias = null 
 //   canais    (só com 'api' + projectId) preenche `accountChannels` das contas do
 //             projeto; a lista de TODAS as contas (seletor "+ vincular conta") só vem
 //             com carregarTodasContas(). Só a seção Resultados de Tráfego usa os dois.
-export function useDashboardData({ source = 'sheets', projectId = null, dias = null, linhas = true, canais = false } = {}) {
+//   status    (só com 'api') também lê o snapshot `meta_status` (orçamento ABO/CBO e
+//             verba diária de AGORA por campanha/conjunto) em `metaStatus`. Chega depois
+//             das linhas, sem segurar o loading; null até chegar. Usado pelas Otimizações
+//             (regra de remanejar verba entre conjuntos).
+export function useDashboardData({ source = 'sheets', projectId = null, dias = null, linhas = true, canais = false, status = false } = {}) {
   const [raw, setRaw] = useState({ meta: [], google: [] })
+  const [metaStatus, setMetaStatus] = useState(null)
   // Todas as contas presentes no dashboard (view dash_accounts_public), lidas sob
   // demanda por carregarTodasContas(): com projectId o `raw` só tem as contas do
   // projeto, e o seletor "+ vincular conta" precisa da lista completa.
@@ -162,6 +167,29 @@ export function useDashboardData({ source = 'sheets', projectId = null, dias = n
     return () => { mounted.current = false }
   }, [load])
 
+  // Snapshot de status Meta (orçamento de agora), em segundo plano. Com projectId, só
+  // as contas do projeto; falhou = fica null e a regra cai na marca ABO/CBO do nome.
+  const contasDoStatus = useMemo(() => (projectId
+    ? Object.keys(accountRows).filter(n => accountRows[n].project_id === projectId).sort().join('\u0001')
+    : '*'), [projectId, accountRows])
+  useEffect(() => {
+    if (!status || source !== 'api' || (projectId && !contasDoStatus)) return
+    let vivo = true
+    ;(async () => {
+      try {
+        const p = new URLSearchParams({ channel: 'meta_status' })
+        if (contasDoStatus !== '*') contasDoStatus.split('\u0001').forEach(a => p.append('account', a))
+        const r = await fetch('/api/dash-data?' + p.toString(), { headers: { Authorization: `Bearer ${(await sessionToken()) || ''}` } })
+        if (!r.ok) throw new Error('HTTP ' + r.status)
+        const rows = parseCSV(await r.text())
+        if (vivo && mounted.current) setMetaStatus(rows)
+      } catch (e) {
+        console.warn('Status Meta (orçamento) não carregou:', e.message)
+      }
+    })()
+    return () => { vivo = false }
+  }, [status, source, projectId, contasDoStatus])
+
   // Lista de todas as contas do dashboard, para o seletor "+ vincular conta": só
   // quando alguém abre o seletor (uma vez por instância do hook).
   const todasPromessa = useRef(null)
@@ -241,7 +269,7 @@ export function useDashboardData({ source = 'sheets', projectId = null, dias = n
   const setHidden = useCallback((accountName, hidden) => upsertAccount(accountName, { hidden: !!hidden }), [upsertAccount])
 
   return {
-    raw, accounts, squadByAccount, projectsList, squadsList, cplTargets, allAccountNames, accountChannels,
+    raw, metaStatus, accounts, squadByAccount, projectsList, squadsList, cplTargets, allAccountNames, accountChannels,
     loading, error, lastUpdate,
     reload: load, setSquad, linkProject, setClickupFolder, setHidden, carregarTodasContas,
   }

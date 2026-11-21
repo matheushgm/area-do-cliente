@@ -1691,6 +1691,17 @@ Atas) foi removida em 2026-10-26 a pedido do Matheus. Abaixo de `xl` as colunas 
   conjunto, verba pro conjunto melhor); senão vira `meta:ad_trocar:<ad_id>` (`T.regras.adTrocar`,
   sobe o substituto e só depois pausa). As duas chaves ficam fora de `REGRA_AUTOMATICA` (sempre
   `manual`).
+  **Conjunto caro remaneja verba (2026-11-21, `meta:conj_remanejar:<adset_id>`, `T.regras.conjRemanejar`):**
+  conjunto ativo de fundo/meio em **ABO**, ≥ 3 dias, que gastou ≥ corte da régua (2× a meta, ou 1,5× a
+  média) com zero conversão ou custo ≥ corte, perde 20% do orçamento diário para o conjunto ativo da mesma
+  campanha com menor custo (com conversão e abaixo do corte). Julga o conjunto inteiro: vários anúncios
+  dividindo o gasto ficam cada um abaixo de 2× a meta. Fora: campanha com 1 conjunto ativo, CBO e conjunto
+  já em `conj_desligar`. ABO/CBO e a verba diária vêm do snapshot `meta_status` (`orcamentosDoStatus` →
+  parâmetro `orcamentos` de `gerarSugestoes*`, `metaStatus` em `gerarSugestoesProjeto`): o
+  `useDashboardData({ status: true })` lê o snapshot em segundo plano (`dash.metaStatus`; ligado na home,
+  em /otimizacoes e na página do cliente) e o viewer monta o mapa do `state.statusSnap` da conta. Sem
+  snapshot, só campanha com ABO no nome entra (e o cartão sai sem os valores em reais). A sugestão leva
+  `remanejar: { de, para, valor, pct }` no payload; fica fora de `REGRA_AUTOMATICA` (`manual`).
 - **Resultados de Tráfego** (seção `trafego`, slug `resultados-de-trafego`; `TrafegoModule` em
   `src/components/ResultadosModule.jsx`): `ContasVinculadas` (vincular/desvincular contas de anúncio,
   `dashboard_accounts.project_id`, busca e aviso quando a conta está em outro cliente) e

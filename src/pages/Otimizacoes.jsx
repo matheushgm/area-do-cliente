@@ -452,7 +452,7 @@ export default function Otimizacoes() {
   const { squads, projects, teamMembers, user } = useApp()
   const { t, lang } = useI18n()
   // 20 dias: o motor usa 7 + 7 anteriores (igual à home, que já carrega isso)
-  const dash = useDashboardData({ source: 'api', dias: 20 })
+  const dash = useDashboardData({ source: 'api', dias: 20, status: true })
   const sg = useSugestoesGlobais(dash)
   const [tab, setTab] = useState('pendentes')
   const [busca, setBusca] = useState('')

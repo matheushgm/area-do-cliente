@@ -1273,7 +1273,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
 
   // ── Hub do projeto (coluna central): timeline, sugestões do playbook e dados do dash
   const hub = useProjetoHub(project.id)
-  const dashReal = useDashboardData({ source: 'api', projectId: project.id, dias: 16 })
+  const dashReal = useDashboardData({ source: 'api', projectId: project.id, dias: 16, status: true })
   // Preview sem login (/dev/hub) injeta o dash pronto
   const dash = (import.meta.env.DEV && window.__DEV_HUB?.dash) || dashReal
   const sugestoesHub = useSugestoesHub(dash, hub)

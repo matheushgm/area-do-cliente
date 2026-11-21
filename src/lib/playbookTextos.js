@@ -117,6 +117,26 @@ const pt = {
       ev: { ativosConj: 'Anúncios ativos no conjunto' },
       passos: () => ['Puxar um criativo da gaveta ou briefar um novo, com gancho diferente deste', 'Subir o novo no mesmo conjunto', 'Quando o novo começar a entregar, pausar este e marcar _TESTADO'],
     },
+    conjRemanejar: {
+      titulo: ({ conj, dest }) => `Tirar 20% da verba do conjunto "${conj}" e passar pro "${dest}"`,
+      acao: ({ conj, dest, de, deNovo, valor, para, paraNovo }) => (de
+        ? `Baixar o orçamento diário do conjunto "${conj}" de ${de} para ${deNovo} e somar os ${valor} ao conjunto "${dest}"${para ? ` (de ${para} para ${paraNovo})` : ''}, o que mais performa na campanha.`
+        : `Baixar em 20% o orçamento diário do conjunto "${conj}" e somar o mesmo valor ao conjunto "${dest}", o que mais performa na campanha.`),
+      regra: 'conjunto ABO que gastou nos últimos 7 dias 2× a meta de custo sem trazer resultado dentro disso (custo por resultado ≥ 2× a meta, ou nenhum resultado) perde 20% da verba diária para o conjunto que mais performa na mesma campanha; vale pelo conjunto inteiro, mesmo que nenhum anúncio sozinho tenha chegado a 2× a meta; não vale em campanha com um conjunto só nem em CBO (sem meta que sirva de régua, o corte é 1,5× a média real da conta)',
+      contexto: ({ conj, camp, gasto, j, semConv, lbl, cpl, x, ref, n, dest, destRes, nota }) => `O conjunto "${conj}" da campanha "${camp}" gastou ${gasto} em ${j} ${semConv ? 'sem nenhuma conversão' : `com ${lbl} de ${cpl}, ${x}× ${ref}`}. A campanha tem ${n} conjuntos ativos e o que mais performa é o "${dest}", com ${destRes}.${nota || ''}`,
+      ref: { meta: 'a meta', media: 'a média da conta' },
+      ev: {
+        corte: 'Corte da regra (custo por resultado)', conjAtivos: 'Conjuntos ativos na campanha',
+        orcAtual: 'Orçamento diário do conjunto', orcNovo: 'Orçamento diário depois do corte',
+        destino: 'Conjunto que recebe', destinoRes: 'Resultado do conjunto que recebe', destinoOrc: 'Orçamento diário do conjunto que recebe',
+      },
+      passos: ({ conj, dest, valor }) => [
+        `Reduzir em 20% o orçamento diário do conjunto "${conj}"${valor ? ` (${valor} a menos)` : ''}`,
+        `Somar o mesmo valor ao orçamento diário do conjunto "${dest}" (aumento acima de 20% no dia precisa de aprovação)`,
+        'Não pausar os anúncios do conjunto por causa desta regra: anúncio por anúncio quem decide são as regras de desligar',
+        'Reavaliar em 3 dias; se o conjunto continuar acima do corte, tirar mais 20% ou desligar',
+      ],
+    },
     conjDesligar: {
       titulo: ({ conj, dest }) => `Desligar o conjunto "${conj}" e passar a verba pro conjunto "${dest}"`,
       acao: ({ nome, conj, dest }) => `Pausar o anúncio "${nome}" e o conjunto "${conj}", que só tem esse anúncio ativo, e levar a verba dele pro conjunto "${dest}", que está com resultado melhor na mesma campanha.`,
@@ -357,6 +377,26 @@ const en = {
       complemento: () => 'It is the only active ad in the ad set and the campaign has no other ad set with better results to take the budget.',
       ev: { ativosConj: 'Active ads in the ad set' },
       passos: () => ['Pick a creative from the backlog or brief a new one, with a different hook', 'Launch it in the same ad set', 'Once the new one starts delivering, pause this one and tag it _TESTADO'],
+    },
+    conjRemanejar: {
+      titulo: ({ conj, dest }) => `Move 20% of the budget from the ad set "${conj}" to "${dest}"`,
+      acao: ({ conj, dest, de, deNovo, valor, para, paraNovo }) => (de
+        ? `Lower the daily budget of the ad set "${conj}" from ${de} to ${deNovo} and add the ${valor} to the ad set "${dest}"${para ? ` (from ${para} to ${paraNovo})` : ''}, the best performer in the campaign.`
+        : `Lower the daily budget of the ad set "${conj}" by 20% and add the same amount to the ad set "${dest}", the best performer in the campaign.`),
+      regra: 'an ABO ad set that spent 2× the cost target in the last 7 days without results to match (cost per result ≥ 2× the target, or no results) loses 20% of its daily budget to the best-performing ad set in the same campaign; it looks at the whole ad set, even if no single ad reached 2× the target; it does not apply to campaigns with a single ad set or to CBO (with no usable target, the cut is 1.5× the real account average)',
+      contexto: ({ conj, camp, gasto, j, semConv, lbl, cpl, x, ref, n, dest, destRes, nota }) => `The ad set "${conj}" in the campaign "${camp}" spent ${gasto} in ${j} ${semConv ? 'with no conversions' : `at a ${lbl} of ${cpl}, ${x}× ${ref}`}. The campaign has ${n} active ad sets and the best performer is "${dest}", at ${destRes}.${nota || ''}`,
+      ref: { meta: 'the target', media: 'the account average' },
+      ev: {
+        corte: 'Rule cut-off (cost per result)', conjAtivos: 'Active ad sets in the campaign',
+        orcAtual: 'Ad set daily budget', orcNovo: 'Daily budget after the cut',
+        destino: 'Ad set that takes the budget', destinoRes: 'Result of the receiving ad set', destinoOrc: 'Daily budget of the receiving ad set',
+      },
+      passos: ({ conj, dest, valor }) => [
+        `Lower the daily budget of the ad set "${conj}" by 20%${valor ? ` (${valor} less)` : ''}`,
+        `Add the same amount to the daily budget of the ad set "${dest}" (raising it more than 20% in a day needs approval)`,
+        'Do not pause the ads in the ad set because of this rule: the pause rules decide ad by ad',
+        'Check again in 3 days; if the ad set is still above the cut-off, move another 20% or pause it',
+      ],
     },
     conjDesligar: {
       titulo: ({ conj, dest }) => `Pause the ad set "${conj}" and move its budget to "${dest}"`,

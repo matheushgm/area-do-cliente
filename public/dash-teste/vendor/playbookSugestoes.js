@@ -347,7 +347,26 @@ function sugestao(base) {
 }
 
 // ─── Meta Ads ────────────────────────────────────────────────────────────────
-function regrasMeta(rowsMeta, metas, conta) {
+// Orçamento de AGORA por ID de campanha/conjunto, do snapshot `meta_status`:
+// Map id → { orc: 'ABO' | 'CBO', orcDia, orcTotal }. Usado pela regra de remanejar
+// verba entre conjuntos (só ABO, e o valor em reais do corte de 20%).
+export function orcamentosDoStatus(rows = []) {
+  const m = new Map()
+  for (const r of rows || []) {
+    const nivel = r['Nível']
+    if ((nivel !== 'conjunto' && nivel !== 'campanha') || !r['ID']) continue
+    m.set(String(r['ID']), {
+      orc: r['Orçamento'] || '', orcDia: num(r['Orçamento diário']) || null, orcTotal: num(r['Orçamento total']) || null,
+    })
+  }
+  return m
+}
+function orcDe(orcamentos, id) {
+  if (!id || !orcamentos) return null
+  return (typeof orcamentos.get === 'function' ? orcamentos.get(String(id)) : orcamentos[id]) || null
+}
+
+function regrasMeta(rowsMeta, metas, conta, orcamentos = null) {
   const out = []
   const metaCpl = metaDe(metas, 'lead')
   if (!rowsMeta.length) return out
@@ -633,6 +652,98 @@ function regrasMeta(rowsMeta, metas, conta) {
     const d = it.dest.aConv
     const destRes = T.regras.conjDesligar.resConv({ lbl: T.metrica[it.metrica], cpl: fmtMoney(d.cpl), conv: fmtInt(d.conv) })
     out.push(cardDesligarConj(ehSemConv.has(it.orig) ? cardSemConv(it) : cardCplAlto(it), it, 'alta', destRes))
+  }
+
+  // ─── Remanejar verba entre conjuntos (pedido do Matheus, 21/11/2026) ──────────
+  // Conjunto ABO que nos 7 dias gastou 2× a meta de custo sem trazer resultado dentro
+  // disso (custo por resultado ≥ 2× a meta, ou zero resultado com gasto ≥ 2× a meta)
+  // perde 20% do orçamento diário, que vai pro conjunto que mais performa na mesma
+  // campanha. Olha o CONJUNTO inteiro: com vários anúncios dividindo o gasto, nenhum
+  // sozinho chega a 2× a meta e as regras de anúncio não disparam, mas o conjunto já
+  // passou. Régua = reguaDeCusto (meta da calculadora; média real se a meta não serve).
+  // Fora: campanha com 1 conjunto ativo, CBO (a verba é da campanha) e conjunto que
+  // a regra do último anúncio já mandou desligar.
+  const reTag = (tag) => new RegExp(`(^|[^a-z])${tag}([^a-z]|$)`, 'i')
+  const porConjConv = groupRows(atualConv, chaveConj)
+  const remanejar = []
+  for (const [c, o] of conjs) {
+    if (!o.ativo || desligados.has(c)) continue
+    const rs = porConjConv.get(c)
+    if (!rs) continue
+    const ult = maisNova(rs)
+    if (isPaused(ult['Status da Campanha'])) continue
+    const a = aggMeta(rs)
+    if (a.dias < 3) continue // nunca antes de 72h
+    const nAtivos = [...conjs.entries()].filter(([k, x]) => x.camp === o.camp && x.ativo && !desligados.has(k)).length
+    if (nAtivos < 2) continue
+    const metrica = metricaDe(rs, metas)
+    const rg = reguaDeCusto(metaDe(metas, metrica), mediaReal[metrica])
+    if (!rg) continue
+    const corte = rg.valor * rg.fator
+    if (!(a.spend >= corte && (a.conv === 0 || a.cpl >= corte))) continue
+    const camp = ult['Nome da campanha'] || ''
+    const adsetId = idDe(rs, 'adset_id'), campaignId = idDe(rs, 'campaign_id')
+    const orcConj = orcDe(orcamentos, adsetId)
+    // ABO/CBO: do snapshot de status (meta_status); sem ele, só pela marca no nome.
+    const tipoOrc = orcConj?.orc || orcDe(orcamentos, campaignId)?.orc
+      || (reTag('cbo').test(camp) ? 'CBO' : reTag('abo').test(camp) ? 'ABO' : null)
+    if (tipoOrc !== 'ABO') continue
+    const dest = melhorConj(c, (x) => (x.aConv.conv > 0 && x.aConv.cpl < corte && (a.conv === 0 || x.aConv.cpl < a.cpl) ? x.aConv.cpl : null))
+    if (!dest) continue
+    const destId = dest.c.startsWith('id' + SEP) ? dest.c.slice(3) : null
+    remanejar.push({ c, o, a, rs, metrica, rg, corte, camp, adsetId, campaignId, orcConj, dest, destId, nAtivos })
+  }
+  // Os mais caros primeiro (sem conversão conta como o pior); 5 no máximo, como as outras.
+  const peso = (it) => (it.a.conv === 0 ? Infinity : it.a.cpl / it.rg.valor)
+  remanejar.sort((x, y) => peso(y) - peso(x) || y.a.spend - x.a.spend)
+  for (const { o, a, metrica, rg, corte, camp, adsetId, campaignId, orcConj, dest, destId, nAtivos } of remanejar.slice(0, 5)) {
+    const R = T.regras.conjRemanejar
+    const lbl = T.metrica[metrica]
+    const conj = o.nome, destNome = dest.x.nome
+    const diaAtual = orcConj?.orcDia || null
+    const valor = diaAtual ? Math.round(diaAtual * 0.2 * 100) / 100 : null
+    const diaDest = orcDe(orcamentos, destId)?.orcDia || null
+    const d = dest.x.aConv
+    const destRes = T.regras.conjDesligar.resConv({ lbl, cpl: fmtMoney(d.cpl), conv: fmtInt(d.conv) })
+    const semConv = a.conv === 0
+    out.push(sugestao({
+      chave: `meta:conj_remanejar:${adsetId || `${camp}::${conj}`}`, canal, prioridade: 'alta', entidade: conj,
+      titulo: `${pref}${R.titulo({ conj, dest: destNome })}`,
+      acao: R.acao({
+        conj, dest: destNome,
+        de: diaAtual ? fmtMoney(diaAtual) : null, deNovo: diaAtual ? fmtMoney(diaAtual - valor) : null,
+        valor: valor ? fmtMoney(valor) : null,
+        para: diaDest ? fmtMoney(diaDest) : null, paraNovo: diaDest && valor ? fmtMoney(diaDest + valor) : null,
+      }),
+      caminho: contaCam({ campanha: camp, conjunto: conj, campaignId, adsetId }),
+      regra: R.regra,
+      contexto: R.contexto({
+        conj, camp, gasto: fmtMoney(a.spend), j: janelaTxt, semConv, lbl,
+        cpl: semConv ? null : fmtMoney(a.cpl), x: semConv ? null : fmtDec(a.cpl / rg.valor, 1),
+        ref: R.ref[rg.fonte], n: nAtivos, dest: destNome, destRes, nota: notaRegua(rg, lbl),
+      }),
+      evidencias: [
+        { label: T.ev.janela, valor: janelaTxt },
+        { label: T.ev.gasto, valor: fmtMoney(a.spend) },
+        { label: T.ev.conversoes, valor: fmtInt(a.conv) },
+        ...(semConv ? [] : [{ label: lbl.charAt(0).toUpperCase() + lbl.slice(1), valor: fmtMoney(a.cpl) }]),
+        { label: R.ev.corte, valor: fmtMoney(corte) },
+        ...evidMedia(rg, lbl),
+        { label: R.ev.conjAtivos, valor: String(nAtivos) },
+        ...(diaAtual ? [{ label: R.ev.orcAtual, valor: fmtMoney(diaAtual) }, { label: R.ev.orcNovo, valor: fmtMoney(diaAtual - valor) }] : []),
+        { label: R.ev.destino, valor: destNome },
+        { label: R.ev.destinoRes, valor: destRes },
+        ...(diaDest ? [{ label: R.ev.destinoOrc, valor: fmtMoney(diaDest) }] : []),
+      ],
+      passos: R.passos({ conj, dest: destNome, valor: valor ? fmtMoney(valor) : null }),
+      // Pra quem for executar (pessoa ou robô): de onde sai, pra onde vai e quanto.
+      remanejar: {
+        de: { adsetId, nome: conj, orcDia: diaAtual, novo: diaAtual ? diaAtual - valor : null },
+        para: { adsetId: destId, nome: destNome, orcDia: diaDest, novo: diaDest && valor ? diaDest + valor : null },
+        valor, pct: 20,
+      },
+      tipo: 'Otimização', horas: 0.5,
+    }))
   }
 
   // Por campanha
@@ -989,11 +1100,13 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
  * @param {number|null} p.metaCpl  meta de CPL da conta (R$), legado: usado quando não vem `metas`
  * @param {object} [p.metas]     { cpl, cac, mql, formularioMql } (ver metasDaConta)
  * @param {string} [p.conta]     nome da conta (prefixo do título quando há várias)
+ * @param {Map|object} [p.orcamentos]  orçamento de agora por ID de campanha/conjunto
+ *                               (orcamentosDoStatus); sem ele, ABO/CBO sai do nome
  */
-export function gerarSugestoes({ meta = [], google = [], metaCpl = null, metas = null, conta = null }) {
+export function gerarSugestoes({ meta = [], google = [], metaCpl = null, metas = null, conta = null, orcamentos = null }) {
   usarIdioma()
   const m = metas || { cpl: metaCpl }
-  const todas = [...regrasMeta(meta, m, conta), ...regrasGoogle(google, metaDe(m, 'lead'), conta)]
+  const todas = [...regrasMeta(meta, m, conta, orcamentos), ...regrasGoogle(google, metaDe(m, 'lead'), conta)]
   return todas.sort((a, b) => PRIORIDADE_ORDEM[a.prioridade] - PRIORIDADE_ORDEM[b.prioridade])
 }
 
@@ -1012,8 +1125,10 @@ export function contaForaDaAnalise(nome) {
  * @param {Array} p.meta
  * @param {Array} p.google
  * @param {object} p.accounts   mapa nome da conta → { cplTarget: {value}, cacTarget, mqlTarget, metricaFormulario }
+ * @param {Array} [p.metaStatus] linhas do snapshot `meta_status` (orçamento ABO/CBO de agora)
  */
-export function gerarSugestoesProjeto({ meta = [], google = [], accounts = {} }) {
+export function gerarSugestoesProjeto({ meta = [], google = [], accounts = {}, metaStatus = null }) {
+  const orcamentos = metaStatus ? orcamentosDoStatus(metaStatus) : null
   const contas = new Set([...meta.map((r) => r['Nome da conta']), ...google.map((r) => r['Nome da conta'])].filter(Boolean))
   const varias = contas.size > 1
   const out = []
@@ -1023,7 +1138,7 @@ export function gerarSugestoesProjeto({ meta = [], google = [], accounts = {} })
       meta: meta.filter((r) => r['Nome da conta'] === conta),
       google: google.filter((r) => r['Nome da conta'] === conta),
       metas: metasDaConta(accounts[conta]),
-      conta, varias,
+      conta, varias, orcamentos,
     }))
   }
   return out.sort((a, b) => PRIORIDADE_ORDEM[a.prioridade] - PRIORIDADE_ORDEM[b.prioridade])
@@ -1037,12 +1152,12 @@ export function gerarSugestoesProjeto({ meta = [], google = [], accounts = {} })
  * `varias` como a Central de Otimizações calcularia, senão a mesma sugestão
  * apareceria pendente num lugar e decidida no outro.
  */
-export function gerarSugestoesConta({ meta = [], google = [], metaCpl = null, metas = null, conta, varias = false }) {
+export function gerarSugestoesConta({ meta = [], google = [], metaCpl = null, metas = null, conta, varias = false, orcamentos = null }) {
   if (contaForaDaAnalise(conta)) return []
   return gerarSugestoes({
     meta, google,
     metas: metas || { cpl: metaCpl },
-    conta: varias ? conta : null,
+    conta: varias ? conta : null, orcamentos,
   }).map((s) => ({ ...s, conta, chave: varias ? `${conta}|${s.chave}` : s.chave }))
 }
 
