@@ -52,6 +52,8 @@ export default {
   niveis: { none: 'Sem acesso', view: 'Visualizar', edit: 'Editar' },
   // Por id de PORTAL_MODULES (src/lib/portalModules.js)
   modulos: {
+    dashboard: 'Dashboard de tráfego',
+    solicitacoes: 'Solicitações',
     dados: 'Dados do Cliente',
     kickoff: 'Kickoff',
     produtos: 'Produto / Serviço',
@@ -73,5 +75,5 @@ export default {
     aprovacao: 'Aprovação de anúncios e LPs',
     criativos: 'Criação de anúncios (IA)',
   },
-  edicao: { aprovacao: 'Aprovar', criativos: 'Usar' },
+  edicao: { aprovacao: 'Aprovar', criativos: 'Usar', debriefing: 'Aprovar', solicitacoes: 'Pedir' },
 }

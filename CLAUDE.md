@@ -371,7 +371,7 @@ estático segue com o wizard e o `claude-sonnet-4-5`. A ferramenta pública do c
 
 ### Portal do cliente / parceiro (`/portal/:projectId`)
 
-Acesso somente leitura a módulos escolhidos de UM projeto, sem Supabase Auth: um link por
+Acesso a módulos escolhidos de UM projeto, sem Supabase Auth: um link por
 cliente e **chaves de acesso** com senha própria (uma por público: "Parceiro X", "Cliente"…),
 gerenciadas no módulo **Compartilhamento** do `ClientProfile`
 (`src/components/CompartilhamentoModule.jsx`). Cada chave tem rótulo, senha, validade opcional,
@@ -410,6 +410,49 @@ mas o portal ainda só renderiza leitura, o botão fica desabilitado "em breve")
   cada módulo aceita (sem `levels` = só `view`).
 - Os links públicos por `client_share_token` e o login por e-mail de `criativos_users`
   continuam existindo; o portal só centraliza.
+- **Portal como lugar único do cliente (2026-11-22, branch `portal-cliente`).** Três módulos novos
+  no topo do menu (`DIA_A_DIA` em `Portal.jsx`), mais o **Início** (`PortalInicio`), que aparece
+  quando um deles está liberado e resume aprovações pendentes, o mês das campanhas e as
+  solicitações em andamento. A aba aberta vai na URL (`?aba=`). O menu separa "Sua estratégia".
+  - **Dashboard de tráfego** (`dashboard`, só `view`; não é seção do ClientProfile): o loader
+    `carregarDashboard` em `api/portal.js` lê as contas de `dashboard_accounts.project_id` (sem as
+    ocultas), soma o `dash_daily` do mês até hoje e o mesmo trecho do mês passado, e gera para cada
+    conta um **token de 24 h** (`tokenDashPortal` em `api/_dash_token.js`). `PortalDashboard` mostra o
+    resumo (investimento, conversões, custo por conversão, cliques, barras por dia) e embute o viewer
+    em modo compartilhado (`/dash-teste/viewer.html?shared=1&t=<token>`). `dash-public` e
+    `ad-preview-public` aceitam o token permanente do botão 🔗 Link e o do portal (`tokenDashValido`):
+    desativar a chave ou tirar o módulo corta o acesso em até um dia. O segredo dos dois é
+    `SUPABASE_SERVICE_ROLE_KEY`, não o `serviceKey()`.
+  - **Central de anúncios** (`debriefing`, agora `none | view | edit`, "Aprovar"): `PortalCentral` junta
+    as copies das levas (`api/copy-aprovacao.js`, que passou a aceitar a sessão do portal com
+    `?projectId` no GET e `{ projectId, levaId, itemId }` no POST) e as peças e LPs enviadas para
+    aprovação (`api/anuncios-aprovacao.js`, que agora devolve também a `copy` do anúncio, já sem o
+    cabeçalho do time). Normalização pura em `src/lib/portalCentral.js`: abas **Roteiros** (copies;
+    "Roteiro de vídeo" se tem o rótulo GANCHO, senão "Texto de arte"), **Imagens** e **Vídeos** (pelo
+    `mediaKind` do arquivo; sem arquivo, pelo `tipo`, porque o padrão do cadastro é vídeo) e
+    **Landing pages** só quando houver. Cada aba mostra quantos esperam e quantos foram aprovados;
+    filtro de mês: pendente aparece em qualquer mês, aprovado e ajuste contam no mês da decisão. O
+    detalhe abre em tela cheia com Aprovar, Editar o texto e aprovar (só copy) e Pedir ajuste, atalhos
+    A / ← → / Esc, e passa sozinho ao próximo pendente. Quem decide: `centralNivel(permissions)` em
+    `portalModules.js` (`debriefing: 'edit'` ou a chave antiga `aprovacao: 'edit'`); com a Central
+    liberada o módulo `aprovacao` some do menu. O loader `debriefing` saiu do `api/portal.js` (mandava
+    o JSONB inteiro da Central, com campos internos).
+  - **Solicitações** (`solicitacoes`, `view` acompanha, `edit` também pede): o formulário do
+    `/pedido/:token` virou `PedidoFormulario` (exportado de `src/pages/PedidoPublico.jsx`, `portal` +
+    `embedded`), e `api/intake-publico.js` aceita a sessão do portal (`?projectId` / `{ projectId }`),
+    lista os pedidos do cliente com o andamento (`pedidosDoProjeto`: recebido → em produção →
+    concluído, ou recusado, pela tarefa ligada e suas subtarefas) e grava com origem `Portal do
+    cliente`. **Upload** só pelo portal: campo `arquivos` em `pedidoTipos.js` (`campoArquivos`,
+    `temArquivos`), URL assinada de upload (`acao: 'upload'`, 50 MB) para
+    `attachments/<projectId>/pedidos/<aaaa-mm>/…`, componente `src/components/Pedido/CampoArquivos.jsx`;
+    no link aberto o campo some e o Drive continua obrigatório. Tipo novo **Subir criativos prontos**.
+    O Intake mostra os arquivos com URL assinada na hora (`ArquivoPedido` em `IntakeView`).
+  - Testado em 22/11/2026 no `vercel dev` com chaves de teste na TudoMed (só leitura) e no projeto
+    Revenue Lab (aprovar, pedir ajuste, atalho A, upload, pedido pela tela, 403 para chave sem
+    `edit`); tudo apagado depois.
+- **`copyParaCliente` sem diferenciar maiúscula (2026-11-22):** os roteiros de 17/11 trazem
+  "**Gancho:**" e o cabeçalho do time (Quem, Quando, tabela) aparecia para o cliente, também no link
+  `/aprovacao-copy/:token`.
 
 ### Pendências (Phase 5)
 

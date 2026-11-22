@@ -3,17 +3,20 @@
 // Tipos e campos em src/lib/pedidoTipos.js (os mesmos que o servidor valida). Link do Drive
 // é conferido na hora pelo servidor (aberto para "qualquer pessoa com o link"?).
 // Cai na fila de Intake do VertaTask. Usa o client_share_token do projeto.
+// O formulário (`PedidoFormulario`) também roda dentro do portal do cliente, no módulo
+// Solicitações: lá a sessão do portal autentica e o cliente pode subir arquivos.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   Loader2, CheckCircle2, AlertCircle, AlertTriangle, Send, ArrowLeft, ArrowRight, Check, Info, Lock, RefreshCw, Pencil, Clock,
-  Image, Clapperboard, LayoutTemplate, Megaphone, Wallet, MessageCircle, PenLine,
+  Image, Clapperboard, LayoutTemplate, Megaphone, Wallet, MessageCircle, PenLine, UploadCloud,
 } from 'lucide-react'
+import CampoArquivos from '../components/Pedido/CampoArquivos'
 import {
   TIPOS_PEDIDO, TIPOS_PEDIDO_MAP, GRUPOS_PEDIDO, CAMPOS_FINAIS, camposVisiveis, validarPedido, montarPedido, lerLinkDrive, valorDe, telefoneTexto,
 } from '../lib/pedidoTipos'
 
-const ICONES = { criativo_estatico: Image, criativo_video: Clapperboard, landing_page: LayoutTemplate, nova_campanha: Megaphone, orcamento: Wallet, whatsapp: MessageCircle, outras: PenLine }
+const ICONES = { subir_criativos: UploadCloud, criativo_estatico: Image, criativo_video: Clapperboard, landing_page: LayoutTemplate, nova_campanha: Megaphone, orcamento: Wallet, whatsapp: MessageCircle, outras: PenLine }
 const ETAPAS = ['Tipo', 'Detalhes', 'Revisão']
 
 const lerLS = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null') } catch { return null } }
@@ -83,7 +86,7 @@ function StatusDrive({ st, onConferir }) {
   )
 }
 
-function Campo({ campo, r, set, erro, driveSt, conferirDrive }) {
+function Campo({ campo, r, set, erro, driveSt, conferirDrive, enviarArquivo }) {
   const label = valorDe(campo.label, r)
   const ajuda = valorDe(campo.ajuda, r)
   const placeholder = valorDe(campo.placeholder, r)
@@ -91,6 +94,18 @@ function Campo({ campo, r, set, erro, driveSt, conferirDrive }) {
   const v = r[campo.k]
   const id = `f-${campo.k}`
 
+  // Upload só existe no portal; no link aberto o campo some (o Drive segue obrigatório).
+  if (campo.tipo === 'arquivos') {
+    if (!enviarArquivo) return null
+    return (
+      <div className="flex flex-col gap-1.5" data-campo={campo.k}>
+        <p className="text-[13px] font-semibold text-[#3D4254]">{label}</p>
+        <CampoArquivos valor={v || []} onChange={(lista) => set(campo.k, lista)} enviarArquivo={enviarArquivo} />
+        {ajuda && <p className="text-xs text-[#767C8E]">{ajuda}</p>}
+        {erro && <p className="text-xs font-semibold text-[#E2564B]">{erro}</p>}
+      </div>
+    )
+  }
   if (campo.tipo === 'aviso') {
     return <div className="rounded-lg bg-[#2A25F0]/[0.06] border border-[#2A25F0]/15 px-3.5 py-3 text-[13px] text-[#3D4254] flex gap-2.5"><Info className="w-4 h-4 text-[#2A25F0] shrink-0 mt-0.5" /><p>{label}</p></div>
   }
@@ -170,11 +185,42 @@ function Campo({ campo, r, set, erro, driveSt, conferirDrive }) {
 
 export default function PedidoPublico() {
   const { token } = useParams()
-  const chaveRascunho = `pedido.rascunho.${token}`
-  const [info, setInfo] = useState(null) // { empresa, prazos }
+  return <PedidoFormulario token={token} />
+}
+
+// `token` = link público; `portal` = { projectId, token } da sessão do portal (upload liberado).
+// `embedded` tira a moldura da página; `onEnviado(titulo)` e `onVoltar` são do portal.
+export function PedidoFormulario({ token, portal, embedded = false, onEnviado, onVoltar, tipoInicial = null, infoInicial = null }) {
+  const chaveRascunho = portal ? `pedido.rascunho.portal.${portal.projectId}` : `pedido.rascunho.${token}`
+  // Mesma API nos dois casos; muda só como se identifica.
+  const ident = portal ? `projectId=${encodeURIComponent(portal.projectId)}` : `token=${encodeURIComponent(token)}`
+  const sessao = portal?.token || null
+  const projetoPortal = portal?.projectId || null
+  const headers = useMemo(() => (sessao ? { authorization: `Bearer ${sessao}` } : {}), [sessao])
+  const corpoIdent = portal ? { projectId: portal.projectId } : { token }
+  const enviarArquivo = useMemo(() => (sessao ? async (file) => {
+    const res = await fetch('/api/intake-publico', {
+      method: 'POST', headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify({ projectId: projetoPortal, acao: 'upload', nome: file.name, tamanho: file.size, mime: file.type }),
+    })
+    const j = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(j.error || 'Não consegui preparar o envio.')
+    return j // { path, url }
+  } : null), [sessao, headers, projetoPortal])
+  const [info, setInfo] = useState(infoInicial) // { empresa, prazos }
   const [erroLink, setErroLink] = useState(null)
   // rascunho deste link: sai da página e volta sem perder o que escreveu
-  const [rascunho] = useState(() => { const x = lerLS(chaveRascunho); return x?.tipo && TIPOS_PEDIDO_MAP[x.tipo] ? x : null })
+  const [rascunho] = useState(() => {
+    if (tipoInicial && TIPOS_PEDIDO_MAP[tipoInicial]) {
+      const salvo = lerLS('pedido.contato') || {}
+      return { tipo: tipoInicial, etapa: 1, respostas: { nome: salvo.nome || '', contato: salvo.contato || '' } }
+    }
+    const x = lerLS(chaveRascunho)
+    if (!x?.tipo || !TIPOS_PEDIDO_MAP[x.tipo]) return null
+    // upload que estava no meio quando a página fechou não volta
+    if (Array.isArray(x.respostas?.arquivos)) x.respostas.arquivos = x.respostas.arquivos.filter((a) => a?.path && !a.subindo)
+    return x
+  })
   const [etapa, setEtapa] = useState(rascunho ? Math.min(rascunho.etapa || 0, 1) : 0)
   const [tipoId, setTipoId] = useState(rascunho?.tipo || null)
   const [r, setR] = useState(rascunho?.respostas || {})
@@ -186,20 +232,22 @@ export default function PedidoPublico() {
   const topo = useRef(null)
   const tipo = tipoId ? TIPOS_PEDIDO_MAP[tipoId] : null
 
+  const temInfo = !!infoInicial
   useEffect(() => {
+    if (temInfo) return undefined // o portal já trouxe empresa e prazos
     let vivo = true
-    fetch(`/api/intake-publico?token=${encodeURIComponent(token)}`)
+    fetch(`/api/intake-publico?${ident}`, { headers })
       .then(async (res) => { const j = await res.json().catch(() => ({})); if (!vivo) return; if (!res.ok) setErroLink(j.error || 'Link inválido.'); else setInfo({ empresa: j.empresa || '', prazos: j.prazos || {} }) })
       .catch(() => vivo && setErroLink('Não consegui abrir esta página.'))
     return () => { vivo = false }
-  }, [token])
+  }, [ident, headers, temInfo])
 
   useEffect(() => {
     if (enviado) return
     gravarLS(chaveRascunho, tipoId ? { tipo: tipoId, respostas: r, etapa } : null)
   }, [chaveRascunho, tipoId, r, etapa, enviado])
 
-  useEffect(() => { topo.current?.scrollIntoView({ block: 'start' }) }, [etapa, enviado])
+  useEffect(() => { topo.current?.scrollIntoView({ block: 'start', behavior: embedded ? 'smooth' : 'auto' }) }, [etapa, enviado, embedded])
 
   const set = useCallback((k, v) => {
     setR((x) => ({ ...x, [k]: v }))
@@ -212,7 +260,7 @@ export default function PedidoPublico() {
   const conferirDrive = useCallback((k, url, forcar = false) => {
     if (!lerLinkDrive(url)) return Promise.resolve(null)
     if (forcar || !cacheDrive.current[url]) {
-      cacheDrive.current[url] = fetch(`/api/intake-publico?token=${encodeURIComponent(token)}&drive=${encodeURIComponent(url)}`)
+      cacheDrive.current[url] = fetch(`/api/intake-publico?${ident}&drive=${encodeURIComponent(url)}`, { headers })
         .then(async (res) => {
           const j = await res.json().catch(() => ({}))
           if (!res.ok) return { estado: 'incerto' }
@@ -229,7 +277,7 @@ export default function PedidoPublico() {
       if (st.estado === 'ok' || st.estado === 'incerto') setErros((e) => (e[k] ? { ...e, [k]: undefined } : e))
       return st
     })
-  }, [token])
+  }, [ident, headers])
 
   // confere sozinho pouco depois de colar o link
   const camposDrive = useMemo(() => (tipo ? camposVisiveis(tipo, r).filter((c) => c.tipo === 'drive') : []), [tipo, r])
@@ -258,7 +306,7 @@ export default function PedidoPublico() {
     const res = await Promise.all(pend.map((c) => conferirDrive(c.k, r[c.k]).then((st) => [c.k, st])))
     const dv = { ...driveParaValidar }
     for (const [k, st] of res) if (st) dv[k] = { publico: st.estado === 'ok' ? true : st.estado === 'incerto' ? null : false, existe: st.estado !== 'inexistente' }
-    const e = validarPedido(tipo, r, { drive: dv })
+    const e = validarPedido(tipo, r, { drive: dv, comUpload: !!portal })
     setErros(e)
     const primeiro = [...camposVisiveis(tipo, r)].find((c) => e[c.k]) || (e.fim && { k: 'fim' }) || (e.contato && { k: 'contato' })
     if (primeiro) { document.querySelector(`[data-campo="${primeiro.k}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return }
@@ -268,12 +316,13 @@ export default function PedidoPublico() {
   async function enviar() {
     setEnviando(true); setErroEnvio(null)
     try {
-      const res = await fetch('/api/intake-publico', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, tipo: tipoId, respostas: r }) })
+      const res = await fetch('/api/intake-publico', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify({ ...corpoIdent, tipo: tipoId, respostas: r }) })
       const j = await res.json().catch(() => ({}))
       if (res.ok) {
         gravarLS('pedido.contato', { nome: r.nome, contato: r.contato })
         gravarLS(chaveRascunho, null)
         setEnviado({ titulo: j.titulo || '' })
+        onEnviado?.(j.titulo || '')
       } else if (j.erros) {
         setErros(j.erros); setEtapa(1)
         if (Object.keys(j.erros).some((k) => camposDrive.some((c) => c.k === k))) camposDrive.forEach((c) => conferirDrive(c.k, r[c.k], true))
@@ -286,21 +335,28 @@ export default function PedidoPublico() {
     setEnviado(null); setTipoId(null); setR({}); setErros({}); setDrive({}); setEtapa(0)
   }
 
-  const resumo = useMemo(() => (tipo && etapa === 2 ? montarPedido(tipo, r, { drive: driveParaValidar }) : null), [tipo, r, etapa, driveParaValidar])
+  const resumo = useMemo(() => (tipo && etapa === 2 ? montarPedido(tipo, r, { drive: driveParaValidar, via: portal ? 'portal' : 'link' }) : null), [tipo, r, etapa, driveParaValidar, portal])
+  const subindo = Array.isArray(r.arquivos) && r.arquivos.some((a) => a?.subindo)
   const prazoDias = tipo && info?.prazos?.[tipo.id]
   const camposTipo = tipo ? camposVisiveis(tipo, r, { finais: false }) : []
   const camposFinais = tipo ? CAMPOS_FINAIS.filter((c) => !c.quando || c.quando(r)) : []
   const Icone = tipo ? ICONES[tipo.id] : null
 
   return (
-    <div className="min-h-screen bg-[#F8F9FC] text-[#0B0B14]" style={{ fontFamily: "'Manrope', system-ui, sans-serif", colorScheme: 'light' }}>
-      <div ref={topo} className="mx-auto w-full max-w-2xl px-4 py-6 sm:py-10">
+    <div className={embedded ? 'rounded-2xl bg-[#F8F9FC] text-[#0B0B14] border border-[#E4E7F0]' : 'min-h-screen bg-[#F8F9FC] text-[#0B0B14]'} style={{ fontFamily: "'Manrope', system-ui, sans-serif", colorScheme: 'light' }}>
+      <div ref={topo} className={embedded ? 'mx-auto w-full max-w-2xl px-4 sm:px-6 py-5 sm:py-7 scroll-mt-20' : 'mx-auto w-full max-w-2xl px-4 py-6 sm:py-10'}>
         <header className="flex items-center gap-2.5 mb-6">
-          <img src="/vertatask-simbolo.png" alt="" className="w-7 h-7" />
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2A25F0]">Pedidos para a Verta</p>
-            {info?.empresa && <p className="text-sm text-[#5A6072] truncate">{info.empresa}</p>}
-          </div>
+          {embedded ? (
+            onVoltar && <button type="button" onClick={onVoltar} className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#5A6072] hover:text-[#0B0B14]"><ArrowLeft className="w-4 h-4" /> Minhas solicitações</button>
+          ) : (
+            <>
+              <img src="/vertatask-simbolo.png" alt="" className="w-7 h-7" />
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2A25F0]">Pedidos para a Verta</p>
+                {info?.empresa && <p className="text-sm text-[#5A6072] truncate">{info.empresa}</p>}
+              </div>
+            </>
+          )}
           {info && !enviado && (
             <ol className="ml-auto hidden sm:flex items-center gap-1.5 text-xs" aria-label="Etapas">
               {ETAPAS.map((nome, i) => (
@@ -321,14 +377,17 @@ export default function PedidoPublico() {
         ) : enviado ? (
           <div className="bg-white border border-[#E4E7F0] rounded-2xl p-8 text-center shadow-sm">
             <CheckCircle2 className="w-11 h-11 mx-auto text-[#1F8A5B] mb-3" />
-            <h1 className="text-xl font-bold" style={{ fontFamily: "'Sora', sans-serif" }}>Pedido enviado</h1>
+            <h1 className="text-xl font-bold !text-[#0B0B14]" style={{ fontFamily: "'Sora', sans-serif" }}>Pedido enviado</h1>
             {enviado.titulo && <p className="mt-2 text-sm font-semibold text-[#3D4254]">{enviado.titulo}</p>}
-            <p className="mt-2 text-sm text-[#5A6072] max-w-md mx-auto">O time da Verta recebeu e já tem tudo o que precisa para começar. Se faltar algum detalhe, a gente fala com você em {/@/.test(r.contato || '') ? r.contato : telefoneTexto(r.contato)}.</p>
-            <button type="button" onClick={novoPedido} className="mt-6 h-11 px-5 rounded-lg border border-[#E4E7F0] bg-white text-sm font-semibold text-[#2A25F0] hover:border-[#B9BCF7]">Fazer outro pedido</button>
+            <p className="mt-2 text-sm text-[#5A6072] max-w-md mx-auto">O time da Verta recebeu e já tem tudo o que precisa para começar. Se faltar algum detalhe, a gente fala com você em {/@/.test(r.contato || '') ? r.contato : telefoneTexto(r.contato)}.{portal ? ' Você acompanha cada etapa aqui no portal.' : ''}</p>
+            <div className="mt-6 flex flex-wrap justify-center gap-2.5">
+              {onVoltar && <button type="button" onClick={onVoltar} className="h-11 px-5 rounded-lg bg-[#2A25F0] hover:bg-[#1800DB] text-sm font-semibold text-white">Acompanhar minhas solicitações</button>}
+              <button type="button" onClick={novoPedido} className="h-11 px-5 rounded-lg border border-[#E4E7F0] bg-white text-sm font-semibold text-[#2A25F0] hover:border-[#B9BCF7]">Fazer outro pedido</button>
+            </div>
           </div>
         ) : etapa === 0 || !tipo ? (
           <>
-            <h1 className="text-2xl font-bold leading-tight" style={{ fontFamily: "'Sora', sans-serif" }}>O que você precisa{info.empresa ? `, ${info.empresa}` : ''}?</h1>
+            <h1 className="text-2xl font-bold leading-tight !text-[#0B0B14]" style={{ fontFamily: "'Sora', sans-serif" }}>O que você precisa{info.empresa ? `, ${info.empresa}` : ''}?</h1>
             <p className="text-sm text-[#5A6072] mt-1.5 mb-6">Escolha o tipo de pedido. Cada um pergunta só o que o time precisa para começar sem voltar com dúvida.</p>
             {GRUPOS_PEDIDO.map((g) => (
               <section key={g.id} className="mb-6">
@@ -356,29 +415,30 @@ export default function PedidoPublico() {
             <button type="button" onClick={() => setEtapa(0)} className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#5A6072] hover:text-[#0B0B14] mb-3"><ArrowLeft className="w-4 h-4" /> Trocar o tipo</button>
             <div className="flex items-center gap-3 mb-1">
               <span className="w-10 h-10 shrink-0 rounded-lg bg-[#2A25F0] text-white inline-flex items-center justify-center"><Icone className="w-5 h-5" /></span>
-              <h1 className="text-2xl font-bold leading-tight" style={{ fontFamily: "'Sora', sans-serif" }}>{tipo.nome}</h1>
+              <h1 className="text-2xl font-bold leading-tight !text-[#0B0B14]" style={{ fontFamily: "'Sora', sans-serif" }}>{tipo.nome}</h1>
             </div>
             <p className="text-sm text-[#5A6072] mb-5">{tipo.resumo}.</p>
             {prazoDias && tipo.prazoMsg?.(prazoDias, r) && <p className="mb-4 rounded-lg bg-white border border-[#E4E7F0] px-3.5 py-2.5 text-[13px] text-[#3D4254] flex gap-2"><Clock className="w-4 h-4 text-[#2A25F0] shrink-0 mt-0.5" />{tipo.prazoMsg(prazoDias, r)}</p>}
 
             <div className="bg-white border border-[#E4E7F0] rounded-2xl p-5 sm:p-6 flex flex-col gap-5">
-              {camposTipo.map((c) => <Campo key={c.k} campo={c} r={r} set={set} erro={erros[c.k]} driveSt={drive[c.k]?.url === r[c.k] ? drive[c.k] : null} conferirDrive={conferirDrive} />)}
+              {camposTipo.map((c) => <Campo key={c.k} campo={c} r={r} set={set} erro={erros[c.k]} driveSt={drive[c.k]?.url === r[c.k] ? drive[c.k] : null} conferirDrive={conferirDrive} enviarArquivo={enviarArquivo} />)}
             </div>
 
-            <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#767C8E] mt-7 mb-2">Prazo e contato</h2>
+            <h2 className="text-[11px] font-bold uppercase !text-[#767C8E] tracking-[0.12em] text-[#767C8E] mt-7 mb-2">Prazo e contato</h2>
             <div className="bg-white border border-[#E4E7F0] rounded-2xl p-5 sm:p-6 flex flex-col gap-5">
               {camposFinais.map((c) => <Campo key={c.k} campo={c} r={r} set={set} erro={erros[c.k]} driveSt={null} conferirDrive={conferirDrive} />)}
             </div>
 
             {Object.values(erros).some(Boolean) && <p className="mt-4 text-sm font-semibold text-[#E2564B]">Faltou alguma coisa. Os campos em vermelho mostram o quê.</p>}
-            <button type="button" onClick={revisar} disabled={Object.values(drive).some((d) => d.estado === 'conferindo')} className="mt-5 w-full h-12 rounded-lg bg-[#2A25F0] hover:bg-[#1800DB] text-white font-semibold text-[15px] inline-flex items-center justify-center gap-2 disabled:opacity-60">
+            {subindo && <p className="mt-4 text-sm text-[#5A6072] inline-flex items-center gap-1.5"><Loader2 className="w-4 h-4 animate-spin" /> Esperando os arquivos terminarem de subir…</p>}
+            <button type="button" onClick={revisar} disabled={subindo || Object.values(drive).some((d) => d.estado === 'conferindo')} className="mt-5 w-full h-12 rounded-lg bg-[#2A25F0] hover:bg-[#1800DB] text-white font-semibold text-[15px] inline-flex items-center justify-center gap-2 disabled:opacity-60">
               {Object.values(drive).some((d) => d.estado === 'conferindo') ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Revisar pedido <ArrowRight className="w-4 h-4" />
             </button>
           </>
         ) : (
           <>
             <button type="button" onClick={() => setEtapa(1)} className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#5A6072] hover:text-[#0B0B14] mb-3"><ArrowLeft className="w-4 h-4" /> Voltar e editar</button>
-            <h1 className="text-2xl font-bold leading-tight" style={{ fontFamily: "'Sora', sans-serif" }}>Confere se está tudo certo</h1>
+            <h1 className="text-2xl font-bold leading-tight !text-[#0B0B14]" style={{ fontFamily: "'Sora', sans-serif" }}>Confere se está tudo certo</h1>
             <p className="text-sm text-[#5A6072] mt-1.5 mb-5">É isso que o time vai receber.</p>
             <div className="bg-white border border-[#E4E7F0] rounded-2xl overflow-hidden">
               <div className="px-5 sm:px-6 py-4 border-b border-[#EEF0F5] flex items-center gap-3">

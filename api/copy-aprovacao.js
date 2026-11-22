@@ -1,5 +1,7 @@
 import { NO_STORE, jsonCors, preflight, sb, getUser } from './_http.js'
 import { registrarIntake } from './_intake.js'
+import { hasPortalBearer, readPortalSession } from './_portal_auth.js'
+import { centralNivel } from '../src/lib/portalModules.js'
 import { copyParaCliente, juntarCopy, separarCopy } from '../src/lib/copyParaCliente.js'
 // Edge Function pública — APROVAÇÃO DE COPY (leva de Criativos com IA).
 //
@@ -30,6 +32,11 @@ import { copyParaCliente, juntarCopy, separarCopy } from '../src/lib/copyParaCli
 // foi aprovado na revisão (`item.revisao.status === 'aprovado'`).
 //   GET  ?token=UUID&etapa=interna (Bearer) → a leva inteira com a revisão
 //   POST { token, itemId, decision, motivo, sugestao, conteudo, etapa: 'interna' } (Bearer)
+//
+// PORTAL DO CLIENTE (/portal/:projectId, Central de anúncios): header Authorization com o
+// token do portal em vez do token da leva. Vê o que o link de cada leva mostraria.
+//   GET  ?projectId=UUID (Bearer do portal) → { companyName, levas: [...] } de todas as levas
+//   POST { projectId, levaId, itemId, decision, ... } (Bearer do portal, nível `edit`)
 export const config = { runtime: 'edge' }
 
 const SUPABASE_URL = process.env.SUPABASE_URL
@@ -118,6 +125,20 @@ function sanitizeLeva(leva, companyName, { interno = false } = {}) {
         : { aprovacao: sanitizeAprovacao(it.aprovacao) }),
     })),
   }
+}
+
+// Sessão do portal: a Central de anúncios (ou a Aprovação antiga) liberada na chave.
+async function projetoDoPortal(req, projectId, needEdit) {
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!UUID.test(projectId || '')) return { erro: 'projectId inválido.', status: 400 }
+  const sess = await readPortalSession(req, projectId)
+  if (!sess.ok) return { erro: sess.message, status: sess.status }
+  const nivel = centralNivel(sess.permissions)
+  if (!nivel || (needEdit && nivel !== 'edit')) return { erro: 'Sem acesso a este módulo.', status: 403 }
+  const { data, status } = await sb(`/projects_v2?id=eq.${encodeURIComponent(projectId)}&select=${SELECT}`)
+  const project = status === 200 && Array.isArray(data) ? data[0] : null
+  if (!project) return { erro: 'Projeto não encontrado.', status: 404 }
+  return { project }
 }
 
 // Link de revisão: só quem é do time (perfil ativo em `profiles`).
@@ -245,6 +266,17 @@ export default async function handler(req) {
   // ── GET: a leva que o cliente vai avaliar ───────────────────────────────────
   if (req.method === 'GET') {
     const qs = new URL(req.url).searchParams
+    if (hasPortalBearer(req) && qs.get('projectId')) {
+      const r = await projetoDoPortal(req, str(qs.get('projectId'), 60), false)
+      if (r.erro) return json({ error: r.erro }, r.status)
+      const companyName = r.project.company_name || ''
+      const levas = (r.project.copy_aprovacoes?.levas || [])
+        .filter((l) => l && Array.isArray(l.itens) && l.itens.length)
+        .map((l) => sanitizeLeva(l, companyName))
+        .filter((l) => l.itens.length || l.emRevisao)
+        .sort((a, b) => String(b.enviadoEm || '').localeCompare(String(a.enviadoEm || '')))
+      return json({ companyName, levas })
+    }
     const interno = qs.get('etapa') === 'interna'
     if (interno) {
       const m = await membroDoTime(req)
@@ -272,7 +304,15 @@ export default async function handler(req) {
     }
 
     const token = str(body?.token, 60)
-    const found = await findLeva(token)
+    let found
+    if (!interno && hasPortalBearer(req) && body?.projectId) {
+      const r = await projetoDoPortal(req, str(body.projectId, 60), true)
+      if (r.erro) return json({ error: r.erro }, r.status)
+      const leva = (r.project.copy_aprovacoes?.levas || []).find((l) => l?.id === str(body?.levaId, 60))
+      found = leva ? { project: r.project, leva } : null
+    } else {
+      found = await findLeva(token)
+    }
     if (!found) return json({ error: 'Link inválido ou expirado.' }, 404)
 
     const { project, leva } = found

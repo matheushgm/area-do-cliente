@@ -1,4 +1,5 @@
-import { hmacHex, jsonErr } from './_http.js'
+import { jsonErr } from './_http.js'
+import { tokenDashValido } from './_dash_token.js'
 // Edge function — PREVIEW de um anúncio do Meta para o LINK PÚBLICO do dashboard.
 // Versão sem login do api/ad-preview.js: em vez do JWT da sessão, valida o mesmo
 // token HMAC (`cliente|canal`) que o /api/dash-public usa. Está para o ad-preview
@@ -20,14 +21,6 @@ const ALLOWED_FMT = [
   'MOBILE_FEED_STANDARD', 'DESKTOP_FEED_STANDARD', 'INSTAGRAM_STANDARD',
   'FACEBOOK_STORY_MOBILE', 'INSTAGRAM_STORY',
 ]
-
-// Comparação de tempo constante (evita timing attack ao validar o token).
-function safeEq(a, b) {
-  if (a.length !== b.length) return false
-  let diff = 0
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  return diff === 0
-}
 
 export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL
@@ -53,8 +46,8 @@ export default async function handler(req) {
   if (!ALLOWED_FMT.includes(fmt)) return jsonErr('Formato de preview inválido.', 400)
 
   // ── 1) Token do link (mesmo HMAC do /api/dash-public) ──────────────────────
-  const expected = await hmacHex(SERVICE_KEY, `${cliente}|${canal}`)
-  if (!safeEq(token, expected)) return jsonErr('Link inválido ou expirado.', 403)
+  // Permanente ou do portal (24 h), ver api/_dash_token.js.
+  if (!(await tokenDashValido(cliente, canal, token))) return jsonErr('Link inválido ou expirado.', 403)
 
   // ── 2) Posse: este ad_id é mesmo da conta assinada no token? ───────────────
   try {

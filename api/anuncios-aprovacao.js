@@ -1,13 +1,15 @@
 import { NO_STORE, jsonCors, preflight, sb } from './_http.js'
 import { hasPortalBearer, readPortalSession } from './_portal_auth.js'
 import { registrarIntake } from './_intake.js'
+import { centralNivel } from '../src/lib/portalModules.js'
+import { copyParaCliente } from '../src/lib/copyParaCliente.js'
 // Edge Function pública — APROVAÇÃO DE ANÚNCIOS E LANDING PAGES pelo cliente.
 // Duas formas de autenticar, sem login Supabase:
 //   • client_share_token do projeto (link /aprovacao/:token, mesmo token de
 //     /campanhas, /precificacao, /crm...);
 //   • sessão do portal (/portal/:projectId): header Authorization: Bearer
-//     <token do portal> + projectId, exigindo o módulo `aprovacao` liberado
-//     (`view` lista; `edit` decide).
+//     <token do portal> + projectId, exigindo a Central de anúncios (`debriefing`)
+//     ou a Aprovação (`aprovacao`) liberada (`view` lista; `edit` decide).
 //
 //   GET  ?token=UUID  |  ?projectId=UUID + Bearer → lista anúncios (debriefing) e LPs (lp_central) enviados pra aprovação
 //   POST { token | projectId, adId, kind: 'ad'|'lp', decision, motivo, sugestao } → registra a decisão
@@ -90,7 +92,8 @@ async function resolveProject(req, token, projectId, needEdit) {
     if (!UUID_RE.test(projectId || '')) return { error: 'projectId inválido.', status: 400 }
     const sess = await readPortalSession(req, projectId)
     if (!sess.ok) return { error: sess.message, status: sess.status }
-    const level = sess.permissions.aprovacao
+    // Central de anúncios (`debriefing`) ou a chave antiga de Aprovação (`aprovacao`).
+    const level = centralNivel(sess.permissions)
     if (!level || (needEdit && level !== 'edit')) return { error: 'Sem acesso a este módulo.', status: 403 }
     const { data, status } = await sb(`/projects_v2?id=eq.${encodeURIComponent(projectId)}&select=${PROJECT_COLS}`)
     if (status !== 200 || !Array.isArray(data) || !data.length) return { error: 'Projeto não encontrado.', status: 404 }
@@ -150,6 +153,8 @@ async function sanitizeAd(ad) {
     arquivos:       await sanitizeArquivos(ad),
     pasta:          str(ad.pasta, 60) || null,
     observacao:     str(ad.observacao, 1200) || null,
+    // Texto do anúncio, só a parte que o cliente vê (sem o cabeçalho do roteiro do time).
+    copy:           ad.copy ? str(copyParaCliente(ad.copy), 20000) || null : null,
     aprovacao:      sanitizeAprovacao(ad.aprovacao),
     version:        Number(ad.version) || 1,
     versionHistory: await Promise.all(versionHistory.slice(0, 20).map(sanitizeVersionEntry)),

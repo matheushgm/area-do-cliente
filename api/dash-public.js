@@ -1,4 +1,5 @@
-import { hmacHex, jsonErr, lerPaginado, filtroDias } from './_http.js'
+import { jsonErr, lerPaginado, filtroDias } from './_http.js'
+import { tokenDashValido } from './_dash_token.js'
 // Edge function — serve os dados de UM cliente para o LINK PÚBLICO (somente
 // leitura) do dashboard. NÃO exige login: valida um token HMAC (`cliente|canal`)
 // gerado por /api/dash-share-token e devolve apenas as linhas daquela conta.
@@ -20,14 +21,6 @@ function toCSV(rows) {
   return lines.join('\n')
 }
 
-// Comparação de tempo constante (evita timing attack ao validar o token).
-function safeEq(a, b) {
-  if (a.length !== b.length) return false
-  let diff = 0
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  return diff === 0
-}
-
 export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -41,8 +34,8 @@ export default async function handler(req) {
   if (!cliente || !token) return jsonErr('Link incompleto.', 400)
   if (!['meta', 'google'].includes(canal)) return jsonErr('canal inválido (use meta|google).', 400)
 
-  const expected = await hmacHex(SERVICE_KEY, `${cliente}|${canal}`)
-  if (!safeEq(token, expected)) return jsonErr('Link inválido ou expirado.', 403)
+  // Permanente (botão 🔗 Link) ou do portal do cliente (24 h), ver api/_dash_token.js.
+  if (!(await tokenDashValido(cliente, canal, token))) return jsonErr('Link inválido ou expirado.', 403)
 
   // `dados=status` devolve o snapshot de status ATUAL das entidades (canal
   // meta_status) em vez das linhas de insights. Mesmo token, mesmo cliente —

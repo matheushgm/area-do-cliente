@@ -20,7 +20,8 @@
 //
 // A tabela project_shares tem RLS sem policies: só esta função (chave de
 // serviço) lê e escreve. Ver migration 090.
-import { getUser, hmacHex, json, jsonErr, sb, serviceKey } from './_http.js'
+import { getUser, hmacHex, json, jsonErr, sb, serviceKey, lerPaginado } from './_http.js'
+import { tokenDashPortal } from './_dash_token.js'
 import { sanitizePermissions } from '../src/lib/portalModules.js'
 import { sanitizePlan } from './campanhas-public.js'
 import { SESSION_TTL_MS, safeEq, hashVersion, isExpired, signSession, readPortalSession } from './_portal_auth.js'
@@ -98,10 +99,89 @@ const DADOS_COLS = [
   'has_sales_team', 'logo_url', 'dashboard_url', 'created_at',
 ]
 
+// ─── Dashboard de tráfego (contas vinculadas ao projeto) ─────────────────────
+// Uma entrada por conta e canal com dado no rollup: o resumo do mês até hoje (o mesmo que
+// o cliente vê no Gerenciador), o mesmo trecho do mês passado e um token de 24 h para o
+// viewer em modo compartilhado (api/_dash_token.js). Contas ocultas ficam de fora.
+const diaSP = (d = new Date()) => d.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
+function janelasDoMes(hoje = diaSP()) {
+  const [a, m, d] = hoje.split('-').map(Number)
+  const pad = (n) => String(n).padStart(2, '0')
+  const ini = `${a}-${pad(m)}-01`
+  const pa = m === 1 ? a - 1 : a, pm = m === 1 ? 12 : m - 1
+  const diasPm = new Date(pa, pm, 0).getDate()
+  return {
+    hoje, ini,
+    antIni: `${pa}-${pad(pm)}-01`,
+    antFim: `${pa}-${pad(pm)}-${pad(Math.min(d, diasPm))}`,
+  }
+}
+async function carregarDashboard(id) {
+  const { data: contas } = await sb(`/dashboard_accounts?project_id=eq.${enc(id)}&select=account_name,hidden&order=account_name.asc`)
+  const nomes = (Array.isArray(contas) ? contas : []).filter((c) => !c.hidden).map((c) => c.account_name).filter(Boolean)
+  if (!nomes.length) return { contas: [] }
+  const j = janelasDoMes()
+  const lista = `(${nomes.map((n) => `"${String(n).replace(/"/g, '\\"')}"`).join(',')})`
+  const key = serviceKey()
+  const linhas = await lerPaginado(
+    `${process.env.SUPABASE_URL}/rest/v1/dash_daily?account=in.${enc(lista)}&day=gte.${j.antIni}&select=channel,account,day,campaign,spend,conv,clicks,impressions&order=channel.asc,account.asc,day.asc,campaign.asc`,
+    { apikey: key, Authorization: `Bearer ${key}` },
+    { rotulo: 'portal-dash' },
+  ).catch(() => [])
+  // Canais de cada conta: o que aparece no rollup desde o começo do mês passado.
+  const canais = new Map()
+  for (const nome of nomes) {
+    for (const canal of ['meta', 'google']) {
+      const tem = linhas.some((l) => l.account === nome && l.channel === canal)
+      if (tem) canais.set(`${canal}|${nome}`, { conta: nome, canal })
+    }
+  }
+  // Conta parada há mais de um mês: busca o último dia gravado, para ela não sumir do portal.
+  const semDado = nomes.filter((nome) => !['meta', 'google'].some((canal) => canais.has(`${canal}|${nome}`)))
+  const extras = await Promise.all(semDado.flatMap((nome) => ['meta', 'google'].map(async (canal) => {
+    const { data } = await sb(`/dash_daily?channel=eq.${canal}&account=eq.${enc(nome)}&select=day&order=day.desc&limit=1`)
+    return Array.isArray(data) && data.length ? { conta: nome, canal, ultimoDia: data[0].day } : null
+  })))
+  for (const x of extras.filter(Boolean)) canais.set(`${x.canal}|${x.conta}`, x)
+  const vazio = () => ({ investimento: 0, conversoes: 0, cliques: 0, impressoes: 0 })
+  const somar = (alvo, l) => {
+    alvo.investimento += Number(l.spend) || 0
+    alvo.conversoes += Number(l.conv) || 0
+    alvo.cliques += Number(l.clicks) || 0
+    alvo.impressoes += Number(l.impressions) || 0
+  }
+  const out = []
+  for (const c of canais.values()) {
+    const doCanal = linhas.filter((l) => l.account === c.conta && l.channel === c.canal)
+    const mes = vazio(), anterior = vazio()
+    const porDia = {}
+    let ultimoDia = c.ultimoDia || null
+    for (const l of doCanal) {
+      if (!ultimoDia || l.day > ultimoDia) ultimoDia = l.day
+      if (l.day >= j.ini && l.day <= j.hoje) {
+        somar(mes, l)
+        const dd = (porDia[l.day] ||= { investimento: 0, conversoes: 0 })
+        dd.investimento += Number(l.spend) || 0
+        dd.conversoes += Number(l.conv) || 0
+      } else if (l.day >= j.antIni && l.day <= j.antFim) somar(anterior, l)
+    }
+    out.push({
+      conta: c.conta, canal: c.canal, ultimoDia,
+      mes, anterior,
+      diario: Object.entries(porDia).sort(([a], [b]) => a.localeCompare(b)).map(([dia, v]) => ({ dia, ...v })),
+      token: await tokenDashPortal(c.conta, c.canal),
+    })
+  }
+  out.sort((a, b) => b.mes.investimento - a.mes.investimento || a.conta.localeCompare(b.conta))
+  return { contas: out, periodo: { de: j.ini, ate: j.hoje, anteriorDe: j.antIni, anteriorAte: j.antFim } }
+}
+
 const LOADERS = {
   dados: async (id, row) => Object.fromEntries(DADOS_COLS.map((c) => [c, row[c] ?? null])),
+  dashboard: async (id) => carregarDashboard(id),
   kickoff: async (id, row) => row.kickoff ?? null,
-  debriefing: async (id, row) => row.debriefing ?? null,
+  // debriefing: a Central de anúncios do portal busca o que precisa nas APIs de aprovação
+  // (api/anuncios-aprovacao.js e api/copy-aprovacao.js), que só devolvem o que o cliente vê.
   lpcentral: async (id, row) => row.lp_central ?? null,
   links: async (id, row) => row.links ?? {},
   metalab: async (id, row) => ({ budget: row.meta_lab_budget ?? null, audienceType: row.meta_lab_audience_type ?? null }),

@@ -50,6 +50,8 @@ export default {
   status: { desativada: 'Inactive', expirada: 'Expired', ativa: 'Active' },
   niveis: { none: 'No access', view: 'View', edit: 'Edit' },
   modulos: {
+    dashboard: 'Traffic dashboard',
+    solicitacoes: 'Requests',
     dados: 'Client Details',
     kickoff: 'Kickoff',
     produtos: 'Product / Service',
@@ -71,5 +73,5 @@ export default {
     aprovacao: 'Ad and LP approval',
     criativos: 'Ad creation (AI)',
   },
-  edicao: { aprovacao: 'Approve', criativos: 'Use' },
+  edicao: { aprovacao: 'Approve', criativos: 'Use', debriefing: 'Approve', solicitacoes: 'Request' },
 }

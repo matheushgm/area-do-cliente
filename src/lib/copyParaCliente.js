@@ -2,7 +2,9 @@
 // "# ROT08 · Fundo · Gancho: ... · Mensagem: ...", o Quem, o Quando e a tabela
 // de O quê) é material do time. O cliente aprova só o texto falado: Gancho,
 // Mensagem e CTA. Copy sem esse rótulo (estáticos, roteiros soltos) passa inteira.
-const INICIO_DO_TEXTO = /^[ \t]*(?:\*\*|__)?[ \t]*GANCHO\b[^\n:]*:/m
+// Sem diferenciar maiúscula: os roteiros de 17/11 trazem "**Gancho:**" numa linha própria
+// e o cabeçalho do time (Quem, Quando, tabela) aparecia para o cliente.
+const INICIO_DO_TEXTO = /^[ \t]*(?:\*\*|__)?[ \t]*GANCHO\b[^\n:]*:/mi
 
 export function separarCopy(conteudo) {
   const s = String(conteudo ?? '')

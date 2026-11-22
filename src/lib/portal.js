@@ -2,7 +2,7 @@
 // A lista de módulos e permissões é compartilhada com api/portal.js.
 import { apiFetch } from './api'
 
-export { PORTAL_MODULES, PERMISSION_LEVELS, PERMISSION_LABELS, moduleLevels } from './portalModules.js'
+export { PORTAL_MODULES, PERMISSION_LEVELS, PERMISSION_LABELS, moduleLevels, centralNivel } from './portalModules.js'
 
 const SESSION_PREFIX = 'portal.session.'
 
@@ -52,7 +52,7 @@ async function portalFetch(path, { body, token } = {}) {
   let data = null
   try { data = text ? JSON.parse(text) : null } catch { data = null }
   if (!res.ok) {
-    const err = new Error(data?.error?.message || `HTTP ${res.status}`)
+    const err = new Error(data?.error?.message || (typeof data?.error === 'string' ? data.error : null) || `HTTP ${res.status}`)
     err.status = res.status
     err.code = data?.error?.code || null
     throw err
@@ -68,4 +68,26 @@ export function portalData(projectId, token) {
 }
 export function portalFileUrl(projectId, token, bucket, path) {
   return portalFetch(`/api/portal?action=file&projectId=${encodeURIComponent(projectId)}&bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(path)}`, { token })
+}
+
+// ── Central de anúncios (aprovação de roteiros, imagens, vídeos e LPs) ───────
+// Duas APIs que já existiam com o link público, agora com a sessão do portal.
+export async function portalCentral(projectId, token) {
+  const q = `projectId=${encodeURIComponent(projectId)}`
+  const [pecas, copies] = await Promise.all([
+    portalFetch(`/api/anuncios-aprovacao?${q}`, { token }),
+    portalFetch(`/api/copy-aprovacao?${q}`, { token }),
+  ])
+  return { ads: pecas?.ads || [], lps: pecas?.lps || [], levas: copies?.levas || [] }
+}
+export function portalDecidirPeca(projectId, token, { id, kind = 'ad', decision, motivo, sugestao }) {
+  return portalFetch('/api/anuncios-aprovacao', { token, body: { projectId, adId: id, kind, decision, motivo, sugestao } })
+}
+export function portalDecidirCopy(projectId, token, { levaId, itemId, decision, motivo, sugestao, conteudo }) {
+  return portalFetch('/api/copy-aprovacao', { token, body: { projectId, levaId, itemId, decision, motivo, sugestao, conteudo } })
+}
+
+// ── Solicitações (pedidos ao time, fila de Intake do VertaTask) ──────────────
+export function portalPedidos(projectId, token) {
+  return portalFetch(`/api/intake-publico?projectId=${encodeURIComponent(projectId)}`, { token })
 }

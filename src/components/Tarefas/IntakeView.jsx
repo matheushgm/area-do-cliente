@@ -2,7 +2,7 @@
 // reprovações de anúncio e sugestões do playbook chegam aqui; o time escolhe
 // cliente e responsável e aceita (vira tarefa em "A fazer") ou recusa.
 import { useMemo, useState, useEffect } from 'react'
-import { Plus, Undo2, ExternalLink, Clock, Copy, Link2, Search, CheckCircle2, LayoutTemplate } from 'lucide-react'
+import { Plus, Undo2, ExternalLink, Clock, Copy, Link2, Search, CheckCircle2, LayoutTemplate, Paperclip, Loader2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { PRIORIDADES, fmtDataHora, rotuloPrioridade } from '../../lib/tarefas'
 import { ORIGENS_INTAKE, rotuloOrigemIntake } from '../../lib/vertatask'
@@ -39,8 +39,25 @@ function BuscaDuplicada({ onEscolher, onCancelar }) {
   )
 }
 
-// Respostas do pedido feito pelo link /pedido (payload.itens, ver src/lib/pedidoTipos.js).
-function RespostasPedido({ itens }) {
+// Arquivo que o cliente subiu pelo portal (bucket attachments, pasta <projeto>/pedidos/):
+// URL assinada na hora do clique, com a sessão de quem é do squad do cliente.
+function ArquivoPedido({ a }) {
+  const [abrindo, setAbrindo] = useState(false)
+  async function abrir() {
+    setAbrindo(true)
+    const { data } = await supabase.storage.from('attachments').createSignedUrl(a.path, 3600)
+    setAbrindo(false)
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener')
+  }
+  return (
+    <button type="button" onClick={abrir} className="inline-flex items-center gap-1 mr-2 mb-1 px-2 py-0.5 rounded-md bg-ln-ink/[0.05] hover:bg-ln-ink/[0.09] text-ln-accent text-[12.5px] max-w-full">
+      {abrindo ? <Loader2 className="w-3 h-3 animate-spin shrink-0" /> : <Paperclip className="w-3 h-3 shrink-0" />}<span className="truncate">{a.name}</span>
+    </button>
+  )
+}
+
+// Respostas do pedido feito pelo link /pedido ou pelo portal (payload.itens, ver src/lib/pedidoTipos.js).
+function RespostasPedido({ itens, arquivos = [] }) {
   const { t } = useI18n()
   return (
     <dl className="mt-2.5 mb-1 grid gap-x-4 gap-y-1.5 sm:grid-cols-[140px_1fr] text-[13px]">
@@ -48,9 +65,11 @@ function RespostasPedido({ itens }) {
         <div key={i.k} className="contents">
           <dt className="text-ln-t4 font-medium">{i.label}</dt>
           <dd className="text-ln-t2 whitespace-pre-line break-words min-w-0">
-            {i.tipo === 'link' || i.tipo === 'drive'
-              ? <a href={i.valor} target="_blank" rel="noreferrer" className="text-ln-accent hover:underline break-all">{i.drive?.nome || i.valor}</a>
-              : i.valor}
+            {i.tipo === 'arquivos' && arquivos.length
+              ? arquivos.map((a) => <ArquivoPedido key={a.path} a={a} />)
+              : i.tipo === 'link' || i.tipo === 'drive'
+                ? <a href={i.valor} target="_blank" rel="noreferrer" className="text-ln-accent hover:underline break-all">{i.drive?.nome || i.valor}</a>
+                : i.valor}
             {i.drive?.publico === true && <span className="ml-1.5 inline-flex items-center gap-1 text-[11.5px] font-semibold text-ln-green"><CheckCircle2 className="w-3 h-3" /> {t('intake.driveAberto')}</span>}
             {i.drive && i.drive.publico !== true && <span className="ml-1.5 text-[11.5px] text-ln-t4">{t('intake.driveNaoConferido')}</span>}
           </dd>
@@ -91,7 +110,7 @@ function Cartao({ it, pastas, listas, projetos, membros, modelos, onAceitar, onA
       <div className="min-w-0">
         <p className="text-[11px] uppercase tracking-[0.12em] text-ln-accent font-bold">{rotuloOrigemIntake(it.origem)}{pedido?.tipo_nome ? ` · ${pedido.tipo_nome}` : ''} · {fmtDataHora(it.created_at)}</p>
         <h3 className="text-[15px] font-bold text-ln-t1 mt-1">{it.titulo}</h3>
-        {pedido ? <RespostasPedido itens={pedido.itens} />
+        {pedido ? <RespostasPedido itens={pedido.itens} arquivos={pedido.arquivos || []} />
           : it.descricao && <p className="text-sm text-ln-t2 mt-1.5 mb-2.5 whitespace-pre-line">{it.descricao}</p>}
         <div className="flex items-center gap-2 mt-2 text-xs text-ln-t3 flex-wrap">
           {it.prioridade && it.prioridade !== 'normal' && <span className={`px-2 py-0.5 rounded-full text-[11.5px] font-bold ${PILULA_PRIO[it.prioridade] || PILULA_PRIO.low}`}>{pedido && it.prioridade === 'high' ? t('intake.urgente') : rotuloPrioridade(it.prioridade)}</span>}

@@ -1,4 +1,5 @@
-// Tipos de pedido que o cliente faz pelo link público /pedido/:token.
+// Tipos de pedido que o cliente faz pelo link público /pedido/:token e pelo portal
+// (/portal/:projectId, módulo Solicitações).
 // Um arquivo só para a página (monta o formulário), o servidor (api/intake-publico.js valida,
 // confere o Drive e monta título e descrição da tarefa) e o Intake (mostra as respostas).
 // Os três primeiros espelham os templates do VertaTask (`tarefas_modelos.nome` em `template`):
@@ -8,7 +9,8 @@
 // `label`, `ajuda` e `placeholder` aceitam função das respostas. Tipos: texto, textarea,
 // escolha, multi, numero, dinheiro (+ `${k}_periodo` mes|dia), data, telefone, link,
 // drive (link do Google Drive conferido como público; `aceitaOutros` libera outro link),
-// check e aviso (só texto, sem resposta).
+// check, aviso (só texto, sem resposta) e arquivos (upload; só aparece no portal do cliente,
+// que tem como subir: no link aberto o campo some e o link do Drive continua obrigatório).
 
 const PLATAFORMAS = [
   { v: 'meta', label: 'Meta Ads', desc: 'Facebook e Instagram' },
@@ -27,7 +29,34 @@ const CAMPO_DESTINO = { k: 'destino', tipo: 'escolha', label: 'Quem clicar no an
 const CAMPO_DESTINO_LINK = { k: 'destino_link', tipo: 'link', label: 'Link da página', curto: 'Link do destino', obrigatorio: true, quando: (r) => r.destino === 'site', placeholder: 'https://' }
 const CAMPO_OBS = { k: 'obs', tipo: 'textarea', label: 'Mais alguma coisa que a gente precisa saber?', curto: 'Observações', linhas: 3 }
 
+// Arquivos enviados pelo portal. Com eles, o link do Drive deixa de ser obrigatório.
+const MSG_SEM_ARQUIVO = 'Envie os arquivos ou cole o link do Drive.'
+export const temArquivos = (r) => Array.isArray(r?.arquivos) && r.arquivos.length > 0
+const campoArquivos = (extra = {}) => ({ k: 'arquivos', tipo: 'arquivos', curto: 'Arquivos', label: 'Envie os arquivos aqui', ajuda: 'Arquivo maior que 50 MB? Cole o link do Google Drive no campo de baixo.', ...extra })
+
 export const TIPOS_PEDIDO = [
+  {
+    id: 'subir_criativos', nome: 'Subir criativos prontos', grupo: 'criacao',
+    resumo: 'Artes ou vídeos que você já tem, para entrar nos anúncios',
+    campos: [
+      { k: 'assunto', tipo: 'texto', label: 'Do que são esses criativos?', curto: 'Assunto', obrigatorio: true, max: 160, placeholder: 'Ex.: fotos da nova coleção de verão' },
+      campoArquivos({ label: 'Envie os arquivos' }),
+      { k: 'drive', tipo: 'drive', curto: 'Drive', obrigatorio: (r) => !temArquivos(r), label: 'Link do Google Drive com os criativos', msgVazio: MSG_SEM_ARQUIVO },
+      { k: 'formato', tipo: 'escolha', label: 'O que tem aí?', curto: 'Formato', obrigatorio: true, opcoes: [
+        { v: 'imagem', label: 'Imagens' }, { v: 'video', label: 'Vídeos' }, { v: 'carrossel', label: 'Carrossel' }, { v: 'misto', label: 'Um pouco de cada' },
+      ] },
+      { k: 'texto', tipo: 'textarea', label: 'Quer sugerir o texto do anúncio?', curto: 'Texto sugerido', linhas: 3,
+        placeholder: 'Se não mandar, a gente escreve e manda para você aprovar' },
+      CAMPO_DESTINO, CAMPO_DESTINO_LINK,
+      { k: 'campanha', tipo: 'escolha', label: 'Em qual campanha entra?', curto: 'Campanha', opcoes: [
+        { v: 'atual', label: 'Na que já está rodando' },
+        { v: 'nova', label: 'Numa campanha nova' },
+        { v: 'decidam', label: 'Vocês decidem' },
+      ] },
+      CAMPO_OBS,
+    ],
+    titulo: (r) => `Subir criativos prontos · ${r.assunto}`,
+  },
   {
     id: 'criativo_estatico', nome: 'Criativo estático', grupo: 'criacao', template: 'Criativo Estático',
     resumo: 'Arte de anúncio para feed ou story',
@@ -38,7 +67,8 @@ export const TIPOS_PEDIDO = [
         { v: 'pronto', label: 'Já está pronta', desc: 'É só colocar nos anúncios' },
         { v: 'criar', label: 'Preciso que vocês criem', desc: 'Mando o material e o texto' },
       ] },
-      { k: 'drive', tipo: 'drive', obrigatorio: true, quando: (r) => !!r.situacao, curto: 'Drive',
+      campoArquivos({ quando: (r) => !!r.situacao, label: (r) => (r.situacao === 'pronto' ? 'Envie as artes prontas' : 'Envie o material da arte') }),
+      { k: 'drive', tipo: 'drive', obrigatorio: (r) => !temArquivos(r), msgVazio: MSG_SEM_ARQUIVO, quando: (r) => !!r.situacao, curto: 'Drive',
         label: (r) => (r.situacao === 'pronto' ? 'Link do Drive com as artes prontas' : 'Link do Drive com o material da arte'),
         ajuda: (r) => (r.situacao === 'pronto' ? 'Pode ser a pasta com todas as artes.' : 'Fotos, logo, produto, tudo que for entrar na arte.') },
       { k: 'formatos', tipo: 'multi', label: 'Em quais formatos?', curto: 'Formatos', obrigatorio: true, opcoes: [
@@ -72,8 +102,9 @@ export const TIPOS_PEDIDO = [
         { v: 'editar', label: 'Já gravei', desc: 'Preciso que vocês editem' },
         { v: 'roteiro', label: 'Ainda não gravei', desc: 'Preciso do roteiro antes' },
       ] },
+      campoArquivos({ quando: (r) => !!r.situacao, label: (r) => ({ pronto: 'Envie o vídeo pronto', editar: 'Envie os vídeos gravados' }[r.situacao] || 'Material de apoio (opcional)') }),
       { k: 'drive', tipo: 'drive', curto: 'Drive', quando: (r) => !!r.situacao,
-        obrigatorio: (r) => r.situacao !== 'roteiro',
+        obrigatorio: (r) => r.situacao !== 'roteiro' && !temArquivos(r), msgVazio: MSG_SEM_ARQUIVO,
         label: (r) => ({ pronto: 'Link do Drive com o vídeo pronto', editar: 'Link do Drive com os vídeos gravados' }[r.situacao] || 'Link do Drive com material de apoio (opcional)'),
         ajuda: (r) => (r.situacao === 'editar' ? 'Suba os arquivos originais do celular, sem passar pelo WhatsApp (ele derruba a qualidade).' : '') },
       { k: 'formatos', tipo: 'multi', label: 'Em quais formatos?', curto: 'Formatos', obrigatorio: true, opcoes: [
@@ -119,6 +150,7 @@ export const TIPOS_PEDIDO = [
         { v: 'compra', label: 'Compra direto' },
         { v: 'evento', label: 'Se inscreve num evento ou aula' },
       ] },
+      campoArquivos({ quando: (r) => !!r.situacao, label: 'Logo, fotos e textos (opcional)' }),
       { k: 'drive', tipo: 'drive', curto: 'Drive', quando: (r) => !!r.situacao, label: 'Link do Drive com logo, fotos e textos (opcional)',
         ajuda: 'Se não tiver, a gente usa o que já tem da sua marca.' },
       { k: 'referencias', tipo: 'textarea', label: 'Páginas que você gosta', curto: 'Referências', linhas: 2, quando: (r) => r.situacao === 'nova', placeholder: 'Links de páginas como referência' },
@@ -238,6 +270,7 @@ export const TIPOS_PEDIDO = [
     campos: [
       { k: 'resumo', tipo: 'texto', label: 'Resumo do pedido', curto: 'Resumo', obrigatorio: true, max: 160, placeholder: 'Ex.: trocar o preço da promoção nos anúncios' },
       { k: 'detalhes', tipo: 'textarea', label: 'Detalhes', curto: 'Detalhes', obrigatorio: true, linhas: 5, placeholder: 'O que precisa ser feito, onde, e como fica o pronto' },
+      campoArquivos({ label: 'Anexos (opcional)' }),
       { k: 'arquivo', tipo: 'drive', aceitaOutros: true, label: 'Link de arquivo', curto: 'Arquivo', placeholder: 'https://', ajuda: 'Se for do Google Drive, a gente confere se está aberto.' },
     ],
     titulo: (r) => r.resumo,
@@ -312,6 +345,7 @@ export function valorTexto(campo, v, r = {}) {
     case 'data': return dataTexto(v)
     case 'telefone': return telefoneTexto(v)
     case 'check': return v ? 'Sim' : ''
+    case 'arquivos': return (Array.isArray(v) ? v : []).map((a) => a?.name).filter(Boolean).join(', ')
     default: return campo.k === 'contato' && !/@/.test(v) ? telefoneTexto(v) : String(v).trim()
   }
 }
@@ -345,14 +379,15 @@ export function lerLinkDrive(s) {
  * Erros por campo das respostas `r`. `drive` = { [k]: { publico: true|false|null } } com o
  * resultado da conferência; sem ele, o link do Drive só é checado no formato.
  */
-export function validarPedido(tipo, r, { drive = {}, campos } = {}) {
+export function validarPedido(tipo, r, { drive = {}, campos, comUpload = false } = {}) {
   const erros = {}
   for (const c of campos || camposVisiveis(tipo, r)) {
     if (c.tipo === 'aviso') continue
     const v = r[c.k]
     const obrig = valorDe(c.obrigatorio, r)
     if (vazio(typeof v === 'string' ? v.trim() : v)) {
-      if (obrig) erros[c.k] = c.tipo === 'escolha' || c.tipo === 'multi' ? 'Escolha uma opção.' : 'Preencha este campo.'
+      // `msgVazio` vale onde há upload (portal); no link aberto o campo de arquivos não aparece.
+      if (obrig) erros[c.k] = c.tipo === 'escolha' || c.tipo === 'multi' ? 'Escolha uma opção.' : (comUpload && c.msgVazio) || 'Preencha este campo.'
       continue
     }
     const s = typeof v === 'string' ? v.trim() : v
@@ -381,7 +416,7 @@ export function validarPedido(tipo, r, { drive = {}, campos } = {}) {
  * Título, descrição (markdown da tarefa) e lista de respostas legíveis do pedido.
  * `drive` = { [k]: { publico, nome } } da conferência no servidor.
  */
-export function montarPedido(tipo, r, { drive = {} } = {}) {
+export function montarPedido(tipo, r, { drive = {}, via = 'link' } = {}) {
   const campos = camposVisiveis(tipo, r)
   const itens = []
   for (const c of campos) {
@@ -390,6 +425,7 @@ export function montarPedido(tipo, r, { drive = {} } = {}) {
     if (!texto) continue
     const item = { k: c.k, label: c.curto || valorDe(c.label, r), valor: texto, tipo: c.tipo }
     if (c.tipo === 'drive' && drive[c.k]) item.drive = drive[c.k]
+    if (c.tipo === 'arquivos') item.valor = `${r[c.k].length} ${r[c.k].length === 1 ? 'arquivo' : 'arquivos'}: ${texto}`
     itens.push(item)
   }
   const corpo = itens.filter((i) => !['nome', 'contato'].includes(i.k)).map((i) => {
@@ -399,6 +435,6 @@ export function montarPedido(tipo, r, { drive = {} } = {}) {
     return `**${i.label}:** ${linha.includes('\n') ? `\n${linha}` : linha}`
   })
   const quem = [r.nome, valorTexto(CAMPOS_FINAIS.find((c) => c.k === 'contato'), r.contato)].map((x) => String(x || '').trim()).filter(Boolean).join(' · ')
-  const descricao = [`**Pedido do cliente pelo link: ${tipo.nome}**`, '', ...corpo, '', quem ? `Pedido por ${quem}` : ''].join('\n').trim()
+  const descricao = [`**Pedido do cliente pelo ${via === 'portal' ? 'portal' : 'link'}: ${tipo.nome}**`, '', ...corpo, '', quem ? `Pedido por ${quem}` : ''].join('\n').trim()
   return { titulo: resumir(tipo.titulo(r), 200), descricao, itens, contato: quem }
 }
