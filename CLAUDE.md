@@ -1352,6 +1352,16 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     na prévia do template: a data que a pessoa mexeu fica, a outra acompanha (o toast da edição em
     massa diz quantas). A comparação usa o instante que o push manda (sem hora = 04:00 de São
     Paulo, `dataClickUp`); mudou um, mude o outro.
+- **Desfazer por 10 s (2026-11-23, pedido do Matheus):** concluir, excluir, arquivar e mudar ou tirar a data de
+  início/vencimento (na linha, no painel, no Quadro, Calendário e Gantt, e na edição em massa) mostram um aviso no rodapé com
+  **Desfazer** e a contagem (`src/components/Tarefas/Desfazer.jsx`, `useDesfazer` no `AreaTarefas`). Concluir e datas gravam
+  na hora; desfazer regrava o que era antes, sem cascata (datas de todas as tarefas que a cascata moveu, guardadas por
+  `registroDatas` no `gravarCascata`; status com `status_tipo` e `data_conclusao`). **Excluir e arquivar só gravam quando o
+  prazo acaba:** a tarefa e as subtarefas somem da tela na hora (`ocultarLocal` do `useTarefas`, que trava esses ids contra
+  carga, recuperação e realtime) e desfazer só as traz de volta, sem nada ir ao banco nem ao ClickUp. Um aviso novo, fechar o
+  aviso no ✕, sair do VertaTask ou fechar a aba gravam na hora o que estava pendente (fechar a aba é melhor esforço: se o
+  navegador cortar a chamada, a tarefa só não é apagada). Concluir/datas desfeitos passam duas vezes pela outbox (vai e volta
+  no ClickUp). Sprints e templates não têm o aviso.
 - **Replanejamento em cascata (2026-10-30):** mudar a data de uma tarefa pela tela (linha, painel)
   desloca, na mesma quantidade de **dias úteis**, as tarefas que ela bloqueia (`tarefas_relacoes` `bloqueia`, em
   cadeia) e, se ela tem subtarefas, as subtarefas abertas; depois cada pai acima de quem mudou é recalculado pelas

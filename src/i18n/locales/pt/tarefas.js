@@ -1,6 +1,19 @@
 // VertaTask: moldura (/tarefas), coluna esquerda, barra e abas das visualizações, Lista, Quadro, Calendário, Gantt e seleção em massa.
 export default {
   semTitulo: 'Sem título',
+  // aviso de 10 s com "Desfazer" (Desfazer.jsx)
+  desfazer: {
+    botao: 'Desfazer',
+    concluida: 'Tarefa concluída: {titulo}',
+    excluida: 'Tarefa excluída: {titulo}',
+    arquivada: 'Tarefa arquivada: {titulo}',
+    vencimentoAlterado: 'Vencimento alterado: {titulo}',
+    vencimentoRemovido: 'Vencimento removido: {titulo}',
+    inicioAlterado: 'Início alterado: {titulo}',
+    inicioRemovido: 'Início removido: {titulo}',
+    datasN: 'Datas de {n} tarefas alteradas',
+    falhou: 'Não foi possível desfazer em {n} tarefa(s)',
+  },
   views: {
     tipo: {
       lista: 'Lista',
@@ -322,7 +335,7 @@ export default {
       other: 'esta tarefa e as {count} subtarefas',
     },
     excluirQtd: 'Excluir {qtd}?',
-    excluirTexto: 'A exclusão também acontece no ClickUp e não pode ser desfeita.',
+    excluirTexto: 'Depois de excluir, você tem 10 segundos para desfazer. Passado esse tempo, a exclusão também acontece no ClickUp.',
     tarefaASerExcluida: 'Tarefa a ser excluída',
     tarefasASeremExcluidas: 'Tarefas a serem excluídas',
     arquivarQtd: 'Arquivar {qtd}?',

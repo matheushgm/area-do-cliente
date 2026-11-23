@@ -37,6 +37,7 @@ import { templateDaTarefa } from '../../lib/templates'
 import { FOCO, StatusCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo } from './Campos'
 import BarraSelecao, { BotaoBarra, ResponsaveisEmMassa, aplicarDiferenca } from './BarraSelecao'
 import { contarTarefas, useConfirmar } from './Confirmacao'
+import { useDesfazer } from './Desfazer'
 import { useCascata, carregarGrafoCascata } from '../../hooks/useCascata'
 import { useBloqueios } from '../../hooks/useBloqueios'
 import EntregaPainel from './EntregaPainel'
@@ -118,6 +119,19 @@ const GanttView = lazy(() => import('./GanttView'))
 
 const SEM_FILHOS = new Map() // subtarefas "Separar": cada uma vira linha própria, sem aninhar
 
+// ── Desfazer (Desfazer.jsx) ──
+const CHAVES_DATA = ['data_inicio', 'data_vencimento']
+const statusDe = (it) => ({ status: it.status, status_tipo: it.status_tipo, data_conclusao: it.data_conclusao ?? null })
+const soData = (patch) => Object.fromEntries(CHAVES_DATA.map((k) => [k, patch[k] ?? null]))
+/** "Vencimento removido: Título", "Início alterado: Título" ou "Datas de 4 tarefas alteradas". */
+function mensagemData(tr, antes, patch, n) {
+  if (n > 1) return tr('tarefas.desfazer.datasN', { n })
+  const campo = 'data_vencimento' in patch ? 'vencimento' : 'inicio'
+  const k = campo === 'vencimento' ? 'data_vencimento' : 'data_inicio'
+  const acao = patch[k] == null ? 'Removido' : 'Alterado'
+  return tr(`tarefas.desfazer.${campo}${acao}`, { titulo: antes?.titulo || '' })
+}
+
 /** Listas onde a tarefa nova cai: a lista escolhida; na pasta, a "Geral" (onde Intake e templates já criam). */
 function listaPadraoDe(sel, listasEscopo, t) {
   if (sel.tipo === 'lista') return sel.id
@@ -149,6 +163,8 @@ export default function AreaTarefas({
   const [renomeandoId, setRenomeandoId] = useState(null) // "Renomear" na própria linha da Lista
   const [emMassa, setEmMassa] = useState(false)
   const [confirmar, dialogoConfirmar] = useConfirmar()
+  // "Desfazer" por 10 s depois de concluir, excluir, arquivar e mudar/tirar data (Desfazer.jsx)
+  const [oferecerDesfazer, avisoDesfazer] = useDesfazer({ avisar: showToast })
   const [aplicandoTpl, setAplicandoTpl] = useState(null) // { template, listaId }: tela "Aplicar template"
   const [novaInicial, setNovaInicial] = useState(null) // rascunho de tarefa nova no painel lateral (NovaTarefaPanel)
   // largura da coluna Nome da Lista: preferência local, a mesma em todas as views
@@ -383,8 +399,21 @@ export default function AreaTarefas({
     if (r.error) showToast(r.error, 'error')
     return r
   }, [t, sel, showToast])
+  // Desfazer de data: durante um onAtualizar que mexe em data, guarda como cada tarefa gravada
+  // (a escolhida e as que a cascata levou) estava antes, para regravar tudo de volta.
+  const registroDatas = useRef(null) // null | [{ id, patch }]
   // mexer numa data passa pela cascata (dependentes andam junto, pai recalculado; src/lib/cascata.js)
   const gravarCascata = useCallback(async (id, patch) => {
+    const reg = registroDatas.current
+    if (reg && !reg.some((g) => g.id === id)) {
+      const chaves = [...new Set([...Object.keys(patch), ...CHAVES_DATA])]
+      let antes = t.itens[id]
+      if (!antes) {
+        const { data } = await supabase.from('tarefas_itens').select(chaves.join(',')).eq('id', id).maybeSingle()
+        antes = data
+      }
+      if (antes) reg.push({ id, patch: Object.fromEntries(chaves.map((k) => [k, antes[k] ?? null])) })
+    }
     if (t.itens[id]) return t.atualizarTarefa(id, patch)
     // dependente fora da tela (outra lista, "Minhas"): grava sem pôr na tela
     const { error } = await supabase.from('tarefas_itens').update(patch).eq('id', id)
@@ -394,14 +423,41 @@ export default function AreaTarefas({
   }, [t])
   const carregarGrafo = useCallback((id) => carregarGrafoCascata(supabase, id, t.itens), [t.itens])
   const atualizarComCascata = useCascata({ carregarGrafo, gravar: gravarCascata, confirmar, avisar: showToast })
+  /** Desfazer: regrava cada tarefa como estava, sem cascata (volta exatamente ao anterior). */
+  const regravar = useCallback(async (antes) => {
+    let falhas = 0
+    for (const { id, patch } of antes) { const r = await gravarCascata(id, patch); if (r?.error) falhas++ }
+    return falhas ? { error: tr('tarefas.desfazer.falhou', { n: falhas }) } : {}
+  }, [gravarCascata, tr])
   const onAtualizar = useCallback(async (id, patch) => {
-    const r = await atualizarComCascata(id, patch)
+    if (!CHAVES_DATA.some((k) => k in patch)) {
+      const r = await atualizarComCascata(id, patch)
+      if (r?.error) showToast(r.error, 'error')
+      return
+    }
+    const antes = t.itens[id]
+    registroDatas.current = []
+    let r, gravadas
+    try { r = await atualizarComCascata(id, patch) } finally { gravadas = registroDatas.current; registroDatas.current = null }
     if (r?.error) showToast(r.error, 'error')
-  }, [atualizarComCascata, showToast])
+    // cancelou na cascata ou deu erro antes de gravar: sem o que desfazer
+    if (!gravadas.length) return
+    // escolheu a mesma data que já estava
+    const igual = gravadas.length === 1 && CHAVES_DATA.every((k) => !(k in patch) || (patch[k] ?? null) === (antes?.[k] ?? null))
+    if (igual) return
+    oferecerDesfazer({ mensagem: mensagemData(tr, antes, patch, gravadas.length), desfazer: () => regravar(gravadas) })
+  }, [atualizarComCascata, showToast, t.itens, oferecerDesfazer, regravar, tr])
   const onMudarStatus = useCallback(async (item, s) => {
+    const antes = t.itens[item.id] || item
     const r = await t.mudarStatus(item, s)
-    if (r.error) showToast(r.error, 'error')
-  }, [t, showToast])
+    if (r.error) { showToast(r.error, 'error'); return }
+    if (s.tipo === 'closed' && antes.status_tipo !== 'closed') {
+      oferecerDesfazer({
+        mensagem: tr('tarefas.desfazer.concluida', { titulo: antes.titulo }),
+        desfazer: () => regravar([{ id: item.id, patch: statusDe(antes) }]),
+      })
+    }
+  }, [t, showToast, oferecerDesfazer, regravar, tr])
   // "+ Tarefa" / C abrem o rascunho; a tarefa só é criada no "Criar tarefa". Em Minhas/Todas
   // a lista é escolhida no rascunho (a última visitada vem marcada) e, em Minhas, o responsável é você.
   const novaTarefa = useCallback(() => {
@@ -554,16 +610,19 @@ export default function AreaTarefas({
   // subtarefa cujo pai também está selecionado vai junto com o pai (duplicar/excluir)
   const raizesSel = useMemo(() => itensSel.filter((it) => !(it.parent_id && selecionadas.has(it.parent_id))), [itensSel, selecionadas])
 
-  /** Roda fn em cada selecionada, uma de cada vez; fn devolve null para "pulada". campo = chave em tarefas.area.campo. */
-  const emLote = useCallback(async (fn, campo) => {
+  /** Roda fn em cada selecionada, uma de cada vez; fn devolve null para "pulada". campo = chave em tarefas.area.campo.
+   *  `desfazer(it)` (opcional): o patch que volta a tarefa ao que era antes; com ele o resumo vira o aviso com Desfazer. */
+  const emLote = useCallback(async (fn, campo, desfazer = null) => {
     const rotulo = tr(`tarefas.area.campo.${campo}`)
     setEmMassa(true)
     let ok = 0, puladas = 0, falhas = 0, ajustadas = 0
+    const antes = []
     for (const it of itensSel) {
+      const volta = desfazer?.(it) // lido antes de gravar
       const r = await fn(it)
       if (r === null) puladas++
       else if (r?.error) falhas++
-      else { ok++; if (r?.ajustou) ajustadas++ }
+      else { ok++; if (r?.ajustou) ajustadas++; if (volta) antes.push({ id: it.id, patch: volta }) }
     }
     setEmMassa(false)
     const extra = [
@@ -571,9 +630,13 @@ export default function AreaTarefas({
       puladas && tr('tarefas.area.lotePuladas', { n: puladas }), falhas && tr('tarefas.area.loteFalhas', { n: falhas }),
     ].filter(Boolean).join(', ')
     const resumo = tr('tarefas.area.loteResumo', { rotulo, count: ok })
-    showToast(extra ? tr('tarefas.area.loteResumoExtra', { resumo, extra }) : resumo, falhas ? 'error' : undefined)
-  }, [itensSel, showToast, tr])
-  const atualizarSel = useCallback((patch, campo) => emLote((it) => t.atualizarTarefa(it.id, typeof patch === 'function' ? patch(it) : patch), campo), [emLote, t])
+    const texto = extra ? tr('tarefas.area.loteResumoExtra', { resumo, extra }) : resumo
+    if (antes.length) {
+      oferecerDesfazer({ mensagem: texto, desfazer: () => regravar(antes) })
+      if (falhas) showToast(texto, 'error')
+    } else showToast(texto, falhas ? 'error' : undefined)
+  }, [itensSel, showToast, tr, oferecerDesfazer, regravar])
+  const atualizarSel = useCallback((patch, campo, desfazer) => emLote((it) => t.atualizarTarefa(it.id, typeof patch === 'function' ? patch(it) : patch), campo, desfazer), [emLote, t])
 
   const copiaDe = (it, extra) => ({
     lista_id: it.lista_id, parent_id: it.parent_id, titulo: it.titulo, descricao: it.descricao, status: it.status, prioridade: it.prioridade,
@@ -620,26 +683,41 @@ export default function AreaTarefas({
       rotuloItens: tarefas.length === 1 ? tr('tarefas.area.tarefaASerArquivada') : tr('tarefas.area.tarefasASeremArquivadas'), itens,
     })
   }, [confirmar, filhosDe, tr])
+  /** Excluir/arquivar com Desfazer: as tarefas (e subtarefas) somem da tela na hora e só são
+   *  apagadas/arquivadas no banco, e daí no ClickUp, quando o prazo de 10 s acaba. Desfazer só as traz de volta. */
+  const removerComDesfazer = useCallback((qual, tarefas) => {
+    const blocos = tarefas.map((it) => ({ it, oculto: t.ocultarLocal([it.id]) }))
+    const fora = new Set(blocos.flatMap((b) => b.oculto.ids))
+    if (tarefaAbertaId && fora.has(tarefaAbertaId)) fecharPainel()
+    setSelecionadas((p) => { const n = new Set([...p].filter((id) => !fora.has(id))); return n.size === p.size ? p : n })
+    const n = tarefas.length
+    const mensagem = n === 1
+      ? tr(qual === 'excluir' ? 'tarefas.desfazer.excluida' : 'tarefas.desfazer.arquivada', { titulo: tarefas[0].titulo })
+      : tr(qual === 'excluir' ? 'tarefas.area.excluidas' : 'tarefas.area.arquivadas', { count: n })
+    oferecerDesfazer({
+      mensagem,
+      desfazer: () => { for (const b of blocos) t.reexibirLocal(b.oculto); return {} },
+      confirmar: async () => {
+        let falhas = 0, erro = null
+        for (const b of blocos) {
+          const r = qual === 'excluir' ? await t.excluirTarefa(b.it.id) : await t.arquivarTarefa(b.it.id)
+          if (r.error) { falhas++; erro = erro || r.error; t.reexibirLocal(b.oculto) } else t.soltarOcultas(b.oculto)
+        }
+        if (!falhas) return {}
+        return { error: n === 1 ? erro : `${tr(qual === 'excluir' ? 'tarefas.area.excluidas' : 'tarefas.area.arquivadas', { count: n - falhas })}${tr('tarefas.area.comErroSufixo', { n: falhas })}` }
+      },
+    })
+  }, [t, tarefaAbertaId, fecharPainel, oferecerDesfazer, tr])
   const excluirSel = useCallback(async () => {
     if (!(await pedirConfirmacao('excluir', raizesSel))) return
-    setEmMassa(true)
-    let n = 0, falhas = 0
-    for (const it of raizesSel) { const r = await t.excluirTarefa(it.id); if (r.error) falhas++; else n++ }
-    setEmMassa(false)
-    if (tarefaAbertaId && selecionadas.has(tarefaAbertaId)) fecharPainel()
+    removerComDesfazer('excluir', raizesSel)
     setSelecionadas(new Set())
-    showToast(`${tr('tarefas.area.excluidas', { count: n })}${falhas ? tr('tarefas.area.comErroSufixo', { n: falhas }) : ''}`, falhas ? 'error' : undefined)
-  }, [raizesSel, t, showToast, tarefaAbertaId, selecionadas, fecharPainel, pedirConfirmacao, tr])
+  }, [raizesSel, pedirConfirmacao, removerComDesfazer])
   const arquivarSel = useCallback(async () => {
     if (!(await pedirConfirmacao('arquivar', raizesSel))) return
-    setEmMassa(true)
-    let n = 0, falhas = 0
-    for (const it of raizesSel) { const r = await t.arquivarTarefa(it.id); if (r.error) falhas++; else n++ }
-    setEmMassa(false)
-    if (tarefaAbertaId && selecionadas.has(tarefaAbertaId)) fecharPainel()
+    removerComDesfazer('arquivar', raizesSel)
     setSelecionadas(new Set())
-    showToast(`${tr('tarefas.area.arquivadas', { count: n })}${falhas ? tr('tarefas.area.comErroSufixo', { n: falhas }) : ''}`, falhas ? 'error' : undefined)
-  }, [raizesSel, t, showToast, tarefaAbertaId, selecionadas, fecharPainel, pedirConfirmacao, tr])
+  }, [raizesSel, pedirConfirmacao, removerComDesfazer])
   // ── Menu de uma tarefa (⋯ do painel e clique direito) ──────────────────
   const copiar = useCallback(async (texto, ok) => {
     try { await navigator.clipboard.writeText(texto); showToast(ok) } catch { showToast(tr('tarefas.area.naoCopiou'), 'error') }
@@ -673,13 +751,13 @@ export default function AreaTarefas({
     historico: (it) => navigate(`/tarefas?aba=sincronizacao&sync_tarefa=${it.id}`),
     arquivar: async (it) => {
       if (!(await pedirConfirmacao('arquivar', [it]))) return
-      const r = await t.arquivarTarefa(it.id)
-      if (r.error) showToast(r.error, 'error'); else { tirarDaTela(it); showToast(tr('tarefas.area.tarefaArquivada')) }
+      tirarDaTela(it)
+      removerComDesfazer('arquivar', [it])
     },
     excluir: async (it) => {
       if (!(await pedirConfirmacao('excluir', [it]))) return
-      const r = await t.excluirTarefa(it.id)
-      if (r.error) showToast(r.error, 'error'); else { tirarDaTela(it); showToast(tr('tarefas.area.tarefaExcluida')) }
+      tirarDaTela(it)
+      removerComDesfazer('excluir', [it])
     },
   })
   const statusComum = itensSel.length && itensSel.every((i) => i.status === itensSel[0].status) ? itensSel[0].status : null
@@ -711,6 +789,7 @@ export default function AreaTarefas({
   return (
     <div ref={areaRef} className="relative flex-1 min-w-0 h-full min-h-0 flex">
       {dialogoConfirmar}
+      {avisoDesfazer(mostrarViews && view === 'lista' && itensSel.length > 0)}
       {menuTarefa && (
         <MenuContextoTarefa
           key={`${menuTarefa.item.id}:${menuTarefa.x}:${menuTarefa.y}`}
@@ -766,13 +845,18 @@ export default function AreaTarefas({
           <BarraSelecao n={itensSel.length} onLimpar={() => setSelecionadas(new Set())} onDuplicar={duplicarSel} onArquivar={arquivarSel} onExcluir={excluirSel} ocupado={emMassa}>
             <StatusCampo
               item={{ status: statusComum }} statuses={statuses}
-              onChange={(s) => emLote((it) => { const st = statusDaLista(t.listasMap.get(it.lista_id)).find((x) => x.key === s.key); return st ? t.mudarStatus(it, st) : null }, 'status')}
+              onChange={(s) => emLote(
+                (it) => { const st = statusDaLista(t.listasMap.get(it.lista_id)).find((x) => x.key === s.key); return st ? t.mudarStatus(it, st) : null },
+                'status',
+                // concluir em massa ganha o Desfazer (as que já estavam concluídas ficam como estão)
+                s.tipo === 'closed' ? (it) => (it.status_tipo !== 'closed' ? statusDe(it) : null) : null,
+              )}
               render={<BotaoBarra icon={CircleDot}>{tr('tarefas.area.campo.status')}</BotaoBarra>}
             />
             <ResponsaveisEmMassa listas={itensSel.map((i) => i.responsaveis)} membros={teamMembers || []} membrosMap={membrosMap} icon={Users}
               onAplicar={(d) => atualizarSel((it) => ({ responsaveis: aplicarDiferenca(it.responsaveis, d) }), 'responsaveis')} />
-            <DataCampo valor={null} onChange={(v) => atualizarSel({ data_inicio: v }, 'inicio')} render={<BotaoBarra icon={CalendarDays}>{tr('tarefas.area.campo.inicio')}</BotaoBarra>} />
-            <DataCampo valor={null} onChange={(v) => atualizarSel({ data_vencimento: v }, 'vencimento')} render={<BotaoBarra icon={CalendarClock}>{tr('tarefas.area.campo.vencimento')}</BotaoBarra>} />
+            <DataCampo valor={null} onChange={(v) => atualizarSel({ data_inicio: v }, 'inicio', soData)} render={<BotaoBarra icon={CalendarDays}>{tr('tarefas.area.campo.inicio')}</BotaoBarra>} />
+            <DataCampo valor={null} onChange={(v) => atualizarSel({ data_vencimento: v }, 'vencimento', soData)} render={<BotaoBarra icon={CalendarClock}>{tr('tarefas.area.campo.vencimento')}</BotaoBarra>} />
             <PrioridadeCampo valor={null} onChange={(v) => atualizarSel({ prioridade: v }, 'prioridade')} render={<BotaoBarra icon={Flag}>{tr('tarefas.area.campo.prioridade')}</BotaoBarra>} />
             <TipoTarefaCampo valor={null} onChange={(v) => atualizarSel({ tipo_tarefa: v }, 'tipo')} render={<BotaoBarra icon={Shapes}>{tr('tarefas.area.campo.tipo')}</BotaoBarra>} />
             <EstimativaCampo valor={null} onChange={(v) => atualizarSel({ estimativa_min: v }, 'estimativa')} render={<BotaoBarra icon={Hourglass}>{tr('tarefas.area.campo.estimativa')}</BotaoBarra>} />

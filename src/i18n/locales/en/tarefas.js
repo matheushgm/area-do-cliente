@@ -1,5 +1,17 @@
 export default {
   semTitulo: 'Untitled',
+  desfazer: {
+    botao: 'Undo',
+    concluida: 'Task completed: {titulo}',
+    excluida: 'Task deleted: {titulo}',
+    arquivada: 'Task archived: {titulo}',
+    vencimentoAlterado: 'Due date changed: {titulo}',
+    vencimentoRemovido: 'Due date removed: {titulo}',
+    inicioAlterado: 'Start date changed: {titulo}',
+    inicioRemovido: 'Start date removed: {titulo}',
+    datasN: 'Dates changed on {n} tasks',
+    falhou: 'Could not undo {n} task(s)',
+  },
   views: {
     tipo: {
       lista: 'List',
@@ -321,7 +333,7 @@ export default {
       other: 'this task and its {count} subtasks',
     },
     excluirQtd: 'Delete {qtd}?',
-    excluirTexto: 'This also deletes it in ClickUp and can’t be undone.',
+    excluirTexto: 'You’ll have 10 seconds to undo. After that, it’s also deleted in ClickUp.',
     tarefaASerExcluida: 'Task to delete',
     tarefasASeremExcluidas: 'Tasks to delete',
     arquivarQtd: 'Archive {qtd}?',

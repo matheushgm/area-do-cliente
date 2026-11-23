@@ -78,11 +78,14 @@ export function useTarefas(user) {
   useEffect(() => { carregarEstrutura() }, [carregarEstrutura])
 
   // ── Tarefas ────────────────────────────────────────────────────────────────
+  // Excluir/arquivar com "Desfazer" (AreaTarefas): a tarefa some da tela na hora e só é gravada
+  // depois do prazo. Enquanto isso nenhuma carga, recuperação ou evento a traz de volta.
+  const ocultas = useRef(new Set())
   const mesclar = useCallback((rows) => {
     if (!rows?.length) return
     setItens((prev) => {
       const next = { ...prev }
-      for (const r of rows) next[r.id] = r
+      for (const r of rows) if (!ocultas.current.has(r.id)) next[r.id] = r
       return next
     })
   }, [])
@@ -306,6 +309,30 @@ export function useTarefas(user) {
     })
   }, [])
 
+  /** Tira da tela as tarefas e todas as subtarefas, sem gravar nada; devolve as linhas para `reexibirLocal`. */
+  const ocultarLocal = useCallback((ids) => {
+    const fora = new Set(ids)
+    for (let mudou = true; mudou;) {
+      mudou = false
+      for (const it of Object.values(itens)) if (it.parent_id && fora.has(it.parent_id) && !fora.has(it.id)) { fora.add(it.id); mudou = true }
+    }
+    const linhas = [...fora].map((id) => itens[id]).filter(Boolean)
+    for (const id of fora) ocultas.current.add(id)
+    setItens((prev) => {
+      const next = { ...prev }
+      for (const id of fora) delete next[id]
+      return next
+    })
+    return { ids: [...fora], linhas }
+  }, [itens])
+  /** Desfazer: as tarefas ocultadas voltam como estavam. */
+  const reexibirLocal = useCallback(({ ids, linhas }) => {
+    for (const id of ids) ocultas.current.delete(id)
+    mesclar(linhas)
+  }, [mesclar])
+  /** Prazo acabou e a gravação terminou: a trava das ocultadas sai (excluída/arquivada não volta pelos filtros de carga). */
+  const soltarOcultas = useCallback(({ ids }) => { for (const id of ids) ocultas.current.delete(id) }, [])
+
   const excluirTarefa = useCallback(async (id) => {
     const { error } = await supabase.from('tarefas_itens').delete().eq('id', id)
     if (!error) agendarPush()
@@ -414,6 +441,7 @@ export function useTarefas(user) {
         for (const { eventType, row, old, recuperada } of lote) {
           if (eventType === 'DELETE') { if (n[old.id]) { editavel(); delete n[old.id] } continue }
           if (row.arquivada) { if (n[row.id]) { editavel(); delete n[row.id] } continue }
+          if (ocultas.current.has(row.id)) continue // excluída/arquivada esperando o prazo do Desfazer
           // linha da recuperação pode ser mais velha que um evento que chegou enquanto ela era lida
           const atual = n[row.id]
           if (recuperada && atual && new Date(atual.updated_at) >= new Date(row.updated_at)) continue
@@ -515,6 +543,7 @@ export function useTarefas(user) {
     itens, comentarios,
     carregarEstrutura, carregarListas, carregarMinhas, carregarAbertas, carregarPorCampo, carregarPorIds, carregarTarefa, aplicarLocal,
     criarTarefa, atualizarTarefa, mudarStatus, excluirTarefa, arquivarTarefa,
+    ocultarLocal, reexibirLocal, soltarOcultas,
     criarPasta, atualizarPasta, atualizarLista,
     carregarComentarios, criarComentario, excluirComentario,
     // relações (tarefas_relacoes) são gravadas fora do hook: quem grava pede o envio ao ClickUp
