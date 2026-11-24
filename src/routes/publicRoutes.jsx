@@ -12,6 +12,7 @@ const ResetPassword = lazy(() => import('../pages/ResetPassword'))
 // ── Portal do cliente / parceiro (senha própria) ───────────
 const Portal = lazy(() => import('../pages/Portal'))
 const PedidoPublico = lazy(() => import('../pages/PedidoPublico'))
+const ListaPublica = lazy(() => import('../pages/ListaPublica'))
 const VagaPublica = lazy(() => import('../pages/VagaPublica'))
 
 // ── Formulários e documentos por token do projeto ──────────
@@ -61,6 +62,7 @@ export const publicRoutes = [
 
   <Route key="aprovacao" path="/aprovacao/:token" element={<AprovacaoAnunciosPublico />} />,
   <Route key="pedido" path="/pedido/:token" element={<PedidoPublico />} />,
+  <Route key="lista-publica" path="/lista/:token" element={<ListaPublica />} />,
   <Route key="vaga" path="/vaga/:cargo" element={<VagaPublica />} />,
   <Route key="aprovacao-copy" path="/aprovacao-copy/:token" element={<AprovacaoCopyPublico />} />,
   <Route key="criativos" path="/criativos/:projectId/:token" element={<CriativosPublico />} />,

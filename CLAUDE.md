@@ -1363,6 +1363,17 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   status em seguida (lá a tarefa movida cai no status padrão da lista nova). Subtarefa cujo pai ainda está na fila é devolvida
   sem gastar tentativa. Testado em 24/11/2026 com tarefa de teste (pai + subtarefa) da Revenue Lab, Geral → Social Media, com
   o push da branch rodando local: as duas mudaram de lista no ClickUp e os status ficaram; tarefas de teste apagadas.
+- **Link público da lista (2026-11-24, pedido do Matheus, migration 138):** botão azul **Compartilhar** no cabeçalho do
+  VertaTask, ao lado do breadcrumb, quando uma lista ou a pasta de um cliente está aberta (`CompartilharLista.jsx`): cria,
+  copia e desativa o link `/lista/:token`, que qualquer pessoa abre sem login (`src/pages/ListaPublica.jsx`, rota pública:
+  não renomear). Lista = só ela; pasta = todas as listas não arquivadas do cliente, com filtro por lista. A página tem
+  resumo (em andamento, concluídas, % concluído), abas **Em andamento** (agrupada por status, cada grupo pelo vencimento)
+  e **Concluídas** (pela data de conclusão, as 500 mais recentes), busca e subtarefas recolhíveis. Os dados vêm de
+  `api/tarefas-publico.js` (edge, chave de serviço), que devolve só título, status, prioridade, datas, responsáveis (nome e
+  foto) e subtarefas: descrição, comentários, anexos e checklists não saem. Tabela `tarefas_links_publicos` (token uuid,
+  `lista_id` ou `pasta_id`, `ativo`, `acessos`/`ultimo_acesso_at` pela RPC `tarefas_link_publico_acesso`; RLS do time): um
+  link ativo por lista/pasta (índices únicos parciais); desativar corta na hora e criar de novo gera outro token.
+  Testado em 24/11/2026 no `vercel dev` com um link de teste na pasta da Connu (apagado); o botão não foi visto logado.
 - **Desfazer por 10 s (2026-11-23, pedido do Matheus):** concluir, excluir, arquivar e mudar ou tirar a data de
   início/vencimento (na linha, no painel, no Quadro, Calendário e Gantt, e na edição em massa) mostram um aviso no rodapé com
   **Desfazer** e a contagem (`src/components/Tarefas/Desfazer.jsx`, `useDesfazer` no `AreaTarefas`). Concluir e datas gravam

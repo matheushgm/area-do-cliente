@@ -1,0 +1,23 @@
+// Public VertaTask list page (/lista/:token)
+export default {
+  acompanhamento: 'Progress',
+  titulo: 'Task list',
+  tarefasDe: '{cliente} tasks',
+  subtitulo: 'What is in progress and what has been delivered.',
+  atualizar: 'Refresh',
+  erro: 'This list could not be opened.',
+  pecaOutro: 'Ask whoever shared it with you for a new link.',
+  emAndamento: 'In progress',
+  concluidas: 'Completed',
+  pctConcluido: '{pct}% complete',
+  buscar: 'Search tasks...',
+  todasListas: 'All lists',
+  verSubtarefas: 'Show subtasks',
+  recolher: 'Hide subtasks',
+  subtarefasFeitas: '{feitas}/{total} subtasks',
+  concluidaEm: 'completed on {data}',
+  nadaAndamento: 'No tasks in progress.',
+  nadaConcluido: 'No completed tasks yet.',
+  limite: 'Showing the {n} most recent completed tasks.',
+  rodape: 'Progress shared by Verta',
+}

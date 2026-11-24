@@ -9,6 +9,7 @@ import { apiFetch } from '../lib/api'
 // Tarefas da página do cliente.
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useOutletContext } from 'react-router-dom'
+import CompartilharLista from '../components/Tarefas/CompartilharLista'
 import { Menu, ChevronRight, Plus, Loader2, PanelLeft, PanelLeftClose, PanelLeftOpen, RefreshCw, CloudUpload, ExternalLink, AlertTriangle } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
@@ -322,6 +323,10 @@ export default function Tarefas() {
             {sel.tipo === 'minhas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="text-ln-t2">{tt('tarefas.pagina.minhas')}</span></>)}
             {sel.tipo === 'todas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="text-ln-t2">{tt('tarefas.pagina.todasAbertas')}</span></>)}
           </div>
+        )}
+        {/* link público da lista aberta (ou da pasta inteira do cliente) */}
+        {!aba && (listaSel || pastaSel) && (
+          <CompartilharLista key={listaSel?.id || pastaSel?.id} listaId={listaSel?.id || null} pastaId={listaSel ? null : pastaSel?.id} nome={listaSel?.nome || pastaSel?.nome} user={user} avisar={showToast} />
         )}
         {(!aba || aba === 'ciclos') && <span className="hidden xl:inline text-xs text-ln-t4 tabular whitespace-nowrap">{tt('tarefas.pagina.nAbertas', { count: api.totalAbertas })}</span>}
       </div>

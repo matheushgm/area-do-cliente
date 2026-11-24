@@ -1,0 +1,23 @@
+// Página pública da lista do VertaTask (/lista/:token)
+export default {
+  acompanhamento: 'Acompanhamento',
+  titulo: 'Lista de tarefas',
+  tarefasDe: 'Tarefas de {cliente}',
+  subtitulo: 'O que está sendo feito e o que já foi entregue.',
+  atualizar: 'Atualizar',
+  erro: 'Não foi possível abrir esta lista.',
+  pecaOutro: 'Peça um link novo a quem compartilhou com você.',
+  emAndamento: 'Em andamento',
+  concluidas: 'Concluídas',
+  pctConcluido: '{pct}% concluído',
+  buscar: 'Buscar tarefa...',
+  todasListas: 'Todas as listas',
+  verSubtarefas: 'Ver subtarefas',
+  recolher: 'Recolher subtarefas',
+  subtarefasFeitas: '{feitas}/{total} subtarefas',
+  concluidaEm: 'concluída em {data}',
+  nadaAndamento: 'Nenhuma tarefa em andamento.',
+  nadaConcluido: 'Nenhuma tarefa concluída ainda.',
+  limite: 'Mostrando as {n} concluídas mais recentes.',
+  rodape: 'Acompanhamento compartilhado pela Verta',
+}
