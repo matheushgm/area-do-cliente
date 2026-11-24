@@ -1,12 +1,13 @@
-import { NO_STORE, jsonCors, preflight, sb } from './_http.js'
+import { NO_STORE, jsonCors, preflight, sb, serviceKey } from './_http.js'
 
 // Link público de uma lista (ou da pasta inteira de um cliente) do VertaTask, sem login:
 // a página /lista/:token (src/pages/ListaPublica.jsx) chama
 //   GET ?token=UUID → { alvo, cliente, listas[], pessoas{}, abertas[], concluidas[], concluidasTotal }
 // O token vem de tarefas_links_publicos (migration 138), criado pelo botão "Compartilhar" do
 // cabeçalho do VertaTask. Desativado ou inexistente = 404. Só sai o que a página mostra: título,
-// status, prioridade, datas, responsáveis (nome e foto) e subtarefas. Descrição, comentários,
-// anexos, checklists e campos internos ficam de fora.
+// status, prioridade, datas, responsáveis (nome e foto) e subtarefas; descrição, checklists e anexos
+// só no detalhe de uma tarefa (pedido do Matheus em 24/11/2026). Comentários e campos internos
+// (tipo, dificuldade, estimativa, etiquetas, ClickUp) não saem.
 
 export const config = { runtime: 'edge' }
 
@@ -36,6 +37,43 @@ const limpar = (t) => ({
   posicao: t.posicao, criada: t.created_at,
 })
 
+const BUCKET_ANEXOS = 'task-attachments'
+async function urlAssinada(path) {
+  const caminho = String(path).split('/').map(encodeURIComponent).join('/')
+  const key = serviceKey()
+  try {
+    const res = await fetch(`${process.env.SUPABASE_URL}/storage/v1/object/sign/${BUCKET_ANEXOS}/${caminho}`, {
+      method: 'POST', headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ expiresIn: 3600 }),
+    })
+    const data = await res.json().catch(() => null)
+    return res.ok && data?.signedURL ? `${process.env.SUPABASE_URL}/storage/v1${data.signedURL}` : null
+  } catch { return null }
+}
+
+// Detalhe de uma tarefa do link: descrição, checklists e anexos (o resto a página já tem)
+async function detalhe(tarefaId, listaIds) {
+  if (!UUID_RE.test(tarefaId)) return { error: 'tarefa inválida' }
+  const { data } = await sb(`/tarefas_itens?id=eq.${tarefaId}&arquivada=eq.false&select=id,lista_id,descricao,checklists,anexos`, { prefer: null })
+  const t = Array.isArray(data) ? data[0] : null
+  if (!t || !listaIds.includes(t.lista_id)) return { error: 'Esta tarefa não faz parte do link.' }
+  const anexos = await Promise.all((t.anexos || []).map(async (a) => ({
+    nome: a.name || a.title || (a.path ? String(a.path).split('/').pop().replace(/^\d+-/, '') : 'arquivo'),
+    type: a.type || a.mimetype || null,
+    size: a.size || null,
+    source: a.source || null,
+    url: a.path ? await urlAssinada(a.path) : (a.url || null),
+    thumbnail: a.thumbnail || null,
+  })))
+  return {
+    tarefa: {
+      id: t.id,
+      descricao: t.descricao || '',
+      checklists: (t.checklists || []).map((c) => ({ nome: c.nome || '', itens: (c.itens || []).map((i) => ({ nome: i.nome || '', feito: !!i.feito })) })),
+      anexos: anexos.filter((a) => a.url),
+    },
+  }
+}
+
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return preflight()
   if (req.method !== 'GET') return json({ error: 'método não suportado' }, 405)
@@ -58,6 +96,9 @@ export default async function handler(req) {
       listas = Array.isArray(data) ? data : []
     }
     if (!listas.length) return json({ error: 'Esta lista não existe mais.' }, 404)
+
+    const tarefaId = new URL(req.url).searchParams.get('tarefa')
+    if (tarefaId) return json(await detalhe(tarefaId, listas.map((l) => l.id)))
 
     let cliente = null
     if (pastaId) {

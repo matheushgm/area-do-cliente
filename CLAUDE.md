@@ -1369,8 +1369,12 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   não renomear). Lista = só ela; pasta = todas as listas não arquivadas do cliente, com filtro por lista. A página tem
   resumo (em andamento, concluídas, % concluído), abas **Em andamento** (agrupada por status, cada grupo pelo vencimento)
   e **Concluídas** (pela data de conclusão, as 500 mais recentes), busca e subtarefas recolhíveis. Os dados vêm de
-  `api/tarefas-publico.js` (edge, chave de serviço), que devolve só título, status, prioridade, datas, responsáveis (nome e
-  foto) e subtarefas: descrição, comentários, anexos e checklists não saem. Tabela `tarefas_links_publicos` (token uuid,
+  `api/tarefas-publico.js` (edge, chave de serviço), que devolve título, status, prioridade, datas, responsáveis (nome e
+  foto) e subtarefas. **Clicar numa tarefa ou subtarefa** abre um painel (à direita; tela cheia no celular) com status,
+  responsáveis, datas, descrição (markdown), checklists, anexos (pré-visualização pelo `AnexoPreview`) e subtarefas; esses
+  dados vêm só ao abrir (`?token&tarefa=<id>`, que recusa tarefa fora das listas do link; anexo do Storage sai com URL
+  assinada de 1 h, o do ClickUp com o link de lá). Comentários e campos internos (tipo, dificuldade, estimativa, etiquetas)
+  não saem. Tabela `tarefas_links_publicos` (token uuid,
   `lista_id` ou `pasta_id`, `ativo`, `acessos`/`ultimo_acesso_at` pela RPC `tarefas_link_publico_acesso`; RLS do time): um
   link ativo por lista/pasta (índices únicos parciais); desativar corta na hora e criar de novo gera outro token.
   Testado em 24/11/2026 no `vercel dev` com um link de teste na pasta da Connu (apagado); o botão não foi visto logado.
