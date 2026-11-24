@@ -12,6 +12,8 @@
 //   SUPABASE_URL=... SUPABASE_SECRET_KEY=... node scripts/otimizacoes_pendentes.mjs [--saida x.json] [--resumo]
 // Importável: calcularOtimizacoes({ url, key }) → { janela, pendentes, decisoes, projetos, contas }
 import { writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
 import { gerarSugestoesProjeto, pendente, janelaAnalise } from '../public/dash-teste/vendor/playbookSugestoes.js'
 import { modoDoAgente, regraDaChave, MOTIVO_CRITICA } from '../src/lib/otimizacoesAgente.js'
 
@@ -143,7 +145,8 @@ export async function calcularOtimizacoes({ url, key }) {
 }
 
 // ── Linha de comando ─────────────────────────────────────────────────────────
-if (import.meta.url === `file://${process.argv[1]}`) {
+// (compara caminhos, não URLs: a pasta do Escritório tem espaço no nome)
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   const url = process.env.SUPABASE_URL || 'https://dwbdzoljmdmihitssxhn.supabase.co'
   const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!key) { console.error('Defina SUPABASE_SECRET_KEY (ou SUPABASE_SERVICE_ROLE_KEY).'); process.exit(1) }
