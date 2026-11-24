@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef } from 'react'
 import MarkdownView from '../Editor/MarkdownView'
 import MarkdownEditor from '../Editor/MarkdownEditor'
-import { X, Trash2, Plus, Check, Square, CheckSquare, Paperclip, Send, Loader2, CornerDownRight, CloudUpload, ExternalLink } from 'lucide-react'
+import { X, Trash2, Plus, Check, Square, CheckSquare, Paperclip, Send, Loader2, CornerDownRight, CloudUpload, ExternalLink, ChevronDown } from 'lucide-react'
 import { supabase, uploadFile, deleteFile } from '../../lib/supabase'
 import AnexoPreview from '../UI/AnexoPreview'
 import { tipoDoAnexo, nomeDoAnexo } from '../../lib/anexos'
@@ -16,7 +16,7 @@ import {
 import { useI18n } from '../../i18n'
 import {
   StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, limitesInicio, limitesVencimento, PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, AdicionarInline,
-  Avatar, Avatares, Popover, FOCO,
+  Avatar, Avatares, Popover, ListasBusca, FOCO,
 } from './Campos'
 import RelacaoCampo from './RelacaoCampo'
 import { Secao, ListaSubtarefas } from './SecoesTarefa'
@@ -348,10 +348,38 @@ function Hierarquia({ item, subs, ancestrais, irmas, statuses, membrosMap, onAbr
 }
 const nomeDe = (s, t) => s.titulo || t('tarefaPainel.semTitulo')
 
+/** Lista da tarefa no painel: mostra "Cliente / Lista" e, na tarefa de topo, abre a busca para
+ *  mover (criada no lugar errado). Subtarefa só mostra: ela vai junto quando o pai muda de lista. */
+function ListaDaTarefa({ item, grupos, onMover }) {
+  const { t } = useI18n()
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const g = grupos.find((x) => x.listas.some((l) => l.id === item.lista_id))
+  const lista = g?.listas.find((l) => l.id === item.lista_id)
+  const rotulo = lista ? (<>
+    {g.pasta && <span className="truncate text-ln-t3">{g.pasta.nome}</span>}
+    {g.pasta && <span className="text-ln-t4">/</span>}
+    <span className="truncate">{lista.nome}</span>
+  </>) : <span className="text-ln-t4">-</span>
+  if (item.parent_id || !onMover) return <span className="inline-flex items-center gap-1 min-w-0 text-[13px]" title={item.parent_id ? t('tarefaPainel.listaSegueOPai') : undefined}>{rotulo}</span>
+  return (
+    <>
+      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`inline-flex items-center gap-1 min-w-0 max-w-full h-7 px-1.5 -mx-1.5 rounded-md text-[13px] text-ln-t2 hover:bg-ln-ink/[0.04] ${FOCO}`} title={t('tarefaPainel.menu.moverLista')} aria-haspopup="listbox" aria-expanded={open}>
+        {rotulo}
+        <ChevronDown className="w-3 h-3 shrink-0 text-ln-t4" />
+      </button>
+      <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={300} alturaMax={380}>
+        <ListasBusca grupos={grupos} valor={item.lista_id} desabilitada={item.lista_id} onEscolher={(id) => { setOpen(false); onMover(item, id) }} />
+      </Popover>
+    </>
+  )
+}
+
 export default function TarefaPanel({
   item, subtarefas, ancestrais = [], irmas = null, statuses, membros, membrosMap, comentarios, user, ciclos = [], etiquetas = [], ciclosMap = new Map(), etiquetasMap = new Map(), onCriarEtiqueta,
   onAtualizar, onMudarStatus, onCriarSub, onAbrir, onComentar, onExcluirComentario, onCarregarComentarios, onErro, onRelacoesMudaram,
   entrega = null, // bloco "Entrega" (EntregaPainel), montado por quem tem os dados da família
+  gruposListas = null, onMoverLista = null, // propriedade Lista (mover a tarefa de lista)
 }) {
   const { t } = useI18n()
   const [titulo, setTitulo] = useState(item?.titulo || '')
@@ -393,6 +421,7 @@ export default function TarefaPanel({
       <section>
         <p className="ln-label">{t('tarefaPainel.propriedades')}</p>
         <dl className="flex flex-col">
+          {gruposListas && <Propriedade label={t('tarefaPainel.prop.lista')}><ListaDaTarefa item={item} grupos={gruposListas} onMover={onMoverLista} /></Propriedade>}
           <Propriedade label={t('tarefaPainel.prop.status')}><StatusCampo item={item} statuses={statuses} onChange={(s) => onMudarStatus(item, s)} /></Propriedade>
           <Propriedade label={t('tarefaPainel.prop.responsaveis')}>
             <ResponsavelCampo item={item} membros={membros} membrosMap={membrosMap} size={16} max={4} comNome onChange={(ids, extra) => onAtualizar(item.id, extra ? { responsaveis: ids, responsaveis_extra: extra } : { responsaveis: ids })} />

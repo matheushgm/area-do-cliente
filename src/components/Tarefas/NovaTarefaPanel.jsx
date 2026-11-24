@@ -3,9 +3,9 @@
 // Usado pelo "+ Tarefa" e pelo atalho C da AreaTarefas (em Minhas/Todas a lista é escolhida aqui).
 // Subtarefas, relações e checklists também ficam no rascunho e são criados junto (AreaTarefas).
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { Loader2, ChevronDown, Folder, X } from 'lucide-react'
+import { Loader2, ChevronDown, X } from 'lucide-react'
 import MarkdownEditor from '../Editor/MarkdownEditor'
-import { StatusCampo, ResponsavelCampo, PrioridadeCampo, DataCampo, limitesInicio, limitesVencimento, EstimativaCampo, TipoTarefaCampo, Popover, ItemMenu, BuscaMenu, FOCO } from './Campos'
+import { StatusCampo, ResponsavelCampo, PrioridadeCampo, DataCampo, limitesInicio, limitesVencimento, EstimativaCampo, TipoTarefaCampo, Popover, ListasBusca, FOCO } from './Campos'
 import { Propriedade, DepartamentoCampo, Checklists } from './TarefaPanel'
 import { Secao, ListaSubtarefas, ListaRelacoes } from './SecoesTarefa'
 import { TIPOS_RELACAO, ROTULO_DIRETO } from './TarefaExtras'
@@ -15,25 +15,13 @@ import { fmtCurto, fmtHoras, COR_PONTO } from './Calendario'
 import { statusDaLista, statusInicial, novoId, paraInputDate, deInputDate } from '../../lib/tarefas'
 import { useI18n } from '../../i18n'
 
-const semAcento = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-
 /** Lista da tarefa com busca pelo nome do cliente (pasta) ou da lista. */
 function ListaCampo({ grupos, valor, onChange }) {
   const { t } = useI18n()
   const [open, setOpen] = useState(false)
-  const [busca, setBusca] = useState('')
   const ref = useRef(null)
   const grupoAtual = grupos.find((g) => g.listas.some((x) => x.id === valor))
   const atual = grupoAtual ? { pasta: grupoAtual.pasta, lista: grupoAtual.listas.find((x) => x.id === valor) } : null
-  // a pasta que bate mostra todas as listas dela; senão só as listas cujo nome bate
-  const filtrados = useMemo(() => {
-    const q = semAcento(busca.trim())
-    if (!q) return grupos
-    return grupos
-      .map((g) => (semAcento(g.pasta?.nome).includes(q) ? g : { ...g, listas: g.listas.filter((l) => semAcento(l.nome).includes(q)) }))
-      .filter((g) => g.listas.length)
-  }, [grupos, busca])
-  const fechar = () => { setOpen(false); setBusca('') }
   return (
     <>
       <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`inline-flex items-center gap-1 min-w-0 max-w-full h-7 px-1.5 -mx-1.5 rounded-md text-xs hover:bg-ln-ink/[0.04] ${atual ? 'text-ln-t2' : 'text-ln-t4'} ${FOCO}`} aria-label={t('tarefaPainel.nova.listaTarefa')} aria-haspopup="listbox" aria-expanded={open}>
@@ -44,21 +32,8 @@ function ListaCampo({ grupos, valor, onChange }) {
         </>) : t('tarefaPainel.nova.escolherLista')}
         <ChevronDown className="w-3 h-3 shrink-0 text-ln-t4" />
       </button>
-      <Popover anchorRef={ref} open={open} onClose={fechar} width={300} alturaMax={380}>
-        <BuscaMenu valor={busca} onChange={setBusca} placeholder={t('tarefaPainel.nova.buscarClienteLista')} />
-        <div className="p-1 overflow-y-auto" role="listbox">
-          {filtrados.map((g) => (
-            <div key={g.pasta?.id || 'soltas'}>
-              <div className="flex items-center gap-1.5 px-2.5 pt-2 pb-1 text-[11px] text-ln-t4"><Folder className="w-3 h-3" /><span className="truncate">{g.pasta?.nome || t('tarefaPainel.nova.semPasta')}</span></div>
-              {g.listas.map((l) => (
-                <ItemMenu key={l.id} ativo={l.id === valor} onClick={() => { onChange(l.id); fechar() }}>
-                  <span className="truncate pl-4">{l.nome}</span>
-                </ItemMenu>
-              ))}
-            </div>
-          ))}
-          {!filtrados.length && <div className="px-2.5 py-3 text-xs text-ln-t4">{t('tarefaPainel.nova.nadaEncontrado')}</div>}
-        </div>
+      <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={300} alturaMax={380}>
+        <ListasBusca grupos={grupos} valor={valor} onEscolher={(id) => { onChange(id); setOpen(false) }} />
       </Popover>
     </>
   )

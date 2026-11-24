@@ -3,6 +3,7 @@ export default {
   selecioneTarefa: 'Selecione uma tarefa na lista.',
   tituloTarefa: 'Título da tarefa',
   propriedades: 'Propriedades',
+  listaSegueOPai: 'A subtarefa fica na lista do pai; para mudar, mova a tarefa principal',
   prop: {
     lista: 'Lista',
     status: 'Status',
@@ -141,6 +142,8 @@ export default {
     deixarSeguir: 'Deixar de seguir',
     seguindo: { one: '{count} pessoa seguindo', other: '{count} pessoas seguindo' },
     duplicar: 'Duplicar',
+    moverLista: 'Mover para lista',
+    moverPara: 'Mover para',
     salvarTemplate: 'Salvar como template',
     historicoSync: 'Histórico de sincronização',
     arquivar: 'Arquivar',

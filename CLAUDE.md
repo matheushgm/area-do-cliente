@@ -1265,7 +1265,7 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   arquivada, campos Tipo/Dificuldade/Departamento/Cliente, checklists — migration 115: diferença entre o checklist
   da linha e o do ClickUp, criando/renomeando/marcando/apagando listas e itens, e a linha recebe os ids do ClickUp), exclui e comenta (assinatura
   "(Nome, via VertaTask)"); depois grava `clickup_task_id`/`url`/`clickup_updated_at` com
-  `clickup_sync_at = updated_at = agora`. Mover de lista NÃO é replicado (só aviso). Até 5
+  `clickup_sync_at = updated_at = agora`. Mover de lista é replicado desde 24/11/2026 (ver "Mover para lista" abaixo). Até 5
   tentativas por item; 400/404 desistem na hora. Exceção (2026-11-03): 404 "Task not found" num
   item que não é `criar` = a tarefa foi apagada lá enquanto a edição esperava; o item vira
   `cancelado` ("tarefa apagada no ClickUp") e a linha é arquivada com `clickup_removida_at`.
@@ -1352,6 +1352,17 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     na prévia do template: a data que a pessoa mexeu fica, a outra acompanha (o toast da edição em
     massa diz quantas). A comparação usa o instante que o push manda (sem hora = 04:00 de São
     Paulo, `dataClickUp`); mudou um, mude o outro.
+- **Mover para lista (2026-11-24, pedido do Matheus):** tarefa criada no lugar errado muda de lista pelo menu ⋯ (painel e
+  clique direito na Lista, Quadro e Calendário: "Mover para lista") ou pela propriedade **Lista** no topo do painel. A busca é a
+  mesma da tarefa nova (`ListasBusca` em `Campos.jsx`, cliente ou lista, sem acento) e mostra todas as pastas, então dá para
+  mudar de cliente. Só tarefa de topo: a subtarefa mostra a lista sem editar e vai junto com o pai. `moverTarefa` do
+  `useTarefas` grava a tarefa e todas as subtarefas (pai primeiro) com um status que exista na lista nova (`statusAoMover` em
+  `src/lib/tarefas.js`: o mesmo, se houver; concluída vai para o 1º status de concluída; o resto para o inicial). Aviso com
+  Desfazer de 10 s, que regrava lista e status de antes. No push, `lista_id` em `campos` chama a API v3
+  `PUT /workspaces/{team}/tasks/{id}/home_list/{list}` só para a tarefa de topo (as subtarefas vão junto no ClickUp) e manda o
+  status em seguida (lá a tarefa movida cai no status padrão da lista nova). Subtarefa cujo pai ainda está na fila é devolvida
+  sem gastar tentativa. Testado em 24/11/2026 com tarefa de teste (pai + subtarefa) da Revenue Lab, Geral → Social Media, com
+  o push da branch rodando local: as duas mudaram de lista no ClickUp e os status ficaram; tarefas de teste apagadas.
 - **Desfazer por 10 s (2026-11-23, pedido do Matheus):** concluir, excluir, arquivar e mudar ou tirar a data de
   início/vencimento (na linha, no painel, no Quadro, Calendário e Gantt, e na edição em massa) mostram um aviso no rodapé com
   **Desfazer** e a contagem (`src/components/Tarefas/Desfazer.jsx`, `useDesfazer` no `AreaTarefas`). Concluir e datas gravam

@@ -1,11 +1,11 @@
 // Extras do painel da tarefa no VertaTask: etiquetas, relações entre tarefas,
 // histórico de atividade e seguir/deixar de seguir.
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Plus, X, Check, Bell, BellOff, Loader2, MoreHorizontal, LayoutTemplate, Trash2, History, Archive, Link2, ExternalLink, Pencil, Copy } from 'lucide-react'
+import { Plus, X, Check, Bell, BellOff, Loader2, MoreHorizontal, LayoutTemplate, Trash2, History, Archive, Link2, ExternalLink, Pencil, Copy, FolderInput, ChevronLeft } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { fmtDataHora, fmtDataNumerica, rotuloStatus, rotuloPrioridade } from '../../lib/tarefas'
 import { useI18n } from '../../i18n'
-import { Popover, ItemMenu, FOCO } from './Campos'
+import { Popover, ItemMenu, ListasBusca, FOCO } from './Campos'
 import { ListaRelacoes } from './SecoesTarefa'
 import { useBuscaRelacao } from '../../hooks/useBuscaRelacao'
 
@@ -219,6 +219,20 @@ function ItensMenuTarefa({ item, user, acoes, fechar }) {
   const rodar = (fn) => () => { fechar(); fn(item) }
   const sep = <div className="border-t border-ln-ink/5 my-1" />
   const clickup = !!(acoes.abrirClickup && item.clickup_url)
+  // mover de lista: só tarefa de topo (a subtarefa vai junto com o pai)
+  const podeMover = !!(acoes.moverLista && acoes.gruposListas?.length && !item.parent_id)
+  const [movendo, setMovendo] = useState(false)
+  if (movendo) {
+    return (
+      <>
+        <div className="flex items-center gap-1 h-9 px-1.5 border-b border-ln-ink/5">
+          <button type="button" onClick={() => setMovendo(false)} className={`ln-iconbtn !w-6 !h-6 ${FOCO}`} aria-label={t('comum.voltar')} title={t('comum.voltar')}><ChevronLeft className="w-3.5 h-3.5" /></button>
+          <span className="text-[13px] text-ln-t1 font-medium">{t('tarefaPainel.menu.moverPara')}</span>
+        </div>
+        <ListasBusca grupos={acoes.gruposListas} valor={item.lista_id} desabilitada={item.lista_id} onEscolher={(id) => { fechar(); acoes.moverLista(item, id) }} />
+      </>
+    )
+  }
   return (
     <div className="p-1" role="menu">
       {/* topo em dois botões, como no ClickUp; sem vínculo com o ClickUp o link ocupa a linha toda */}
@@ -235,6 +249,7 @@ function ItensMenuTarefa({ item, user, acoes, fechar }) {
         <span className="flex-1">{seguindo ? t('tarefaPainel.menu.deixarSeguir') : t('tarefaPainel.menu.seguir')}</span>
         {total > 0 && <span className="text-[11px] text-ln-t4 tabular" title={t('tarefaPainel.menu.seguindo', { count: total })}>{total}</span>}
       </ItemMenu>
+      {podeMover && <ItemMenu onClick={() => setMovendo(true)}><FolderInput className="w-3.5 h-3.5 text-ln-t4" /> {t('tarefaPainel.menu.moverLista')}</ItemMenu>}
       {acoes.duplicar && <ItemMenu onClick={rodar(acoes.duplicar)}><Copy className="w-3.5 h-3.5 text-ln-t4" /> {t('tarefaPainel.menu.duplicar')}</ItemMenu>}
       {acoes.salvarTemplate && <ItemMenu onClick={rodar(acoes.salvarTemplate)}><LayoutTemplate className="w-3.5 h-3.5 text-ln-t4" /> {t('tarefaPainel.menu.salvarTemplate')}</ItemMenu>}
       {acoes.historico && <ItemMenu onClick={rodar(acoes.historico)}><History className="w-3.5 h-3.5 text-ln-t4" /> {t('tarefaPainel.menu.historicoSync')}</ItemMenu>}

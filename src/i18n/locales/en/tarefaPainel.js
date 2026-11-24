@@ -2,6 +2,7 @@ export default {
   selecioneTarefa: 'Select a task from the list.',
   tituloTarefa: 'Task title',
   propriedades: 'Properties',
+  listaSegueOPai: 'A subtask stays in its parent list; move the parent task to change it',
   prop: {
     lista: 'List',
     status: 'Status',
@@ -136,6 +137,8 @@ export default {
     deixarSeguir: 'Unfollow',
     seguindo: { one: '{count} person following', other: '{count} people following' },
     duplicar: 'Duplicate',
+    moverLista: 'Move to list',
+    moverPara: 'Move to',
     salvarTemplate: 'Save as template',
     historicoSync: 'Sync history',
     arquivar: 'Archive',
