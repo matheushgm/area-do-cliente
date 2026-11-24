@@ -1135,7 +1135,9 @@ export function gerarSugestoesProjeto({ meta = [], google = [], accounts = {}, m
   const varias = contas.size > 1
   const out = []
   for (const conta of contas) {
-    if (contaForaDaAnalise(conta)) continue // `varias` já foi contado com ela: as chaves das outras não mudam
+    // Conta oculta no dashboard (cliente que saiu ou que não operamos mais, pedido do Matheus em
+    // 24/11/2026) também fica fora. `varias` já foi contado com ela: as chaves das outras não mudam.
+    if (contaForaDaAnalise(conta) || accounts[conta]?.hidden) continue
     out.push(...gerarSugestoesConta({
       meta: meta.filter((r) => r['Nome da conta'] === conta),
       google: google.filter((r) => r['Nome da conta'] === conta),

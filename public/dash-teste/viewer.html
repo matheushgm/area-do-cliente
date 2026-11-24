@@ -5201,6 +5201,8 @@ function otmSugestoes(client, ch) {
   const rows = rawRows(ch, client)
   if (!rows.length) return []
   const acc = state.accounts[client] || {}
+  // Conta oculta (cliente que saiu ou que não operamos mais): sem sugestão, igual à Central.
+  if (acc.hidden) return []
   // Orçamento de agora (ABO/CBO e verba diária) do snapshot de status da conta, pra
   // regra de remanejar verba entre conjuntos. Antes de o status chegar, a regra usa
   // a marca ABO/CBO do nome; o memo recalcula quando ele chega.

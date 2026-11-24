@@ -1669,6 +1669,10 @@ Cada cartão diz a **Otimização** (ação em uma frase), o **Onde está** (Cam
   travas da execução (último anúncio do conjunto, +20% de verba no dia, orçamento compartilhado do Google) estão
   em `Escritorio dos Agentes/lib/otimizacoes.mjs`. `reconciliar_fila_otimizacoes` (137) não mexe mais nas regras
   não-anúncio que o agente executa. **Regra nova no motor: classifique em `MODO_POR_REGRA`** (sem entrada = manual).
+- **Conta oculta no dashboard não gera sugestão (2026-11-24, pedido do Matheus):** cliente que saiu ou que não
+  operamos mais. `gerarSugestoesProjeto` pula `accounts[conta].hidden` (depois de contar `varias`, então as chaves
+  das outras contas do projeto não mudam) e o painel do viewer devolve vazio para conta oculta. Vale para a Central,
+  a página do cliente, o dashboard e o agente.
 - Recusar exige motivo. "Reabrir" apaga a decisão (volta a aparecer se a regra ainda valer);
   não aparece em decisão já executada. Item "Otimizações" na seção Operação da sidebar e
   atalho na home (`src/components/Dashboard/OtimizacoesBanner.jsx`).
