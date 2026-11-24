@@ -354,6 +354,8 @@ export default {
     criadasComErro: '{n} created, {falhas} failed',
     tarefaDuplicada: 'Task duplicated',
     movidaPara: '{titulo} moved to {destino}',
+    subMovidaPara: '{titulo} is now a subtask of {pai}',
+    subStatusIncompativel: 'The {lista} list has no {status} status. Change the subtask to a status that exists in both lists and drag it again.',
     tarefaArquivada: 'Task archived',
     tarefaExcluida: 'Task deleted',
     carregando: 'Loading…',
@@ -386,6 +388,7 @@ export default {
     fecharEsc: 'Close (Esc)',
   },
   lista: {
+    arrasteParaOutraMae: 'Drag onto another task to change the parent task',
     estimativa: 'Estimate',
     semPrioridade: 'No priority',
     sprintDe: 'Sprint: {nome}',

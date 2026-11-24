@@ -1374,6 +1374,18 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   `lista_id` ou `pasta_id`, `ativo`, `acessos`/`ultimo_acesso_at` pela RPC `tarefas_link_publico_acesso`; RLS do time): um
   link ativo por lista/pasta (índices únicos parciais); desativar corta na hora e criar de novo gera outro token.
   Testado em 24/11/2026 no `vercel dev` com um link de teste na pasta da Connu (apagado); o botão não foi visto logado.
+- **Arrastar subtarefa para outra mãe (2026-11-24, pedido do Matheus):** na Lista, com as subtarefas abertas, a linha de
+  subtarefa arrasta (alça `GripVertical` no hover; `arrasteDaLinha` em `ListaView.jsx`, HTML5 drag and drop, destaque do alvo
+  pelo atributo `data-alvo` direto no DOM para não redesenhar as linhas memorizadas). Soltar numa tarefa a torna subtarefa
+  dela; soltar numa subtarefa leva para a mãe daquela. A mãe atual e as irmãs recusam. Vale também em "Separar". `ctx.onMudarPai`
+  → `mudarPai` do `AreaTarefas` → `moverTarefa(id, listaId, { parentId })` do `useTarefas` (mãe de outra lista: a subtarefa e
+  as filhas dela vão para a lista da mãe), com Desfazer de 10 s. No ClickUp é o `PUT /task {parent}`, que também leva a
+  subtarefa para a lista da mãe nova. **Mãe em lista com outros status:** o ClickUp não mapeia status de subtarefa (o
+  `home_list` da API v3 recusa subtarefa: "Only root tasks can be moved") e, se o status atual não existe na lista nova, a
+  subtarefa fica lá sem nenhum status aceito (todo PUT de status responde "Status does not exist"; conferido em 24/11/2026).
+  Por isso `moverTarefa` recusa (`status_incompativel`, nada gravado) quando alguma das que mudam de lista tem status que a
+  lista nova não tem, e a tela explica. Testado em 24/11 com tarefas de teste da Revenue Lab (Geral → Social Media) e o push
+  da branch rodando local: subtarefa na mãe nova, mesma lista e status, status editável depois; tarefas de teste apagadas.
 - **Desfazer por 10 s (2026-11-23, pedido do Matheus):** concluir, excluir, arquivar e mudar ou tirar a data de
   início/vencimento (na linha, no painel, no Quadro, Calendário e Gantt, e na edição em massa) mostram um aviso no rodapé com
   **Desfazer** e a contagem (`src/components/Tarefas/Desfazer.jsx`, `useDesfazer` no `AreaTarefas`). Concluir e datas gravam

@@ -367,10 +367,11 @@ export function useTarefas(user) {
     return { n: ids.length }
   }, [agendarPush])
 
-  // Mover de lista (tarefa criada no lugar errado): a tarefa e todas as subtarefas vão para a
-  // lista nova, cada uma com um status que exista lá (statusAoMover). Só tarefa de topo: a
-  // subtarefa segue o pai. No ClickUp o push move a tarefa (as subtarefas vão junto) e acerta o status.
-  const moverTarefa = useCallback(async (id, listaId) => {
+  // Mover de lista (tarefa criada no lugar errado) e trocar o pai de uma subtarefa (arrastar na
+  // Lista). A tarefa e todas as subtarefas vão para a lista nova, cada uma com um status que exista
+  // lá (statusAoMover); com `parentId`, a tarefa passa a ser subtarefa dele (e vai para a lista dele).
+  // No ClickUp o push move a tarefa de topo (as subtarefas vão junto) ou troca o pai, e acerta o status.
+  const moverTarefa = useCallback(async (id, listaId, { parentId } = {}) => {
     const lista = listasMap.get(listaId)
     if (!lista) return { error: 'lista não encontrada' }
     const ids = [id]
@@ -380,27 +381,43 @@ export function useTarefas(user) {
       frente = (data || []).map((r) => r.id).filter((x) => !ids.includes(x))
       ids.push(...frente)
     }
-    const { data: linhas, error: errLer } = await supabase.from('tarefas_itens').select('id, lista_id, status, status_tipo, data_conclusao').in('id', ids)
+    const { data: linhas, error: errLer } = await supabase.from('tarefas_itens').select('id, lista_id, parent_id, status, status_tipo, data_conclusao').in('id', ids)
     if (errLer) return { error: errLer.message }
+    // Subtarefa trocando de mãe para outra lista: no ClickUp só a tarefa raiz muda de lista com
+    // mapeamento de status; a subtarefa vai junto com a mãe nova mantendo o status, e se ele não
+    // existe na lista nova ela fica sem status válido lá (nenhum é aceito depois; conferido em
+    // 24/11/2026). Por isso só vai quando todas mantêm o status; senão nada é gravado.
+    if (parentId !== undefined && (linhas || []).some((r) => r.lista_id !== listaId)) {
+      const keys = new Set(statusDaLista(lista).map((x) => x.key))
+      const faltam = [...new Set((linhas || []).filter((r) => r.lista_id !== listaId && !keys.has(r.status)).map((r) => r.status))]
+      if (faltam.length) return { error: 'status_incompativel', statusFaltando: faltam, lista }
+    }
     // pai primeiro: a outbox enfileira nessa ordem e o push move o pai antes de mexer nas filhas
     const ordem = new Map(ids.map((x, i) => [x, i]))
     const gravadas = []
     const antes = [] // para desfazer: o que cada linha era, na mesma ordem (pai primeiro)
     for (const row of [...(linhas || [])].sort((a, b) => ordem.get(a.id) - ordem.get(b.id))) {
-      const st = statusAoMover(row, lista)
-      const patch = { lista_id: listaId }
-      if (st.key !== row.status) {
-        patch.status = st.key
-        patch.status_tipo = st.tipo || 'custom'
-        if ((st.tipo === 'closed') !== (row.status_tipo === 'closed')) patch.data_conclusao = st.tipo === 'closed' ? new Date().toISOString() : null
+      const patch = {}
+      const desfazer = {}
+      if (row.lista_id !== listaId) {
+        patch.lista_id = listaId
+        Object.assign(desfazer, { lista_id: row.lista_id, status: row.status, status_tipo: row.status_tipo, data_conclusao: row.data_conclusao })
+        const st = statusAoMover(row, lista)
+        if (st.key !== row.status) {
+          patch.status = st.key
+          patch.status_tipo = st.tipo || 'custom'
+          if ((st.tipo === 'closed') !== (row.status_tipo === 'closed')) patch.data_conclusao = st.tipo === 'closed' ? new Date().toISOString() : null
+        }
       }
+      if (row.id === id && parentId !== undefined && parentId !== row.parent_id) { patch.parent_id = parentId; desfazer.parent_id = row.parent_id }
+      if (!Object.keys(patch).length) continue
       const { data, error } = await supabase.from('tarefas_itens').update(patch).eq('id', row.id).select().single()
       if (error) { if (gravadas.length) { mesclar(gravadas); agendarPush() } return { error: error.message } }
       gravadas.push(data)
-      antes.push({ id: row.id, patch: { lista_id: row.lista_id, status: row.status, status_tipo: row.status_tipo, data_conclusao: row.data_conclusao } })
+      antes.push({ id: row.id, patch: desfazer })
     }
     mesclar(gravadas)
-    agendarPush()
+    if (gravadas.length) agendarPush()
     return { n: gravadas.length, lista, antes }
   }, [listasMap, mesclar, agendarPush])
 

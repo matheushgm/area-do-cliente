@@ -356,6 +356,8 @@ export default {
     criadasComErro: '{n} criada(s), {falhas} com erro',
     tarefaDuplicada: 'Tarefa duplicada',
     movidaPara: '{titulo} foi para {destino}',
+    subMovidaPara: '{titulo} agora é subtarefa de {pai}',
+    subStatusIncompativel: 'Não deu para mover: a lista {lista} não tem o status {status}, e o ClickUp não aceita subtarefa com status que não existe na lista nova. Troque por um status que exista nas duas listas e arraste de novo.',
     tarefaArquivada: 'Tarefa arquivada',
     tarefaExcluida: 'Tarefa excluída',
     carregando: 'Carregando…',
@@ -388,6 +390,7 @@ export default {
     fecharEsc: 'Fechar (Esc)',
   },
   lista: {
+    arrasteParaOutraMae: 'Arraste para outra tarefa para trocar a tarefa mãe',
     estimativa: 'Estimativa',
     semPrioridade: 'Sem prioridade',
     sprintDe: 'Sprint: {nome}',

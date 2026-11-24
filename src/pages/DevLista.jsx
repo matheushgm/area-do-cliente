@@ -92,6 +92,7 @@ export default function DevLista() {
     listas, pastas: fixture.pastas, projetos, ciclos, selecao, bloqueadasPor,
     larguraNome, onLarguraNome: (w) => { console.log('larguraNome', w); setLarguraNome(w) },
     colunas, onColunas: (c) => { console.log('colunas', c); setColunas(c) },
+    onMudarPai: (sub, paiId) => console.log('mudarPai', sub.id, paiId),
     onMenuTarefa: (item, x, y) => setMenu({ item, x, y }), renomeandoId, onFimRenomear: () => setRenomeandoId(null),
   }
   return (

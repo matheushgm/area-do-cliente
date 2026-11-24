@@ -30,7 +30,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, mem
 import { colunasVisiveis, normalizarLarguraNome, rotuloColuna } from '../../lib/viewsTarefas'
 import { useI18n } from '../../i18n'
 import EditorColunas from './ColunasLista'
-import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Hourglass, CloudUpload } from 'lucide-react'
+import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Hourglass, CloudUpload, GripVertical } from 'lucide-react'
 import { IconeRelacao } from './SecoesTarefa'
 import { ordenarItens, ordenarPorCampo, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, rotuloPrioridade, rotuloTipoTarefa, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa, deInputDate, paraInputDate } from '../../lib/tarefas'
 import {
@@ -339,6 +339,54 @@ function BloqueadaIcone({ por }) {
   )
 }
 
+// ── Arrastar subtarefa para outra tarefa mãe ─────────────────────────────────
+// A subtarefa (linha com pai) arrasta; soltar numa tarefa a torna subtarefa dela; soltar numa
+// subtarefa a leva para o pai daquela. O destaque do alvo é feito direto no DOM (data-alvo), para
+// não redesenhar as linhas memorizadas a cada dragover.
+let arrastada = null // a subtarefa sendo arrastada (só uma por vez na página)
+const limparAlvos = () => { for (const el of document.querySelectorAll('[data-alvo]')) el.removeAttribute('data-alvo') }
+const alvoDaLinha = (item) => item.parent_id || item.id
+const aceitaSoltar = (item) => !!arrastada && alvoDaLinha(item) !== arrastada.parent_id && alvoDaLinha(item) !== arrastada.id && item.id !== arrastada.id
+function arrasteDaLinha(item, ctx) {
+  if (!ctx.onMudarPai) return {}
+  const origem = item.parent_id ? {
+    draggable: true,
+    onDragStart: (e) => {
+      if (e.target.closest?.('input, textarea, button')) { e.preventDefault(); return }
+      arrastada = item
+      e.dataTransfer.effectAllowed = 'move'
+      e.dataTransfer.setData('text/plain', item.id)
+      // fantasma pequeno com o título (a linha inteira tem a largura da tabela)
+      const g = document.createElement('div')
+      g.textContent = item.titulo || ''
+      g.style.cssText = 'position:fixed;top:-1000px;left:0;max-width:320px;padding:6px 10px;border-radius:8px;background:#2A25F0;color:#fff;font:500 12px/1.3 Manrope,system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'
+      document.body.appendChild(g)
+      e.dataTransfer.setDragImage(g, 12, 12)
+      setTimeout(() => g.remove(), 0)
+      e.currentTarget.setAttribute('data-arrastando', '1')
+    },
+    onDragEnd: (e) => { arrastada = null; e.currentTarget.removeAttribute('data-arrastando'); limparAlvos() },
+  } : {}
+  return {
+    ...origem,
+    onDragOver: (e) => {
+      if (!aceitaSoltar(item)) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      if (!e.currentTarget.hasAttribute('data-alvo')) { limparAlvos(); e.currentTarget.setAttribute('data-alvo', '1') }
+    },
+    onDragLeave: (e) => { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.removeAttribute('data-alvo') },
+    onDrop: (e) => {
+      if (!aceitaSoltar(item)) return
+      e.preventDefault()
+      const sub = arrastada
+      arrastada = null
+      limparAlvos()
+      ctx.onMudarPai(sub, alvoDaLinha(item))
+    },
+  }
+}
+
 const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, onToggle, ctx, cols, irmasDe, primeira, ultima, selecionada, marcada, caixas, nComent, renomeando = false }) {
   const { t } = useI18n() // também redesenha a linha memorizada quando o idioma muda
   const { onAbrir, onMudarStatus } = ctx
@@ -358,13 +406,15 @@ const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, o
       // clique direito: menu da tarefa (no campo de renomear fica o menu do navegador)
       onContextMenu={ctx.onMenuTarefa ? (e) => { if (e.target.closest('input, textarea')) return; e.preventDefault(); ctx.onMenuTarefa(item, e.clientX, e.clientY, 'lista') } : undefined}
       aria-current={selecionada ? 'true' : undefined}
-      className={`group/linha grid items-center h-[34px] border-b border-ln-line/70 cursor-pointer ${FOCO} ${destaque || 'hover:bg-ln-level2/60'}`}
+      {...arrasteDaLinha(item, ctx)}
+      className={`group/linha grid items-center h-[34px] border-b border-ln-line/70 cursor-pointer ${FOCO} ${destaque || 'hover:bg-ln-level2/60'} data-[arrastando=1]:opacity-40 data-[alvo=1]:!bg-ln-accent/[0.08] data-[alvo=1]:shadow-[inset_0_0_0_2px_rgb(var(--ln-accent))]`}
       style={{ gridTemplateColumns: grid(cols, ctx.larguraNome) }}
     >
       {/* Nome: congelada à esquerda ao rolar (como no ClickUp). O fundo precisa ser
           opaco, então a cor de hover/seleção entra por um overlay atrás do conteúdo. */}
       <div className={`sticky left-0 z-[1] bg-ln-panel relative flex items-center gap-1 min-w-0 h-full pr-3 ${sub ? 'pl-9' : 'pl-2'}`}>
         <span aria-hidden="true" className={`absolute inset-0 -z-10 ${destaque || 'group-hover/linha:bg-ln-level2/60'}`} />
+        {sub && ctx.onMudarPai && <span title={t('tarefas.lista.arrasteParaOutraMae')} className="absolute left-[18px] top-1/2 -translate-y-1/2 inline-flex opacity-0 group-hover/linha:opacity-100 cursor-grab"><GripVertical aria-hidden="true" className="w-3.5 h-3.5 text-ln-t4" /></span>}
         {ctx.selecao && (
           <span className="inline-flex items-center justify-center w-5 shrink-0">
             <Caixa marcada={marcada} visivel={caixas} onClique={(shift) => ctx.onSelecionarLinha(item.id, shift)} label={t('tarefas.lista.selecionar', { titulo: item.titulo || t('tarefas.lista.tarefa') })} />
@@ -421,7 +471,7 @@ const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, o
 
 // eventos do ctx usados pelas linhas (e pelas células): passam por proxy para a linha
 // memorizada não chamar a versão de quando foi desenhada
-const EVENTOS_LINHA = ['onAbrir', 'onAtualizar', 'onMudarStatus', 'onCriar', 'onOrdenar', 'onMenuTarefa', 'onFimRenomear']
+const EVENTOS_LINHA = ['onAbrir', 'onAtualizar', 'onMudarStatus', 'onCriar', 'onOrdenar', 'onMenuTarefa', 'onFimRenomear', 'onMudarPai']
 
 // ── Mais linhas ───────────────────────────────────────────────────────────────
 const LINHAS_POR_VEZ = 50

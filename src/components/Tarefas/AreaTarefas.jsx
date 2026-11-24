@@ -497,6 +497,27 @@ export default function AreaTarefas({
       },
     })
   }, [t, showToast, oferecerDesfazer, tr])
+  // arrastar uma subtarefa na Lista e soltar em outra tarefa: ela passa a ser subtarefa dela
+  // (vai para a lista da nova mãe, se for outra) e as subtarefas dela vão junto
+  const mudarPai = useCallback(async (sub, paiId) => {
+    const pai = t.itens[paiId]
+    if (!pai || paiId === sub.parent_id || paiId === sub.id) return
+    const r = await t.moverTarefa(sub.id, pai.lista_id, { parentId: paiId })
+    if (r?.error === 'status_incompativel') {
+      showToast(tr('tarefas.area.subStatusIncompativel', { lista: r.lista.nome, status: r.statusFaltando.map((x) => rotuloStatus(x)).join(', ') }), 'error')
+      return
+    }
+    if (r?.error) { showToast(r.error, 'error'); return }
+    if (!r?.n) return
+    oferecerDesfazer({
+      mensagem: tr('tarefas.area.subMovidaPara', { titulo: sub.titulo, pai: pai.titulo }),
+      desfazer: async () => {
+        let falhas = 0
+        for (const { id, patch } of r.antes) { const x = await t.atualizarTarefa(id, patch); if (x?.error) falhas++ }
+        return falhas ? { error: tr('tarefas.desfazer.falhou', { n: falhas }) } : {}
+      },
+    })
+  }, [t, showToast, oferecerDesfazer, tr])
   const agendarPush = t.agendarPush
   // cria a tarefa e, depois, as subtarefas (na mesma lista) e as relações do rascunho
   const criarDoRascunho = useCallback(async ({ subtarefas = [], relacoes = [], ...payload }) => {
@@ -593,7 +614,7 @@ export default function AreaTarefas({
   const ctx = useMemo(() => ({
     statuses, membros: teamMembers || [], membrosMap, itensMap: t.itens, listaPadraoId, agrupar, contagemComentarios, selecionadaId: tarefaAbertaId,
     onAbrir: abrirTarefa, onAtualizar, onMudarStatus, onCriar, etiquetasMap: vt.etiquetasMap, listasComClickup,
-    responsaveisPadrao, bloqueadasPor,
+    responsaveisPadrao, bloqueadasPor, onMudarPai: mudarPai,
     // clique direito numa tarefa (Lista, Quadro, Calendário) e "Renomear" na linha
     onMenuTarefa: (item, x, y, origem) => setMenuTarefa({ item, x, y, origem }),
     renomeandoId, onFimRenomear: () => setRenomeandoId(null),
@@ -619,7 +640,7 @@ export default function AreaTarefas({
         <CornerDownRight className="w-3 h-3 shrink-0" /><span className="truncate max-w-[220px]">{t.itens[it.parent_id].titulo}</span>
       </span>
     ) : null) : undefined,
-  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, config.colunasGantt, larguraNome, editarView, listasComClickup, responsaveisPadrao, renomeandoId, bloqueadasPor, tr])
+  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, config.colunasGantt, larguraNome, editarView, listasComClickup, responsaveisPadrao, renomeandoId, bloqueadasPor, mudarPai, tr])
 
   // ── Seleção da Lista e ações em massa (BarraSelecao) ─────────────────────
   // a seleção vale para o que está na tela: trocar de pasta, lista, seção ou visão limpa

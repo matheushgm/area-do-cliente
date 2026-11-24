@@ -565,6 +565,11 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
             if (quais.has('lista_id')) {
               if (!row.parent_id) {
                 await cu('PUT', `${CLICKUP_V3}/workspaces/${TEAM_ID}/tasks/${row.clickup_task_id}/home_list/${l.clickup_list_id}`, {})
+              } else if (quais.has('parent_id')) {
+                // subtarefa arrastada para uma mãe de outra lista: trocar o pai já a leva para a lista
+                // da mãe no ClickUp (conferido em 24/11/2026). O pai vai sozinho antes, para o status
+                // seguinte ser validado na lista nova.
+                if ('parent' in body) { await cu('PUT', `/task/${row.clickup_task_id}`, { parent: body.parent }); delete body.parent }
               } else {
                 const atual = await cu('GET', `/task/${row.clickup_task_id}`)
                 if (String(atual?.list?.id) !== String(l.clickup_list_id)) {
