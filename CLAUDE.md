@@ -1650,6 +1650,25 @@ Cada cartão diz a **Otimização** (ação em uma frase), o **Onde está** (Cam
   contas e, escolhida a MCC, cai no nível da gerenciadora sem a campanha; só o `ocid`
   interno (que não vem pela API) pularia isso. Por isso o card mostra o CID formatado
   (`fmtCid`) pra colar na busca do seletor.
+- **Gestor de tráfego autônomo (2026-11-24, migration 137, pedido do Matheus).** O agente `gestor-trafego` do
+  Escritório dos Agentes roda a Central sozinho. Quem faz cada regra está em `src/lib/otimizacoesAgente.js`
+  (`modoDoAgente`, arquivo puro que o Escritório importa da main): **auto** = o agente executa na rodada diária
+  (pausar anúncio por `ad_id` + `_TESTADO`, `conj_remanejar`, Google `camp_cpl_alto` −20%); **critica** = vai para a
+  aba **Crítico** e só é executada depois de aprovada (`conj_desligar`, `escalar`, Google `perda_orcamento`: desligar
+  estrutura e aumentar verba); **manual** = precisa de pessoa (criativo, investigação, campanha nova). Status novo
+  `critica` em `projeto_sugestoes` (com `critica_motivo`; não aparece em Pendentes porque `pendente()` só devolve
+  sugestão sem decisão); Aprovar = `aceita` + `execucao_status = 'pendente'` + `aprovada_por/em`; Reprovar =
+  `recusada` com motivo. "Aceitar" de sugestão auto ou crítica (na Central e no painel do viewer) **não cria tarefa
+  no ClickUp**: vai direto para a fila do agente (`aceitarComTarefa` devolve `agente: true`). Comentários por
+  sugestão em `projeto_sugestoes_comentarios` (casados por `project_id` + `chave`, valem sem decisão; realtime),
+  no cartão de Pendentes, Crítico e Histórico; o agente lê os de pessoa com `tratado_em` vazio, responde e marca.
+  O agente calcula as mesmas sugestões fora do navegador com `scripts/otimizacoes_pendentes.mjs` (mesmo motor
+  vendor, mesmas views e o mesmo recorte de 20 dias do `dash_insights`, valores como texto como no CSV de
+  `/api/dash-data`; conferido em 24/11: 158 pendentes em 53 clientes, igual à tela) e devolve também `vigentes`
+  (tudo que a regra dispara hoje): item antigo da fila cuja regra não vale mais é cancelado, não executado. As
+  travas da execução (último anúncio do conjunto, +20% de verba no dia, orçamento compartilhado do Google) estão
+  em `Escritorio dos Agentes/lib/otimizacoes.mjs`. `reconciliar_fila_otimizacoes` (137) não mexe mais nas regras
+  não-anúncio que o agente executa. **Regra nova no motor: classifique em `MODO_POR_REGRA`** (sem entrada = manual).
 - Recusar exige motivo. "Reabrir" apaga a decisão (volta a aparecer se a regra ainda valer);
   não aparece em decisão já executada. Item "Otimizações" na seção Operação da sidebar e
   atalho na home (`src/components/Dashboard/OtimizacoesBanner.jsx`).

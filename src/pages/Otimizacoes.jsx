@@ -8,6 +8,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import {
   Menu, Sparkles, Check, X, ChevronDown, ChevronRight, ExternalLink, Loader2, RefreshCw,
   AlertTriangle, RotateCcw, Search, History, Inbox, Bot, Clock, CheckCircle2, XCircle,
+  ShieldAlert, MessageSquare, Send, User,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useDashboardData } from '../hooks/useDashboardData'
@@ -15,6 +16,7 @@ import { useSugestoesGlobais } from '../hooks/useSugestoesGlobais'
 import { PRIORIDADE_ORDEM, janelaAnalise, tituloConta, tituloSemConta, tituloLocal, rotuloPrioridade, rotuloTipo } from '../lib/playbookSugestoes'
 import { Caminho } from '../components/ProjetoHub/SugestoesPlaybook'
 import { aceitarComTarefa, criarTarefaDaSugestao } from '../lib/aceitarSugestao'
+import { modoDoAgente } from '../lib/otimizacoesAgente'
 import { useI18n } from '../i18n'
 import { cliente } from '../routes/paths'
 import Toast from '../components/UI/Toast'
@@ -61,11 +63,86 @@ function fmtDataCompleta(iso, lang) {
   return lang === 'en' ? `${m}/${d}/${a}` : `${d}/${m}/${a}`
 }
 
-// ── Cartão de uma sugestão ────────────────────────────────────────────────────
-function Sugestao({ s, onAceitar, onRecusar }) {
+// ── Quem executa: o agente sozinho, o agente depois de aprovado ou uma pessoa ──
+const MODO_CLS = {
+  auto: 'bg-rl-purple/10 text-rl-purple border-rl-purple/30',
+  critica: 'bg-rl-red/10 text-rl-red border-rl-red/30',
+  manual: 'bg-rl-surface text-rl-muted border-rl-border',
+}
+const MODO_ICONE = { auto: Bot, critica: ShieldAlert, manual: User }
+function SeloModo({ s }) {
   const { t } = useI18n()
+  const modo = modoDoAgente(s)
+  const Icone = MODO_ICONE[modo]
+  return (
+    <span title={t(`otimizacoes.modo.${modo}Title`)} className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${MODO_CLS[modo]}`}>
+      <Icone className="w-3 h-3" /> {t(`otimizacoes.modo.${modo}`)}
+    </span>
+  )
+}
+
+// ── Comentários da sugestão (time e agente; o agente lê de hora em hora) ──────
+function Comentarios({ itens = [], onEnviar }) {
+  const { t, locale } = useI18n()
+  const [aberto, setAberto] = useState(false)
+  const [texto, setTexto] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const ultimo = itens[itens.length - 1]
+  async function enviar() {
+    const v = texto.trim()
+    if (!v || enviando) return
+    setEnviando(true)
+    try { await onEnviar(v); setTexto('') } finally { setEnviando(false) }
+  }
+  return (
+    <div className="mt-2 min-w-0">
+      <button onClick={() => setAberto((v) => !v)} className="max-w-full text-[11px] text-rl-purple flex items-center gap-1 hover:underline text-left">
+        <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+        <span className="shrink-0">{t('otimizacoes.comentarios.n', { count: itens.length })}</span>
+        {!aberto && ultimo && (
+          <span className="text-rl-muted truncate min-w-0">· {ultimo.autor_tipo === 'agente' ? `${t('otimizacoes.comentarios.agente')}: ` : `${ultimo.autor_nome || ''}: `}{ultimo.texto}</span>
+        )}
+      </button>
+      {aberto && (
+        <div className="mt-2 space-y-2.5 pl-3 border-l-2 border-rl-border">
+          {itens.map((c) => (
+            <div key={c.id} className="text-xs min-w-0">
+              <p className="text-[11px] text-rl-muted flex items-center gap-1 flex-wrap">
+                {c.autor_tipo === 'agente' ? <Bot className="w-3 h-3 text-rl-purple" /> : <User className="w-3 h-3" />}
+                <span className="font-semibold text-rl-text">{c.autor_nome || '-'}</span>
+                <span>· {fmtDataHora(c.created_at, locale)}</span>
+                {c.autor_tipo === 'pessoa' && <span>· {c.tratado_em ? t('otimizacoes.comentarios.lido') : t('otimizacoes.comentarios.aguardando')}</span>}
+              </p>
+              <p className="text-rl-text whitespace-pre-wrap [overflow-wrap:anywhere] mt-0.5">{c.texto}</p>
+            </div>
+          ))}
+          <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+            <textarea
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') enviar() }}
+              rows={2}
+              placeholder={t('otimizacoes.comentarios.placeholder')}
+              className="input-field w-full text-xs resize-y"
+            />
+            <button onClick={enviar} disabled={!texto.trim() || enviando} className="flex items-center justify-center gap-1 text-xs font-semibold px-2.5 py-2 rounded-lg bg-rl-purple/10 text-rl-purple border border-rl-purple/30 hover:bg-rl-purple/20 disabled:opacity-50 shrink-0">
+              {enviando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} {t('otimizacoes.comentarios.enviar')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Cartão de uma sugestão ────────────────────────────────────────────────────
+// `critica` = a linha de projeto_sugestoes quando o cartão está na aba Crítico:
+// os botões viram Aprovar / Reprovar e aparece o motivo que o agente deu.
+function Sugestao({ s, onAceitar, onRecusar, comentarios, onComentar, critica = null }) {
+  const { t, locale } = useI18n()
   const [aberta, setAberta] = useState(false)
   const [recusando, setRecusando] = useState(false)
+  const agente = modoDoAgente(s) !== 'manual'
   const [motivo, setMotivo] = useState('')
   const [salvando, setSalvando] = useState(null) // 'aceita' | 'recusada'
 
@@ -81,11 +158,11 @@ function Sugestao({ s, onAceitar, onRecusar }) {
 
   const botoes = (
     <>
-      <button onClick={aceitar} disabled={salvando} className="flex items-center justify-center gap-1 text-xs font-semibold px-2.5 py-2 sm:py-1.5 rounded-lg bg-rl-green/10 text-rl-green border border-rl-green/30 hover:bg-rl-green/20 disabled:opacity-50" title={t('otimizacoes.cartao.aceitarTitle')}>
-        {salvando === 'aceita' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} {t('otimizacoes.cartao.aceitar')}
+      <button onClick={aceitar} disabled={salvando} className="flex items-center justify-center gap-1 text-xs font-semibold px-2.5 py-2 sm:py-1.5 rounded-lg bg-rl-green/10 text-rl-green border border-rl-green/30 hover:bg-rl-green/20 disabled:opacity-50" title={critica ? t('otimizacoes.critico.aprovarTitle') : t(agente ? 'otimizacoes.cartao.aceitarAgenteTitle' : 'otimizacoes.cartao.aceitarTitle')}>
+        {salvando === 'aceita' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} {critica ? t('otimizacoes.critico.aprovar') : t('otimizacoes.cartao.aceitar')}
       </button>
       <button onClick={() => setRecusando(true)} disabled={salvando} className="flex items-center justify-center gap-1 text-xs font-semibold px-2.5 py-2 sm:py-1.5 rounded-lg text-rl-muted border border-rl-border hover:text-rl-red hover:border-rl-red/30 hover:bg-rl-red/10 disabled:opacity-50" title={t('otimizacoes.cartao.recusarTitle')}>
-        <X className="w-3.5 h-3.5" /> {t('otimizacoes.cartao.recusar')}
+        <X className="w-3.5 h-3.5" /> {critica ? t('otimizacoes.critico.reprovar') : t('otimizacoes.cartao.recusar')}
       </button>
     </>
   )
@@ -102,7 +179,14 @@ function Sugestao({ s, onAceitar, onRecusar }) {
             <span className="text-[11px] text-rl-muted">{CANAL_LABEL[s.canal] || s.canal}</span>
             {s.conta && <span className="text-[11px] text-rl-muted truncate max-w-[45vw] sm:max-w-none">· {s.conta}</span>}
             <span className="text-[11px] text-rl-muted hidden sm:inline">· {rotuloTipo(s.tipo)}</span>
+            {!critica && <SeloModo s={s} />}
           </div>
+          {critica && (
+            <p className="text-xs text-rl-red mb-1 [overflow-wrap:anywhere] flex items-start gap-1">
+              <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span><span className="font-semibold">{t('otimizacoes.critico.porque')}</span> {critica.critica_motivo || '-'} <span className="text-rl-muted">({t('otimizacoes.critico.marcadaEm', { data: fmtDataHora(critica.decidida_em, locale) })})</span></span>
+            </p>
+          )}
           <dl className="text-sm text-rl-text leading-snug space-y-0.5 [overflow-wrap:anywhere]">
             <div><dt className="inline font-semibold">{t('sugestoes.conta')} </dt><dd className="inline">{tituloConta(s)}</dd></div>
             <div><dt className="inline font-semibold">{t('sugestoes.oQueFazer')} </dt><dd className="inline">{s.acao || tituloSemConta(s)}</dd></div>
@@ -119,6 +203,7 @@ function Sugestao({ s, onAceitar, onRecusar }) {
               ))}
             </div>
           )}
+          {onComentar && <Comentarios itens={comentarios} onEnviar={(texto) => onComentar(s.projectId, s.chave, texto)} />}
           <button onClick={() => setAberta((v) => !v)} className="sm:hidden mt-2 text-[11px] text-rl-purple flex items-center gap-1">
             {aberta ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />} {aberta ? t('otimizacoes.cartao.esconderPassos') : t('otimizacoes.cartao.verPassos')}
           </button>
@@ -134,7 +219,7 @@ function Sugestao({ s, onAceitar, onRecusar }) {
           )}
           {recusando && (
             <div className="mt-3 p-3 rounded-lg bg-rl-red/5 border border-rl-red/20">
-              <label className="text-[11px] font-semibold text-rl-text block mb-1">{t('otimizacoes.cartao.porQueRecusar')}</label>
+              <label className="text-[11px] font-semibold text-rl-text block mb-1">{t(critica ? 'otimizacoes.critico.porQueReprovar' : 'otimizacoes.cartao.porQueRecusar')}</label>
               <textarea
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
@@ -145,7 +230,7 @@ function Sugestao({ s, onAceitar, onRecusar }) {
               />
               <div className="flex items-center gap-2 mt-2">
                 <button onClick={recusar} disabled={!motivo.trim() || salvando} className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-rl-red/10 text-rl-red border border-rl-red/30 hover:bg-rl-red/20 disabled:opacity-50">
-                  {salvando === 'recusada' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />} {t('otimizacoes.cartao.confirmarRecusa')}
+                  {salvando === 'recusada' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />} {t(critica ? 'otimizacoes.critico.confirmarReprova' : 'otimizacoes.cartao.confirmarRecusa')}
                 </button>
                 <button onClick={() => { setRecusando(false); setMotivo('') }} className="text-xs text-rl-muted hover:text-rl-text px-2 py-1.5">{t('comum.cancelar')}</button>
               </div>
@@ -170,7 +255,7 @@ function Sugestao({ s, onAceitar, onRecusar }) {
 }
 
 // ── Grupo por cliente ─────────────────────────────────────────────────────────
-function GrupoCliente({ g, onAceitar, onRecusar, onAbrir }) {
+function GrupoCliente({ g, onAceitar, onRecusar, onAbrir, comentariosPorChave, onComentar, criticaDe = null }) {
   const { t } = useI18n()
   const [aberto, setAberto] = useState(true)
   const urg = g.sugestoes.filter((s) => s.prioridade === 'urgente').length
@@ -192,7 +277,15 @@ function GrupoCliente({ g, onAceitar, onRecusar, onAbrir }) {
           {alta > 0 && <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border bg-rl-gold/10 text-rl-gold border-rl-gold/30">{t('otimizacoes.grupo.altas', { count: alta })}</span>}
         </div>
       </div>
-      {aberto && <div className="space-y-2">{g.sugestoes.map((s) => <Sugestao key={s.chave} s={s} onAceitar={onAceitar} onRecusar={onRecusar} />)}</div>}
+      {aberto && (
+        <div className="space-y-2">
+          {g.sugestoes.map((s) => (
+            <Sugestao key={s.chave} s={s} onAceitar={onAceitar} onRecusar={onRecusar}
+              comentarios={comentariosPorChave?.get(`${s.projectId}|${s.chave}`)} onComentar={onComentar}
+              critica={criticaDe ? criticaDe(s) : null} />
+          ))}
+        </div>
+      )}
     </section>
   )
 }
@@ -290,7 +383,7 @@ function LupaCliente({ clientes, selecionado, onSelecionar }) {
   )
 }
 
-function Historico({ itens, onReabrir, onAbrir, onCriarTarefa }) {
+function Historico({ itens, onReabrir, onAbrir, onCriarTarefa, comentariosPorChave, onComentar }) {
   const { t, locale } = useI18n()
   const [periodo, setPeriodo] = useState('todos')
   const [status, setStatus] = useState('todos')
@@ -411,6 +504,10 @@ function Historico({ itens, onReabrir, onAbrir, onCriarTarefa }) {
                   </a>
                 )}
                 {d.motivo && <p className="text-xs text-rl-subtle mt-1"><span className="font-semibold text-rl-text">{t('otimizacoes.historico.motivo')}</span> {d.motivo}</p>}
+                {d.aprovada_por && (
+                  <p className="text-[11px] text-rl-muted mt-1 flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> {t(d.status === 'recusada' ? 'otimizacoes.historico.reprovadaPor' : 'otimizacoes.historico.aprovadaPor', { nome: d.aprovada_por })}{d.aprovada_em ? ` · ${fmtDataHora(d.aprovada_em, locale)}` : ''}</p>
+                )}
+                {d.execucao_status === 'erro' && d.execucao_log?.erro && <p className="text-[11px] text-rl-red mt-1 [overflow-wrap:anywhere]">{d.execucao_log.erro}</p>}
                 {d.status === 'aceita' && (
                   <p className={`text-[11px] mt-1 flex items-center gap-1 ${EXEC_CLS[d.execucao_status] || 'text-rl-muted'}`}>
                     {d.execucao_status === 'executada' ? <CheckCircle2 className="w-3 h-3" /> : d.execucao_status === 'erro' ? <XCircle className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
@@ -423,12 +520,13 @@ function Historico({ itens, onReabrir, onAbrir, onCriarTarefa }) {
                     {t('otimizacoes.abrirAtividade')} <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
-                {d.status === 'aceita' && !d.clickup_task_url && (
+                {d.status === 'aceita' && !d.clickup_task_url && !['pendente', 'executada'].includes(d.execucao_status) && (
                   <div className="mt-1.5 flex items-center gap-2 flex-wrap">
                     <span className="text-[11px] text-rl-red [overflow-wrap:anywhere]">{t('otimizacoes.historico.semTarefa')}{d.execucao_log?.erro_tarefa ? `: ${d.execucao_log.erro_tarefa}` : ''}</span>
                     <button onClick={() => onCriarTarefa(d)} className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-rl-purple/10 text-rl-purple border border-rl-purple/30 hover:bg-rl-purple/20">{t('otimizacoes.historico.criarTarefa')}</button>
                   </div>
                 )}
+                {onComentar && <Comentarios itens={comentariosPorChave?.get(`${d.project_id}|${d.chave}`)} onEnviar={(texto) => onComentar(d.project_id, d.chave, texto)} />}
               </div>
               {d.execucao_status !== 'executada' && (
                 <button onClick={() => onReabrir(d)} className="text-xs text-rl-muted hover:text-rl-text flex items-center gap-1 shrink-0 p-1 -m-1" title={t('otimizacoes.historico.reabrirTitle')}>
@@ -512,7 +610,38 @@ export default function Otimizacoes() {
       return
     }
     if (tarefa) setCriada({ titulo: s.titulo, cliente: projeto?.companyName, responsavel: tarefa.responsavel, data: tarefa.data, url: tarefa.url, aviso: tarefa.aviso })
+    else if (!erroTarefa) showToast(t('otimizacoes.toast.naFilaAgente'))
     else showToast(t('otimizacoes.toast.aceitaSemTarefa', { erro: erroTarefa }), 'error')
+  }
+  // Aba Crítico: o cartão é montado do payload gravado pelo agente
+  const decisaoCritica = useMemo(() => new Map(sg.criticas.map((d) => [`${d.project_id}|${d.chave}`, d])), [sg.criticas])
+  const gruposCriticos = useMemo(() => {
+    const m = new Map()
+    for (const d of sg.criticas) {
+      const sug = { ...(d.payload || {}), projectId: d.project_id, chave: d.chave, titulo: d.titulo || d.payload?.titulo, canal: d.canal || d.payload?.canal, conta: d.conta || d.payload?.conta, prioridade: d.payload?.prioridade || 'alta' }
+      if (!m.has(d.project_id)) {
+        const p = projetoPorId.get(d.project_id)
+        m.set(d.project_id, { projectId: d.project_id, nome: d.nomeCliente, responsavel: p?.responsibleName || p?.responsible_name || null, sugestoes: [] })
+      }
+      m.get(d.project_id).sugestoes.push(sug)
+    }
+    return [...m.values()]
+  }, [sg.criticas, projetoPorId])
+  async function aprovarCritica(s) {
+    const d = decisaoCritica.get(`${s.projectId}|${s.chave}`)
+    if (!d) return
+    try { await sg.aprovarCritica(d); showToast(t('otimizacoes.toast.aprovada')) }
+    catch (e) { showToast(e.message, 'error') }
+  }
+  async function reprovarCritica(s, motivo) {
+    const d = decisaoCritica.get(`${s.projectId}|${s.chave}`)
+    if (!d) return
+    try { await sg.reprovarCritica(d, motivo); showToast(t('otimizacoes.toast.reprovada')) }
+    catch (e) { showToast(e.message, 'error') }
+  }
+  async function comentar(projectId, chave, texto) {
+    try { await sg.comentar(projectId, chave, texto) }
+    catch (e) { showToast(e.message, 'error'); throw e }
   }
   async function criarTarefaDe(d) {
     try {
@@ -580,10 +709,10 @@ export default function Otimizacoes() {
           {/* Abas + filtros */}
           <div className="glass-card border border-rl-border/60 p-2 flex flex-col sm:flex-row sm:items-center gap-2">
             <div className="flex items-center gap-1">
-              {[['pendentes', t('otimizacoes.abas.pendentes'), Inbox, filtrando ? t('otimizacoes.abas.nDeTotal', { n: totalFiltrado, total: sg.pendentes.length }) : sg.pendentes.length], ['historico', t('otimizacoes.abas.historico'), History, sg.historico.length]].map(([id, label, Icon, n]) => (
-                <button key={id} onClick={() => setTab(id)} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors ${tab === id ? 'bg-rl-purple text-white font-semibold' : 'text-rl-subtle hover:text-rl-text hover:bg-rl-surface'}`}>
+              {[['pendentes', t('otimizacoes.abas.pendentes'), Inbox, filtrando ? t('otimizacoes.abas.nDeTotal', { n: totalFiltrado, total: sg.pendentes.length }) : sg.pendentes.length], ['critico', t('otimizacoes.abas.critico'), ShieldAlert, sg.criticas.length], ['historico', t('otimizacoes.abas.historico'), History, sg.historico.length]].map(([id, label, Icon, n]) => (
+                <button key={id} onClick={() => setTab(id)} className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-sm transition-colors ${tab === id ? 'bg-rl-purple text-white font-semibold' : 'text-rl-subtle hover:text-rl-text hover:bg-rl-surface'}`}>
                   <Icon className="w-4 h-4" /> {label}
-                  <span className={`text-[10px] font-bold min-w-[18px] h-[18px] px-1.5 rounded-full flex items-center justify-center whitespace-nowrap ${tab === id ? 'bg-white/20 text-white' : 'bg-rl-surface text-rl-muted'}`}>{n}</span>
+                  <span className={`text-[10px] font-bold min-w-[18px] h-[18px] px-1.5 rounded-full flex items-center justify-center whitespace-nowrap ${tab === id ? 'bg-white/20 text-white' : id === 'critico' && n > 0 ? 'bg-rl-red text-white' : 'bg-rl-surface text-rl-muted'}`}>{n}</span>
                 </button>
               ))}
             </div>
@@ -669,11 +798,30 @@ export default function Otimizacoes() {
               </div>
             ) : (
               <div className="space-y-6">
-                {grupos.map((g) => <GrupoCliente key={g.projectId} g={g} onAceitar={aceitar} onRecusar={recusar} onAbrir={abrir} />)}
+                {grupos.map((g) => <GrupoCliente key={g.projectId} g={g} onAceitar={aceitar} onRecusar={recusar} onAbrir={abrir} comentariosPorChave={sg.comentariosPorChave} onComentar={comentar} />)}
               </div>
             )
+          ) : tab === 'critico' ? (
+            <div className="space-y-4">
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-rl-red/5 border border-rl-red/20 text-xs text-rl-subtle"><ShieldAlert className="w-4 h-4 text-rl-red shrink-0" /> {t('otimizacoes.critico.aviso')}</div>
+              {gruposCriticos.length === 0 ? (
+                <div className="text-center py-12">
+                  <CheckCircle2 className="w-8 h-8 text-rl-green mx-auto mb-2" />
+                  <p className="text-sm text-rl-text font-semibold">{t('otimizacoes.critico.vazio')}</p>
+                  <p className="text-xs text-rl-muted mt-1">{t('otimizacoes.critico.vazioSub')}</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {gruposCriticos.map((g) => (
+                    <GrupoCliente key={g.projectId} g={g} onAceitar={aprovarCritica} onRecusar={reprovarCritica} onAbrir={abrir}
+                      comentariosPorChave={sg.comentariosPorChave} onComentar={comentar}
+                      criticaDe={(s) => decisaoCritica.get(`${s.projectId}|${s.chave}`)} />
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
-            <Historico itens={sg.historico} onReabrir={reabrir} onAbrir={abrir} onCriarTarefa={criarTarefaDe} />
+            <Historico itens={sg.historico} onReabrir={reabrir} onAbrir={abrir} onCriarTarefa={criarTarefaDe} comentariosPorChave={sg.comentariosPorChave} onComentar={comentar} />
           )}
         </div>
       </main>

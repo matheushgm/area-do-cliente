@@ -42,10 +42,10 @@ export default function OtimizacoesBridge() {
 
       /** Aceita: cria a atividade no ClickUp e grava a decisão (entra na fila da automação). */
       async aceitar(sug) {
-        const { tarefa, erroTarefa, decisao } = await aceitarComTarefa({
+        const { tarefa, erroTarefa, decisao, agente } = await aceitarComTarefa({
           sug, projeto: projetoDe(sug.projectId), ctx: ctxTarefa(), gravarDecisao: gravar,
         })
-        return { decisao, tarefa: resumoTarefa(tarefa, sug.titulo), erroTarefa }
+        return { decisao, tarefa: resumoTarefa(tarefa, sug.titulo), erroTarefa, agente: !!agente }
       },
 
       /** Recusa com motivo (obrigatório, fica no histórico). */

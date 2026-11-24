@@ -8,6 +8,7 @@ import { sugerirAtividade, listarListasClickUp, criarAtividade } from './ativida
 import { hojeISO } from './atividadesCarga'
 import { PRIORIDADE_CLICKUP } from './playbookSugestoes'
 import { TIPO_PARA_DEPARTAMENTO } from '../hooks/usePlanejador'
+import { modoDoAgente } from './otimizacoesAgente'
 import { t } from '../i18n'
 
 // No squad da Área do Cliente o departamento de tecnologia ainda tem outro nome
@@ -99,9 +100,18 @@ export async function criarTarefaDaSugestao({ sug, projeto, squads, teamMembers,
  * `gravarDecisao(sug, 'aceita', { extra })` salva a linha em `projeto_sugestoes`
  * e devolve a linha gravada. Se a gravação falhar depois da tarefa criada, o erro
  * lançado leva `error.tarefa`, para a tela avisar que a tarefa existe.
- * @returns {Promise<{ tarefa: object|null, erroTarefa: string|null, decisao: object }>}
+ * Exceção: sugestão que o agente executa (modoDoAgente ≠ 'manual') não cria tarefa e
+ * volta com `agente: true`.
+ * @returns {Promise<{ tarefa: object|null, erroTarefa: string|null, decisao: object, agente?: boolean }>}
  */
 export async function aceitarComTarefa({ sug, projeto, ctx, gravarDecisao }) {
+  // O que o gestor de tráfego do Escritório executa (sozinho ou depois de aprovado)
+  // vai direto pra fila dele, sem tarefa no ClickUp: aceitar aqui já é a aprovação.
+  // linhaDecisao grava execucao_status = 'pendente' e a rodada de hora em hora executa.
+  if (modoDoAgente(sug) !== 'manual') {
+    const decisao = await gravarDecisao(sug, 'aceita', {})
+    return { tarefa: null, erroTarefa: null, decisao, agente: true }
+  }
   let tarefa = null, erroTarefa = null
   try { tarefa = await criarTarefaDaSugestao({ sug, projeto, ...ctx }) }
   catch (e) { erroTarefa = e.message || t('otimizacoes.erros.falhaTarefa') }

@@ -5140,8 +5140,8 @@ function metricGroupsHTML(allRows, prevRows, isMeta, period, pace) {
 // anteriores, e não acompanha o período escolhido no filtro.
 const otmPid = client => state.accounts[client]?.projectId || null
 const otmBridge = () => { try { return (window.parent && window.parent.__rlOtimizacoes) || null } catch (e) { return null } }
-const OTM_STATUS = { aceita:['Aceita','ok'], recusada:['Recusada','bad'], descartada:['Adiada','mute'] }
-const OTM_EXEC = { pendente:'Na fila da automação', executada:'Executada', erro:'Erro na execução', cancelada:'Cancelada',
+const OTM_STATUS = { aceita:['Aceita','ok'], recusada:['Recusada','bad'], descartada:['Adiada','mute'], critica:['Crítico: aguardando aprovação na Central','bad'] }
+const OTM_EXEC = { pendente:'Na fila do agente de tráfego', executada:'Executada', erro:'Erro na execução', cancelada:'Cancelada',
   bloqueada:'Bloqueada: o anúncio voltou a converter, reavaliar', manual:'Virou tarefa no ClickUp' }
 const otmDataHora = iso => { if (!iso) return ''; const d = new Date(iso)
   return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}) + ' ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) }
@@ -5300,7 +5300,8 @@ function otmDecididaHTML(d, u, pode) {
   const niveis = [['Campanha', c.campanha], ['Conjunto', c.conjunto], ['Anúncio', c.anuncio]].filter(([, v]) => v)
   const cam = niveis.map(([l, v]) => `<span class="otm-k">${l}:</span> ${esc(v)}`).join(' › ')
   const exec = d.status === 'aceita' ? `<div class="otm-exec ${d.execucao_status === 'erro' ? 'bad' : ''}">${esc(d.execucao_status ? OTM_EXEC[d.execucao_status] || d.execucao_status : 'Virou tarefa no ClickUp')}${d.executada_em ? ' · ' + esc(otmDataHora(d.executada_em)) : ''}</div>` : ''
-  const tarefa = d.status !== 'aceita' ? '' : d.clickup_task_url
+  // Na fila do agente ou já executada sem tarefa: não falta nada, não oferece "Criar tarefa".
+  const tarefa = d.status !== 'aceita' || (!d.clickup_task_url && ['pendente', 'executada'].includes(d.execucao_status)) ? '' : d.clickup_task_url
     ? `<a class="otm-link" href="${esc(d.clickup_task_url)}" target="_blank" rel="noopener noreferrer">Abrir a atividade no ClickUp ${ic('external','↗')}</a>`
     : `<div class="otm-exec bad">Sem tarefa no ClickUp${d.execucao_log?.erro_tarefa ? ': ' + esc(d.execucao_log.erro_tarefa) : ''}</div>${pode ? `<button class="otm-btn ghost" data-otm-tarefa="${esc(d.id)}"${u.busy[d.chave] ? ' disabled' : ''}>${u.busy[d.chave] === 'tarefa' ? 'Criando…' : 'Criar tarefa no ClickUp'}</button>` : ''}`
   const reabrir = pode && d.execucao_status !== 'executada' ? `<button class="otm-more" data-otm-reabrir="${esc(d.id)}"${u.busy[d.chave] ? ' disabled' : ''} title="Apaga a decisão: a sugestão volta a aparecer se a regra ainda valer">Reabrir</button>` : ''
@@ -5391,7 +5392,9 @@ function otmWire() {
     otmAgir(s.chave, 'aceita', async () => {
       const r = await b.aceitar(s)
       otmSetDecisao(client, r.decisao)
-      u.aviso = r.tarefa
+      u.aviso = r.agente
+        ? { tipo: 'ok', texto: 'Aceita. Foi para a fila do gestor de tráfego (agente), que executa na próxima rodada, de hora em hora.' }
+        : r.tarefa
         ? { tipo: 'ok', texto: `Aceita. Atividade criada no ClickUp para ${r.tarefa.responsavel}${r.tarefa.data ? ` (entrega ${otmDia(r.tarefa.data)})` : ''}.${r.tarefa.aviso ? ' ' + r.tarefa.aviso : ''}`, url: r.tarefa.url, rotulo: 'Abrir a atividade no ClickUp' }
         : { tipo: 'erro', texto: `Aceita, mas a tarefa não foi criada: ${r.erroTarefa}. Dá para tentar de novo na aba Decididas.` }
     })

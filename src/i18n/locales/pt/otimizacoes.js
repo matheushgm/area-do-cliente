@@ -3,8 +3,8 @@ export default {
   titulo: 'Otimizações do dia',
   tituloCurto: 'Otimizações',
   abrirMenu: 'Abrir menu de navegação',
-  subtitulo: 'Sugestões do playbook de todos os clientes, calculadas sobre os últimos 7 dias fechados contra os 7 anteriores. Aceitar cria a atividade no ClickUp do cliente e coloca a otimização na fila da automação; recusar registra o motivo.',
-  subtituloComJanela: 'Sugestões do playbook de todos os clientes, calculadas sobre os últimos 7 dias fechados ({inicio} a {fim}, o mesmo período do Gerenciador e do Google Ads) contra os 7 anteriores. Aceitar cria a atividade no ClickUp do cliente e coloca a otimização na fila da automação; recusar registra o motivo.',
+  subtitulo: 'Sugestões do playbook de todos os clientes, calculadas sobre os últimos 7 dias fechados contra os 7 anteriores. O gestor de tráfego (agente) executa sozinho todo dia o que é seguro; o crítico espera aprovação na aba Crítico e o resto fica com o time. Comente em qualquer sugestão: o agente lê de hora em hora.',
+  subtituloComJanela: 'Sugestões do playbook de todos os clientes, calculadas sobre os últimos 7 dias fechados ({inicio} a {fim}, o mesmo período do Gerenciador e do Google Ads) contra os 7 anteriores. O gestor de tráfego (agente) executa sozinho todo dia o que é seguro; o crítico espera aprovação na aba Crítico e o resto fica com o time. Comente em qualquer sugestão: o agente lê de hora em hora.',
   recarregar: 'Recarregar',
   cliente: 'Cliente',
   lendo: 'Lendo o dashboard de todas as contas…',
@@ -19,6 +19,7 @@ export default {
   abas: {
     pendentes: 'Pendentes',
     historico: 'Histórico',
+    critico: 'Crítico',
     nDeTotal: '{n} de {total}',
   },
   filtros: {
@@ -39,7 +40,8 @@ export default {
   },
   cartao: {
     aceitar: 'Aceitar',
-    aceitarTitle: 'Aceitar: cria a atividade no ClickUp do cliente e entra na fila da automação',
+    aceitarTitle: 'Aceitar: cria a atividade no ClickUp do cliente',
+    aceitarAgenteTitle: 'Aceitar: vai para a fila do gestor de tráfego (agente), que executa na próxima rodada',
     recusar: 'Recusar',
     recusarTitle: 'Recusar com motivo',
     detalhes: 'Detalhes',
@@ -49,6 +51,35 @@ export default {
     porQueRecusar: 'Por que recusar? (fica no histórico)',
     motivoPlaceholder: 'Ex.: o anúncio é o único priorizado do conjunto, vamos subir substituto antes',
     confirmarRecusa: 'Confirmar recusa',
+  },
+  // Quem executa (src/lib/otimizacoesAgente.js)
+  modo: {
+    auto: 'O agente executa',
+    autoTitle: 'O gestor de tráfego (agente) executa sozinho na rodada diária',
+    critica: 'Crítico',
+    criticaTitle: 'Desliga conjunto/campanha ou aumenta verba: o agente só executa depois de aprovado',
+    manual: 'Precisa de uma pessoa',
+    manualTitle: 'O agente não executa isto (criativo, investigação, campanha nova): aceitar cria a tarefa no ClickUp',
+  },
+  critico: {
+    aviso: 'O gestor de tráfego (agente) não executa estas sozinho: desligar conjunto ou campanha e aumentar verba. Aprovar coloca na fila dele, que executa na próxima rodada (de hora em hora). Reprovar pede o motivo, que o agente lê.',
+    vazio: 'Nada esperando aprovação.',
+    vazioSub: 'Quando o agente achar uma otimização crítica, ela aparece aqui.',
+    porque: 'Por que é crítico:',
+    marcadaEm: 'marcada pelo agente em {data}',
+    aprovar: 'Aprovar',
+    aprovarTitle: 'O agente executa na próxima rodada',
+    reprovar: 'Reprovar',
+    porQueReprovar: 'Por que reprovar? (o agente lê e fica no histórico)',
+    confirmarReprova: 'Confirmar reprovação',
+  },
+  comentarios: {
+    n: { zero: 'Comentar', one: '{count} comentário', other: '{count} comentários' },
+    placeholder: 'Escreva para o time e para o agente. Ele lê de hora em hora e responde aqui.',
+    enviar: 'Enviar',
+    agente: 'agente',
+    lido: 'lido pelo agente',
+    aguardando: 'o agente lê na próxima rodada',
   },
   grupo: {
     abrir: 'abrir',
@@ -68,7 +99,7 @@ export default {
     descartada: 'Adiada',
   },
   execucao: {
-    pendente: 'Na fila da automação',
+    pendente: 'Na fila do agente de tráfego',
     executada: 'Executada',
     erro: 'Erro na execução',
     cancelada: 'Cancelada',
@@ -99,6 +130,8 @@ export default {
     nOtimizacoes: { one: '{count} otimização', other: '{count} otimizações' },
     nAceitas: { one: '{count} aceita', other: '{count} aceitas' },
     nRecusadas: { one: '{count} recusada', other: '{count} recusadas' },
+    aprovadaPor: 'aprovada por {nome}',
+    reprovadaPor: 'reprovada por {nome}',
   },
   criada: {
     titulo: 'Tarefa criada no ClickUp',
@@ -118,6 +151,9 @@ export default {
   },
   toast: {
     recusada: 'Recusada e registrada no histórico.',
+    naFilaAgente: 'Aceita. Foi para a fila do gestor de tráfego (agente), que executa na próxima rodada.',
+    aprovada: 'Aprovada. O agente executa na próxima rodada.',
+    reprovada: 'Reprovada. O motivo fica no histórico e o agente lê.',
     reaberta: 'Decisão apagada. A sugestão volta a aparecer se a regra ainda valer.',
     aceitaSemTarefa: 'Aceita, mas a tarefa não foi criada: {erro}',
     tarefaCriadaMesmoAssim: 'A tarefa foi criada no ClickUp: {url}',

@@ -495,7 +495,7 @@ function regrasMeta(rowsMeta, metas, conta, orcamentos = null) {
       const dest = destinos.has(it.cj) ? null : melhorConj(it.cj, notaPara(it))
       if (dest) {
         desligados.add(it.cj); destinos.add(dest.c); restamNoConj.set(it.cj, 0)
-        desligarConj.push({ ...it, orig: it, dest: dest.x })
+        desligarConj.push({ ...it, orig: it, dest: dest.x, destId: dest.c.startsWith('id' + SEP) ? dest.c.slice(3) : null })
       } else trocar.push({ ...it, ativosConj: n, orig: it })
     }
     return { pausar, desligarConj, trocar }
@@ -539,6 +539,8 @@ function regrasMeta(rowsMeta, metas, conta, orcamentos = null) {
         { label: R.ev.destinoRes, valor: destRes },
       ],
       passos: R.passos({ dest }),
+      // Pra quem for executar (pessoa ou agente): o conjunto que recebe a verba.
+      destino: { adsetId: it.destId || null, nome: dest },
       tipo: 'Otimização', horas: 0.5,
     })
   }
