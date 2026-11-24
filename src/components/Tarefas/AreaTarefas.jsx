@@ -474,6 +474,29 @@ export default function AreaTarefas({
       .filter((g) => g.listas.length)
       .sort((a, b) => a.pasta.nome.localeCompare(b.pasta.nome, 'pt-BR'))
   }, [listasEscopo, sel.tipo, t.pastas, t.listas, t.pastasMap])
+  // todas as pastas com as listas ativas: destino do "Mover para lista" (pode ir para outro cliente)
+  const gruposTodas = useMemo(() => {
+    const ativas = (ls) => ls.filter((l) => !l.arquivada).sort((a, b) => (Number(a.ordem) || 0) - (Number(b.ordem) || 0) || a.nome.localeCompare(b.nome, 'pt-BR'))
+    return t.pastas.filter((p) => !p.arquivada)
+      .map((p) => ({ pasta: p, listas: ativas(t.listas.filter((l) => l.pasta_id === p.id)) }))
+      .filter((g) => g.listas.length)
+      .sort((a, b) => a.pasta.nome.localeCompare(b.pasta.nome, 'pt-BR'))
+  }, [t.pastas, t.listas])
+  const moverParaLista = useCallback(async (it, listaId) => {
+    if (!listaId || listaId === it.lista_id) return
+    const r = await t.moverTarefa(it.id, listaId)
+    if (r?.error) { showToast(r.error, 'error'); return }
+    const pasta = t.pastasMap.get(r.lista.pasta_id)
+    const destino = pasta ? `${pasta.nome} / ${r.lista.nome}` : r.lista.nome
+    oferecerDesfazer({
+      mensagem: tr('tarefas.area.movidaPara', { titulo: it.titulo, destino }),
+      desfazer: async () => {
+        let falhas = 0
+        for (const { id, patch } of r.antes) { const x = await t.atualizarTarefa(id, patch); if (x?.error) falhas++ }
+        return falhas ? { error: tr('tarefas.desfazer.falhou', { n: falhas }) } : {}
+      },
+    })
+  }, [t, showToast, oferecerDesfazer, tr])
   const agendarPush = t.agendarPush
   // cria a tarefa e, depois, as subtarefas (na mesma lista) e as relações do rascunho
   const criarDoRascunho = useCallback(async ({ subtarefas = [], relacoes = [], ...payload }) => {
@@ -747,6 +770,8 @@ export default function AreaTarefas({
       const { n, falhas } = await duplicarTarefas([it])
       showToast(falhas ? tr('tarefas.area.criadasComErro', { n, falhas }) : tr('tarefas.area.tarefaDuplicada'), falhas ? 'error' : undefined)
     },
+    gruposListas: gruposTodas,
+    moverLista: (it, listaId) => moverParaLista(it, listaId),
     salvarTemplate: (it) => salvarComoModelo(it, filhosDe.get(it.id) || []),
     historico: (it) => navigate(`/tarefas?aba=sincronizacao&sync_tarefa=${it.id}`),
     arquivar: async (it) => {
@@ -1000,6 +1025,8 @@ export default function AreaTarefas({
                   onCarregarComentarios={t.carregarComentarios}
                   onErro={(m) => showToast(m, 'error')}
                   onRelacoesMudaram={() => t.agendarPush?.()}
+                  gruposListas={gruposTodas}
+                  onMoverLista={moverParaLista}
                   entrega={<EntregaPainel item={tarefaAberta} carregarGrafo={carregarGrafo} gravar={gravarCascata} confirmar={confirmar} avisar={showToast} />}
                 />
               ) : (

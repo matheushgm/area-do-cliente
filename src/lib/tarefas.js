@@ -106,6 +106,16 @@ export function statusInicial(statuses) {
   return statuses.find((s) => s.tipo === 'open') || statuses[0] || STATUSES_PADRAO[0]
 }
 
+/** Status da tarefa ao mudar de lista: o mesmo, se a lista nova tem; concluída vai para o
+ *  primeiro status de concluída de lá; o resto, para o status inicial da lista nova. */
+export function statusAoMover(item, listaNova) {
+  const statuses = statusDaLista(listaNova)
+  const igual = statuses.find((s) => s.key === item?.status)
+  if (igual) return igual
+  if (item?.status_tipo === 'closed') return statuses.find((s) => s.tipo === 'closed') || statusInicial(statuses)
+  return statusInicial(statuses)
+}
+
 // ─── Rótulos traduzidos ───────────────────────────────────────────────────────
 // Status, tipo, dificuldade e departamento vêm do ClickUp: são DADO (gravado, comparado e
 // devolvido ao ClickUp pela outbox) e nunca mudam. Os helpers abaixo só traduzem, na tela, os

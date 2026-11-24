@@ -26,6 +26,8 @@ import { chamadaRelacao, chavePar, vaiProClickup } from './_tarefas_relacoes.js'
 import { LIMITE_ANEXO_BYTES, LIMITE_ANEXO_MB } from '../src/lib/anexosLimite.js'
 
 const CLICKUP_BASE = 'https://api.clickup.com/api/v2'
+const CLICKUP_V3 = 'https://api.clickup.com/api/v3'
+const TEAM_ID = String(process.env.CLICKUP_TEAM_ID || '9009170774').replace(/[\s"']/g, '')
 const SPACE_CLIENTES = '90090377342'
 // Campos personalizados do space Clientes (mesmos ids de api/atividades.js)
 const CF = {
@@ -63,7 +65,7 @@ function fazClickup(token, prazo = Infinity) {
   return async function cu(method, path, body) {
     for (let tent = 0; tent < 6; tent++) {
       if (Date.now() > prazo) throw semTempo(`ClickUp ${method} ${path}: sem tempo nesta invocação`)
-      const res = await fetch(`${CLICKUP_BASE}${path}`, {
+      const res = await fetch(path.startsWith('http') ? path : `${CLICKUP_BASE}${path}`, {
         method, headers: { Authorization: token, 'Content-Type': 'application/json' },
         body: body !== undefined ? JSON.stringify(body) : undefined,
       })
@@ -557,7 +559,23 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
               const quer = new Set(assigneesDe(row))
               body.assignees = { add: [...quer].filter((x) => !tem.has(x)), rem: [...tem].filter((x) => !quer.has(x)) }
             }
-            if (quais.has('lista_id')) aviso(`tarefa ${row.clickup_task_id}: mover de lista não é replicado no ClickUp (mova lá também)`)
+            // Mover de lista (24/11/2026): a tarefa de topo vai pela API v3 (home_list) e as
+            // subtarefas vão junto com ela no ClickUp (conferido com uma tarefa de teste). Lá a tarefa
+            // movida cai no status padrão da lista nova, por isso o status daqui vai sempre em seguida.
+            if (quais.has('lista_id')) {
+              if (!row.parent_id) {
+                await cu('PUT', `${CLICKUP_V3}/workspaces/${TEAM_ID}/tasks/${row.clickup_task_id}/home_list/${l.clickup_list_id}`, {})
+              } else {
+                const atual = await cu('GET', `/task/${row.clickup_task_id}`)
+                if (String(atual?.list?.id) !== String(l.clickup_list_id)) {
+                  // o pai ainda vai para a lista nova (está na fila): esta espera a próxima rodada
+                  const { data: paiNaFila } = await sb.from('tarefas_outbox').select('id').eq('tarefa_id', row.parent_id).in('status', ['pendente', 'processando']).not('id', 'in', `(${u.ids.join(',')})`).limit(1)
+                  if (paiNaFila?.length) { await devolver(u.ids); resumo.devolvidas++; return 'devolvida' }
+                  aviso(`subtarefa ${row.clickup_task_id}: está numa lista diferente da do pai; no ClickUp ela segue o pai`)
+                }
+              }
+              if (!('status' in body)) { const st = statusValido(l, row.status); if (st) body.status = st }
+            }
             let task = null
             if (Object.keys(body).length) task = await cu('PUT', `/task/${row.clickup_task_id}`, body)
             if (quais.has('tags')) {

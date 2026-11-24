@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { apiFetch } from '../lib/api'
 import { supabase } from '../lib/supabase'
-import { STATUSES_PADRAO, statusDaLista, statusInicial, datasCoerentes, tarefaEntraNaCarga } from '../lib/tarefas'
+import { STATUSES_PADRAO, statusDaLista, statusInicial, statusAoMover, datasCoerentes, tarefaEntraNaCarga } from '../lib/tarefas'
 
 const PAGINA = 1000
 // Recuperação depois de uma queda do realtime: folga para relógio do navegador adiantado e
@@ -367,6 +367,43 @@ export function useTarefas(user) {
     return { n: ids.length }
   }, [agendarPush])
 
+  // Mover de lista (tarefa criada no lugar errado): a tarefa e todas as subtarefas vão para a
+  // lista nova, cada uma com um status que exista lá (statusAoMover). Só tarefa de topo: a
+  // subtarefa segue o pai. No ClickUp o push move a tarefa (as subtarefas vão junto) e acerta o status.
+  const moverTarefa = useCallback(async (id, listaId) => {
+    const lista = listasMap.get(listaId)
+    if (!lista) return { error: 'lista não encontrada' }
+    const ids = [id]
+    for (let frente = [id]; frente.length;) {
+      const { data, error } = await supabase.from('tarefas_itens').select('id').in('parent_id', frente)
+      if (error) return { error: error.message }
+      frente = (data || []).map((r) => r.id).filter((x) => !ids.includes(x))
+      ids.push(...frente)
+    }
+    const { data: linhas, error: errLer } = await supabase.from('tarefas_itens').select('id, lista_id, status, status_tipo, data_conclusao').in('id', ids)
+    if (errLer) return { error: errLer.message }
+    // pai primeiro: a outbox enfileira nessa ordem e o push move o pai antes de mexer nas filhas
+    const ordem = new Map(ids.map((x, i) => [x, i]))
+    const gravadas = []
+    const antes = [] // para desfazer: o que cada linha era, na mesma ordem (pai primeiro)
+    for (const row of [...(linhas || [])].sort((a, b) => ordem.get(a.id) - ordem.get(b.id))) {
+      const st = statusAoMover(row, lista)
+      const patch = { lista_id: listaId }
+      if (st.key !== row.status) {
+        patch.status = st.key
+        patch.status_tipo = st.tipo || 'custom'
+        if ((st.tipo === 'closed') !== (row.status_tipo === 'closed')) patch.data_conclusao = st.tipo === 'closed' ? new Date().toISOString() : null
+      }
+      const { data, error } = await supabase.from('tarefas_itens').update(patch).eq('id', row.id).select().single()
+      if (error) { if (gravadas.length) { mesclar(gravadas); agendarPush() } return { error: error.message } }
+      gravadas.push(data)
+      antes.push({ id: row.id, patch: { lista_id: row.lista_id, status: row.status, status_tipo: row.status_tipo, data_conclusao: row.data_conclusao } })
+    }
+    mesclar(gravadas)
+    agendarPush()
+    return { n: gravadas.length, lista, antes }
+  }, [listasMap, mesclar, agendarPush])
+
   // ── Pastas e listas ────────────────────────────────────────────────────────
   const criarPasta = useCallback(async ({ nome, project_id = null }) => {
     const { data, error } = await supabase.from('tarefas_pastas').insert({ nome: nome.trim(), project_id, posicao: Date.now() }).select().single()
@@ -542,7 +579,7 @@ export function useTarefas(user) {
     pastas, listas, pastasMap, listasMap, loadingEstrutura, carregando, erro,
     itens, comentarios,
     carregarEstrutura, carregarListas, carregarMinhas, carregarAbertas, carregarPorCampo, carregarPorIds, carregarTarefa, aplicarLocal,
-    criarTarefa, atualizarTarefa, mudarStatus, excluirTarefa, arquivarTarefa,
+    criarTarefa, atualizarTarefa, mudarStatus, excluirTarefa, arquivarTarefa, moverTarefa,
     ocultarLocal, reexibirLocal, soltarOcultas,
     criarPasta, atualizarPasta, atualizarLista,
     carregarComentarios, criarComentario, excluirComentario,

@@ -355,6 +355,7 @@ export default {
     linkCopiado: 'Link copiado',
     criadasComErro: '{n} criada(s), {falhas} com erro',
     tarefaDuplicada: 'Tarefa duplicada',
+    movidaPara: '{titulo} foi para {destino}',
     tarefaArquivada: 'Tarefa arquivada',
     tarefaExcluida: 'Tarefa excluída',
     carregando: 'Carregando…',

@@ -353,6 +353,7 @@ export default {
     linkCopiado: 'Link copied',
     criadasComErro: '{n} created, {falhas} failed',
     tarefaDuplicada: 'Task duplicated',
+    movidaPara: '{titulo} moved to {destino}',
     tarefaArquivada: 'Task archived',
     tarefaExcluida: 'Task deleted',
     carregando: 'Loading…',

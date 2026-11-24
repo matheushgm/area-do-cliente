@@ -37,6 +37,7 @@ const statuses = statusDasListas(listasEscopo)
 const itensMap = Object.fromEntries(itens.map((i) => [i.id, i]))
 const projetos = fixture.projetos.map((p) => ({ id: p.id, company_name: p.company_name }))
 const ciclos = [{ id: 'c1', nome: 'Sprint 42' }]
+const gruposListas = fixture.pastas.map((p) => ({ pasta: p, listas: listas.filter((l) => l.pasta_id === p.id && !l.arquivada) })).filter((g) => g.listas.length)
 // tarefas bloqueadas (ícone na linha): as relações da fixture, se houver, mais duas fictícias
 // (a 1ª aberta bloqueia a 2ª; a 1ª e a 3ª bloqueiam a 4ª), no formato do useBloqueios
 const abertasTopo = topo.filter((i) => i.status_tipo !== 'closed')
@@ -70,6 +71,7 @@ export default function DevLista() {
     copiarLink: log('copiarLink'), abrirClickup: log('abrirClickup'), duplicar: log('duplicar'),
     salvarTemplate: log('salvarTemplate'), historico: log('historico'),
     renomear: (it) => setRenomeandoId(it.id),
+    gruposListas, moverLista: (it, listaId) => console.log('moverLista', it.id, listaId),
     arquivar: async (it) => { if (await confirmar({ titulo: 'Arquivar esta tarefa?', texto: 'Saem das listas do VertaTask e ficam arquivadas no ClickUp. Nada é apagado.', rotuloItens: 'Tarefa a ser arquivada', itens: [it.titulo], acao: 'Arquivar' })) console.log('arquivar', it.id) },
     excluir: async (it) => { if (await confirmar({ perigo: true, titulo: 'Excluir esta tarefa?', texto: 'A exclusão também acontece no ClickUp e não pode ser desfeita.', rotuloItens: 'Tarefa a ser excluída', itens: [it.titulo], acao: 'Excluir' })) console.log('excluir', it.id) },
   }
@@ -127,6 +129,7 @@ export default function DevLista() {
           <aside className="relative shrink-0 border-l border-ln-line bg-ln-panel overflow-y-auto" style={{ width: larguraPainel }} aria-label="Detalhe da tarefa">
             <AlcaPainel largura={larguraPainel} onLargura={setLarguraPainel} />
             <TarefaPanel
+              gruposListas={gruposListas} onMoverLista={(it, listaId) => console.log('moverLista', it.id, listaId)}
               key={aberta.id} item={aberta} subtarefas={filhosDe.get(aberta.id) || []} ancestrais={ancestrais}
               irmas={aberta.parent_id ? filhosDe.get(aberta.parent_id) : null} statuses={statuses} membros={membros} membrosMap={membrosMap}
               comentarios={[]} user={{ id: membros[0]?.id }} onAtualizar={ctx.onAtualizar} onMudarStatus={ctx.onMudarStatus}
