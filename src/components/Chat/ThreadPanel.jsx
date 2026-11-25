@@ -14,7 +14,7 @@ export default function ThreadPanel({ raiz, respostas, carregando, canal, meuId,
   return (
     <div className="flex flex-col h-full min-h-0 bg-ln-bg">
       <div className="h-11 px-3 flex items-center gap-2 border-b border-ln-border shrink-0">
-        <h3 className="text-[13px] font-semibold text-ln-t1 truncate flex-1">Thread de {primeiroNome(autor?.name || 'Usuário')}</h3>
+        <h3 className="text-[13px] font-semibold text-ln-t1 truncate flex-1">Thread de {primeiroNome(autor?.name || raiz?.autor_nome || 'Usuário')}</h3>
         {onExpandir && (
           <button onClick={onExpandir} className="ln-iconbtn hidden md:inline-flex" title={expandido ? 'Voltar ao painel' : 'Expandir'} aria-label="Expandir thread">
             {expandido ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -33,7 +33,7 @@ export default function ThreadPanel({ raiz, respostas, carregando, canal, meuId,
           <div className="flex justify-center py-6 text-ln-t4"><Loader2 className="w-4 h-4 animate-spin" /></div>
         ) : respostas.map((r, i) => {
           const ant = respostas[i - 1]
-          const agrupada = !!ant && ant.user_id === r.user_id && new Date(r.created_at) - new Date(ant.created_at) < 5 * 60 * 1000
+          const agrupada = !!ant && (ant.user_id || ant.autor_nome) === (r.user_id || r.autor_nome) && new Date(r.created_at) - new Date(ant.created_at) < 5 * 60 * 1000
           return (
             <MessageItem key={r.id} msg={r} autor={membrosMap.get(r.user_id)} agrupada={agrupada} meuId={meuId} membros={membros} membrosMap={membrosMap} onReagir={onReagir} onExcluir={onExcluir} podeResponder={false} />
           )

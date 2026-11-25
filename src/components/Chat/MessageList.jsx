@@ -79,12 +79,12 @@ export function MessageItem({ msg, autor, agrupada, meuId, membros, membrosMap, 
       <div className="w-7 shrink-0 flex justify-center">
         {agrupada
           ? <span className="text-[10px] text-ln-t4 opacity-0 group-hover:opacity-100 leading-[21px] tabular">{hora(msg.created_at)}</span>
-          : <ChatAvatar pessoa={autor} id={msg.user_id} nome={autor?.name} size={28} className="mt-0.5" />}
+          : <ChatAvatar pessoa={autor} id={msg.user_id || msg.autor_nome} nome={autor?.name || msg.autor_nome} size={28} className="mt-0.5" />}
       </div>
       <div className="flex-1 min-w-0">
         {!agrupada && (
           <div className="flex items-baseline gap-1.5 leading-4 mb-0.5">
-            <span className="text-[13px] font-semibold text-ln-t1 truncate">{autor?.name || 'Usuário'}</span>
+            <span className="text-[13px] font-semibold text-ln-t1 truncate">{autor?.name || msg.autor_nome || 'Usuário'}</span>
             <span className="text-[12px] text-ln-t4 shrink-0">{horaRelativa(msg.created_at)}</span>
             {msg.edited_at && <span className="text-[11px] text-ln-t4">(editada)</span>}
           </div>
@@ -120,7 +120,7 @@ export function agruparMensagens(mensagens) {
       anterior = null
     }
     const agrupada = !!anterior
-      && anterior.user_id === m.user_id
+      && (anterior.user_id || anterior.autor_nome) === (m.user_id || m.autor_nome)
       && (anterior.replies_count || 0) === 0
       && new Date(m.created_at) - new Date(anterior.created_at) < JANELA_AGRUPAMENTO_MS
     itens.push({ tipo: 'msg', key: m.id, msg: m, agrupada })
@@ -129,16 +129,29 @@ export function agruparMensagens(mensagens) {
   return itens
 }
 
-export default function MessageList({ canal, mensagens, respondentes, meuId, membros, membrosMap, onReagir, onResponder, onExcluir, onAbrirThread, mensagemDestaque }) {
+export default function MessageList({ canal, mensagens, respondentes, meuId, membros, membrosMap, onReagir, onResponder, onExcluir, onAbrirThread, mensagemDestaque, temAnteriores = false, carregandoAnteriores = false, onCarregarAnteriores }) {
   const scrollRef = useRef(null)
   const fimRef = useRef(null)
   const presoNoFim = useRef(true)
+  const alturaAntes = useRef(null) // ao carregar anteriores: mantém a mensagem que estava à vista
   const itens = useMemo(() => agruparMensagens(mensagens), [mensagens])
 
   // Mantém no fim quando chegam mensagens e o usuário já estava no fim
   useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (alturaAntes.current != null && el) {
+      el.scrollTop += el.scrollHeight - alturaAntes.current
+      alturaAntes.current = null
+      return
+    }
     if (presoNoFim.current) fimRef.current?.scrollIntoView({ block: 'end' })
   }, [itens.length, canal?.id])
+
+  function carregarAnteriores() {
+    presoNoFim.current = false
+    alturaAntes.current = scrollRef.current?.scrollHeight ?? null
+    onCarregarAnteriores?.()
+  }
 
   useEffect(() => {
     const el = scrollRef.current
@@ -156,7 +169,14 @@ export default function MessageList({ canal, mensagens, respondentes, meuId, mem
 
   return (
     <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
-      {/* Cabeçalho de boas-vindas do canal, como no ClickUp */}
+      {temAnteriores ? (
+        <div className="flex justify-center pt-4 pb-2">
+          <button type="button" onClick={carregarAnteriores} disabled={carregandoAnteriores} className="ln-pill !h-7 disabled:opacity-60">
+            {carregandoAnteriores ? 'Carregando…' : 'Carregar mensagens anteriores'}
+          </button>
+        </div>
+      ) : (
+      /* Cabeçalho de boas-vindas do canal, como no ClickUp */
       <div className="px-6 pt-8 pb-4">
         <div className="w-12 h-12 rounded-xl bg-ln-ink/[0.05] flex items-center justify-center mb-3">
           {canal?.type === 'dm'
@@ -170,6 +190,7 @@ export default function MessageList({ canal, mensagens, respondentes, meuId, mem
             : canal?.description || `Este é o começo do canal #${canal?.nome}.`}
         </p>
       </div>
+      )}
       {mensagens.length === 0 && (
         <div className="px-6 py-10 text-center text-ln-t4">
           <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-40" />

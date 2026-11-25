@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { extrairMencoes } from '../lib/chat'
+import { marcarMencoesLidas } from '../lib/mencoes'
 
 const LIMITE_MSGS = 300
 
@@ -15,10 +16,20 @@ export function useChat({ user, teamMembers }) {
   const [tick, setTick] = useState(0)
   const recarregar = useCallback(() => setTick((t) => t + 1), [])
 
-  const [canalAtivo, setCanalAtivo] = useState(null)
+  const [canalAtivo, setCanalAtivoState] = useState(null)
   const [mensagens, setMensagens] = useState([])                     // raízes do canal ativo
   const [respondentes, setRespondentes] = useState(new Map())        // root_id → [user_id]
   const [carregandoMsgs, setCarregandoMsgs] = useState(false)
+  const [temAnteriores, setTemAnteriores] = useState(false)          // há raízes mais antigas que as carregadas
+  const [carregandoAnteriores, setCarregandoAnteriores] = useState(false)
+  const [raizAvulsa, setRaizAvulsa] = useState(null)                 // raiz da thread aberta que não está entre as carregadas
+  // Thread pedida junto com a troca de canal (link de notificação `?channel=&thread=`): a troca
+  // de canal limpa a thread, então ela é guardada aqui e aplicada depois da limpeza.
+  const threadInicial = useRef(null)
+  const setCanalAtivo = useCallback((id, thread = null) => {
+    threadInicial.current = thread || null
+    setCanalAtivoState(id)
+  }, [])
 
   const [threadId, setThreadId] = useState(null)
   const [respostas, setRespostas] = useState([])
@@ -28,9 +39,18 @@ export function useChat({ user, teamMembers }) {
   const threadRef = useRef(null)
   useEffect(() => { canalAtivoRef.current = canalAtivo }, [canalAtivo])
   useEffect(() => { threadRef.current = threadId }, [threadId])
+  const mensagensRef = useRef([])
+  useEffect(() => { mensagensRef.current = mensagens }, [mensagens])
   const userId = user?.id
 
-  const membrosMap = useMemo(() => new Map(teamMembers.map((m) => [m.id, m])), [teamMembers])
+  // Quem já saiu do time (perfil desligado) continua com nome e foto nas mensagens antigas.
+  const [desligados, setDesligados] = useState([])
+  useEffect(() => {
+    if (!supabase || !userId) return
+    supabase.from('profiles').select('id, name, avatar, foto_url').eq('disabled', true)
+      .then(({ data }) => setDesligados(data || []))
+  }, [userId])
+  const membrosMap = useMemo(() => new Map([...desligados, ...teamMembers].map((m) => [m.id, m])), [desligados, teamMembers])
 
   // ── Canais + membros + não lidas ────────────────────────────────────────
   useEffect(() => {
@@ -78,50 +98,111 @@ export function useChat({ user, teamMembers }) {
   }), [canais, membrosPorCanal, naoLidas, membrosMap, userId, user?.name])
 
   // ── Mensagens do canal ativo ────────────────────────────────────────────
-  const carregarMensagens = useCallback(async (canalId) => {
+  // Quem respondeu em cada thread das raízes dadas (avatares do resumo da thread).
+  async function lerRespondentes(raizes) {
+    const comThread = raizes.filter((m) => m.replies_count > 0).map((m) => m.id)
+    const resp = new Map()
+    if (!comThread.length) return resp
+    const { data: rs } = await supabase.from('chat_messages').select('parent_id, user_id').in('parent_id', comThread).order('created_at')
+    for (const r of rs || []) {
+      if (!resp.has(r.parent_id)) resp.set(r.parent_id, [])
+      const lista = resp.get(r.parent_id)
+      if (r.user_id && !lista.includes(r.user_id)) lista.push(r.user_id)
+    }
+    return resp
+  }
+
+  // `silencioso`: releitura depois de reconectar/voltar para a aba. Não pisca o carregando e
+  // junta com o que já está na tela (mantém as antigas que a pessoa carregou).
+  const carregarMensagens = useCallback(async (canalId, { silencioso = false } = {}) => {
     if (!supabase || !canalId) return
-    setCarregandoMsgs(true)
+    if (!silencioso) setCarregandoMsgs(true)
     const { data, error } = await supabase
       .from('chat_messages').select('*')
       .eq('channel_id', canalId).is('parent_id', null)
       .order('created_at', { ascending: false }).limit(LIMITE_MSGS)
     if (error) { console.error(error); setCarregandoMsgs(false); return }
     const raizes = (data || []).reverse()
-    const comThread = raizes.filter((m) => m.replies_count > 0).map((m) => m.id)
-    let resp = new Map()
-    if (comThread.length) {
-      const { data: rs } = await supabase.from('chat_messages').select('parent_id, user_id').in('parent_id', comThread).order('created_at')
-      for (const r of rs || []) {
-        if (!resp.has(r.parent_id)) resp.set(r.parent_id, [])
-        const lista = resp.get(r.parent_id)
-        if (r.user_id && !lista.includes(r.user_id)) lista.push(r.user_id)
-      }
-    }
+    const resp = await lerRespondentes(raizes)
     if (canalAtivoRef.current !== canalId) return
-    setRespondentes(resp)
-    setMensagens(raizes)
+    if (silencioso) {
+      const ids = new Set(raizes.map((m) => m.id))
+      const desde = raizes[0]?.created_at
+      setMensagens((prev) => [...prev.filter((m) => !ids.has(m.id) && desde && m.created_at < desde), ...raizes])
+      setRespondentes((prev) => new Map([...prev, ...resp]))
+    } else {
+      setRespondentes(resp)
+      setMensagens(raizes)
+      setTemAnteriores((data || []).length >= LIMITE_MSGS)
+    }
     setCarregandoMsgs(false)
   }, [])
 
+  // Mensagens mais antigas que a primeira carregada. `ate` (data) traz tudo até ela, para o
+  // link de uma mensagem antiga (`?msg=`) conseguir mostrá-la.
+  const carregarAnteriores = useCallback(async ({ ate } = {}) => {
+    const canalId = canalAtivoRef.current
+    const primeira = mensagensRef.current[0]
+    if (!supabase || !canalId || !primeira) return
+    setCarregandoAnteriores(true)
+    let q = supabase.from('chat_messages').select('*')
+      .eq('channel_id', canalId).is('parent_id', null)
+      .lt('created_at', primeira.created_at)
+      .order('created_at', { ascending: false })
+    q = ate ? q.gte('created_at', ate).limit(2000) : q.limit(LIMITE_MSGS)
+    const { data, error } = await q
+    if (error) { console.error(error); setCarregandoAnteriores(false); return }
+    const antigas = (data || []).reverse()
+    const resp = await lerRespondentes(antigas)
+    if (canalAtivoRef.current !== canalId) return
+    setMensagens((prev) => [...antigas.filter((m) => !prev.some((x) => x.id === m.id)), ...prev])
+    setRespondentes((prev) => new Map([...resp, ...prev]))
+    if (ate) {
+      // Ainda pode haver mais antigas que `ate`: confere com uma linha.
+      const { data: mais } = await supabase.from('chat_messages').select('id').eq('channel_id', canalId).is('parent_id', null).lt('created_at', ate).limit(1)
+      setTemAnteriores(!!mais?.length)
+    } else setTemAnteriores(antigas.length >= LIMITE_MSGS)
+    setCarregandoAnteriores(false)
+  }, [])
+
   useEffect(() => {
-    setMensagens([]); setRespondentes(new Map()); setThreadId(null); setRespostas([])
+    setMensagens([]); setRespondentes(new Map()); setRespostas([]); setTemAnteriores(false)
+    setThreadId(threadInicial.current)
+    threadInicial.current = null
     if (canalAtivo) carregarMensagens(canalAtivo)
   }, [canalAtivo, carregarMensagens])
 
   // ── Thread aberta ───────────────────────────────────────────────────────
+  const carregarThread = useCallback(async (id, { silencioso = false } = {}) => {
+    if (!supabase || !id) return
+    if (!silencioso) setCarregandoThread(true)
+    const { data, error } = await supabase.from('chat_messages').select('*').eq('parent_id', id).order('created_at')
+    if (threadRef.current !== id) return
+    if (error) console.error(error)
+    setRespostas(data || [])
+    setCarregandoThread(false)
+  }, [])
+
   useEffect(() => {
     if (!supabase || !threadId) { setRespostas([]); return }
+    carregarThread(threadId)
+  }, [threadId, carregarThread])
+
+  // A raiz da thread pode ser mais antiga que as raízes carregadas (link de notificação de
+  // uma thread antiga): busca ela sozinha para o painel abrir mesmo assim.
+  useEffect(() => {
+    if (!supabase || !threadId || mensagens.some((m) => m.id === threadId)) { setRaizAvulsa(null); return undefined }
+    if (carregandoMsgs) return undefined
     let cancelado = false
-    setCarregandoThread(true)
-    supabase.from('chat_messages').select('*').eq('parent_id', threadId).order('created_at')
-      .then(({ data, error }) => {
-        if (cancelado) return
-        if (error) console.error(error)
-        setRespostas(data || [])
-        setCarregandoThread(false)
-      })
+    supabase.from('chat_messages').select('*').eq('id', threadId).maybeSingle().then(({ data }) => {
+      if (!cancelado) setRaizAvulsa(data && data.channel_id === canalAtivoRef.current ? data : null)
+    })
     return () => { cancelado = true }
-  }, [threadId])
+  }, [threadId, mensagens, carregandoMsgs])
+  const raizThread = useMemo(
+    () => mensagens.find((m) => m.id === threadId) || (raizAvulsa?.id === threadId ? raizAvulsa : null),
+    [mensagens, threadId, raizAvulsa],
+  )
 
   // ── Marcar como lido ────────────────────────────────────────────────────
   const marcarLido = useCallback(async (canalId) => {
@@ -135,6 +216,8 @@ export function useChat({ user, teamMembers }) {
   // ── Realtime (uma assinatura para tudo) ─────────────────────────────────
   useEffect(() => {
     if (!supabase || !userId) return
+    let jaConectou = false
+    let escondidaDesde = null
     const ch = supabase.channel('chat-feed')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, ({ new: row }) => {
         const canalId = row.channel_id
@@ -152,8 +235,11 @@ export function useChat({ user, teamMembers }) {
             })
             if (row.parent_id === threadRef.current) setRespostas((prev) => prev.some((r) => r.id === row.id) ? prev : [...prev, row])
           }
-          if (row.user_id !== userId && document.visibilityState === 'visible') marcarLido(canalId)
-          else if (row.user_id !== userId) bump(canalId, row)
+          if (row.user_id !== userId && document.visibilityState === 'visible') {
+            marcarLido(canalId)
+            // A notificação nasce na mesma transação da mensagem; a pessoa já está vendo.
+            if ((row.mentioned_user_ids || []).includes(userId)) marcarMencoesLidas({ canalId })
+          } else if (row.user_id !== userId) bump(canalId, row)
         } else if (row.user_id !== userId) {
           bump(canalId, row)
         }
@@ -177,9 +263,32 @@ export function useChat({ user, teamMembers }) {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_channels' }, () => recarregar())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_channel_members', filter: `user_id=eq.${userId}` }, () => recarregar())
-      .subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [userId, marcarLido, recarregar])
+      .subscribe((status) => {
+        // O realtime não reenvia o que passou com a conexão fora (notebook dormindo, wi-fi
+        // caiu): a cada reconexão relê canais, não lidas, a conversa aberta e a thread.
+        if (status !== 'SUBSCRIBED') return
+        if (jaConectou) ressincronizar()
+        jaConectou = true
+      })
+    function ressincronizar() {
+      recarregar()
+      if (canalAtivoRef.current) carregarMensagens(canalAtivoRef.current, { silencioso: true })
+      if (threadRef.current) carregarThread(threadRef.current, { silencioso: true })
+    }
+    // Aba escondida por mais de 1 min: o navegador pode ter congelado o socket sem avisar.
+    const aoVisibilidade = () => {
+      if (document.visibilityState === 'hidden') { escondidaDesde = Date.now(); return }
+      if (escondidaDesde && Date.now() - escondidaDesde > 60000) ressincronizar()
+      escondidaDesde = null
+    }
+    document.addEventListener('visibilitychange', aoVisibilidade)
+    window.addEventListener('online', ressincronizar)
+    return () => {
+      supabase.removeChannel(ch)
+      document.removeEventListener('visibilitychange', aoVisibilidade)
+      window.removeEventListener('online', ressincronizar)
+    }
+  }, [userId, marcarLido, recarregar, carregarMensagens, carregarThread])
 
   // ── Ações ───────────────────────────────────────────────────────────────
   const garantirMembro = useCallback(async (canalId) => {
@@ -272,7 +381,8 @@ export function useChat({ user, teamMembers }) {
   return {
     canais: canaisEnriquecidos, carregando, membrosMap,
     canalAtivo, setCanalAtivo, mensagens, respondentes, carregandoMsgs,
-    threadId, setThreadId, respostas, carregandoThread,
+    temAnteriores, carregandoAnteriores, carregarAnteriores,
+    threadId, setThreadId, raizThread, respostas, carregandoThread,
     enviar, excluir, reagir, alternarFavorito, criarCanal, abrirDM, garantirMembro, marcarLido, recarregar,
   }
 }

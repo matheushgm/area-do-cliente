@@ -11,6 +11,9 @@
 // editam a mesma string. A escolha fica em localStorage (`md.editor.modo`) e vale
 // pra todos os editores, como o modo Código do Codex da SellFlux.
 //
+// `mencoes` (lista de perfis `{ id, name, foto_url }`) liga o `@` com a lista de pessoas no
+// modo Visual; insere `@Nome_Sobrenome`, o formato do chat (ver MencoesPlugin).
+//
 // O Lexical (~124 kB gzip) é carregado sob demanda: enquanto baixa, o texto cru
 // fica à vista no lugar do editor.
 import { lazy, Suspense, useState } from 'react'

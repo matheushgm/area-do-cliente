@@ -73,7 +73,11 @@ function projetoDoCanal(c, projetos) {
   return cand.length === 1 ? cand[0].id : null
 }
 
-export async function puxar({ sb, token, team, desde, completo = false, orcamentoMs = 40_000, log = () => {} }) {
+// `membros`: relê os membros de TODOS os canais (não só dos novos) e acrescenta quem falta, para
+// quem entrou num canal privado depois da importação ver o canal aqui. Só acrescenta.
+// `threads`: relê todas as threads com resposta (não só as que mudaram de contagem); usado para
+// preencher `autor_nome` nas respostas já importadas.
+export async function puxar({ sb, token, team, desde, completo = false, membros = false, threads = false, orcamentoMs = 40_000, log = () => {} }) {
   const cu = fazClickup(token)
   const inicio = Date.now()
   const estourou = () => Date.now() - inicio > orcamentoMs
@@ -89,6 +93,14 @@ export async function puxar({ sb, token, team, desde, completo = false, orcament
     for (const t of data || []) tarefas.set(t.clickup_task_id, t.id)
     if (!data || data.length < 1000) break
   }
+
+  // nomes do workspace, para a mensagem de quem não tem perfil aqui (autor_nome)
+  const nomes = new Map()
+  try {
+    const r = await fetch(`https://api.clickup.com/api/v2/team/${team}`, { headers: { Authorization: token } })
+    const j = await r.json()
+    for (const m of j?.team?.members || []) if (m.user?.id) nomes.set(String(m.user.id), m.user.username || m.user.email || null)
+  } catch (e) { aviso(`nomes do workspace: ${e.message}`) }
 
   // canais
   const canaisCu = []
@@ -114,7 +126,23 @@ export async function puxar({ sb, token, team, desde, completo = false, orcament
         const ids = (j.data || []).map((u) => b.perfilDe(u.id)?.id).filter(Boolean)
         if (ids.length) { await sb.from('chat_channel_members').upsert(ids.map((uid) => ({ channel_id: data.id, user_id: uid })), { onConflict: 'channel_id,user_id', ignoreDuplicates: true }); resumo.membros += ids.length }
       } catch (e) { aviso(`membros ${c.name || c.id}: ${e.message}`) }
+      continue
     } else {
+      if (membros) {
+        try {
+          const ids = []
+          let mc = null
+          do {
+            const j = await cu('GET', `/workspaces/${team}/chat/channels/${c.id}/members?limit=100${mc ? '&cursor=' + mc : ''}`)
+            for (const u of j.data || []) { const pid = b.perfilDe(u.id)?.id; if (pid) ids.push(pid) }
+            mc = j.next_cursor
+          } while (mc)
+          if (ids.length) {
+            const { data: ins } = await sb.from('chat_channel_members').upsert(ids.map((uid) => ({ channel_id: ex.id, user_id: uid })), { onConflict: 'channel_id,user_id', ignoreDuplicates: true }).select('user_id')
+            resumo.membros += (ins || []).length
+          }
+        } catch (e) { aviso(`membros ${c.name || c.id}: ${e.message}`) }
+      }
       const patch = {}
       for (const k of ['name', 'visibility', 'description', 'archived']) if ((ex[k] ?? null) !== (row[k] ?? null)) patch[k] = row[k]
       if (!ex.project_id && !isDm) { const pid = projetoDoCanal(c, b.projetos); if (pid) patch.project_id = pid }
@@ -135,25 +163,26 @@ export async function puxar({ sb, token, team, desde, completo = false, orcament
       for (const m of j.data || []) { if (completo || Number(m.date) >= desdeMs || pagina === 0) msgs.push(m); if (!completo && Number(m.date) < desdeMs) parou = true }
       cur = parou ? null : j.next_cursor; pagina++
     } while (cur && !estourou())
-    const raizes = msgs.filter((m) => m.type === 'message')
+    const raizes = msgs.filter((m) => m.type === 'message' || m.type === 'post')
     if (!raizes.length) continue
     const cuIds = raizes.map((m) => String(m.id))
     const existentes = new Map()
     for (let i = 0; i < cuIds.length; i += 200) {
-      const { data } = await sb.from('chat_messages').select('id, clickup_message_id, replies_count, content, edited_at').in('clickup_message_id', cuIds.slice(i, i + 200))
+      const { data } = await sb.from('chat_messages').select('id, clickup_message_id, replies_count, content, edited_at, user_id, autor_nome').in('clickup_message_id', cuIds.slice(i, i + 200))
       for (const r of data || []) existentes.set(r.clickup_message_id, r)
     }
     const linhaDe = (m, parentId) => {
       const { texto, mencionados } = converter(m.content || '', b.perfilDe, tarefas)
       if (!texto) return null
-      const row = { clickup_message_id: String(m.id), channel_id: canal.id, parent_id: parentId, user_id: b.perfilDe(m.user_id)?.id || null, content: texto, mentioned_user_ids: mencionados, created_at: new Date(Number(m.date)).toISOString() }
+      const perfil = b.perfilDe(m.user_id)
+      const row = { clickup_message_id: String(m.id), channel_id: canal.id, parent_id: parentId, user_id: perfil?.id || null, autor_nome: perfil ? null : (String(m.user_id) === '-1' ? 'ClickBot' : nomes.get(String(m.user_id)) || 'Ex-membro do ClickUp'), content: texto, mentioned_user_ids: mencionados, created_at: new Date(Number(m.date)).toISOString() }
       if (m.date_updated && Number(m.date_updated) > Number(m.date) + 1000) row.edited_at = new Date(Number(m.date_updated)).toISOString()
       return row
     }
     // novas (ou editadas) desde `desde`
     const novas = raizes.filter((m) => completo || Number(m.date) >= desdeMs || (m.date_updated && Number(m.date_updated) >= desdeMs) || !existentes.has(String(m.id)) && Number(m.date) >= desdeMs - 7 * 86400000)
       .map((m) => linhaDe(m, null)).filter(Boolean)
-      .filter((l) => { const ex = existentes.get(l.clickup_message_id); return !ex || ex.content !== l.content })
+      .filter((l) => { const ex = existentes.get(l.clickup_message_id); return !ex || ex.content !== l.content || (!ex.user_id && l.autor_nome && ex.autor_nome !== l.autor_nome) })
     if (novas.length) {
       const { data: ins, error } = await sb.from('chat_messages').upsert(novas, { onConflict: 'clickup_message_id' }).select('id, clickup_message_id')
       if (error) { aviso(`mensagens ${c.name || c.id}: ${error.message}`); continue }
@@ -165,10 +194,15 @@ export async function puxar({ sb, token, team, desde, completo = false, orcament
       if (estourou()) break
       const ex = existentes.get(String(m.id))
       const n = Number(m.replies_count || 0)
-      if (!ex || n === 0 || n === Number(ex.replies_count || 0)) continue
+      if (!ex || n === 0 || (!threads && n === Number(ex.replies_count || 0))) continue
       try {
-        const j = await cu('GET', `/workspaces/${team}/chat/messages/${m.id}/replies?limit=100&content_format=text/md`)
-        const resp = (j.data || []).sort((a, z) => Number(a.date) - Number(z.date)).map((r) => linhaDe(r, ex.id)).filter(Boolean)
+        const todas = []
+        let rc = null
+        do {
+          const j = await cu('GET', `/workspaces/${team}/chat/messages/${m.id}/replies?limit=100&content_format=text/md${rc ? '&cursor=' + rc : ''}`)
+          todas.push(...(j.data || [])); rc = j.next_cursor
+        } while (rc)
+        const resp = todas.sort((a, z) => Number(a.date) - Number(z.date)).map((r) => linhaDe(r, ex.id)).filter(Boolean)
         if (resp.length) { const { error } = await sb.from('chat_messages').upsert(resp, { onConflict: 'clickup_message_id' }); if (error) aviso(`respostas ${m.id}: ${error.message}`); else resumo.respostas += resp.length }
       } catch (e) { aviso(`respostas ${m.id}: ${e.message}`) }
     }

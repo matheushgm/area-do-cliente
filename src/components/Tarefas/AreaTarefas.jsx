@@ -1041,7 +1041,7 @@ export default function AreaTarefas({
                   onMudarStatus={onMudarStatus}
                   onCriarSub={(pai, tituloSub) => onCriar({ lista_id: pai.lista_id, parent_id: pai.id, titulo: tituloSub })}
                   onAbrir={abrirTarefa}
-                  onComentar={async (id, texto) => { const r = await t.criarComentario(id, texto); if (r.error) showToast(r.error, 'error') }}
+                  onComentar={async (id, texto, mencionados) => { const r = await t.criarComentario(id, texto, mencionados); if (r.error) showToast(r.error, 'error') }}
                   onExcluirComentario={async (tarefaId, id) => { const r = await t.excluirComentario(tarefaId, id); if (r.error) showToast(r.error, 'error') }}
                   onCarregarComentarios={t.carregarComentarios}
                   onErro={(m) => showToast(m, 'error')}

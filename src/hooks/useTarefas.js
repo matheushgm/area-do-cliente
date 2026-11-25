@@ -455,9 +455,11 @@ export function useTarefas(user) {
     return data || []
   }, [])
 
-  const criarComentario = useCallback(async (tarefaId, texto) => {
+  // `mencionados` = ids de quem foi marcado com @ (dispara a notificação 'tarefa_mencao').
+  const criarComentario = useCallback(async (tarefaId, texto, mencionados = []) => {
     const { data, error } = await supabase.from('tarefas_comentarios').insert({
       tarefa_id: tarefaId, texto: texto.trim(), autor_id: user?.id || null, autor_nome: user?.name || null,
+      mencionados: (mencionados || []).filter((id) => id && id !== user?.id),
     }).select().single()
     if (!error) agendarPush()
     if (error) return { error: error.message }

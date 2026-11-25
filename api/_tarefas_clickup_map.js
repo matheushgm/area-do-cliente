@@ -179,8 +179,22 @@ export function mapComentario(c, tarefaId, perfilDe) {
   return {
     tarefa_id: tarefaId, clickup_comment_id: String(c.id), texto,
     autor_id: perfilDe(c.user?.id)?.id || null, autor_nome: c.user?.username || null,
+    mencionados: mencionadosDoComentario(c, perfilDe),
     created_at: new Date(Number(c.date)).toISOString(),
   }
+}
+
+// Quem foi marcado com @ num comentário do ClickUp: blocos `{ type: 'tag', user: { id } }`
+// do array `comment` (conferido em 25/11/2026). Vira `tarefas_comentarios.mencionados`, que
+// dispara a notificação `tarefa_mencao` (migration 139). Gente sem perfil fica de fora.
+export function mencionadosDoComentario(c, perfilDe) {
+  const ids = []
+  for (const b of c?.comment || []) {
+    if (b?.type !== 'tag' || !b.user?.id) continue
+    const id = perfilDe(b.user.id)?.id
+    if (id && !ids.includes(id)) ids.push(id)
+  }
+  return ids
 }
 
 export function fazPerfilDe(perfis) {

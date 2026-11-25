@@ -14,11 +14,12 @@ import ChatSidebar from './ChatSidebar'
 import MessageList from './MessageList'
 import Composer from './Composer'
 import { BUCKET_CHAT } from './Anexos'
-import { uploadFile } from '../../lib/supabase'
+import { uploadFile, supabase } from '../../lib/supabase'
 import ThreadPanel from './ThreadPanel'
 import ChatAvatar, { AvatarStack } from './ChatAvatar'
 import { NovoCanalDialog, NovaDMDialog } from './NovoDialogs'
 import { CHAT_OFFLINE, CHAT_OFFLINE_TEXTO } from '../../lib/chat'
+import { marcarMencoesLidas } from '../../lib/mencoes'
 import { Hash, Lock, Star, Menu, PanelLeft, Loader2, MessageSquare, ArrowLeft, Users, LogIn } from 'lucide-react'
 
 // `?aba=chat` mantém o VertaTask na seção Chat quando a URL do canal muda.
@@ -38,7 +39,7 @@ export default function ChatModulo({ onAbrirMenu }) {
   const [destaque, setDestaque] = useState(null)
 
   const canalAtivo = useMemo(() => chat.canais.find((c) => c.id === chat.canalAtivo) || null, [chat.canais, chat.canalAtivo])
-  const raizThread = useMemo(() => chat.mensagens.find((m) => m.id === chat.threadId) || null, [chat.mensagens, chat.threadId])
+  const raizThread = chat.raizThread
   const membrosCanal = useMemo(() => teamMembers.filter((m) => canalAtivo?.member_ids?.includes(m.id)), [teamMembers, canalAtivo])
   const membrosParaMencao = canalAtivo?.type === 'dm' ? membrosCanal : teamMembers
 
@@ -46,16 +47,17 @@ export default function ChatModulo({ onAbrirMenu }) {
   useEffect(() => {
     if (chat.carregando || chat.canais.length === 0) return
     const wanted = searchParams.get('channel')
+    const thread = searchParams.get('thread')
     if (wanted && chat.canais.some((c) => c.id === wanted)) {
-      if (chat.canalAtivo !== wanted) chat.setCanalAtivo(wanted)
+      // A thread vai junto: trocar de canal limpa a thread aberta (useChat).
+      if (chat.canalAtivo !== wanted) { chat.setCanalAtivo(wanted, thread); setListaAberta(false) }
+      else if (thread && thread !== chat.threadId) chat.setThreadId(thread)
     } else if (!chat.canalAtivo) {
       const fav = chat.canais.find((c) => c.favorito)
       const geral = chat.canais.find((c) => c.type === 'channel' && /^geral/i.test(c.nome || ''))
       const primeiro = fav || geral || chat.canais.find((c) => c.type === 'channel') || chat.canais[0]
       if (primeiro) selecionar(primeiro)
     }
-    const thread = searchParams.get('thread')
-    if (thread && thread !== chat.threadId) chat.setThreadId(thread)
     const msg = searchParams.get('msg')
     if (msg) setDestaque(msg)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,6 +87,25 @@ export default function ChatModulo({ onAbrirMenu }) {
     return () => document.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chat.threadId, dialogo, canalAtivo?.id])
+
+  // Abrir a conversa = ver as menções dela: saem do sino de menções.
+  useEffect(() => {
+    if (chat.canalAtivo) marcarMencoesLidas({ canalId: chat.canalAtivo })
+  }, [chat.canalAtivo])
+
+  // Link para uma mensagem (`?msg=`, vindo do sino ou de uma notificação) que não está entre as
+  // carregadas: se for resposta, abre a thread dela; se for antiga, carrega até ela.
+  const [destaqueBuscado, setDestaqueBuscado] = useState(null)
+  useEffect(() => {
+    if (!destaque || destaqueBuscado === destaque || chat.carregandoMsgs || !chat.canalAtivo) return
+    if (chat.mensagens.some((m) => m.id === destaque) || chat.respostas.some((m) => m.id === destaque)) return
+    setDestaqueBuscado(destaque)
+    supabase.from('chat_messages').select('id, channel_id, parent_id, created_at').eq('id', destaque).maybeSingle().then(({ data: m }) => {
+      if (!m || m.channel_id !== chat.canalAtivo) return
+      if (m.parent_id) { if (chat.threadId !== m.parent_id) chat.setThreadId(m.parent_id) }
+      else if (chat.mensagens[0] && m.created_at < chat.mensagens[0].created_at) chat.carregarAnteriores({ ate: m.created_at })
+    })
+  }, [destaque, destaqueBuscado, chat])
 
   // Marca como lido ao voltar para a aba
   useEffect(() => {
@@ -224,6 +245,9 @@ export default function ChatModulo({ onAbrirMenu }) {
                   onExcluir={chat.excluir}
                   onAbrirThread={abrirThread}
                   mensagemDestaque={destaque}
+                  temAnteriores={chat.temAnteriores}
+                  carregandoAnteriores={chat.carregandoAnteriores}
+                  onCarregarAnteriores={() => chat.carregarAnteriores()}
                 />
               )}
 
