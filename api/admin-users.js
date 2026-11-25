@@ -78,13 +78,50 @@ export default async function handler(req) {
       }),
     })
     const text = await res.text()
-    if (res.ok) {
-      let criado = null
-      try { criado = JSON.parse(text) } catch { /* resposta sem JSON */ }
-      if (criado?.id) {
-        const erro = await gravarClientes(criado.id, role, data.clientes, auth.user?.id)
-        if (erro) return json({ ...criado, aviso: erro }, 200)
+    let criado = null
+    try { criado = JSON.parse(text) } catch { /* resposta sem JSON */ }
+
+    // E-mail já cadastrado. Sem permissão (entrou uma vez pelo Google e ficou sem papel, nem
+    // aparece na lista): aproveita o cadastro. Com permissão: avisa em vez do 422 cru.
+    if (!res.ok && (criado?.error_code === 'email_exists' || res.status === 422)) {
+      const achado = await sb('/rpc/admin_usuario_por_email', { method: 'POST', body: JSON.stringify({ p_email: email }) })
+      const existente = Array.isArray(achado.data) ? achado.data[0] : null
+      if (existente?.role) {
+        return json({ error: `Esse e-mail já é usuário da Área do Cliente (permissão ${existente.role}). Edite pela lista.` }, 409)
       }
+      if (existente?.id) {
+        const upd = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${existente.id}`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${SERVICE_KEY}`,
+            apikey: SERVICE_KEY,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            password,
+            email_confirm: true,
+            user_metadata: { name, avatar },
+            app_metadata: { role },
+            ban_duration: 'none',
+          }),
+        })
+        const updText = await upd.text()
+        let atualizado = null
+        try { atualizado = JSON.parse(updText) } catch { /* resposta sem JSON */ }
+        if (!upd.ok || !atualizado?.id) {
+          return json({ error: atualizado?.msg || 'Esse e-mail já tinha cadastro e não consegui liberar o acesso.' }, upd.status || 500)
+        }
+        const erro = await gravarClientes(atualizado.id, role, data.clientes, auth.user?.id)
+        return json(erro ? { ...atualizado, aviso: erro } : atualizado, 200)
+      }
+    }
+
+    if (!res.ok) {
+      return json({ error: criado?.msg || criado?.error_description || criado?.error || `Não consegui criar o usuário (HTTP ${res.status}).` }, res.status)
+    }
+    if (criado?.id) {
+      const erro = await gravarClientes(criado.id, role, data.clientes, auth.user?.id)
+      if (erro) return json({ ...criado, aviso: erro }, 200)
     }
     return new Response(text, { status: res.status, headers: { 'content-type': 'application/json' } })
   }

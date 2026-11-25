@@ -30,7 +30,8 @@ export async function apiFetch(path, { method, body, headers = {}, signal } = {}
     throw new Error(t('comum.apiSemJson'))
   }
   if (!res.ok) {
-    const msg = data?.error?.message || (typeof data?.error === 'string' && data.error) || data?.detail
+    // `msg`: formato de erro do Supabase Auth (ex.: 422 de e-mail já cadastrado).
+    const msg = data?.error?.message || (typeof data?.error === 'string' && data.error) || data?.detail || data?.msg
     const err = new Error(msg || `HTTP ${res.status}`)
     err.status = res.status
     err.code = data?.error?.code || null
