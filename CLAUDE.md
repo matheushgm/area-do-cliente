@@ -1964,7 +1964,7 @@ Só admin (rotas com `RequireAdmin`, item "Contratação" na seção Time da sid
   abre sem texto. O hub do cargo tem o link aberto (sem `ref`) para anúncio e bio. Limite: 40 respostas/h
   por cargo, campo escondido `site` contra robô.
 
-### Testes A/B das landing pages (`/testes-ab`, 2026-11-25, migration 139)
+### Testes A/B das landing pages (`/testes-ab`, 2026-11-25, migration 141)
 
 Substitui o teste A/B do Greatpages para as LPs do Lovable (ou qualquer página). O teste mora na Área do
 Cliente, não na LP: a página recebe uma vez o kit `public/ab.js` e daí em diante variação, exibição (%),

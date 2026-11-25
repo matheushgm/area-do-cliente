@@ -1,4 +1,4 @@
--- Migration 139: Testes A/B das landing pages (Lovable ou qualquer outra).
+-- Migration 141: Testes A/B das landing pages (Lovable ou qualquer outra).
 --
 -- O teste mora aqui, não na LP. A página carrega uma vez o kit /ab.js e ele:
 --   1. busca a configuração em /api/ab?e=<slug> (variantes ativas + pesos);

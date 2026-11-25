@@ -1,5 +1,5 @@
 // Testes A/B das landing pages: dados (Supabase, tabelas ab_*), estatística e o
-// trecho de instalação do kit /ab.js. Ver migration 139 e api/ab.js.
+// trecho de instalação do kit /ab.js. Ver migration 141 e api/ab.js.
 
 export const STATUS_AB = ['rodando', 'rascunho', 'pausado', 'encerrado']
 export const SLOTS_PADRAO = ['headline', 'subheadline', 'cta']

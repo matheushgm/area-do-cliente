@@ -18,7 +18,7 @@ import {
 } from '../lib/testesAB'
 
 // /testes-ab (lista) e /testes-ab/:id (detalhe). Os dados moram nas tabelas
-// ab_* (migration 139); as LPs falam com /api/ab pelo kit public/ab.js.
+// ab_* (migration 141); as LPs falam com /api/ab pelo kit public/ab.js.
 
 // Banco e caminho base vêm de um contexto: o app usa o Supabase de verdade e o
 // harness /dev/testes-ab (só em DEV) passa um banco em memória, sem login.
