@@ -83,6 +83,30 @@ function fazClickup(token, prazo = Infinity) {
   }
 }
 
+// Texto do comentário → blocos do ClickUp com as menções (`@Nome_Sobrenome`, o formato do
+// composer, igual ao do chat) trocadas por `{ type: 'tag', user: { id } }`. Sem nenhuma
+// menção de quem tem ClickUp, devolve null e o comentário vai como `comment_text`.
+export function blocosComMencoes(texto, perfil) {
+  const porSlug = new Map()
+  for (const p of perfil.values()) if (p.clickup_user_id && p.name) porSlug.set(p.name.trim().replace(/\s+/g, '_'), p)
+  const blocos = []
+  let resto = 0
+  let achou = false
+  for (const m of String(texto || '').matchAll(/@([\p{L}\p{N}_.]+)/gu)) {
+    let slug = m[1]
+    while (slug && /[.,;:!?]$/.test(slug)) slug = slug.slice(0, -1)
+    const p = porSlug.get(slug)
+    if (!p) continue
+    if (m.index > resto) blocos.push({ text: texto.slice(resto, m.index) })
+    blocos.push({ type: 'tag', text: `@${p.name}`, user: { id: Number(p.clickup_user_id) } })
+    resto = m.index + 1 + slug.length
+    achou = true
+  }
+  if (!achou) return null
+  if (resto < texto.length) blocos.push({ text: texto.slice(resto) })
+  return blocos
+}
+
 function optionId(fields, fieldId, name) {
   const f = (fields || []).find((x) => x.id === fieldId)
   if (!f || !name) return null
@@ -484,7 +508,14 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
           if (!c.clickup_comment_id) {
             if (!row?.clickup_task_id) throw new Error('tarefa ainda não existe no ClickUp (criação pendente); tento de novo depois')
             const autor = perfil.get(c.autor_id)?.name
-            const r = await cu('POST', `/task/${row.clickup_task_id}/comment`, { comment_text: autor ? `${c.texto}\n\n(${autor}, via VertaTask)` : c.texto, notify_all: false })
+            const texto = autor ? `${c.texto}\n\n(${autor}, via VertaTask)` : c.texto
+            // @Nome_Sobrenome vira menção de verdade no ClickUp (bloco `tag`), para a pessoa
+            // ser avisada lá também. Se o ClickUp recusar os blocos, vai como texto.
+            const blocos = blocosComMencoes(texto, perfil)
+            const r = blocos
+              ? await cu('POST', `/task/${row.clickup_task_id}/comment`, { comment: blocos, notify_all: false })
+                .catch((e) => { if (e.status === 400) return cu('POST', `/task/${row.clickup_task_id}/comment`, { comment_text: texto, notify_all: false }); throw e })
+              : await cu('POST', `/task/${row.clickup_task_id}/comment`, { comment_text: texto, notify_all: false })
             await sb.from('tarefas_comentarios').update({ clickup_comment_id: String(r.id) }).eq('id', c.id)
           }
           resumo.comentadas++

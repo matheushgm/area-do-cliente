@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext'
 import { useTheme } from '../hooks/useTheme'
 import { useI18n, IDIOMAS } from '../i18n'
 import { canViewSquadsReport } from '../lib/utils'
+import MencoesSino from './MencoesSino'
 import { baseProjectsOf, sidebarCounts } from '../lib/dashboardCounts'
 import { Sparkles,
   Layers,
@@ -300,6 +301,8 @@ function SidebarContent({
         <button onClick={onToggleCollapse} aria-label={t('sidebar.expandir')} title={`${t('sidebar.expandir')} ( [ )`} className={iconBtn(false)}>
           <PanelLeftOpen className="w-4 h-4" />
         </button>
+        {/* Menções: em todas as telas internas, também com a sidebar recolhida */}
+        <MencoesSino recolhida onNavegar={onClose} />
         {NAV_ITEMS.map(({ id, label: chave, Icon, type, to }) => {
           const label = t(chave)
           const ativo = type === 'filter'
@@ -413,6 +416,8 @@ function SidebarContent({
 
       {/* ── Navigation ──────────────────────────────────── */}
       <nav className="space-y-0.5 mb-2">
+        {/* Menções (comentários de tarefa e chat): em todas as telas internas */}
+        <MencoesSino onNavegar={onClose} />
         {NAV_ITEMS.map(({ id, label: chave, Icon, type, to, badge }) => {
           const label = t(chave)
           const isFiltro = type === 'filter'

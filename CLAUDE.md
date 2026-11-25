@@ -1630,6 +1630,55 @@ com Enter; `@` abre a lista de menções (formato salvo: `@Nome_Sobrenome`).
   98 canais/DMs, 834 mensagens + 218 respostas. A sincronização contínua com o ClickUp Chat
   existiu de 18/10 a 29/10/2026 e está desligada (ver "Chat ↔ ClickUp Chat" em Tarefas).
 
+#### Menções (botão "Menções" da sidebar, 2026-11-25, migration 139)
+
+Pedido do Matheus: quem é marcado com `@` precisa achar isso de qualquer tela (o toast do
+`NotificationCenter` some em 8 s e não havia onde reler; em 25/11 havia 541 menções do chat e só 1 lida).
+
+- **Onde:** `MencoesSino` (`src/components/MencoesSino.jsx`) é o primeiro item da `AppSidebar`, nas duas
+  formas (linha "Menções" aberta; ícone `@` recolhida), então aparece em toda página interna, VertaTask e
+  chat incluídos. Bolinha vermelha com as não lidas. O painel abre ao lado da sidebar (portal, `rl-*`) com
+  duas abas: **Comentários** (`notifications.type = 'tarefa_mencao'`) e **Chat** (`'mention'`), "Só não
+  lidas", "Marcar todas como lidas" (da aba) e o ✓ por item. Clicar marca como lida e navega pelo `link`.
+- **Dados:** `useMencoes` (40 por aba + contagem de não lidas; realtime de `notifications` da pessoa, com nome
+  de canal único por instância; relê ao reconectar, ao voltar para a aba e no evento `mencoes-mudaram`).
+  Regras puras em `src/lib/mencoes.js` (`marcarMencoesLidas({ ids | categoria | canalId | tarefaId })`,
+  `resumoDaMencao`, `destacarMencoes`).
+- **Ler sem clicar no sino:** abrir o canal (`ChatModulo`) ou a tarefa com comentário que marca você
+  (`Comentarios` do `TarefaPanel`) marca as menções dela como lidas; mensagem que marca você chegando no
+  canal aberto e visível também.
+- **Comentário de tarefa:** `tarefas_comentarios.mencionados uuid[]`. No VertaTask o `@` do editor
+  (`MencoesPlugin`, `LexicalTypeaheadMenuPlugin`, prop `mencoes` do `MarkdownEditor`, só no modo Visual) insere
+  `@Nome_Sobrenome`, o formato do chat, e `criarComentario(tarefaId, texto, mencionados)` grava os ids
+  (`extrairMencoes`). Do ClickUp vêm dos blocos `{ type: 'tag', user: { id } }` do comentário
+  (`mencionadosDoComentario` em `_tarefas_clickup_map.js`, usado pela rodada e pelo webhook). No push, o
+  `@Nome_Sobrenome` vira bloco `tag` (`blocosComMencoes` em `_tarefas_push_core.js`), então a pessoa é avisada
+  no ClickUp também (testado em 25/11/2026; 400 cai para `comment_text`). Na tela o comentário mostra
+  `**@Nome Sobrenome**`.
+- **Triggers:** `tarefas_comentario_mencao_notifica` (insert ou update de `mencionados`; só os ids novos;
+  ignora comentário com mais de 3 dias, porque o ClickUp chega com a data de lá) e
+  `tarefas_comentario_notifica` não manda o "comentou" genérico para quem já foi marcado. `fn_chat_mention_notify`
+  grava o link direto `/tarefas?aba=chat&channel=&thread=&msg=` (o `/chat?` antigo continua no redirect) e
+  `data` com remetente e canal; em canal privado/DM só notifica membro. A migration marcou como lidas as menções
+  do chat com mais de 14 dias.
+
+**Revisão do chat (25/11/2026), o que foi corrigido junto:**
+- **Criar DM ou canal privado estava quebrado**: o `insert(...).select()` batia na policy de leitura (o criador
+  ainda não é membro). `chat_channels_select` passou a aceitar `created_by = auth.uid()`.
+- **`chat_members_insert` deixava qualquer pessoa se pôr numa DM alheia** e ler. Agora: entrar sozinho em canal
+  público, ou ser membro, ou ser o criador do canal.
+- **Link com `&thread=` de outro canal perdia a thread** (a troca de canal zerava a thread depois de o link
+  abri-la). `setCanalAtivo(id, thread)` no `useChat` guarda a thread e aplica depois da limpeza. Thread cuja
+  raiz é mais antiga que as 300 carregadas abre mesmo assim (`raizAvulsa`), e `?msg=` de resposta abre a thread;
+  de mensagem antiga, carrega até ela.
+- **"Carregar mensagens anteriores"** no topo da conversa quando o canal tem mais de 300 raízes (só 1 em 25/11),
+  mantendo a posição da rolagem.
+- **Reconexão:** o realtime não reenvia o que passou com a conexão fora. A cada reconexão do canal `chat-feed`, ao
+  voltar online ou depois de 1 min com a aba escondida, relê canais, não lidas, a conversa aberta (juntando com as
+  antigas já carregadas) e a thread.
+- Uso em 25/11: 62 mensagens em 14 dias, quase todas das rotinas (`tools/chat_clickup.py`); o time conversa
+  pelos comentários das tarefas (330 em 14 dias, 180 com `@`), por isso a aba Comentários importa mais.
+
 ### Otimizações (`/otimizacoes`): sugestões do playbook de todos os clientes
 
 Central que junta as sugestões do playbook (mesmo motor `playbookSugestoes.js` da página

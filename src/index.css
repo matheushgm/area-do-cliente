@@ -458,6 +458,17 @@
 .md-editor-body { position: relative; }
 .md-editor-content { padding: 0.75rem 0.875rem; min-height: var(--md-min-h, 200px); outline: none; caret-color: rgb(var(--rl-purple)); }
 .md-editor-placeholder { position: absolute; top: 0.75rem; left: 0.875rem; color: rgb(var(--rl-muted)); pointer-events: none; user-select: none; font-size: 0.875rem; }
+
+/* Lista de pessoas do `@` (MencoesPlugin). Fica num nó do body, fora do .ln, então usa rl-*. */
+.md-mencoes { position: absolute; top: 100%; left: 0; margin-top: 4px; width: 16rem; max-height: 15rem; overflow-y: auto; z-index: 200;
+  background: rgb(var(--rl-card)); border: 1px solid rgb(var(--rl-border)); border-radius: 0.625rem; padding: 0.25rem 0;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.16); }
+.md-mencoes.para-cima { top: auto; bottom: 100%; margin-top: 0; margin-bottom: 1.5rem; }
+.md-mencoes-titulo { padding: 0.375rem 0.75rem 0.25rem; font-size: 11px; font-weight: 500; color: rgb(var(--rl-muted)); }
+.md-mencoes button { width: 100%; display: flex; align-items: center; gap: 0.5rem; height: 2rem; padding: 0 0.75rem; text-align: left;
+  font-size: 13px; color: rgb(var(--rl-text)); }
+.md-mencoes button span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-mencoes button.ativo, .md-mencoes button:hover { background: rgb(var(--rl-purple) / 0.10); }
 .md-editor-bar { display: flex; justify-content: flex-end; gap: 2px; padding: 5px 6px 0; }
 .md-editor-bar button { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 10px; font-weight: 600; color: rgb(var(--rl-muted)); transition: color 0.15s, background 0.15s; }
 .md-editor-bar button svg { width: 11px; height: 11px; }

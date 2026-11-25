@@ -26,6 +26,7 @@ import {
 } from './markdownConfig'
 import theme from './theme'
 import FloatingToolbarPlugin from './FloatingToolbarPlugin'
+import MencoesPlugin from './MencoesPlugin'
 import { useI18n } from '../../i18n'
 
 // Sincroniza a string de markdown com o documento nos dois sentidos:
@@ -84,6 +85,7 @@ export default function LexicalMarkdownEditor({
   placeholder: placeholderProp,
   autoFocus = false,
   onAI,
+  mencoes = null,
 }) {
   const { t } = useI18n()
   const placeholder = placeholderProp ?? t('ui.editor.escrevaAqui')
@@ -121,6 +123,7 @@ export default function LexicalMarkdownEditor({
         <EditavelPlugin editavel={!readOnly} />
         {autoFocus && !readOnly && <AutoFocusPlugin defaultSelection="rootEnd" />}
         {!readOnly && <FloatingToolbarPlugin onAI={onAI} />}
+        {!readOnly && mencoes?.length > 0 && <MencoesPlugin pessoas={mencoes} />}
       </div>
     </LexicalComposer>
   )

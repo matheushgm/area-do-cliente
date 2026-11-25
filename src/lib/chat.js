@@ -68,7 +68,8 @@ export function ultimaResposta(iso) {
 export function extrairMencoes(texto, candidatos) {
   const ids = []
   for (const m of texto.matchAll(/@([\p{L}\p{N}_.]+)/gu)) {
-    const achado = candidatos.find((c) => slugDe(c.name) === m[1])
+    const slug = m[1].replace(/\.+$/, '') // "@Ana_Souza." no fim da frase
+    const achado = candidatos.find((c) => slugDe(c.name) === slug)
     if (achado && !ids.includes(achado.id)) ids.push(achado.id)
   }
   return ids

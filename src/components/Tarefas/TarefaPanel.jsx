@@ -2,7 +2,7 @@
 // de atividade do módulo Atividades): título, propriedades, descrição em
 // markdown, subtarefas, checklists, anexos e a atividade (comentários).
 // O container e o header ficam na página.
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import MarkdownView from '../Editor/MarkdownView'
 import MarkdownEditor from '../Editor/MarkdownEditor'
 import { X, Trash2, Plus, Check, Square, CheckSquare, Paperclip, Send, Loader2, CornerDownRight, CloudUpload, ExternalLink, ChevronDown } from 'lucide-react'
@@ -22,6 +22,8 @@ import RelacaoCampo from './RelacaoCampo'
 import { Secao, ListaSubtarefas } from './SecoesTarefa'
 import { EtiquetasCampo, RelacoesSecao, HistoricoSecao } from './TarefaExtras'
 import { faseDoCiclo, fmtDiaMes } from '../../lib/vertatask'
+import { extrairMencoes } from '../../lib/chat'
+import { destacarMencoes, marcarMencoesLidas } from '../../lib/mencoes'
 
 const BUCKET = 'task-attachments'
 
@@ -225,10 +227,20 @@ function Comentarios({ item, comentarios, user, membrosMap, onComentar, onExclui
   const { t } = useI18n()
   const [txt, setTxt] = useState('')
   const [enviando, setEnviando] = useState(false)
+  // Pessoas para o `@` (time ativo, menos você) e para destacar as menções no texto.
+  const pessoas = useMemo(() => [...membrosMap.values()].filter((m) => m?.name && !m.disabled), [membrosMap])
+  const paraMencao = useMemo(() => pessoas.filter((m) => m.id !== user?.id), [pessoas, user?.id])
+  // Abrir a tarefa = ver os comentários: as menções a você nela saem do sino. Também quando
+  // chega, com o painel aberto, um comentário novo que marca você.
+  const meMarcaram = (comentarios || []).some((c) => user?.id && c.mencionados?.includes(user.id))
+  const nComentarios = comentarios?.length || 0
+  useEffect(() => {
+    if (item?.id && meMarcaram) marcarMencoesLidas({ tarefaId: item.id })
+  }, [item?.id, meMarcaram, nComentarios])
   async function enviar() {
     if (!txt.trim()) return
     setEnviando(true)
-    await onComentar(txt)
+    await onComentar(txt, extrairMencoes(txt, pessoas))
     setTxt('')
     setEnviando(false)
   }
@@ -252,7 +264,7 @@ function Comentarios({ item, comentarios, user, membrosMap, onComentar, onExclui
                 <span className="text-[11px] text-ln-t4 tabular">{fmtDataHora(c.created_at)}</span>
                 {meu && <button type="button" onClick={() => onExcluir(c.id)} className="ln-iconbtn !w-5 !h-5 ml-auto opacity-0 group-hover/com:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" title={t('comum.excluir')} aria-label={t('tarefaPainel.excluirComentario')}><Trash2 className="w-3 h-3" /></button>}
               </div>
-              <MarkdownView content={c.texto} className="md-prose--13 text-ln-t2 mt-0.5" />
+              <MarkdownView content={destacarMencoes(c.texto, pessoas)} className="md-prose--13 text-ln-t2 mt-0.5" />
             </div>
           </div>
         )
@@ -268,6 +280,7 @@ function Comentarios({ item, comentarios, user, membrosMap, onComentar, onExclui
           minHeight={24}
           placeholder={t('tarefaPainel.escrevaComentario')}
           className="md-editor--nu md-editor--13 flex-1 min-w-0 text-ln-t1"
+          mencoes={paraMencao}
         />
         <button type="button" onClick={enviar} disabled={enviando || !txt.trim()} className="ln-primary !px-2" title={t('tarefaPainel.enviarAtalho')} aria-label={t('tarefaPainel.enviarComentario')}>
           {enviando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
@@ -492,7 +505,7 @@ export default function TarefaPanel({
       </Secao>
 
       <Secao titulo={t('tarefaPainel.secao.atividade')}>
-        <Comentarios item={item} comentarios={comentarios} user={user} membrosMap={membrosMap} onComentar={(txt) => onComentar(item.id, txt)} onExcluir={(id) => onExcluirComentario(item.id, id)} />
+        <Comentarios item={item} comentarios={comentarios} user={user} membrosMap={membrosMap} onComentar={(txt, mencionados) => onComentar(item.id, txt, mencionados)} onExcluir={(id) => onExcluirComentario(item.id, id)} />
       </Secao>
     </div>
   )
