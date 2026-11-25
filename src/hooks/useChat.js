@@ -43,7 +43,14 @@ export function useChat({ user, teamMembers }) {
   useEffect(() => { mensagensRef.current = mensagens }, [mensagens])
   const userId = user?.id
 
-  const membrosMap = useMemo(() => new Map(teamMembers.map((m) => [m.id, m])), [teamMembers])
+  // Quem já saiu do time (perfil desligado) continua com nome e foto nas mensagens antigas.
+  const [desligados, setDesligados] = useState([])
+  useEffect(() => {
+    if (!supabase || !userId) return
+    supabase.from('profiles').select('id, name, avatar, foto_url').eq('disabled', true)
+      .then(({ data }) => setDesligados(data || []))
+  }, [userId])
+  const membrosMap = useMemo(() => new Map([...desligados, ...teamMembers].map((m) => [m.id, m])), [desligados, teamMembers])
 
   // ── Canais + membros + não lidas ────────────────────────────────────────
   useEffect(() => {

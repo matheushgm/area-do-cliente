@@ -79,12 +79,12 @@ export function MessageItem({ msg, autor, agrupada, meuId, membros, membrosMap, 
       <div className="w-7 shrink-0 flex justify-center">
         {agrupada
           ? <span className="text-[10px] text-ln-t4 opacity-0 group-hover:opacity-100 leading-[21px] tabular">{hora(msg.created_at)}</span>
-          : <ChatAvatar pessoa={autor} id={msg.user_id} nome={autor?.name} size={28} className="mt-0.5" />}
+          : <ChatAvatar pessoa={autor} id={msg.user_id || msg.autor_nome} nome={autor?.name || msg.autor_nome} size={28} className="mt-0.5" />}
       </div>
       <div className="flex-1 min-w-0">
         {!agrupada && (
           <div className="flex items-baseline gap-1.5 leading-4 mb-0.5">
-            <span className="text-[13px] font-semibold text-ln-t1 truncate">{autor?.name || 'Usuário'}</span>
+            <span className="text-[13px] font-semibold text-ln-t1 truncate">{autor?.name || msg.autor_nome || 'Usuário'}</span>
             <span className="text-[12px] text-ln-t4 shrink-0">{horaRelativa(msg.created_at)}</span>
             {msg.edited_at && <span className="text-[11px] text-ln-t4">(editada)</span>}
           </div>
@@ -120,7 +120,7 @@ export function agruparMensagens(mensagens) {
       anterior = null
     }
     const agrupada = !!anterior
-      && anterior.user_id === m.user_id
+      && (anterior.user_id || anterior.autor_nome) === (m.user_id || m.autor_nome)
       && (anterior.replies_count || 0) === 0
       && new Date(m.created_at) - new Date(anterior.created_at) < JANELA_AGRUPAMENTO_MS
     itens.push({ tipo: 'msg', key: m.id, msg: m, agrupada })

@@ -1630,6 +1630,26 @@ com Enter; `@` abre a lista de menções (formato salvo: `@Nome_Sobrenome`).
   98 canais/DMs, 834 mensagens + 218 respostas. A sincronização contínua com o ClickUp Chat
   existiu de 18/10 a 29/10/2026 e está desligada (ver "Chat ↔ ClickUp Chat" em Tarefas).
 
+#### Migração do ClickUp Chat (2026-11-25, pedido do Matheus: sair do ClickUp e usar só o VertaChat)
+
+- `node scripts/sincronizar_chat_clickup.mjs [--completo] [--since=ISO] [--membros] [--threads] [--lido]`
+  roda o `puxar` de `api/_chat_sync_core.js` local, sem limite de tempo, só ClickUp → VertaTask e
+  idempotente pelos ids do ClickUp (rodar de novo só traz o que é novo ou foi editado lá). Sem flag = 7 dias.
+- Rodado em 25/11/2026 com `--completo --membros` e depois `--completo --threads --lido`: 125 canais (4 criados
+  no ClickUp depois de 29/10), **23.386 mensagens** desde 20/06/2025, ~1.900 respostas de thread, 32 membros
+  acrescentados. `--lido` pôs `last_read_at = agora` em todas as associações (o que veio do ClickUp já tinha sido
+  lido lá; sem isso cada canal abria com centenas de não lidas).
+- `chat_messages.autor_nome` (migration 140): nome de quem escreveu quando não tem perfil aqui (ex-colaborador,
+  cliente convidado), tirado dos membros do workspace (`GET /api/v2/team`); quem já saiu do workspace fica
+  "Ex-membro do ClickUp" (1.908 mensagens de 5 ids; o próprio ClickUp os mostra como "Unknown" e a API de usuário
+  exige plano Enterprise, então o nome não é recuperável) e o `user_id` -1 é "ClickBot" (avisos de entrada no canal). O `useChat` também carrega os perfis desligados, para Vinícius, Luan, Luiz Felipe etc.
+  continuarem com nome. O agrupamento de mensagens compara `user_id || autor_nome`.
+- `puxar` ganhou: membros de todos os canais (`membros`), mensagens do tipo `post`, respostas paginadas e
+  `threads` (relê toda thread com resposta).
+- **Limites da API (token do Matheus):** vêm os canais públicos, os privados em que ele está e as DMs dele; DM entre
+  outras pessoas não sai pela API. Reações e anexos não vêm no payload da v3 (anexo aparece como link).
+- Enquanto alguém ainda escrever no ClickUp, rodar de novo sem `--completo` (ou `--since=`) antes de desligar de vez.
+
 #### Menções (botão "Menções" da sidebar, 2026-11-25, migration 139)
 
 Pedido do Matheus: quem é marcado com `@` precisa achar isso de qualquer tela (o toast do
