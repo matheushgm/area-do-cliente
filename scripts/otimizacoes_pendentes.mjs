@@ -25,13 +25,31 @@ const somaDias = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(
 function cliente({ url, key }) {
   const base = `${url.replace(/\/$/, '')}/rest/v1/`
   const headers = { apikey: key, Authorization: `Bearer ${key}` }
+  // Uma página com retentativa. O sync do dashboard grava dash_insights em lote (upsert) e o
+  // autovacuum roda logo depois; nesses minutos uma leitura indexada que leva < 1 s pode
+  // estourar o statement timeout (57014) ou voltar 5xx. Foi o que travou o motor em 24/11 às
+  // 18h e em 25/11 às 08h14 (SP). Espera e tenta de novo em vez de derrubar o cálculo.
+  const ESPERAS = [3000, 8000, 20000, 40000]
+  async function pagina(caminho, de) {
+    for (let tentativa = 0; ; tentativa++) {
+      let r, erro
+      try {
+        r = await fetch(base + caminho, { headers: { ...headers, Range: `${de}-${de + 999}`, 'Range-Unit': 'items' } })
+        if (r.ok) return r.json()
+        erro = `${r.status} ${(await r.text()).slice(0, 300)}`
+      } catch (e) {
+        erro = `rede: ${e.message}`
+      }
+      const transitorio = !r || r.status >= 500 || /57014|statement timeout/.test(erro)
+      if (!transitorio || tentativa >= ESPERAS.length) throw new Error(`Supabase ${caminho.split('?')[0]}: ${erro}`)
+      await new Promise((ok) => setTimeout(ok, ESPERAS[tentativa]))
+    }
+  }
   // Página a página (1000 é o teto do Supabase), em série: os recortes aqui são pequenos.
   async function todas(caminho) {
     const out = []
     for (let de = 0; ; de += 1000) {
-      const r = await fetch(base + caminho, { headers: { ...headers, Range: `${de}-${de + 999}`, 'Range-Unit': 'items' } })
-      if (!r.ok) throw new Error(`Supabase ${caminho.split('?')[0]}: ${r.status} ${(await r.text()).slice(0, 300)}`)
-      const lote = await r.json()
+      const lote = await pagina(caminho, de)
       out.push(...lote)
       if (lote.length < 1000) return out
     }
@@ -60,7 +78,7 @@ export async function calcularOtimizacoes({ url, key }) {
   const dias = []
   for (let d = inicio; d <= isoHojeUTC(); d = somaDias(d, 1)) dias.push(d)
 
-  const lerCanal = async (canal) => (await emOndas(dias, 6, (dia) =>
+  const lerCanal = async (canal) => (await emOndas(dias, 4, (dia) =>
     sb.todas(`dash_insights?channel=eq.${canal}&day=eq.${dia}&select=data&order=row_key.asc`))).flat().map((r) => r.data)
 
   const [metaRaw, googleRaw, statusRaw, contasRows, projRows, cplRows, decisoes, projetos] = await Promise.all([
