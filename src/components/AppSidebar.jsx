@@ -11,7 +11,7 @@ import { Sparkles,
   LogOut, Cloud, Loader2,
   X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, BarChart3, DollarSign,
   Sun, Moon, Clapperboard, Timer, Layout, PanelLeftClose, PanelLeftOpen, Waypoints, Users2,
-  ChevronUp, ChevronDown, Wrench, Percent, Globe, Languages, TrendingUp, Briefcase,
+  ChevronUp, ChevronDown, Wrench, Percent, Globe, Languages, TrendingUp, Briefcase, FlaskConical,
 } from 'lucide-react'
 
 // Sidebar recolhida (só ícones) para sobrar espaço aos módulos. O estado é
@@ -98,6 +98,7 @@ const NAV_SECTIONS = [
     label: 'sidebar.secoes.dados',
     items: [
       { id: 'ads-roadmap', label: 'sidebar.itens.adsRoadmap', Icon: Waypoints,     type: 'route', to: '/ads-roadmap' },
+      { id: 'testes-ab',   label: 'sidebar.itens.testesAB', Icon: FlaskConical,  type: 'route', to: '/testes-ab' },
       // Antes só existia como botão dentro do Dashboard — ninguém achava.
       { id: 'squads',      label: 'sidebar.itens.relatorioSquads', Icon: Users2,      type: 'route', to: '/relatorio-squads', gate: canViewSquadsReport },
     ],

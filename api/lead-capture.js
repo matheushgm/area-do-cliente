@@ -5,6 +5,7 @@ import { jsonCors, preflight, sb } from './_http.js'
 // se o banco tiver integração com CRM ativa, o lead é encaminhado (best-effort:
 // falha no CRM nunca perde o lead nem quebra a resposta para a LP).
 import { sendToCrm } from './_crm.js'
+import { conversoesDoLead } from './_ab.js'
 
 export const config = { runtime: 'edge' }
 
@@ -41,6 +42,11 @@ export default async function handler(req) {
   delete payload.token
   delete payload._token
 
+  // Teste A/B: o kit /ab.js manda em `_ab` quais variantes a pessoa viu. Não é
+  // dado do lead, então sai do payload e vira conversão ligada ao registro.
+  const ab = payload._ab
+  delete payload._ab
+
   // Resolve o banco pelo token.
   const { data: bancos, status: bStatus } = await sb(
     `/bancos_dados?ingest_token=eq.${encodeURIComponent(token)}&select=id,crm_config`
@@ -60,6 +66,11 @@ export default async function handler(req) {
   if (iStatus >= 400) return json({ error: 'Erro ao gravar lead.', detail: ins }, 500)
 
   const registroId = Array.isArray(ins) ? ins[0]?.id : ins?.id
+
+  // 1b) Conversão do teste A/B. Best-effort: nunca derruba a captação.
+  if (ab) {
+    try { await conversoesDoLead(ab, registroId, req.headers.get('referer')) } catch { /* segue */ }
+  }
 
   // 2) Encaminha para o CRM, se configurado. Best-effort: qualquer erro aqui
   //    é apenas registrado no lead; a LP continua recebendo sucesso.

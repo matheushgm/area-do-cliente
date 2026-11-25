@@ -1894,3 +1894,44 @@ Só admin (rotas com `RequireAdmin`, item "Contratação" na seção Time da sid
   WhatsApp com `MENSAGEM_CONVITE` ({nome} = primeiro nome, {vaga}, {link} com `?ref`); depois de responder,
   abre sem texto. O hub do cargo tem o link aberto (sem `ref`) para anúncio e bio. Limite: 40 respostas/h
   por cargo, campo escondido `site` contra robô.
+
+### Testes A/B das landing pages (`/testes-ab`, 2026-11-25, migration 139)
+
+Substitui o teste A/B do Greatpages para as LPs do Lovable (ou qualquer página). O teste mora na Área do
+Cliente, não na LP: a página recebe uma vez o kit `public/ab.js` e daí em diante variação, exibição (%),
+pausa e vencedor são decididos na tela.
+
+- **Tabelas:** `ab_experimentos` (`slug` público que vai no script, `project_id`, `url`, `tipo` texto |
+  pagina, `status` rascunho | rodando | pausado | encerrado, `conversao` todas | lead | clique,
+  `vencedor_id`), `ab_variantes` (`original`, `peso` 0 a 100, `conteudo` jsonb `{ slot: texto }` ou `url`,
+  `arquivada`) e `ab_eventos` (impressao | conversao, `visitante` anônimo, `origem` lead | clique,
+  `registro_id` do lead em `bancos_dados_registros`, UTMs, dispositivo). Uma conversão por visitante por
+  teste (índice único parcial). View `ab_resumo_variantes` (security_invoker): impressões = carregamentos,
+  visitas = visitantes únicos, conversões. RLS: o time gerencia testes/variantes e só lê eventos; eventos
+  entram só pela API com a chave de serviço. **Duas FKs ligam as tabelas** (variantes e vencedor): o embed
+  do PostgREST precisa de `ab_variantes!ab_variantes_experimento_id_fkey(...)`, senão dá erro de ambiguidade.
+- **API pública `api/ab.js` (edge):** `GET ?e=<slug>` devolve status, tipo, conversão, vencedor e variantes
+  (CDN 30 s, então mudar peso ou pausar chega às LPs em ~1 min); `POST` grava impressão/conversão (aceita
+  `text/plain` do `sendBeacon`, ignora bot e teste que não está rodando). Helpers em `api/_ab.js`.
+- **Lead-capture:** o kit põe `_ab: [{ e, v, vis, d, u }]` no corpo do POST para `/api/lead-capture`
+  (intercepta o `fetch`; em `<form>` nativo, campo escondido). O lead-capture tira `_ab` do payload e grava a
+  conversão com o `registro_id`, o que permite MQL por variante depois. Se a conversão já existia (evento
+  Lead do GTM ou clique antes), liga o registro nela.
+- **Kit `public/ab.js`:** `<script src="<área>/ab.js" data-e="<slug>" async></script>` no `<head>`. Sorteia
+  pelo peso, guarda a variante no `localStorage` (`vab_<slug>`, visitante em `vab_vid`), troca o texto de
+  `[data-ab="headline"]` etc. (aceita `**negrito**` e quebra de linha; `MutationObserver` reaplica quando o
+  React desenha depois) e esconde esses elementos até 800 ms para não piscar. Tipo página: manda para a URL
+  da variante com os parâmetros e `?vab=<variante>.<visitante>`. Conversões: lead-capture, evento
+  `Lead`/`generate_lead` no dataLayer e clique em link de WhatsApp ou `[data-ab-convert]`. Empurra
+  `ab_exposicao` no dataLayer. `?ab_variante=<id>` mostra uma variante sem contar (botão "Ver na página").
+  Pausado = Original sem contar; encerrado com vencedor = vencedor sem contar.
+- **Tela `src/pages/TestesAB.jsx`** (dados em `src/lib/testesAB.js`): lista com filtro de status/cliente e
+  detalhe no formato do Greatpages (experimento, relevância estatística, variações com taxa, visitas,
+  impressões, conversões lead/clique, **chance de vencer** bayesiana por amostragem Beta contra o Original,
+  lift e exibição editável que precisa somar 100%), instalação com o script para copiar. Mínimo para ler:
+  100 visitas e 10 conversões em cada variante com tráfego; vencedor = 95%+. Declarar vencedora põe 100%
+  nela e encerra. Variação nova nasce com 0%.
+- Sem login: `/dev/testes-ab` (só em DEV, banco em memória via `AmbienteAB`). Testado em 25/11/2026 no
+  `vercel dev` com um teste e um banco de leads de teste (apagados): troca de texto com hero desenhado
+  depois, impressão com UTM, lead ligado ao registro sem `_ab` no payload, clique do mesmo visitante sem
+  contar em dobro, vencedor exibido sem contar.

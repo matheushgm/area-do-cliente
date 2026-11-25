@@ -23,6 +23,7 @@ export default {
     bancoLp: 'Landing Page Library',
     playbook: 'Playbook',
     adsRoadmap: 'Ads Roadmap',
+    testesAB: 'A/B tests',
     relatorioSquads: 'Squads Report',
     contratacao: 'Hiring',
   },

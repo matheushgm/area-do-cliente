@@ -34,6 +34,7 @@ const FerramentaPrecificacao = lazy(() => import('../pages/FerramentaPrecificaca
 const DashboardComercial = lazy(() => import('../pages/DashboardComercial'))
 const AdsRoadmap = lazy(() => import('../pages/AdsRoadmap'))
 const SquadsReport = lazy(() => import('../pages/SquadsReport'))
+const TestesAB = lazy(() => import('../pages/TestesAB'))
 
 // ── Administração ──────────────────────────────────────────
 const UserManagement = lazy(() => import('../pages/UserManagement'))
@@ -50,6 +51,7 @@ const DevResultados = lazy(() => import('../pages/DevResultados'))
 const DevPlanejador = lazy(() => import('../pages/DevPlanejador'))
 const DevGantt = lazy(() => import('../pages/DevGantt'))
 const DevSprints = lazy(() => import('../pages/DevSprints'))
+const DevTestesAB = lazy(() => import('../pages/DevTestesAB'))
 
 export const appRoutes = [
   // Páginas com a sidebar global: o AppLayout monta a AppSidebar uma vez e
@@ -77,6 +79,8 @@ export const appRoutes = [
     <Route key="ferramenta-precificacao" path="/ferramenta-precificacao" element={<FerramentaPrecificacao />} />
     <Route key="dashboard-comercial" path="/dashboard-comercial" element={<DashboardComercial />} />
     <Route key="ads-roadmap" path="/ads-roadmap" element={<AdsRoadmap />} />
+    <Route key="testes-ab" path="/testes-ab" element={<TestesAB />} />
+    <Route key="testes-ab-detalhe" path="/testes-ab/:id" element={<TestesAB />} />
     <Route key="relatorio-squads" path="/relatorio-squads" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
 
     <Route key="usuarios" path="/usuarios" element={<RequireAdmin><UserManagement /></RequireAdmin>} />
@@ -119,6 +123,8 @@ export const appRoutes = [
         <Route key="dev-resultados" path="/dev/resultados" element={<DevResultados />} />,
         <Route key="dev-planejador" path="/dev/planejador" element={<DevPlanejador />} />,
         <Route key="dev-gantt" path="/dev/gantt" element={<DevGantt />} />,
+        <Route key="dev-testes-ab" path="/dev/testes-ab" element={<DevTestesAB />} />,
+        <Route key="dev-testes-ab-detalhe" path="/dev/testes-ab/:id" element={<DevTestesAB />} />,
         <Route key="dev-sprints" path="/dev/sprints" element={<DevSprints />} />,
       ]
     : []),

@@ -23,6 +23,7 @@ export default {
     bancoLp: 'Banco de LP',
     playbook: 'Playbook',
     adsRoadmap: 'ADS Roadmap',
+    testesAB: 'Testes A/B',
     relatorioSquads: 'Relatório de Squads',
     contratacao: 'Contratação',
   },
