@@ -793,8 +793,9 @@ export default function AreaTarefas({
     },
     gruposListas: gruposTodas,
     moverLista: (it, listaId) => moverParaLista(it, listaId),
-    salvarTemplate: (it) => salvarComoModelo(it, filhosDe.get(it.id) || []),
-    historico: (it) => navigate(`/tarefas?aba=sincronizacao&sync_tarefa=${it.id}`),
+    // usuário só VertaTask não tem Templates nem o painel Sincronização
+    salvarTemplate: user?.restrito ? null : (it) => salvarComoModelo(it, filhosDe.get(it.id) || []),
+    historico: user?.restrito ? null : (it) => navigate(`/tarefas?aba=sincronizacao&sync_tarefa=${it.id}`),
     arquivar: async (it) => {
       if (!(await pedirConfirmacao('arquivar', [it]))) return
       tirarDaTela(it)

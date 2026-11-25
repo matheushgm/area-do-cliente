@@ -1,4 +1,4 @@
-import { getUser, sb } from './_http.js'
+import { getUser, sb, usuarioRestrito } from './_http.js'
 // Serverless Function (Node) — Planejador de Atividades.
 // POST /api/atividades  { action, ...payload }   (JWT do Supabase no Authorization)
 //
@@ -98,7 +98,7 @@ async function clickup(method, path, token, body) {
 
 async function validarJwt(req) {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) return { error: 'Servidor não configurado.', status: 500 }
-  const auth = await getUser(req)
+  const auth = await getUser(req, undefined, { restrito: true })
   return auth.ok ? { ok: true, user: auth.user } : { error: auth.message, status: 401 }
 }
 
@@ -454,6 +454,12 @@ export default async function handler(req, res) {
   if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = null } }
   if (!body || typeof body !== 'object') body = {}
   const action = body.action
+
+  // Usuário só VertaTask: a carga e a disponibilidade leem as tarefas de todos os clientes,
+  // então ele só pega a config (o calendário da tarefa fica sem as cores de capacidade).
+  if (usuarioRestrito(auth.user) && action !== 'config') {
+    return res.status(403).json({ error: { message: 'Acesso restrito ao VertaTask.' } })
+  }
 
   // Config não depende do ClickUp: serve mesmo sem token (a UI usa pra defaults)
   if (action === 'config') {

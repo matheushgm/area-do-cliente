@@ -1,6 +1,26 @@
-import { getUser, json } from './_http.js'
+import { getUser, json, sb } from './_http.js'
 // Edge Runtime: proxy seguro para operações admin do Supabase Auth
 export const config = { runtime: 'edge' }
+
+// Papéis aceitos em app_metadata.role. 'vertatask' = só o VertaTask, só dos clientes de
+// vertatask_acessos (migration 142; o bloqueio de verdade é a RLS).
+const PAPEIS = ['admin', 'member', 'vertatask']
+
+// Troca os clientes liberados de um usuário só VertaTask. Outro papel = nenhum (não sobra
+// acesso antigo se a pessoa voltar a ser restrita). Devolve a mensagem de erro, ou null.
+async function gravarClientes(userId, role, clientes, adminId) {
+  const ids = role === 'vertatask'
+    ? [...new Set((Array.isArray(clientes) ? clientes : []).filter((c) => typeof c === 'string' && /^[0-9a-f-]{36}$/i.test(c)))]
+    : []
+  const del = await sb(`/vertatask_acessos?user_id=eq.${userId}`, { method: 'DELETE', prefer: 'return=minimal' })
+  if (!del.ok) return 'Não consegui atualizar os clientes liberados.'
+  if (!ids.length) return null
+  const ins = await sb('/vertatask_acessos', {
+    method: 'POST', prefer: 'return=minimal',
+    body: JSON.stringify(ids.map((project_id) => ({ user_id: userId, project_id, criado_por: adminId || null }))),
+  })
+  return ins.ok ? null : 'Usuário salvo, mas os clientes liberados não foram gravados.'
+}
 
 export default async function handler(req) {
   if (req.method !== 'POST') {
@@ -28,6 +48,13 @@ export default async function handler(req) {
 
   const { action, userId, ...data } = body
 
+  if ('role' in data && data.role && !PAPEIS.includes(data.role)) {
+    return json({ error: `Permissão inválida: ${data.role}.` }, 400)
+  }
+  if (data.role === 'vertatask' && !(Array.isArray(data.clientes) && data.clientes.length)) {
+    return json({ error: 'Escolha ao menos um cliente para o acesso só VertaTask.' }, 400)
+  }
+
   // ── Criar usuário ──────────────────────────────────────────────────────────
   if (action === 'create_user') {
     const { name, email, password, role } = data
@@ -51,6 +78,14 @@ export default async function handler(req) {
       }),
     })
     const text = await res.text()
+    if (res.ok) {
+      let criado = null
+      try { criado = JSON.parse(text) } catch { /* resposta sem JSON */ }
+      if (criado?.id) {
+        const erro = await gravarClientes(criado.id, role, data.clientes, auth.user?.id)
+        if (erro) return json({ ...criado, aviso: erro }, 200)
+      }
+    }
     return new Response(text, { status: res.status, headers: { 'content-type': 'application/json' } })
   }
 
@@ -98,6 +133,11 @@ export default async function handler(req) {
       }))
     }
     const results = await Promise.all(updates)
+    const falhou = results.find((r) => !r.ok)
+    if (role && !falhou) {
+      const erro = await gravarClientes(userId, role, data.clientes, auth.user?.id)
+      if (erro) return json({ error: erro }, 500)
+    }
     const lastRes = results[results.length - 1] || null
     if (!lastRes) return json({ ok: true })
     const text = await lastRes.text()

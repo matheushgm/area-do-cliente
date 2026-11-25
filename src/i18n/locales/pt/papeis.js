@@ -2,4 +2,5 @@
 export default {
   admin: 'Admin',
   member: 'Membro',
+  vertatask: 'Só VertaTask',
 }

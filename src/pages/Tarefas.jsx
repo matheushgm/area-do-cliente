@@ -166,7 +166,9 @@ export default function Tarefas() {
   useEffect(() => gravarPref('colunaRecolhida', colunaRecolhida), [colunaRecolhida])
 
   // ── Seleção (pasta / lista / minhas) via URL ─────────────────────────────
-  const aba = params.get('aba') // null = tarefas | 'intake' | 'sprints' | 'ciclos' | 'templates' | 'paginas' | 'analytics' | 'sincronizacao' | 'chat' | 'atividades'
+  // usuário só VertaTask (terceiro): só as tarefas dos clientes dele, sem as outras seções
+  const restrito = !!user?.restrito
+  const aba = restrito ? null : params.get('aba') // null = tarefas | 'intake' | 'sprints' | 'ciclos' | 'templates' | 'paginas' | 'analytics' | 'sincronizacao' | 'chat' | 'atividades'
   const sprints = useSprints(user, { ativo: aba === 'sprints' })
   const sel = useMemo(() => {
     if (aba === 'ciclos') return { tipo: 'ciclo', id: params.get('ciclo') || cicloPadrao(vt.ciclos)?.id || null }
@@ -177,7 +179,7 @@ export default function Tarefas() {
     if (params.get('todas') === '1') return { tipo: 'todas' }
     return lerPref('sel', null) || { tipo: 'minhas' }
   }, [params, aba, vt.ciclos])
-  const chatNaoLidas = useChatNaoLidas(user?.id, aba)
+  const chatNaoLidas = useChatNaoLidas(restrito ? null : user?.id, aba)
   const syncErros = useErrosSync()
 
   const setSel = useCallback((s) => {
@@ -325,7 +327,7 @@ export default function Tarefas() {
           </div>
         )}
         {/* link público da lista aberta (ou da pasta inteira do cliente) */}
-        {!aba && (listaSel || pastaSel) && (
+        {!aba && !restrito && (listaSel || pastaSel) && (
           <CompartilharLista key={listaSel?.id || pastaSel?.id} listaId={listaSel?.id || null} pastaId={listaSel ? null : pastaSel?.id} nome={listaSel?.nome || pastaSel?.nome} user={user} avisar={showToast} />
         )}
         {(!aba || aba === 'ciclos') && <span className="hidden xl:inline text-xs text-ln-t4 tabular whitespace-nowrap">{tt('tarefas.pagina.nAbertas', { count: api.totalAbertas })}</span>}
@@ -414,7 +416,7 @@ export default function Tarefas() {
               onAtualizarLista={t.atualizarLista}
               aberta={arvoreAberta} onFechar={() => setArvoreAberta(false)}
               recolhida={colunaRecolhida && aba !== 'chat' && aba !== 'atividades'}
-              nav={{ aba: aba || 'tarefas', onAba: irAba, intake: vt.intakePendentes.length, chat: chatNaoLidas, syncErros }}
+              nav={{ restrito, aba: aba || 'tarefas', onAba: irAba, intake: vt.intakePendentes.length, chat: chatNaoLidas, syncErros }}
               contagem={contagemPorPasta}
             />
 

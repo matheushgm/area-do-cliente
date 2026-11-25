@@ -15,6 +15,7 @@ export default {
   papel: {
     admin: 'Admin',
     member: 'Member',
+    vertatask: 'VertaTask only',
   },
   status: {
     ativo: 'Active',
@@ -60,6 +61,17 @@ export default {
     clickupDica: 'Linking to ClickUp lets automatically created tasks be assigned to this user.',
     criar: 'Create user',
     salvarAlteracoes: 'Save changes',
+    clientes: 'Clients this user can access',
+    clientesEscolher: 'Choose clients',
+    clientesSelecionados: { zero: 'No clients', one: '{count} client', other: '{count} clients' },
+    clientesBuscar: 'Search clients',
+    clientesNenhum: 'No clients found.',
+    carregandoClientes: 'Loading clients...',
+    clienteSemPasta: 'Client without a VertaTask folder',
+    churn: 'churned',
+    removerCliente: 'Remove {nome}',
+    clientesDica: 'They go straight to VertaTask and only see the tasks, comments and attachments of these clients. The rest of the app is blocked. Only clients with a VertaTask folder are listed.',
+    trocaPapelAviso: 'If this person is logged in, the new role applies when the session refreshes (up to 1 hour) or at the next login. The client list changes right away.',
   },
   toggle: {
     desativarTexto: 'This user will no longer be able to log in.',

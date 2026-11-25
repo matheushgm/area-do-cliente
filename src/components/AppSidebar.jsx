@@ -121,10 +121,12 @@ const traduzItem = (t) => (it) => ({
 })
 
 // Lista achatada — usada pelo modo recolhido, que não mostra rótulo de seção.
+// Usuário só VertaTask (user.restrito): o menu fica só com o VertaTask.
 const navItemsFor = (user, t) => NAV_SECTIONS.map((sec) => ({
   ...sec,
   label: t(sec.label),
   items: sec.items
+    .filter((it) => !user?.restrito || it.id === 'tarefas')
     .filter((it) => !it.gate || it.gate(user))
     .map((it) => it.type !== 'group' ? it : { ...it, children: it.children.filter((c) => !c.gate || c.gate(user)) })
     .filter((it) => it.type !== 'group' || it.children.length > 0)
@@ -304,7 +306,7 @@ function SidebarContent({
         </button>
         {/* Menções: em todas as telas internas, também com a sidebar recolhida */}
         <MencoesSino recolhida onNavegar={onClose} />
-        {NAV_ITEMS.map(({ id, label: chave, Icon, type, to }) => {
+        {(user?.restrito ? [] : NAV_ITEMS).map(({ id, label: chave, Icon, type, to }) => {
           const label = t(chave)
           const ativo = type === 'filter'
             ? filter === id && location.pathname === '/'
@@ -419,7 +421,7 @@ function SidebarContent({
       <nav className="space-y-0.5 mb-2">
         {/* Menções (comentários de tarefa e chat): em todas as telas internas */}
         <MencoesSino onNavegar={onClose} />
-        {NAV_ITEMS.map(({ id, label: chave, Icon, type, to, badge }) => {
+        {(user?.restrito ? [] : NAV_ITEMS).map(({ id, label: chave, Icon, type, to, badge }) => {
           const label = t(chave)
           const isFiltro = type === 'filter'
           const count = isFiltro ? (counts?.[id] ?? 0) : 0

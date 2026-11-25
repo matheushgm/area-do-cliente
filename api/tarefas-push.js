@@ -29,7 +29,7 @@ export default async function handler(req, res) {
   if (!SUPABASE_URL || !SERVICE_KEY || !TOKEN) return res.status(500).json({ error: 'Servidor não configurado.' })
   const t = bearer(req)
   const cron = envClean('CRON_SECRET')
-  if (!(cron && t && t === cron)) { const a = await getUser(req); if (!a.ok) return res.status(401).json({ error: 'Não autorizado.' }) }
+  if (!(cron && t && t === cron)) { const a = await getUser(req, undefined, { restrito: true }); if (!a.ok) return res.status(401).json({ error: 'Não autorizado.' }) }
   const sb = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
   try {
     // Rodadas seguidas na mesma invocação enquanto houver fila e tempo (um template pode

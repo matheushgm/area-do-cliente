@@ -359,6 +359,37 @@ estático segue com o wizard e o `claude-sonnet-4-5`. A ferramenta pública do c
   - Verifica o JWT do request e exige `role === 'admin'` antes de executar qualquer ação
   - Actions suportadas: `create_user` (cria usuário no Auth + perfil em `profiles`), `update_user` (atualiza metadados e perfil), `toggle_user` (ativa/desativa via campo `disabled` em `profiles` e `user_metadata`)
 
+**Usuário só VertaTask (2026-11-25, migration 142, pedido do Matheus: acesso para terceiros).** Permissão
+"Só VertaTask" no formulário de usuário = `app_metadata.role = 'vertatask'`; ao escolher, aparece o dropdown
+de clientes (busca, várias escolhas, só clientes com pasta no VertaTask), gravado em `vertatask_acessos`
+(`user_id`, `project_id`) pela `api/admin-users.js` (`gravarClientes`; outro papel apaga a lista).
+- **O bloqueio é a RLS, não a tela.** Toda tabela do `public` com RLS tem 4 políticas `as restrictive`
+  (`vt_restrito_ler/inserir/alterar/apagar`, criadas por `vt_aplicar_bloqueio(tabela, ler, escrever)`): para
+  quem não é restrito valem sempre verdadeiro (`not acesso_restrito()`), então nada muda para o time; para o
+  restrito o padrão é nada. Liberado só: pastas/listas/tarefas dos clientes dele (`vt_pastas_permitidas`,
+  `vt_listas_permitidas`, `vt_tarefa_permitida`), comentários, relações, histórico, seguidores e outbox dessas
+  tarefas, views da pasta dele ou sem pasta, etiquetas e `tarefas_sync` (leitura), `profiles` (leitura; escreve
+  só o próprio), as próprias `notifications` e, no Storage, `task-attachments` das tarefas dele. Projetos, chat,
+  dashboard, squads etc. voltam vazios. Tirar um cliente corta na hora; trocar o papel de quem está logado vale
+  quando o token renova (até 1 h).
+- **Tabela nova:** o event trigger `vt_bloqueio_tabela_nova` põe as 4 políticas sozinho quando a tabela ganha
+  RLS (fechada para o restrito). Para liberar ao restrito, chame `vt_aplicar_bloqueio` com as regras dela na
+  migration. Conferir: a consulta no topo da migration 142 tem que voltar vazia.
+- **Funções security definer** não passam pela RLS: `chat_toggle_reaction`, `seed_nps_marcos_padrao`,
+  `tarefas_outbox_forcar/ignorar/reenviar` recusam o restrito e `dash_benchmark`/`dash_totals_by_project`
+  devolvem vazio para ele. **Função security definer nova que o front chama com o token do usuário precisa
+  da mesma checagem** (`if public.acesso_restrito() then raise ...`); quem recriar uma dessas mantém a linha.
+- **`/api`:** `getUser` recusa o restrito (`usuarioRestrito` em `api/_http.js`), salvo quem passa
+  `{ restrito: true }`: `tarefas-push`, `tarefas-sync` e `atividades` (só `action=config`; o calendário da
+  tarefa fica sem as cores de capacidade).
+- **Tela:** `user.restrito` (AppContext). `RequireAuth` manda toda rota interna para `/tarefas`; a
+  `AppSidebar` mostra só o VertaTask; no VertaTask somem Intake, Sprints, Cycles, Templates, Pages,
+  Analytics, Sincronização, Atividades, Chat, "+ pasta", Compartilhar e, no menu da tarefa, "Salvar como
+  template" e "Histórico de sincronização" (`?aba=` é ignorado).
+- Testado em 25/11/2026 só no banco, simulando o JWT dentro de uma transação desfeita: com acesso à Revenue Lab
+  o restrito viu 1 pasta, 10 listas, 1.549 tarefas e 0 linhas de projetos, chat, dashboard, squads e Storage;
+  membro e admin seguiram vendo tudo.
+
 **Aba Equipes (Squads):**
 - Squads são entidades gerenciáveis com `name`, `emoji` e `members` (JSONB array de `{ profile_id, role }`)
 - Roles disponíveis por membro: `Account Manager`, `Gestor de Tráfego`, `Designer`

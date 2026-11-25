@@ -1,5 +1,5 @@
 import { apiFetch } from '../lib/api'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
@@ -14,7 +14,7 @@ import {
   Users, Plus, Pencil, UserX, UserCheck,
   X, AlertTriangle, Loader2, Menu,
   ShieldCheck, User, Users2, Trash2, KeyRound, Eye, EyeOff,
-  Layers, Check,
+  Layers, Check, ChevronDown, Search,
 } from 'lucide-react'
 
 async function callAdminAPI(action, payload) {
@@ -105,6 +105,106 @@ function PasswordModal({ user, onSave, onClose, saving }) {
   )
 }
 
+// ── Clientes do usuário só VertaTask ─────────────────────────────────────────
+// Dropdown com busca e várias escolhas. Só entram os clientes com pasta no VertaTask:
+// o acesso é às pastas (vertatask_acessos → tarefas_pastas.project_id, migration 142).
+function ClientesVertaTask({ valor, onChange }) {
+  const { projects } = useApp()
+  const { t } = useI18n()
+  const [comPasta, setComPasta] = useState(null) // Set de project_id com pasta; null = carregando
+  const [aberto, setAberto] = useState(false)
+  const [busca, setBusca] = useState('')
+  const caixaRef = useRef(null)
+
+  useEffect(() => {
+    let vivo = true
+    supabase.from('tarefas_pastas').select('project_id').not('project_id', 'is', null).eq('arquivada', false)
+      .then(({ data }) => { if (vivo) setComPasta(new Set((data || []).map((r) => r.project_id))) })
+    return () => { vivo = false }
+  }, [])
+
+  useEffect(() => {
+    if (!aberto) return undefined
+    const fora = (e) => { if (caixaRef.current && !caixaRef.current.contains(e.target)) setAberto(false) }
+    const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setAberto(false) } }
+    document.addEventListener('mousedown', fora)
+    document.addEventListener('keydown', esc, true)
+    return () => { document.removeEventListener('mousedown', fora); document.removeEventListener('keydown', esc, true) }
+  }, [aberto])
+
+  const nomeDe = (p) => p.companyName || p.company_name || '?'
+  const opcoes = useMemo(() => (projects || [])
+    .filter((p) => !comPasta || comPasta.has(p.id))
+    .map((p) => ({ id: p.id, nome: nomeDe(p), churn: !!(p.churnDate || p.churn_date) }))
+    .sort((a, b) => (a.churn - b.churn) || a.nome.localeCompare(b.nome, 'pt-BR')), [projects, comPasta])
+  const porId = useMemo(() => new Map(opcoes.map((o) => [o.id, o])), [opcoes])
+  const semAcento = (x) => x.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const visiveis = busca.trim() ? opcoes.filter((o) => semAcento(o.nome).includes(semAcento(busca.trim()))) : opcoes
+  const marcados = new Set(valor)
+  const alternar = (id) => onChange(marcados.has(id) ? valor.filter((v) => v !== id) : [...valor, id])
+
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-rl-text mb-1.5">{t('usuarios.form.clientes')}</label>
+      <div ref={caixaRef} className="relative">
+        <button
+          type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} aria-haspopup="listbox"
+          className="input-field w-full flex items-center justify-between gap-2 text-left"
+        >
+          <span className={valor.length ? 'text-rl-text' : 'text-rl-muted'}>
+            {valor.length ? t('usuarios.form.clientesSelecionados', { count: valor.length }) : t('usuarios.form.clientesEscolher')}
+          </span>
+          <ChevronDown className={`w-4 h-4 text-rl-muted transition-transform ${aberto ? 'rotate-180' : ''}`} />
+        </button>
+        {aberto && (
+          <div className="absolute z-20 left-0 right-0 mt-1 rounded-xl border border-rl-border bg-rl-card shadow-xl overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-rl-border">
+              <Search className="w-3.5 h-3.5 text-rl-muted shrink-0" />
+              <input
+                autoFocus value={busca} onChange={(e) => setBusca(e.target.value)}
+                placeholder={t('usuarios.form.clientesBuscar')}
+                className="flex-1 min-w-0 bg-transparent outline-none text-sm text-rl-text placeholder:text-rl-muted"
+              />
+            </div>
+            <div role="listbox" aria-multiselectable="true" className="max-h-60 overflow-y-auto py-1">
+              {comPasta === null && <p className="px-3 py-2 text-xs text-rl-muted">{t('usuarios.form.carregandoClientes')}</p>}
+              {comPasta !== null && visiveis.length === 0 && <p className="px-3 py-2 text-xs text-rl-muted">{t('usuarios.form.clientesNenhum')}</p>}
+              {comPasta !== null && visiveis.map((o) => (
+                <button
+                  key={o.id} type="button" role="option" aria-selected={marcados.has(o.id)} onClick={() => alternar(o.id)}
+                  className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-left hover:bg-rl-surface"
+                >
+                  <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${marcados.has(o.id) ? 'bg-rl-purple border-rl-purple text-white' : 'border-rl-border'}`}>
+                    {marcados.has(o.id) && <Check className="w-3 h-3" />}
+                  </span>
+                  <span className="truncate text-rl-text">{o.nome}</span>
+                  {o.churn && <span className="ml-auto text-[10px] text-rl-muted shrink-0">{t('usuarios.form.churn')}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      {valor.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {valor.map((id) => {
+            const nome = porId.get(id)?.nome || t('usuarios.form.clienteSemPasta')
+            return (
+              <span key={id} className="inline-flex items-center gap-1 text-xs pl-2 pr-1 py-0.5 rounded-full border border-rl-purple/30 bg-rl-purple/10 text-rl-text">
+                {nome}
+                <button type="button" onClick={() => alternar(id)} aria-label={t('usuarios.form.removerCliente', { nome })} className="p-0.5 rounded-full text-rl-muted hover:text-rl-text">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )
+          })}
+        </div>
+      )}
+      <p className="text-[10px] text-rl-muted mt-1.5">{t('usuarios.form.clientesDica')}</p>
+    </div>
+  )
+}
+
 function UserFormModal({ title, initial, onSave, onClose, saving, clickupMembers, loadingMembers }) {
   const [form, setForm] = useState({
     name: initial?.name || '',
@@ -112,12 +212,15 @@ function UserFormModal({ title, initial, onSave, onClose, saving, clickupMembers
     password: '',
     role: initial?.role || 'member',
     clickup_user_id: initial?.clickup_user_id ?? initial?.clickupUserId ?? '',
+    clientes: initial?.clientes || [],
   })
   const isCreate = !initial
   const { t } = useI18n()
+  const soVertaTask = form.role === 'vertatask'
 
   const valid = form.name.trim() && form.email.trim() &&
-    (!isCreate || form.password.length >= 6)
+    (!isCreate || form.password.length >= 6) &&
+    (!soVertaTask || form.clientes.length > 0)
 
   function set(field, value) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -191,8 +294,14 @@ function UserFormModal({ title, initial, onSave, onClose, saving, clickupMembers
             >
               <option value="member">{t('usuarios.papel.member')}</option>
               <option value="admin">{t('usuarios.papel.admin')}</option>
+              <option value="vertatask">{t('usuarios.papel.vertatask')}</option>
             </select>
+            {!isCreate && initial?.role !== form.role && (
+              <p className="text-[10px] text-rl-muted mt-1">{t('usuarios.form.trocaPapelAviso')}</p>
+            )}
           </div>
+
+          {soVertaTask && <ClientesVertaTask valor={form.clientes} onChange={(v) => set('clientes', v)} />}
 
           {/* Mapeamento ClickUp — só aparece em edição (precisa do user já criado) */}
           {!isCreate && (
@@ -229,7 +338,7 @@ function UserFormModal({ title, initial, onSave, onClose, saving, clickupMembers
             {t('comum.cancelar')}
           </button>
           <button
-            onClick={() => onSave(form)}
+            onClick={() => onSave({ ...form, clientes: soVertaTask ? form.clientes : [] })}
             disabled={!valid || saving}
             className="flex-1 btn-primary disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
@@ -637,15 +746,21 @@ export default function UserManagement() {
   const [loadingClickupMembers, setLoadingClickupMembers] = useState(false)
   const [clickupMembersLoaded, setClickupMembersLoaded] = useState(false)
 
+  // clientes liberados de cada usuário só VertaTask (user_id → [project_id])
+  const [acessos, setAcessos] = useState(() => new Map())
+
   const loadUsers = useCallback(async () => {
     setLoading(true)
     setError(null)
-    const { data, error: err } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('name')
+    const [{ data, error: err }, { data: acs }] = await Promise.all([
+      supabase.from('profiles').select('*').order('name'),
+      supabase.from('vertatask_acessos').select('user_id, project_id'),
+    ])
     if (err) setError(err.message)
     else setUsers(data || [])
+    const m = new Map()
+    for (const a of acs || []) m.set(a.user_id, [...(m.get(a.user_id) || []), a.project_id])
+    setAcessos(m)
     setLoading(false)
   }, [])
 
@@ -689,6 +804,7 @@ export default function UserManagement() {
     if (result.error || result.msg) {
       showToast(result.error || result.msg, 'error')
     } else {
+      if (result.aviso) showToast(result.aviso, 'error')
       // Upsert profile manually (edge fn creates auth user; profile is synced on first login, but we add it now)
       const avatar = initials(form.name)
       await supabase.from('profiles').upsert({
@@ -755,8 +871,9 @@ export default function UserManagement() {
   const ROLE_BADGE = {
     admin:  'text-rl-purple bg-rl-purple/10 border-rl-purple/30',
     member: 'text-rl-blue   bg-rl-blue/10   border-rl-blue/30',
+    vertatask: 'text-rl-gold bg-rl-gold/10 border-rl-gold/30',
   }
-  const ROLE_LABEL = { admin: t('usuarios.papel.admin'), member: t('usuarios.papel.member') }
+  const ROLE_LABEL = { admin: t('usuarios.papel.admin'), member: t('usuarios.papel.member'), vertatask: t('usuarios.papel.vertatask') }
 
   async function handleResetPassword(password) {
     setSaving(true)
@@ -941,6 +1058,9 @@ export default function UserManagement() {
                           {u.role === 'admin' ? <ShieldCheck className="w-3 h-3" /> : <User className="w-3 h-3" />}
                           {ROLE_LABEL[u.role] || u.role}
                         </span>
+                        {u.role === 'vertatask' && (
+                          <span className="block text-[10px] text-rl-muted mt-1">{t('usuarios.form.clientesSelecionados', { count: (acessos.get(u.id) || []).length })}</span>
+                        )}
                       </td>
                       {/* Status */}
                       <td className="px-5 py-4">
@@ -1107,7 +1227,7 @@ export default function UserManagement() {
       {editTarget && (
         <UserFormModal
           title={t('usuarios.editarUsuario')}
-          initial={editTarget}
+          initial={{ ...editTarget, clientes: acessos.get(editTarget.id) || [] }}
           onSave={handleUpdate}
           onClose={() => setEditTarget(null)}
           saving={saving}

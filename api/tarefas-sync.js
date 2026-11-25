@@ -50,7 +50,8 @@ async function autorizar(req) {
   const token = bearer(req)
   const cron = envClean('CRON_SECRET')
   if (cron && token && token === cron) return { ok: true, via: 'cron' }
-  const auth = await getUser(req)
+  // o usuário só VertaTask também dispara a rodada (a tela faz isso ao abrir); a resposta só tem contagens
+  const auth = await getUser(req, undefined, { restrito: true })
   if (!auth.ok) return { ok: false }
   const u = auth.user || {}
   return { ok: true, via: 'user', por: { id: u.id || null, nome: u.user_metadata?.name || u.user_metadata?.full_name || u.email || null } }

@@ -47,14 +47,23 @@ export function bearer(req) {
 }
 
 // Valida o JWT do Supabase. Devolve { ok, jwt, user } ou { ok: false, message }.
-export async function getUser(req, apikey = process.env.SUPABASE_ANON_KEY) {
+// Usuário "só VertaTask" (app_metadata.role = 'vertatask', migration 142): acesso de terceiro,
+// limitado às pastas dos clientes liberados. Toda função /api o recusa, salvo as que passam
+// `{ restrito: true }` (as do VertaTask), que ficam responsáveis por não devolver dado de outro cliente.
+export function usuarioRestrito(user) {
+  return user?.app_metadata?.role === 'vertatask'
+}
+
+export async function getUser(req, apikey = process.env.SUPABASE_ANON_KEY, { restrito = false } = {}) {
   const jwt = bearer(req)
   if (!jwt) return { ok: false, message: 'Não autorizado.' }
   const r = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
     headers: { Authorization: `Bearer ${jwt}`, apikey },
   })
   if (!r.ok) return { ok: false, message: 'Sessão inválida ou expirada.' }
-  return { ok: true, jwt, user: await r.json().catch(() => null) }
+  const user = await r.json().catch(() => null)
+  if (usuarioRestrito(user) && !restrito) return { ok: false, message: 'Acesso restrito ao VertaTask.' }
+  return { ok: true, jwt, user }
 }
 
 export function serviceKey() {

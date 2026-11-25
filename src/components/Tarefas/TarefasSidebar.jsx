@@ -177,9 +177,10 @@ export default function TarefasSidebar({
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-2.5 pb-3">
-        <NavItem icon={Inbox} ativo={nav.aba === 'intake'} onClick={() => { nav.onAba('intake'); onFechar?.() }} badge={nav.intake}>{t('tarefas.sidebar.intake')}</NavItem>
+        {!nav.restrito && <NavItem icon={Inbox} ativo={nav.aba === 'intake'} onClick={() => { nav.onAba('intake'); onFechar?.() }} badge={nav.intake}>{t('tarefas.sidebar.intake')}</NavItem>}
         <NavItem icon={User} ativo={nav.aba === 'tarefas' && sel.tipo === 'minhas'} onClick={() => { onSel({ tipo: 'minhas' }); onFechar?.() }}>{t('tarefas.sidebar.minhas')}</NavItem>
         <NavItem icon={ListChecks} ativo={nav.aba === 'tarefas' && sel.tipo === 'todas'} onClick={() => { onSel({ tipo: 'todas' }); onFechar?.() }}>{t('tarefas.sidebar.todas')}</NavItem>
+        {!nav.restrito && (<>
         <NavItem icon={Zap} ativo={nav.aba === 'sprints'} onClick={() => { nav.onAba('sprints'); onFechar?.() }}>{t('tarefas.sidebar.sprints')}</NavItem>
         <NavItem icon={Repeat} ativo={nav.aba === 'ciclos'} onClick={() => { nav.onAba('ciclos'); onFechar?.() }}>{t('tarefas.sidebar.cycles')}</NavItem>
         <NavItem icon={LayoutTemplate} ativo={nav.aba === 'templates'} onClick={() => { nav.onAba('templates'); onFechar?.() }}>{t('tarefas.sidebar.templates')}</NavItem>
@@ -190,10 +191,11 @@ export default function TarefasSidebar({
         <NavItem icon={MessageSquare} ativo={nav.aba === 'chat'} onClick={() => { nav.onAba('chat'); onFechar?.() }} badge={nav.chat}
           selo={CHAT_OFFLINE ? <span className="ln-pill !h-5 !px-1.5 text-[10px] uppercase tracking-wide" title={t('tarefas.sidebar.chatOfflineTitulo')}>{t('tarefas.sidebar.offline')}</span> : null}
         >{t('tarefas.sidebar.chat')}</NavItem>
+        </>)}
 
         <div className={`${SECAO} flex items-center justify-between !pr-1`}>
           {t('tarefas.sidebar.clientes')}
-          <button type="button" onClick={() => setNovaPasta(true)} className="ln-iconbtn !w-6 !h-6" title={t('tarefas.sidebar.novaPasta')} aria-label={t('tarefas.sidebar.novaPasta')}><Plus className="w-3.5 h-3.5" /></button>
+          {!nav.restrito && <button type="button" onClick={() => setNovaPasta(true)} className="ln-iconbtn !w-6 !h-6" title={t('tarefas.sidebar.novaPasta')} aria-label={t('tarefas.sidebar.novaPasta')}><Plus className="w-3.5 h-3.5" /></button>}
         </div>
         <div className="ln-input !h-8 flex items-center gap-1.5 mb-1.5">
           <Search className="w-3.5 h-3.5 text-ln-t4 shrink-0" />

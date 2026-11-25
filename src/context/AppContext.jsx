@@ -88,6 +88,9 @@ function enrichUser(authUser) {
     name:   meta.name   || authUser.email.split("@")[0],
     avatar: meta.avatar || authUser.email.slice(0, 2).toUpperCase(),
     role:   appMeta.role || "member",
+    // Acesso só ao VertaTask, só dos clientes de vertatask_acessos (migration 142).
+    // A RLS é quem bloqueia de verdade; isto só esconde o resto da tela.
+    restrito: appMeta.role === "vertatask",
   };
 }
 

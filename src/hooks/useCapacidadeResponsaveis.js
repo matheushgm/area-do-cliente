@@ -2,6 +2,7 @@
 // Lê a agenda de cada pessoa em /api/atividades (action=disponibilidade, a mesma agenda da
 // Capacidade do time) quando os responsáveis mudam; as horas da tarefa entram na conta na hora,
 // sem nova leitura. Guarda por pessoa por 2 min para trocar responsável e voltar sem esperar.
+import { useApp } from '../context/AppContext'
 import { useEffect, useMemo, useState } from 'react'
 import { disponibilidadeResponsaveis } from '../lib/atividades'
 import { capacidadeNoCalendario, horasDaNova } from '../lib/capacidadeCalendario'
@@ -41,9 +42,11 @@ export function useCapacidadeResponsaveis(responsaveis, membrosMap, tarefa, excl
   const k = (id) => `${id}|${excluirId || ''}` // entrada do cache por pessoa e tarefa excluída
   const [dados, setDados] = useState({ chave: '', pessoas: [], hoje: null, erro: '' })
   const [carregando, setCarregando] = useState(false)
+  // o usuário só VertaTask não lê a agenda do time (a API recusa): calendário sem as cores
+  const restrito = !!useApp()?.user?.restrito
 
   useEffect(() => {
-    if (!ids.length) return
+    if (!ids.length || restrito) return
     let vivo = true
     const agora = Date.now()
     const frescos = ids.filter((id) => cache.has(k(id)) && agora - cache.get(k(id)).em < TTL_MS)

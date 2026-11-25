@@ -16,6 +16,7 @@ export default {
   papel: {
     admin: 'Admin',
     member: 'Membro',
+    vertatask: 'Só VertaTask',
   },
   status: {
     ativo: 'Ativo',
@@ -63,6 +64,18 @@ export default {
     clickupDica: 'Vincular ao ClickUp permite que tarefas criadas automaticamente recebam este usuário como responsável.',
     criar: 'Criar usuário',
     salvarAlteracoes: 'Salvar alterações',
+    // Usuário só VertaTask (terceiros)
+    clientes: 'Clientes que ele vai acessar',
+    clientesEscolher: 'Escolher clientes',
+    clientesSelecionados: { zero: 'Nenhum cliente', one: '{count} cliente', other: '{count} clientes' },
+    clientesBuscar: 'Buscar cliente',
+    clientesNenhum: 'Nenhum cliente encontrado.',
+    carregandoClientes: 'Carregando clientes...',
+    clienteSemPasta: 'Cliente sem pasta no VertaTask',
+    churn: 'churn',
+    removerCliente: 'Tirar {nome}',
+    clientesDica: 'Ele entra direto no VertaTask e só vê as tarefas, comentários e anexos destes clientes. O resto da Área do Cliente fica bloqueado. Só aparecem os clientes que têm pasta no VertaTask.',
+    trocaPapelAviso: 'Se a pessoa estiver logada, a nova permissão vale quando a sessão renovar (até 1 hora) ou no próximo login. A lista de clientes muda na hora.',
   },
   // Confirmação de desativar/reativar
   toggle: {
