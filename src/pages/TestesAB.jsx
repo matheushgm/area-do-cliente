@@ -12,7 +12,7 @@ import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
 import {
   STATUS_AB, SLOTS_PADRAO, MIN_VISITAS, MIN_CONVERSOES,
-  analisar, trechoScript, linkPrevia, fmtChance,
+  analisar, trechoScript, linkPrevia, linkVariacao, normalizarCodigo, CODIGO_RE, PARAM_URL, fmtChance,
   listarTestes, carregarTeste, criarTeste, atualizarTeste, excluirTeste,
   salvarVariante, salvarPesos, arquivarVariante, declararVencedor,
 } from '../lib/testesAB'
@@ -499,7 +499,9 @@ function DetalheTeste({ id }) {
             </thead>
             <tbody>
               {a.linhas.map((v) => {
-                const previa = linkPrevia(teste.tipo === 'pagina' && !v.original ? v.url : teste.url, v.id)
+                const baseUrl = teste.tipo === 'pagina' && !v.original ? v.url : teste.url
+                const previa = linkPrevia(baseUrl, v.id)
+                const link = linkVariacao(baseUrl, v.codigo)
                 const venceu = teste.vencedor_id === v.id
                 return (
                   <tr key={v.id} className="border-b border-rl-border align-top">
@@ -519,6 +521,7 @@ function DetalheTeste({ id }) {
                           <ExternalLink className="w-3 h-3" />{t('testesAB.detalhe.previa')}
                         </a>
                       )}
+                      {link && <LinkVariacao link={link} codigo={v.codigo} />}
                     </td>
                     <td className="px-3 py-3 text-right tabular-nums font-semibold text-rl-text">{pct(v.taxa)}</td>
                     <td className="px-3 py-3 text-right tabular-nums">{num(v.visitas, locale)}</td>
@@ -657,6 +660,26 @@ function Instalacao({ teste }) {
   )
 }
 
+// URL própria da variação (?variacao=<código>): é a que chega no banco e no CRM junto com o lead.
+function LinkVariacao({ link, codigo }) {
+  const { t } = useI18n()
+  const [copiado, setCopiado] = useState(false)
+  function copiar() {
+    navigator.clipboard?.writeText(link).then(() => {
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+    })
+  }
+  return (
+    <button type="button" onClick={copiar} title={`${t('testesAB.detalhe.linkAjuda')}\n${link}`}
+      className="mt-1 flex items-center gap-1 text-[11px] text-rl-muted hover:text-rl-text">
+      {copiado ? <Check className="w-3 h-3 text-rl-green" /> : <Copy className="w-3 h-3" />}
+      <span>{copiado ? t('testesAB.instalacao.copiado') : t('testesAB.detalhe.link')}</span>
+      <code className="px-1 rounded bg-rl-surface text-rl-subtle">?{PARAM_URL}={codigo}</code>
+    </button>
+  )
+}
+
 // ─── Variação ────────────────────────────────────────────────────────────────
 function VariacaoModal({ teste, variacao, onClose, onSalvo }) {
   const { banco: supabase } = useAmbiente()
@@ -671,6 +694,7 @@ function VariacaoModal({ teste, variacao, onClose, onSalvo }) {
   const [conteudo, setConteudo] = useState(variacao?.conteudo || {})
   const [slots, setSlots] = useState(slotsDoTeste)
   const [url, setUrl] = useState(variacao?.url || '')
+  const [codigo, setCodigo] = useState(variacao?.codigo || '')
   const [novoSlot, setNovoSlot] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState(null)
@@ -685,6 +709,9 @@ function VariacaoModal({ teste, variacao, onClose, onSalvo }) {
   async function salvar(e) {
     e.preventDefault()
     if (!nome.trim()) return setErro(t('testesAB.variacao.nomeObrigatorio'))
+    const cod = normalizarCodigo(codigo)
+    if (codigo.trim() && !CODIGO_RE.test(cod)) return setErro(t('testesAB.variacao.codigoInvalido'))
+    if (cod && teste.variantes.some((v) => v.id !== variacao?.id && v.codigo === cod)) return setErro(t('testesAB.variacao.codigoRepetido', { codigo: cod }))
     setSalvando(true)
     setErro(null)
     const limpo = Object.fromEntries(Object.entries(conteudo).map(([k, v]) => [k, String(v || '').trim()]).filter(([, v]) => v))
@@ -696,14 +723,17 @@ function VariacaoModal({ teste, variacao, onClose, onSalvo }) {
         hipotese: hipotese.trim(),
         conteudo: original ? {} : limpo,
         url: original ? null : url.trim(),
+        codigo: cod || null,
         ...(variacao ? {} : { peso: 0, ordem: teste.variantes.length }),
       })
       onSalvo()
     } catch (err) {
-      setErro(err.message)
+      setErro(err.code === '23505' ? t('testesAB.variacao.codigoRepetido', { codigo: cod }) : err.message)
       setSalvando(false)
     }
   }
+
+  const exemploUrl = linkVariacao(teste.tipo === 'pagina' && !original ? (url.trim() || teste.url) : teste.url, normalizarCodigo(codigo) || (original ? 'original' : 'b'))
 
   return (
     <Modal onClose={onClose} maxWidth="2xl">
@@ -717,6 +747,16 @@ function VariacaoModal({ teste, variacao, onClose, onSalvo }) {
         </Campo>
         <Campo rotulo={t('testesAB.variacao.hipotese')}>
           <textarea className="input-field min-h-[60px]" value={hipotese} onChange={(e) => setHipotese(e.target.value)} placeholder={t('testesAB.variacao.hipotesePh')} />
+        </Campo>
+
+        <Campo rotulo={t('testesAB.variacao.codigo')}>
+          <input className="input-field" value={codigo} onChange={(e) => setCodigo(e.target.value)}
+            onBlur={() => setCodigo((c) => normalizarCodigo(c))}
+            placeholder={variacao ? '' : t('testesAB.variacao.codigoPh')} />
+          <p className="text-[11px] text-rl-muted mt-1">
+            {t('testesAB.variacao.codigoAjuda')}
+            {exemploUrl && <> <code className="break-all text-rl-subtle">{exemploUrl}</code></>}
+          </p>
         </Campo>
 
         {original && <p className="text-xs text-rl-muted">{t('testesAB.variacao.originalAviso')}</p>}

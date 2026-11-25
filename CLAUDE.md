@@ -2035,3 +2035,13 @@ pausa e vencedor são decididos na tela.
   `vercel dev` com um teste e um banco de leads de teste (apagados): troca de texto com hero desenhado
   depois, impressão com UTM, lead ligado ao registro sem `_ab` no payload, clique do mesmo visitante sem
   contar em dobro, vencedor exibido sem contar.
+- **URL por variação (migration 143, 25/11/2026):** pedido do Matheus para saber no banco e no CRM de qual
+  variação o lead veio (o formulário manda `window.location.href`). `ab_variantes.codigo` (único por teste,
+  `^[a-z0-9][a-z0-9-]{0,39}$`; trigger põe `original` no Original e a próxima letra livre, b, c, d..., nas
+  outras). Com o teste rodando, o kit põe `?variacao=<codigo>` na barra de endereço com `replaceState`
+  (sem recarregar, guarda o `history.state` do roteador; repõe em popstate/hashchange e por 5 s) e quem
+  abre o link com `?variacao=<codigo>` cai direto naquela variante (ordem: `vab` do teste de página, link,
+  sorteio guardado, sorteio novo). Nome do parâmetro trocável com `data-param`. Prévia e encerrado não
+  marcam a URL. Tela: "Link ?variacao=b" copiável em cada variação e campo "Código na URL" no editor.
+  Testado na /captura-medicos local (TanStack Router mantém o parâmetro): banco e n8n receberam
+  `...?utm_source=meta&variacao=b`.

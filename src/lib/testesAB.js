@@ -139,6 +139,30 @@ export function trechoScript(slug) {
   return `<script src="${origemDoApp()}/ab.js" data-e="${slug}" async></script>`
 }
 
+// URL de cada variação: o kit põe ?variacao=<código> na barra de endereço depois do sorteio, então a URL
+// que o formulário manda para o banco, o n8n e o CRM diz de qual variação o lead veio (migration 143).
+export const PARAM_URL = 'variacao'
+export const CODIGO_RE = /^[a-z0-9][a-z0-9-]{0,39}$/
+
+export function normalizarCodigo(txt) {
+  return String(txt || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().trim()
+    .replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+    .slice(0, 40)
+}
+
+export function linkVariacao(url, codigo) {
+  if (!url || !codigo) return null
+  try {
+    const u = new URL(url)
+    u.searchParams.set(PARAM_URL, codigo)
+    return u.toString()
+  } catch {
+    return null
+  }
+}
+
 export function linkPrevia(url, varianteId) {
   if (!url) return null
   try {
@@ -197,7 +221,7 @@ export async function criarTeste(supabase, dados, userId) {
   if (error) throw error
   const { error: e2 } = await supabase
     .from('ab_variantes')
-    .insert({ experimento_id: teste.id, nome: 'Original', original: true, peso: 100, ordem: 0 })
+    .insert({ experimento_id: teste.id, nome: 'Original', codigo: 'original', original: true, peso: 100, ordem: 0 })
   if (e2) throw e2
   return teste
 }
@@ -220,6 +244,7 @@ export async function salvarVariante(supabase, variante) {
     hipotese: resto.hipotese || null,
     conteudo: resto.conteudo || {},
     url: resto.url || null,
+    ...(resto.codigo ? { codigo: resto.codigo } : {}),
     ...(resto.peso != null ? { peso: resto.peso } : {}),
     ...(resto.ordem != null ? { ordem: resto.ordem } : {}),
   }

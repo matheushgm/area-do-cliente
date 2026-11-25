@@ -38,7 +38,7 @@ async function config_(req) {
     conversao: teste.conversao,
     vencedor: teste.vencedor_id || null,
     variantes: teste.variantes.map((v) => ({
-      id: v.id, nome: v.nome, peso: v.peso, original: v.original,
+      id: v.id, nome: v.nome, codigo: v.codigo, peso: v.peso, original: v.original,
       conteudo: v.conteudo || {}, url: v.url || null,
     })),
   }, 200, { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' })

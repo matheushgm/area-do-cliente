@@ -3,7 +3,7 @@ import { sb } from './_http.js'
 
 // Teste pelo slug, com as variantes ativas (não arquivadas) em ordem.
 export async function carregarTeste(slug) {
-  const sel = 'id,slug,status,tipo,conversao,vencedor_id,ab_variantes!ab_variantes_experimento_id_fkey(id,nome,peso,original,conteudo,url,ordem,arquivada)'
+  const sel = 'id,slug,status,tipo,conversao,vencedor_id,ab_variantes!ab_variantes_experimento_id_fkey(id,nome,codigo,peso,original,conteudo,url,ordem,arquivada)'
   const { data, ok } = await sb(`/ab_experimentos?slug=eq.${encodeURIComponent(slug)}&select=${sel}`)
   if (!ok || !Array.isArray(data) || !data.length) return null
   const t = data[0]

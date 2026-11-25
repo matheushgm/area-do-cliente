@@ -12,6 +12,10 @@
  *     Lead / generate_lead no dataLayer do GTM;
  *   - clique: link de WhatsApp (wa.me, api.whatsapp.com) ou elemento com data-ab-convert.
  *
+ * URL de cada variação: com o teste rodando, o kit põe ?variacao=<código> na barra de endereço depois do
+ * sorteio (sem recarregar). Assim a URL que o formulário manda para o banco, o n8n e o CRM já diz de qual
+ * variação o lead veio. Quem abre o link com ?variacao=<código> cai direto nela. Outro nome: data-param.
+ *
  * Pré-visualizar uma variante sem contar visita: ?ab_variante=<id da variante>.
  * API para quem preferir código: window.vertaAB.{variante, texto(slot), converter(origem)}.
  */
@@ -25,6 +29,7 @@
   var API = BASE + '/api/ab'
   var TIMEOUT = Number(script.getAttribute('data-timeout')) || 800
   var CHAVE = 'vab_' + SLUG
+  var PARAM = script.getAttribute('data-param') || 'variacao'
   var qs = new URLSearchParams(location.search)
 
   // ── Antipiscar: esconde os pontos marcados até a variante entrar (ou o tempo acabar).
@@ -140,7 +145,11 @@
     }
     if (cfg.status !== 'rodando') return liberar()
 
-    var guardada = herdado[0] && porId[herdado[0]] ? herdado[0] : ler(CHAVE)
+    // Ordem: veio de um redirecionamento do teste de página, link com ?variacao=<código>, sorteio guardado, sorteio novo.
+    var pedida = (qs.get(PARAM) || '').toLowerCase()
+    var porCodigo = null
+    variantes.forEach(function (v) { if (v.codigo && v.codigo === pedida) porCodigo = v })
+    var guardada = herdado[0] && porId[herdado[0]] ? herdado[0] : porCodigo ? porCodigo.id : ler(CHAVE)
     var variante = guardada && porId[guardada] ? porId[guardada] : sortear(variantes)
     gravar(CHAVE, variante.id)
     api.variante = variante
@@ -151,11 +160,31 @@
       return irPara(variante)
     }
 
+    marcarUrl(variante)
     aplicar(variante, cfg)
     enviar({ e: SLUG, v: variante.id, vis: visitante, t: 'impressao', p: location.href, u: utm, d: dispositivo })
     var dl = (window.dataLayer = window.dataLayer || [])
     dl.push({ event: 'ab_exposicao', ab_teste: SLUG, ab_variante: variante.nome })
     ouvirConversoes(cfg)
+  }
+
+  // Põe ?variacao=<código> na URL sem recarregar e sem mexer no histórico (replaceState guarda o state do
+  // roteador do React). Se o roteador da página trocar a URL depois, o kit põe de volta.
+  function marcarUrl(variante) {
+    if (!variante || !variante.codigo || !window.history || !history.replaceState) return
+    function marcar() {
+      try {
+        var u = new URL(location.href)
+        if (u.searchParams.get(PARAM) === variante.codigo) return
+        u.searchParams.set(PARAM, variante.codigo)
+        history.replaceState(history.state, '', u.toString())
+      } catch (e) { /* segue sem marcar */ }
+    }
+    marcar()
+    window.addEventListener('popstate', marcar)
+    window.addEventListener('hashchange', marcar)
+    var tentativas = 0
+    var vigia = setInterval(function () { marcar(); if (++tentativas >= 10) clearInterval(vigia) }, 500)
   }
 
   function irPara(variante) {

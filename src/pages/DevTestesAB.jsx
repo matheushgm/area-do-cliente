@@ -18,12 +18,12 @@ function semente() {
     ex({ id: 'e3', slug: 'demo3', nome: 'LP longa x curta', tipo: 'pagina', url: 'https://exemplo.com/lp', status: 'encerrado', vencedor_id: 'v32', encerrado_em: agora() }),
   ]
   const ab_variantes = [
-    va({ id: 'v11', experimento_id: 'e1', nome: 'Original', original: true, peso: 34, ordem: 0 }),
-    va({ id: 'v12', experimento_id: 'e1', nome: 'B, dor do plantão', hipotese: 'Médico cansado de plantão se reconhece na primeira linha', peso: 33, ordem: 1, conteudo: { headline: 'Saia do plantão sem perder renda', cta: 'Quero minha agenda particular' } }),
-    va({ id: 'v13', experimento_id: 'e1', nome: 'C, número', hipotese: 'Número concreto dá prova', peso: 33, ordem: 2, conteudo: { headline: '**30 pacientes particulares** por mês em 90 dias' } }),
-    va({ id: 'v21', experimento_id: 'e2', nome: 'Original', original: true, peso: 100, ordem: 0 }),
-    va({ id: 'v31', experimento_id: 'e3', nome: 'Original', original: true, peso: 0, ordem: 0 }),
-    va({ id: 'v32', experimento_id: 'e3', nome: 'Curta', peso: 100, ordem: 1, url: 'https://exemplo.com/lp-curta' }),
+    va({ id: 'v11', experimento_id: 'e1', nome: 'Original', codigo: 'original', original: true, peso: 34, ordem: 0 }),
+    va({ id: 'v12', experimento_id: 'e1', nome: 'B, dor do plantão', codigo: 'b', hipotese: 'Médico cansado de plantão se reconhece na primeira linha', peso: 33, ordem: 1, conteudo: { headline: 'Saia do plantão sem perder renda', cta: 'Quero minha agenda particular' } }),
+    va({ id: 'v13', experimento_id: 'e1', nome: 'C, número', codigo: 'c', hipotese: 'Número concreto dá prova', peso: 33, ordem: 2, conteudo: { headline: '**30 pacientes particulares** por mês em 90 dias' } }),
+    va({ id: 'v21', experimento_id: 'e2', nome: 'Original', codigo: 'original', original: true, peso: 100, ordem: 0 }),
+    va({ id: 'v31', experimento_id: 'e3', nome: 'Original', codigo: 'original', original: true, peso: 0, ordem: 0 }),
+    va({ id: 'v32', experimento_id: 'e3', nome: 'Curta', codigo: 'curta', peso: 100, ordem: 1, url: 'https://exemplo.com/lp-curta' }),
   ]
   const resumo = {
     v11: [1240, 418, 38, 30, 8], v12: [1198, 405, 61, 52, 9], v13: [1215, 411, 41, 35, 6],
@@ -71,6 +71,14 @@ function criarBanco() {
           ...(nome === 'ab_variantes' ? { original: false, peso: 0, ordem: 0, conteudo: {}, arquivada: false } : { status: 'rascunho', tipo: 'texto', conversao: 'todas' }),
           ...v,
         }))
+        // Igual ao trigger da migration 143: sem código, Original = 'original' e as outras pegam a próxima letra.
+        if (nome === 'ab_variantes') novos.forEach((n) => {
+          if (n.codigo) return
+          if (n.original) { n.codigo = 'original'; return }
+          let l = 98
+          while (rows.some((r) => r.experimento_id === n.experimento_id && r.codigo === String.fromCharCode(l))) l++
+          n.codigo = String.fromCharCode(l)
+        })
         rows.push(...novos)
         return { data: modo === 'um' ? novos[0] : novos, error: null }
       }
