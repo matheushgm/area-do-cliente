@@ -19,6 +19,7 @@ import {
   Avatar, Avatares, Popover, ListasBusca, FOCO,
 } from './Campos'
 import RelacaoCampo from './RelacaoCampo'
+import { TimerTarefa } from './TimerTarefa'
 import { Secao, ListaSubtarefas } from './SecoesTarefa'
 import { EtiquetasCampo, RelacoesSecao, HistoricoSecao } from './TarefaExtras'
 import { faseDoCiclo, fmtDiaMes } from '../../lib/vertatask'
@@ -34,10 +35,10 @@ function fmtBytes(n) {
   return `${(n / 1048576).toFixed(1)} MB`
 }
 
-export function Propriedade({ label, children }) {
+export function Propriedade({ label, children, topo = false }) {
   return (
-    <div className="flex items-center min-h-[26px] gap-2">
-      <dt className="w-24 shrink-0 text-xs text-ln-t3">{label}</dt>
+    <div className={`flex ${topo ? 'items-start' : 'items-center'} min-h-[26px] gap-2`}>
+      <dt className={`w-24 shrink-0 text-xs text-ln-t3 ${topo ? 'leading-7' : ''}`}>{label}</dt>
       <dd className="min-w-0 flex-1 flex items-center gap-1.5 text-xs text-ln-t2">{children}</dd>
     </div>
   )
@@ -393,6 +394,7 @@ export default function TarefaPanel({
   onAtualizar, onMudarStatus, onCriarSub, onAbrir, onComentar, onExcluirComentario, onCarregarComentarios, onErro, onRelacoesMudaram,
   entrega = null, // bloco "Entrega" (EntregaPainel), montado por quem tem os dados da família
   gruposListas = null, onMoverLista = null, // propriedade Lista (mover a tarefa de lista)
+  onAviso = null, // toast do timer (iniciar/parar/trocar)
 }) {
   const { t } = useI18n()
   const [titulo, setTitulo] = useState(item?.titulo || '')
@@ -453,6 +455,7 @@ export default function TarefaPanel({
             <EtiquetasCampo valor={item.etiquetas || []} etiquetas={etiquetas} onChange={(v) => onAtualizar(item.id, { etiquetas: v })} onCriar={onCriarEtiqueta} />
           </Propriedade>
           <Propriedade label={t('tarefaPainel.prop.estimativa')}><EstimativaCampo valor={item.estimativa_min} onChange={(v) => onAtualizar(item.id, { estimativa_min: v })} /></Propriedade>
+          {!user?.restrito && <Propriedade topo label={t('horas.timer.prop')}><TimerTarefa item={item} user={user} membrosMap={membrosMap} onAviso={onAviso || onErro} /></Propriedade>}
           <Propriedade label={t('tarefaPainel.prop.tipo')}><TipoTarefaCampo valor={item.tipo_tarefa} onChange={(v) => onAtualizar(item.id, { tipo_tarefa: v })} /></Propriedade>
           <Propriedade label={t('tarefaPainel.prop.dificuldade')}><DificuldadeCampo valor={item.dificuldade} onChange={(v) => onAtualizar(item.id, { dificuldade: v })} /></Propriedade>
           <Propriedade label={t('tarefaPainel.prop.departamento')}><DepartamentoCampo valor={item.departamento || []} onChange={(v) => onAtualizar(item.id, { departamento: v })} /></Propriedade>

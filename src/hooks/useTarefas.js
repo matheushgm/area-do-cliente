@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { apiFetch } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { STATUSES_PADRAO, statusDaLista, statusInicial, statusAoMover, datasCoerentes, tarefaEntraNaCarga } from '../lib/tarefas'
+import { t as tr } from '../i18n'
 
 const PAGINA = 1000
 // Recuperação depois de uma queda do realtime: folga para relógio do navegador adiantado e
@@ -381,8 +382,11 @@ export function useTarefas(user) {
       frente = (data || []).map((r) => r.id).filter((x) => !ids.includes(x))
       ids.push(...frente)
     }
-    const { data: linhas, error: errLer } = await supabase.from('tarefas_itens').select('id, lista_id, parent_id, status, status_tipo, data_conclusao').in('id', ids)
+    const { data: linhas, error: errLer } = await supabase.from('tarefas_itens').select('id, lista_id, parent_id, status, status_tipo, data_conclusao, clickup_task_id').in('id', ids)
     if (errLer) return { error: errLer.message }
+    // lista pessoal não vai para o ClickUp: tarefa que já existe lá ficaria nas duas listas
+    // (a sincronização a traria de volta para a lista do cliente)
+    if (lista.dono_id && (linhas || []).some((r) => r.clickup_task_id)) return { error: tr('horas.pessoal.naoMoverClickup') }
     // Subtarefa trocando de mãe para outra lista: no ClickUp só a tarefa raiz muda de lista com
     // mapeamento de status; a subtarefa vai junto com a mãe nova mantendo o status, e se ele não
     // existe na lista nova ela fica sem status válido lá (nenhum é aceito depois; conferido em
@@ -438,6 +442,29 @@ export function useTarefas(user) {
     setPastas((prev) => prev.map((p) => (p.id === id ? data : p)).filter((p) => !p.arquivada))
     return { data }
   }, [])
+
+  // Lista pessoal (migration 145): uma por pessoa, sem pasta e sem ClickUp; a RLS só devolve a do
+  // próprio usuário. Nasce no primeiro clique em "Lista pessoal".
+  const listaPessoal = useMemo(() => (user?.id ? listas.find((l) => l.dono_id === user.id) || null : null), [listas, user?.id])
+  const garantirListaPessoal = useCallback(async () => {
+    if (!supabase || !user?.id) return { error: 'sem usuário' }
+    const ler = () => supabase.from('tarefas_listas').select('*').eq('dono_id', user.id).maybeSingle()
+    let { data, error } = await ler()
+    if (error) return { error: error.message }
+    if (!data) {
+      const r = await supabase.from('tarefas_listas').insert({ nome: 'Lista pessoal', dono_id: user.id, pasta_id: null, statuses: STATUSES_PADRAO, posicao: 0 }).select().single()
+      if (r.error && r.error.code === '23505') ({ data, error } = await ler()) // outra aba criou junto
+      else ({ data, error } = r)
+      if (error) return { error: error.message }
+    }
+    if (data.arquivada) {
+      const r = await supabase.from('tarefas_listas').update({ arquivada: false }).eq('id', data.id).select().single()
+      if (r.error) return { error: r.error.message }
+      data = r.data
+    }
+    setListas((prev) => (prev.some((l) => l.id === data.id) ? prev : [...prev, data]))
+    return { data }
+  }, [user?.id])
 
   const atualizarLista = useCallback(async (id, patch) => {
     const { data, error } = await supabase.from('tarefas_listas').update(patch).eq('id', id).select().single()
@@ -600,7 +627,7 @@ export function useTarefas(user) {
     carregarEstrutura, carregarListas, carregarMinhas, carregarAbertas, carregarPorCampo, carregarPorIds, carregarTarefa, aplicarLocal,
     criarTarefa, atualizarTarefa, mudarStatus, excluirTarefa, arquivarTarefa, moverTarefa,
     ocultarLocal, reexibirLocal, soltarOcultas,
-    criarPasta, atualizarPasta, atualizarLista,
+    criarPasta, atualizarPasta, atualizarLista, listaPessoal, garantirListaPessoal,
     carregarComentarios, criarComentario, excluirComentario,
     // relações (tarefas_relacoes) são gravadas fora do hook: quem grava pede o envio ao ClickUp
     agendarPush,

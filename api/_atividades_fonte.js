@@ -30,7 +30,7 @@ async function todas(path, { passo = 1000 } = {}) {
 /** Mapas de apoio (listas, pastas, projetos, perfis) carregados uma vez por request. */
 export async function carregarMapas() {
   const [listas, pastas, projetos, perfis] = await Promise.all([
-    todas('/tarefas_listas?select=id,nome,pasta_id,clickup_list_id,statuses,arquivada,posicao'),
+    todas('/tarefas_listas?select=id,nome,pasta_id,clickup_list_id,statuses,arquivada,posicao,dono_id'),
     todas('/tarefas_pastas?select=id,nome,project_id,clickup_folder_id,arquivada,espaco'),
     todas('/projects_v2?select=id,company_name,clickup_folder_id'),
     todas('/profiles?select=id,name,email,clickup_user_id,disabled'),
@@ -110,6 +110,8 @@ export function tarefaParaClickUp(row, mapas) {
 function listaViva(row, mapas) {
   const lista = mapas.listas.get(row.lista_id)
   if (!lista || lista.arquivada) return false
+  // lista pessoal (migration 145) é particular: o Atividades é visto pelo time inteiro
+  if (lista.dono_id) return false
   const pasta = lista.pasta_id ? mapas.pastas.get(lista.pasta_id) : null
   return !(pasta && pasta.arquivada)
 }

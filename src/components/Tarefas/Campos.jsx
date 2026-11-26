@@ -4,7 +4,7 @@
 // não serem cortados pela rolagem da tabela.
 import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, Search, X, Clock3, Plus, User, Flag, CalendarDays, Folder } from 'lucide-react'
+import { Check, Search, X, Clock3, Plus, User, Flag, CalendarDays, Folder, Lock } from 'lucide-react'
 import {
   PRIORIDADES, TIPOS_TAREFA, DIFICULDADES, rotuloStatus, rotuloPrioridade, rotuloTipoTarefa, rotuloDificuldade, statusInicial, pessoasDaTarefa, pessoaDoPerfil, pessoaExtra,
   fmtDataNumerica, fmtDataCurta, paraInputDate, deInputDate, fmtEstimativa, parseEstimativa, paraData, inicioDoDia,
@@ -107,7 +107,7 @@ export function ListasBusca({ grupos, valor, onEscolher, desabilitada }) {
     const q = semAcentoLista(busca.trim())
     if (!q) return grupos
     return grupos
-      .map((g) => (semAcentoLista(g.pasta?.nome).includes(q) ? g : { ...g, listas: g.listas.filter((l) => semAcentoLista(l.nome).includes(q)) }))
+      .map((g) => (semAcentoLista(g.rotulo || g.pasta?.nome).includes(q) ? g : { ...g, listas: g.listas.filter((l) => semAcentoLista(l.nome).includes(q)) }))
       .filter((g) => g.listas.length)
   }, [grupos, busca])
   return (
@@ -115,8 +115,8 @@ export function ListasBusca({ grupos, valor, onEscolher, desabilitada }) {
       <BuscaMenu valor={busca} onChange={setBusca} placeholder={t('tarefaPainel.nova.buscarClienteLista')} />
       <div className="p-1 overflow-y-auto" role="listbox">
         {filtrados.map((g) => (
-          <div key={g.pasta?.id || 'soltas'}>
-            <div className="flex items-center gap-1.5 px-2.5 pt-2 pb-1 text-[11px] text-ln-t4"><Folder className="w-3 h-3" /><span className="truncate">{g.pasta?.nome || t('tarefaPainel.nova.semPasta')}</span></div>
+          <div key={g.pasta?.id || (g.pessoal ? 'pessoal' : 'soltas')}>
+            <div className="flex items-center gap-1.5 px-2.5 pt-2 pb-1 text-[11px] text-ln-t4">{g.pessoal ? <Lock className="w-3 h-3" /> : <Folder className="w-3 h-3" />}<span className="truncate">{g.rotulo || g.pasta?.nome || t('tarefaPainel.nova.semPasta')}</span></div>
             {g.listas.map((l) => (
               <ItemMenu key={l.id} ativo={l.id === valor} onClick={() => { if (l.id !== desabilitada) onEscolher(l.id) }} className={l.id === desabilitada ? 'opacity-50 cursor-default hover:!bg-transparent' : ''}>
                 <span className="truncate pl-4">{l.nome}</span>

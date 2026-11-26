@@ -275,6 +275,9 @@ export default function AreaTarefas({
   }, [tarefaAbertaId, abrirTarefa])
 
   // ── Escopo: listas da seleção ────────────────────────────────────────────
+  // Lista pessoal (só a do usuário vem do banco): grupo próprio no topo dos seletores de lista
+  const grupoPessoal = useMemo(() => (t.listaPessoal ? [{ pasta: null, rotulo: tr('horas.pessoal.grupoBusca'), pessoal: true, listas: [t.listaPessoal] }] : []), [t.listaPessoal, tr])
+  const naListaPessoal = !!(sel.tipo === 'lista' && t.listaPessoal && sel.id === t.listaPessoal.id)
   const listasEscopo = useMemo(() => {
     if (sel.tipo === 'lista') { const l = t.listasMap.get(sel.id); return l ? [l] : [] }
     if (sel.tipo === 'pasta') return t.listas.filter((l) => l.pasta_id === sel.id)
@@ -464,24 +467,24 @@ export default function AreaTarefas({
     if (tarefaAbertaId) abrirTarefa(null)
     setPainelView(null)
     const eu = user?.id
-    setNovaInicial({ lista_id: listaPadraoId, responsaveis: sel.tipo === 'minhas' && eu ? [eu] : [] })
-  }, [tarefaAbertaId, abrirTarefa, listaPadraoId, sel.tipo, user])
+    setNovaInicial({ lista_id: listaPadraoId, responsaveis: (sel.tipo === 'minhas' || naListaPessoal) && eu ? [eu] : [] })
+  }, [tarefaAbertaId, abrirTarefa, listaPadraoId, sel.tipo, user, naListaPessoal])
   const gruposNova = useMemo(() => {
-    const ativas = (ls) => ls.filter((l) => !l.arquivada).sort((a, b) => (Number(a.ordem) || 0) - (Number(b.ordem) || 0) || a.nome.localeCompare(b.nome, 'pt-BR'))
-    if (listasEscopo.length) return [{ pasta: t.pastasMap.get(listasEscopo[0].pasta_id) || null, listas: ativas(sel.tipo === 'pasta' ? listasEscopo : t.listas.filter((l) => l.pasta_id === listasEscopo[0].pasta_id)) }]
-    return t.pastas.filter((p) => !p.arquivada)
+    const ativas = (ls) => ls.filter((l) => !l.arquivada && !l.dono_id).sort((a, b) => (Number(a.ordem) || 0) - (Number(b.ordem) || 0) || a.nome.localeCompare(b.nome, 'pt-BR'))
+    if (listasEscopo.length && !naListaPessoal) return [{ pasta: t.pastasMap.get(listasEscopo[0].pasta_id) || null, listas: ativas(sel.tipo === 'pasta' ? listasEscopo : t.listas.filter((l) => l.pasta_id === listasEscopo[0].pasta_id)) }]
+    return [...grupoPessoal, ...t.pastas.filter((p) => !p.arquivada)
       .map((p) => ({ pasta: p, listas: ativas(t.listas.filter((l) => l.pasta_id === p.id)) }))
       .filter((g) => g.listas.length)
-      .sort((a, b) => a.pasta.nome.localeCompare(b.pasta.nome, 'pt-BR'))
-  }, [listasEscopo, sel.tipo, t.pastas, t.listas, t.pastasMap])
+      .sort((a, b) => a.pasta.nome.localeCompare(b.pasta.nome, 'pt-BR'))]
+  }, [listasEscopo, sel.tipo, t.pastas, t.listas, t.pastasMap, naListaPessoal, grupoPessoal])
   // todas as pastas com as listas ativas: destino do "Mover para lista" (pode ir para outro cliente)
   const gruposTodas = useMemo(() => {
     const ativas = (ls) => ls.filter((l) => !l.arquivada).sort((a, b) => (Number(a.ordem) || 0) - (Number(b.ordem) || 0) || a.nome.localeCompare(b.nome, 'pt-BR'))
-    return t.pastas.filter((p) => !p.arquivada)
+    return [...grupoPessoal, ...t.pastas.filter((p) => !p.arquivada)
       .map((p) => ({ pasta: p, listas: ativas(t.listas.filter((l) => l.pasta_id === p.id)) }))
       .filter((g) => g.listas.length)
-      .sort((a, b) => a.pasta.nome.localeCompare(b.pasta.nome, 'pt-BR'))
-  }, [t.pastas, t.listas])
+      .sort((a, b) => a.pasta.nome.localeCompare(b.pasta.nome, 'pt-BR'))]
+  }, [t.pastas, t.listas, grupoPessoal])
   const moverParaLista = useCallback(async (it, listaId) => {
     if (!listaId || listaId === it.lista_id) return
     const r = await t.moverTarefa(it.id, listaId)
@@ -610,7 +613,7 @@ export default function AreaTarefas({
   const listasComClickup = useMemo(() => new Set(t.listas.filter((l) => l.clickup_list_id).map((l) => l.id)), [t.listas])
   // "Adicionar tarefa" da Lista: em Minhas tarefas o responsável já é você
   const euId = user?.id
-  const responsaveisPadrao = useMemo(() => (sel.tipo === 'minhas' && euId ? [euId] : []), [sel.tipo, euId])
+  const responsaveisPadrao = useMemo(() => ((sel.tipo === 'minhas' || naListaPessoal) && euId ? [euId] : []), [sel.tipo, euId, naListaPessoal])
   const ctx = useMemo(() => ({
     statuses, membros: teamMembers || [], membrosMap, itensMap: t.itens, listaPadraoId, agrupar, contagemComentarios, selecionadaId: tarefaAbertaId,
     onAbrir: abrirTarefa, onAtualizar, onMudarStatus, onCriar, etiquetasMap: vt.etiquetasMap, listasComClickup,
@@ -1049,6 +1052,7 @@ export default function AreaTarefas({
                   onRelacoesMudaram={() => t.agendarPush?.()}
                   gruposListas={gruposTodas}
                   onMoverLista={moverParaLista}
+                  onAviso={showToast}
                   entrega={<EntregaPainel item={tarefaAberta} carregarGrafo={carregarGrafo} gravar={gravarCascata} confirmar={confirmar} avisar={showToast} />}
                 />
               ) : (

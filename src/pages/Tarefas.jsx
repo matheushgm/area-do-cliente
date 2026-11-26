@@ -10,7 +10,7 @@ import { apiFetch } from '../lib/api'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useOutletContext } from 'react-router-dom'
 import CompartilharLista from '../components/Tarefas/CompartilharLista'
-import { Menu, ChevronRight, Plus, Loader2, PanelLeft, PanelLeftClose, PanelLeftOpen, RefreshCw, CloudUpload, ExternalLink, AlertTriangle } from 'lucide-react'
+import { Menu, ChevronRight, Plus, Loader2, PanelLeft, PanelLeftClose, PanelLeftOpen, RefreshCw, CloudUpload, ExternalLink, AlertTriangle, Lock } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import Toast from '../components/UI/Toast'
@@ -23,6 +23,8 @@ import AtividadesModulo from '../components/Atividades/AtividadesModulo'
 import PaginasView from '../components/Tarefas/PaginasView'
 import AnalyticsView from '../components/Tarefas/AnalyticsView'
 import SincronizacaoView from '../components/Tarefas/SincronizacaoView'
+import HorasView from '../components/Tarefas/HorasView'
+import { TimerAtivo } from '../components/Tarefas/TimerTarefa'
 import { usePaginas } from '../hooks/usePaginas'
 import { cicloPadrao } from '../lib/vertatask'
 import TarefasSidebar from '../components/Tarefas/TarefasSidebar'
@@ -168,11 +170,11 @@ export default function Tarefas() {
   // ── Seleção (pasta / lista / minhas) via URL ─────────────────────────────
   // usuário só VertaTask (terceiro): só as tarefas dos clientes dele, sem as outras seções
   const restrito = !!user?.restrito
-  const aba = restrito ? null : params.get('aba') // null = tarefas | 'intake' | 'sprints' | 'ciclos' | 'templates' | 'paginas' | 'analytics' | 'sincronizacao' | 'chat' | 'atividades'
+  const aba = restrito ? null : params.get('aba') // null = tarefas | 'intake' | 'sprints' | 'ciclos' | 'templates' | 'paginas' | 'analytics' | 'horas' | 'sincronizacao' | 'chat' | 'atividades'
   const sprints = useSprints(user, { ativo: aba === 'sprints' })
   const sel = useMemo(() => {
     if (aba === 'ciclos') return { tipo: 'ciclo', id: params.get('ciclo') || cicloPadrao(vt.ciclos)?.id || null }
-    if (aba === 'sprints' || aba === 'templates' || aba === 'intake' || aba === 'chat' || aba === 'atividades' || aba === 'paginas' || aba === 'analytics' || aba === 'sincronizacao') return { tipo: 'nenhum' }
+    if (aba === 'sprints' || aba === 'templates' || aba === 'intake' || aba === 'chat' || aba === 'atividades' || aba === 'paginas' || aba === 'analytics' || aba === 'horas' || aba === 'sincronizacao') return { tipo: 'nenhum' }
     if (params.get('lista')) return { tipo: 'lista', id: params.get('lista') }
     if (params.get('pasta')) return { tipo: 'pasta', id: params.get('pasta') }
     if (params.get('minhas') === '1') return { tipo: 'minhas' }
@@ -191,6 +193,13 @@ export default function Tarefas() {
     else p.set('minhas', '1')
     setParams(p)
   }, [setParams])
+
+  // Lista pessoal: a lista nasce no primeiro clique (uma por pessoa, só ela vê)
+  const abrirPessoal = useCallback(async () => {
+    const r = t.listaPessoal ? { data: t.listaPessoal } : await t.garantirListaPessoal()
+    if (r.error) { showToast(tt('horas.pessoal.erroCriar', { erro: r.error }), 'error'); return }
+    setSel({ tipo: 'lista', id: r.data.id })
+  }, [t, setSel, showToast, tt])
 
   const irAba = useCallback((a, extra = {}) => {
     if (a === 'tarefas') { setSel(lerPref('sel', null) || { tipo: 'minhas' }); return }
@@ -296,8 +305,9 @@ export default function Tarefas() {
   // ── Cabeçalho ────────────────────────────────────────────────────────────
   const pastaSel = sel.tipo === 'pasta' ? t.pastasMap.get(sel.id) : sel.tipo === 'lista' ? t.pastasMap.get(t.listasMap.get(sel.id)?.pasta_id) : null
   const listaSel = sel.tipo === 'lista' ? t.listasMap.get(sel.id) : null
+  const listaPessoalAberta = !!listaSel?.dono_id
   // seções que trocam a área de tarefas por outro conteúdo (Cycles mantém a área, com o resumo em cima)
-  const ehSecao = aba === 'intake' || aba === 'sprints' || aba === 'templates' || aba === 'paginas' || aba === 'analytics' || aba === 'sincronizacao'
+  const ehSecao = aba === 'intake' || aba === 'sprints' || aba === 'templates' || aba === 'paginas' || aba === 'analytics' || aba === 'horas' || aba === 'sincronizacao'
 
   const cabecalho = (api) => (
     <header className="min-h-[56px] shrink-0 flex items-center justify-between gap-3 px-6 py-2 border-b border-ln-ink/[0.08]">
@@ -310,7 +320,7 @@ export default function Tarefas() {
         >
           {colunaRecolhida ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
         </button>
-        <h1 className="text-xl font-bold text-ln-t1 truncate">{['intake', 'sprints', 'ciclos', 'templates', 'paginas', 'analytics', 'sincronizacao'].includes(aba) ? tt(`tarefas.pagina.titulo.${aba}`) : tt('tarefas.pagina.titulo.tarefas')}</h1>
+        <h1 className="text-xl font-bold text-ln-t1 truncate">{aba === 'horas' ? tt('horas.dash.titulo') : ['intake', 'sprints', 'ciclos', 'templates', 'paginas', 'analytics', 'sincronizacao'].includes(aba) ? tt(`tarefas.pagina.titulo.${aba}`) : tt('tarefas.pagina.titulo.tarefas')}</h1>
         {!aba && (
           <div className="hidden sm:flex items-center gap-1.5 text-[13px] text-ln-t3 min-w-0">
             {pastaSel && (<>
@@ -318,7 +328,12 @@ export default function Tarefas() {
               <button type="button" onClick={() => setSel({ tipo: 'pasta', id: pastaSel.id })} className={`truncate max-w-[200px] rounded ${listaSel ? 'hover:text-ln-t1' : 'text-ln-t2'} ${FOCO}`}>{pastaSel.nome}</button>
               <LinkClickUp href={urlClickUpPasta(pastaSel)} titulo={tt('tarefas.pagina.abrirPastaClickup')} />
             </>)}
-            {listaSel && (<>
+            {listaPessoalAberta && (<>
+              <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
+              <span className="inline-flex items-center gap-1 text-ln-t2"><Lock className="w-3 h-3" />{tt('horas.pessoal.titulo')}</span>
+              <span className="ln-pill !h-5 !px-1.5 text-[10.5px]" title={tt('horas.pessoal.seloTitulo')}>{tt('horas.pessoal.selo')}</span>
+            </>)}
+            {listaSel && !listaPessoalAberta && (<>
               <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="truncate max-w-[200px] text-ln-t2">{listaSel.nome}</span>
               <LinkClickUp href={urlClickUpLista(listaSel)} titulo={tt('tarefas.pagina.abrirListaClickup')} />
             </>)}
@@ -327,12 +342,13 @@ export default function Tarefas() {
           </div>
         )}
         {/* link público da lista aberta (ou da pasta inteira do cliente) */}
-        {!aba && !restrito && (listaSel || pastaSel) && (
+        {!aba && !restrito && !listaPessoalAberta && (listaSel || pastaSel) && (
           <CompartilharLista key={listaSel?.id || pastaSel?.id} listaId={listaSel?.id || null} pastaId={listaSel ? null : pastaSel?.id} nome={listaSel?.nome || pastaSel?.nome} user={user} avisar={showToast} />
         )}
         {(!aba || aba === 'ciclos') && <span className="hidden xl:inline text-xs text-ln-t4 tabular whitespace-nowrap">{tt('tarefas.pagina.nAbertas', { count: api.totalAbertas })}</span>}
       </div>
       <div className="flex items-center gap-2 shrink-0">
+        <TimerAtivo user={user} onAbrir={api.abrirTarefa} onAviso={showToast} />
         {t.carregando && <Loader2 className="w-3.5 h-3.5 animate-spin text-ln-t4" />}
         <button
           type="button"
@@ -377,6 +393,8 @@ export default function Tarefas() {
       <PaginasView pg={pgHook} projetos={projects || []} user={user} paginaId={params.get('pagina')} onSelecionar={(id) => setParams(id ? new URLSearchParams({ aba: 'paginas', pagina: id }) : new URLSearchParams({ aba: 'paginas' }))} onToast={showToast} />
     ) : aba === 'analytics' ? (
       <AnalyticsView />
+    ) : aba === 'horas' ? (
+      <HorasView membros={teamMembers || []} membrosMap={membrosMap} pastasMap={t.pastasMap} listasMap={t.listasMap} projetos={projects || []} onAbrirTarefa={api.abrirTarefa} />
     ) : aba === 'sincronizacao' ? (
       <SincronizacaoView
         membrosMap={membrosMap} listasMap={t.listasMap} pastasMap={t.pastasMap}
@@ -416,7 +434,7 @@ export default function Tarefas() {
               onAtualizarLista={t.atualizarLista}
               aberta={arvoreAberta} onFechar={() => setArvoreAberta(false)}
               recolhida={colunaRecolhida && aba !== 'chat' && aba !== 'atividades'}
-              nav={{ restrito, aba: aba || 'tarefas', onAba: irAba, intake: vt.intakePendentes.length, chat: chatNaoLidas, syncErros }}
+              nav={{ restrito, aba: aba || 'tarefas', onAba: irAba, intake: vt.intakePendentes.length, chat: chatNaoLidas, syncErros, onPessoal: abrirPessoal, pessoalAtiva: listaPessoalAberta }}
               contagem={contagemPorPasta}
             />
 
@@ -430,7 +448,7 @@ export default function Tarefas() {
                   <CiclosView ciclos={vt.ciclos} ciclo={sel.id ? vt.ciclosMap.get(sel.id) : null} itens={todos} onSel={(id) => irAba('ciclos', { ciclo: id })} vt={vt} onToast={showToast} unidade={unidadeBurn} onUnidade={setUnidadeBurn} membros={teamMembers || []} onMoverPendentes={moverPendentes} />
                 ) : null}
                 semRolagem={aba === 'paginas' || aba === 'templates' || aba === 'sprints'}
-                atalhoCriar={aba !== 'paginas' && aba !== 'templates'}
+                atalhoCriar={aba !== 'paginas' && aba !== 'templates' && aba !== 'horas'}
                 onIrParaLista={irParaLista} onAbrirTemplate={abrirTemplate}
               />
             )}

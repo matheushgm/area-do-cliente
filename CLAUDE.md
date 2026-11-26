@@ -1615,6 +1615,40 @@ cada meta é explodida em atividades e o % sai delas**. Na pasta Sprint do Click
 - `Cycles` continua no menu, sem nenhuma linha em `tarefas_ciclos`, e a coluna "Sprints" da Lista ainda é o `ciclo_id`.
 - Sem login: `/dev/sprints` (só em DEV, em memória, com os dois squads; `?hoje=AAAA-MM-DD` simula o dia e `window.__hoje` muda sem recarregar).
 
+#### Lista pessoal e timer das tarefas (2026-11-26, migration 145, pedido do Matheus)
+
+- **Lista pessoal:** item "Lista pessoal" na coluna do VertaTask (abaixo de Minhas tarefas). Cada pessoa tem uma
+  `tarefas_listas` com `dono_id` = ela, sem pasta e sem ClickUp, criada no primeiro clique (`garantirListaPessoal`
+  em `useTarefas`; índice único por dono). A tela é a mesma área de tarefas (`?lista=<id>`), com cadeado e o selo
+  "Só você vê" no breadcrumb, sem Compartilhar, e a tarefa nova já vem com a pessoa de responsável.
+  - **Privacidade é a RLS:** `tarefas_itens.privada_de` (trigger `trg_tarefas_itens_privada` copia o `dono_id` da
+    lista a cada insert/troca de lista; o cliente não consegue alterar). Políticas restritivas `*_pessoal` em
+    `tarefas_listas`, `tarefas_itens` e, por `tarefas_privadas_de_outros()` (security definer, avaliada uma vez por
+    consulta), em comentários, histórico (`tarefas_atividade`), seguidores e relações. Outra pessoa não lê nem grava.
+  - **Nunca vai para o ClickUp:** `trg_tarefas_outbox_sem_pessoal` descarta na entrada da `tarefas_outbox` qualquer
+    item de tarefa com `privada_de`. Mover uma tarefa da lista pessoal para a lista de um cliente cria a tarefa no
+    ClickUp normalmente; o contrário é recusado em `moverTarefa` quando a tarefa já existe no ClickUp.
+  - **Leituras com a chave de serviço** não passam pela RLS: o Atividades (`api/_atividades_fonte.js`, `listaViva`)
+    ignora listas com `dono_id`. Código novo que leia `tarefas_itens` no servidor e mostre ao time precisa do mesmo
+    filtro (`privada_de is null`).
+  - Seletores de lista (tarefa nova, Mover para lista) ganham o grupo "Lista pessoal" no topo (`grupoPessoal` em
+    `AreaTarefas`, `rotulo`/`pessoal` em `ListasBusca`). A árvore de Clientes não mostra listas com `dono_id`.
+- **Timer:** tabela `tarefas_tempo` (`tarefa_id`, `user_id`, `inicio`, `fim`, `segundos` gerado, `origem`
+  timer/manual, `nota`), um timer rodando por pessoa (índice único com `fim` nulo). RPCs `tarefas_timer_iniciar(p_tarefa)`
+  (para o que estiver rodando e abre outro, com o relógio do banco) e `tarefas_timer_parar()`. Leitura liberada ao
+  time; cada um grava/apaga só o próprio tempo; fechada para o usuário só VertaTask (o timer some para ele).
+  - Tela: linha "Tempo" no painel da tarefa (`TimerTarefa.jsx`: iniciar/parar, total, registros de todo o time,
+    adicionar tempo à mão com "1h30"/"45min"/"1:15", excluir o próprio registro) e a pílula vermelha do timer rodando no
+    cabeçalho do VertaTask (`TimerAtivo`, clique abre a tarefa). Estado compartilhado em `src/hooks/useTimer.js` (um
+    canal realtime por página).
+  - **Dashboard "Horas"** (`?aba=horas`, `HorasView.jsx`): período (hoje, esta semana, 7/30 dias, este mês, mês
+    passado), pessoa, KPIs, horas por dia, por tipo de atividade (`tipo_tarefa`; subtarefa sem tipo herda o da mãe), por
+    pessoa, por cliente (pasta) e tabela por atividade com estimado × registrado; clicar numa barra filtra; "Baixar CSV".
+    Timer que passa da meia-noite conta em cada dia a parte dele (`partesPorDia` em `src/lib/tempo.js`). Horas de
+    tarefa da lista pessoal de outra pessoa entram no total como "Lista pessoal (privada)", sem título.
+  - O tempo não vai para o time tracking do ClickUp.
+  - Sem login: `/dev/horas` (DEV) roda o timer e o dashboard com um banco em memória.
+
 ### Chat (módulo do VertaTask, `/tarefas?aba=chat`): réplica do ClickUp Chat
 
 > **Desde 2026-10-16 o Chat é uma seção do VertaTask**, no item "Chat" da coluna esquerda (com

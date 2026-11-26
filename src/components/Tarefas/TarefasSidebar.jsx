@@ -1,7 +1,7 @@
 // Coluna esquerda do módulo Tarefas: árvore Pastas (clientes) → Listas, no
 // visual do Linear (mesma coluna de navegação densa do app).
 import { useState, useMemo, useRef, Fragment } from 'react'
-import { ChevronRight, List, Plus, Search, User, MoreHorizontal, Pencil, Archive, X, Inbox, Repeat, LayoutTemplate, ListChecks, MessageSquare, CalendarCheck, FileText, BarChart3, ArrowLeftRight, Zap } from 'lucide-react'
+import { ChevronRight, List, Plus, Search, User, MoreHorizontal, Pencil, Archive, X, Inbox, Repeat, LayoutTemplate, ListChecks, MessageSquare, CalendarCheck, FileText, BarChart3, ArrowLeftRight, Zap, Lock, Timer } from 'lucide-react'
 import { CHAT_OFFLINE } from '../../lib/chat'
 import { Popover, FOCO } from './Campos'
 import { useI18n } from '../../i18n'
@@ -78,6 +78,7 @@ export default function TarefasSidebar({
   const listasPorPasta = useMemo(() => {
     const m = new Map()
     for (const l of listas) {
+      if (l.dono_id) continue // lista pessoal: item próprio no topo, fora da árvore
       const k = l.pasta_id || '__soltas'
       if (!m.has(k)) m.set(k, [])
       m.get(k).push(l)
@@ -179,6 +180,9 @@ export default function TarefasSidebar({
       <div className="flex-1 min-h-0 overflow-y-auto px-2.5 pb-3">
         {!nav.restrito && <NavItem icon={Inbox} ativo={nav.aba === 'intake'} onClick={() => { nav.onAba('intake'); onFechar?.() }} badge={nav.intake}>{t('tarefas.sidebar.intake')}</NavItem>}
         <NavItem icon={User} ativo={nav.aba === 'tarefas' && sel.tipo === 'minhas'} onClick={() => { onSel({ tipo: 'minhas' }); onFechar?.() }}>{t('tarefas.sidebar.minhas')}</NavItem>
+        {!nav.restrito && nav.onPessoal && (
+          <NavItem icon={Lock} ativo={nav.aba === 'tarefas' && nav.pessoalAtiva} onClick={() => { nav.onPessoal(); onFechar?.() }}>{t('horas.pessoal.menu')}</NavItem>
+        )}
         <NavItem icon={ListChecks} ativo={nav.aba === 'tarefas' && sel.tipo === 'todas'} onClick={() => { onSel({ tipo: 'todas' }); onFechar?.() }}>{t('tarefas.sidebar.todas')}</NavItem>
         {!nav.restrito && (<>
         <NavItem icon={Zap} ativo={nav.aba === 'sprints'} onClick={() => { nav.onAba('sprints'); onFechar?.() }}>{t('tarefas.sidebar.sprints')}</NavItem>
@@ -186,6 +190,7 @@ export default function TarefasSidebar({
         <NavItem icon={LayoutTemplate} ativo={nav.aba === 'templates'} onClick={() => { nav.onAba('templates'); onFechar?.() }}>{t('tarefas.sidebar.templates')}</NavItem>
         <NavItem icon={FileText} ativo={nav.aba === 'paginas'} onClick={() => { nav.onAba('paginas'); onFechar?.() }}>{t('tarefas.sidebar.pages')}</NavItem>
         <NavItem icon={BarChart3} ativo={nav.aba === 'analytics'} onClick={() => { nav.onAba('analytics'); onFechar?.() }}>{t('tarefas.sidebar.analytics')}</NavItem>
+        <NavItem icon={Timer} ativo={nav.aba === 'horas'} onClick={() => { nav.onAba('horas'); onFechar?.() }}>{t('horas.dash.menu')}</NavItem>
         <NavItem icon={ArrowLeftRight} ativo={nav.aba === 'sincronizacao'} onClick={() => { nav.onAba('sincronizacao'); onFechar?.() }} badge={nav.syncErros}>{t('tarefas.sidebar.sincronizacao')}</NavItem>
         <NavItem icon={CalendarCheck} ativo={nav.aba === 'atividades'} onClick={() => { nav.onAba('atividades'); onFechar?.() }}>{t('tarefas.sidebar.atividades')}</NavItem>
         <NavItem icon={MessageSquare} ativo={nav.aba === 'chat'} onClick={() => { nav.onAba('chat'); onFechar?.() }} badge={nav.chat}
