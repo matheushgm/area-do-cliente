@@ -104,8 +104,14 @@ export default async function handler(req) {
   // derruba a resposta inteira em 504. Daí o fatiamento por dia abaixo.
   // `ondas` = páginas ao mesmo tempo: as fatias já rodam 8 em paralelo, então
   // cada uma lê de 2 em 2 para não abrir 64 conexões de uma vez.
-  const readAll = async (qs, label, ondas = 8) => {
-    const rows = await lerPaginado(`${base}${qs}&select=data&order=row_key.asc`, headers,
+  //
+  // `porDia`: as fatias pedem day + row_key, que o índice (channel, day, row_key) da
+  // migration 146 devolve já na ordem. Só com row_key o Postgres lia a fatia inteira e
+  // ordenava o jsonb em arquivo temporário (work_mem de 2 MB) a CADA página: medido em
+  // 26/11/2026, 5 dias de Meta = 2,8 s por página, 6,8 MB em disco.
+  const readAll = async (qs, label, ondas = 8, porDia = false) => {
+    const order = porDia ? 'day.asc,row_key.asc' : 'row_key.asc'
+    const rows = await lerPaginado(`${base}${qs}&select=data&order=${order}`, headers,
       { ondas, max: MAX_ROWS, rotulo: label })
     return rows.map(row => row.data)
   }
@@ -148,7 +154,7 @@ export default async function handler(req) {
         rows = []
         for (let i = 0; i < fatias.length; i += CONCURRENCY) {
           const lote = fatias.slice(i, i + CONCURRENCY)
-          const res = await Promise.all(lote.map((qs, j) => readAll(qs, `${channel} fatia ${i + j}`, 2)))
+          const res = await Promise.all(lote.map((qs, j) => readAll(qs, `${channel} fatia ${i + j}`, 2, true)))
           for (const parte of res) for (const row of parte) rows.push(row)
           if (rows.length > MAX_ROWS) break
         }

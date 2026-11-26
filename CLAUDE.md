@@ -617,6 +617,20 @@ linhas de cada conta), que importa a cópia `public/dash-teste/vendor/dashCache.
   peça o que pedir. Medido em 2026-10-28 antes da mudança: rollup Meta = 30 páginas em série = 11 s.
   A 1ª página vai sozinha (a maioria das leituras cabe nela); as ondas só abrem se ela vier cheia.
   Índice `dash_insights (channel, account, day)` (migration 118) para as leituras por conta com janela.
+- **Disk IO (2026-11-26, migration 146):** o Supabase avisou que o orçamento de Disk IO acabou (instância Micro,
+  1 GB) e o banco passou a dar statement timeout. Quase tudo vinha da `dash_insights`: o upsert do coletor
+  (`merge-duplicates`, 8 dias, de hora em hora) regravava a linha mesmo igual (28 milhões de UPDATE em 346 mil
+  linhas, 71 GB de WAL desde março), e as fatias por dia do `/api/dash-data` ordenavam o jsonb em arquivo
+  temporário a cada página (2,8 s e 6,8 MB por página de 5 dias de Meta). A 146 põe o gatilho
+  `trg_dash_insights_pula_igual` (UPDATE com `data`, `day` e `account` iguais não grava nada) e o índice
+  `(channel, day, row_key)`, e as fatias pedem `order=day.asc,row_key.asc`. **Leitura fatiada por dia ordena por
+  `day,row_key`**, senão volta a ordenar em disco. OFFSET no snapshot `meta_status` (7,7 mil linhas) custa 13 ms,
+  tudo do cache: não é gargalo, e ler por cursor deixava a tela 3x mais lenta (páginas em série).
+  Medido na rodada de 26/11 15:17 UTC (contando as linhas pelo `xmin`): Meta caiu de 5.421 linhas regravadas para 423
+  e Google de 447 para 48. **Ainda pesa o `google_keywords`**: 96 mil linhas regravadas inteiras 3 vezes por dia
+  (às 6, 12 e 18 h), porque o coletor carimba `Coletado` em cada linha e apaga as que ficaram com carimbo antigo. O
+  gatilho não pode ignorar o carimbo: a limpeza apagaria as palavras que não mudaram. Corrigir no `dashboard-api`
+  (limpar pelas chaves coletadas, sem carimbo por linha).
 - **Página do cliente:** a lista de TODAS as contas (`dash_accounts_public`) só é lida quando o
   seletor "+ vincular conta" abre (`carregarTodasContas` do `useDashboardData`); os canais das
   contas do projeto vêm de 1 linha por conta e canal no `dash_daily` (opção `canais`, só a seção
