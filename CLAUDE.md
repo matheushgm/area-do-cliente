@@ -627,10 +627,12 @@ linhas de cada conta), que importa a cópia `public/dash-teste/vendor/dashCache.
   `day,row_key`**, senão volta a ordenar em disco. OFFSET no snapshot `meta_status` (7,7 mil linhas) custa 13 ms,
   tudo do cache: não é gargalo, e ler por cursor deixava a tela 3x mais lenta (páginas em série).
   Medido na rodada de 26/11 15:17 UTC (contando as linhas pelo `xmin`): Meta caiu de 5.421 linhas regravadas para 423
-  e Google de 447 para 48. **Ainda pesa o `google_keywords`**: 96 mil linhas regravadas inteiras 3 vezes por dia
-  (às 6, 12 e 18 h), porque o coletor carimba `Coletado` em cada linha e apaga as que ficaram com carimbo antigo. O
-  gatilho não pode ignorar o carimbo: a limpeza apagaria as palavras que não mudaram. Corrigir no `dashboard-api`
-  (limpar pelas chaves coletadas, sem carimbo por linha).
+  e Google de 447 para 48. O `google_keywords` regravava as 96 mil linhas inteiras 3 vezes por dia (às 6, 12 e 18 h)
+  porque o coletor carimbava `Coletado` em cada linha e apagava as de carimbo antigo. **Resolvido nas migrations
+  147/148 + `dashboard-api` PR #2 (26/11):** as linhas vão sem carimbo e o que saiu do Google é apagado pela RPC
+  `dash_keywords_limpar(p_account, p_keys, p_depois, p_lote)`, que recebe as chaves coletadas no corpo do POST e
+  apaga em lotes de 4 mil (cursor `p_depois`; numa chamada só a NectarCRM, 32 mil chaves, passava dos 8 s do
+  `authenticator`). Medido: 2ª e 3ª coletas com 0 regravadas. Conta não coletada não é limpa.
 - **Página do cliente:** a lista de TODAS as contas (`dash_accounts_public`) só é lida quando o
   seletor "+ vincular conta" abre (`carregarTodasContas` do `useDashboardData`); os canais das
   contas do projeto vêm de 1 linha por conta e canal no `dash_daily` (opção `canais`, só a seção
