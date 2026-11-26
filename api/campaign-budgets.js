@@ -1,4 +1,4 @@
-import { getUser, jsonErr } from './_http.js'
+import { getUser, jsonErr, msg } from './_http.js'
 // Edge function — lê o ORÇAMENTO DIÁRIO CONFIGURADO nas campanhas ativas de
 // Meta E Google Ads para as contas pedidas (por nome, igual aparecem no dash).
 //
@@ -274,9 +274,9 @@ export default async function handler(req) {
   const googleConfigured = !!(gadsEnv.developerToken && gadsEnv.clientId
     && gadsEnv.clientSecret && gadsEnv.refreshToken)
 
-  if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr('Servidor não configurado.', 500)
+  if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr(msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), 500)
   if (!metaTokens.length && !googleConfigured) {
-    return jsonErr('Nenhuma credencial de anúncios configurada na Vercel.', 503)
+    return jsonErr(msg(req, { pt: 'Nenhuma credencial de anúncios configurada na Vercel.', en: 'No ad platform credentials are configured on Vercel.' }), 503)
   }
 
   // ── Autenticação (mesmo padrão de ad-preview/dash-data) ────────────────────
@@ -287,8 +287,8 @@ export default async function handler(req) {
   const url = new URL(req.url)
   const names = (url.searchParams.get('accounts') || '')
     .split('|').map((s) => s.trim()).filter(Boolean)
-  if (!names.length) return jsonErr('Informe ?accounts=Nome1|Nome2.', 400)
-  if (names.length > 10) return jsonErr('Máximo de 10 contas por chamada.', 400)
+  if (!names.length) return jsonErr(msg(req, { pt: 'Informe ?accounts=Nome1|Nome2.', en: 'Pass ?accounts=Name1|Name2.' }), 400)
+  if (names.length > 10) return jsonErr(msg(req, { pt: 'Máximo de 10 contas por chamada.', en: 'Up to 10 accounts per request.' }), 400)
 
   // ── Meta e Google em paralelo; erro num canal não derruba o outro ──────────
   const warnings = []

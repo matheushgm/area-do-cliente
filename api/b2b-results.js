@@ -1,4 +1,4 @@
-import { jsonCors, preflight, sb } from './_http.js'
+import { jsonCors, preflight, sb, msg } from './_http.js'
 import { mergeResultados } from './_resultados_merge.js'
 // Public Edge Function — validated only by client_share_token
 // Mirror de b2c-results.js, mas opera na chave `b2b` do JSONB `resultados.data`.
@@ -13,20 +13,20 @@ export default async function handler(req) {
   if (req.method === 'OPTIONS') return preflight()
 
   if (!SUPABASE_URL || !SERVICE_KEY) {
-    return json({ error: 'Servidor não configurado.' }, 500)
+    return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
   }
 
   // ── GET — carrega resultados b2b pelo token ──────────────────────────────
   if (req.method === 'GET') {
     const url   = new URL(req.url)
     const token = url.searchParams.get('token')
-    if (!token) return json({ error: 'Token inválido.' }, 400)
+    if (!token) return json({ error: msg(req, { pt: 'Token inválido.', en: 'Invalid token.' }) }, 400)
 
     const { data: projects, status } = await sb(
       `/projects_v2?client_share_token=eq.${encodeURIComponent(token)}&select=id,company_name`
     )
     if (status !== 200 || !Array.isArray(projects) || !projects.length) {
-      return json({ error: 'Link inválido ou expirado.' }, 404)
+      return json({ error: msg(req, { pt: 'Link inválido ou expirado.', en: 'Invalid or expired link.' }) }, 404)
     }
 
     const pid = projects[0].id
@@ -47,16 +47,16 @@ export default async function handler(req) {
   // ── PATCH — salva dados b2b ───────────────────────────────────────────────
   if (req.method === 'PATCH') {
     let body
-    try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
+    try { body = await req.json() } catch { return json({ error: msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }) }, 400) }
 
     const { token, b2bData } = body
-    if (!token || !b2bData) return json({ error: 'Dados incompletos.' }, 400)
+    if (!token || !b2bData) return json({ error: msg(req, { pt: 'Dados incompletos.', en: 'Incomplete data.' }) }, 400)
 
     const { data: projects } = await sb(
       `/projects_v2?client_share_token=eq.${encodeURIComponent(token)}&select=id`
     )
     if (!Array.isArray(projects) || !projects.length) {
-      return json({ error: 'Token inválido.' }, 404)
+      return json({ error: msg(req, { pt: 'Token inválido.', en: 'Invalid token.' }) }, 404)
     }
     const pid = projects[0].id
 
@@ -77,10 +77,10 @@ export default async function handler(req) {
       prefer: 'resolution=merge-duplicates,return=representation',
       body:   JSON.stringify({ project_id: pid, period: '1900-01-01', data: merged }),
     })
-    if (status >= 400) return json({ error: 'Erro ao salvar.', detail: res }, 500)
+    if (status >= 400) return json({ error: msg(req, { pt: 'Erro ao salvar.', en: 'Failed to save.' }), detail: res }, 500)
 
     return json({ success: true })
   }
 
-  return json({ error: 'Método não permitido.' }, 405)
+  return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
 }

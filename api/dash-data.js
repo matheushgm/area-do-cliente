@@ -1,4 +1,4 @@
-import { getUser, jsonErr, lerPaginado, filtroDias } from './_http.js'
+import { getUser, jsonErr, lerPaginado, filtroDias, msg } from './_http.js'
 // Edge function — serve os dados do Dashboard de Tráfego (versão API) lendo da
 // tabela public.dash_insights no Supabase, SOMENTE para usuários autenticados.
 // Valida o JWT da sessão (igual api/anthropic.js) e repassa esse mesmo JWT ao
@@ -32,7 +32,7 @@ const addDays = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d
 export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY // chave publishable (sb_...)
-  if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr('Servidor não configurado.', 500)
+  if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr(msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), 500)
 
   // ── Autenticação ───────────────────────────────────────────────────────────
   const auth = await getUser(req)
@@ -57,7 +57,7 @@ export default async function handler(req) {
   // sem dia, lido sob demanda por conta como google_ads/google_pages.
   const ALLOWED = ['meta', 'google', 'google_terms', 'meta_status', 'google_ads', 'google_pages', 'saldo', 'google_keywords']
   if (!ALLOWED.includes(channel)) {
-    return jsonErr('channel inválido.', 400)
+    return jsonErr(msg(req, { pt: 'channel inválido.', en: 'Invalid channel.' }), 400)
   }
   // Filtro opcional por conta (pode repetir: ?account=A&account=B) — usado pelos
   // termos de pesquisa (google_terms) e pela página do cliente, que só precisa
@@ -171,7 +171,7 @@ export default async function handler(req) {
   } catch (e) {
     // Mensagem com a causa (fatia/status) para diagnóstico — endpoint é
     // autenticado, não vaza nada sensível.
-    return jsonErr(`Erro ao consultar os dados (${e?.message || e}).`, 500)
+    return jsonErr(`${msg(req, { pt: 'Erro ao consultar os dados', en: 'Could not load the data' })} (${e?.message || e}).`, 500)
   }
 
   return new Response(toCSV(rows), {

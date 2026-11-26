@@ -1,4 +1,4 @@
-import { getUser, hmacHex, jsonErr } from './_http.js'
+import { getUser, hmacHex, jsonErr, msg } from './_http.js'
 // Edge function — gera o LINK PÚBLICO (somente leitura) do dashboard de UM cliente.
 // Apenas usuários autenticados (o time) podem gerar o link. O token é um HMAC do
 // par `cliente|canal` com um segredo de servidor (SUPABASE_SERVICE_ROLE_KEY, que
@@ -10,7 +10,7 @@ export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY // chave publishable (sb_...)
   const SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY // segredo de servidor p/ o HMAC
-  if (!SUPABASE_URL || !SUPABASE_ANON || !SECRET) return jsonErr('Servidor não configurado.', 500)
+  if (!SUPABASE_URL || !SUPABASE_ANON || !SECRET) return jsonErr(msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), 500)
 
   // ── Autenticação (só o time logado gera link) ───────────────────────────────
   const auth = await getUser(req)
@@ -20,8 +20,8 @@ export default async function handler(req) {
   const url = new URL(req.url)
   const cliente = (url.searchParams.get('cliente') || '').trim()
   const canal = url.searchParams.get('canal')
-  if (!cliente) return jsonErr('cliente obrigatório.', 400)
-  if (!['meta', 'google'].includes(canal)) return jsonErr('canal inválido (use meta|google).', 400)
+  if (!cliente) return jsonErr(msg(req, { pt: 'cliente obrigatório.', en: 'cliente is required.' }), 400)
+  if (!['meta', 'google'].includes(canal)) return jsonErr(msg(req, { pt: 'canal inválido (use meta|google).', en: 'Invalid canal (use meta|google).' }), 400)
 
   const token = await hmacHex(SECRET, `${cliente}|${canal}`)
   // Usa a origem da requisição do browser (app.revenuelab.com.br), não a URL

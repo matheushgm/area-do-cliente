@@ -1,4 +1,4 @@
-import { getUser, hmacHex, jsonErr, lerPaginado, serviceKey } from './_http.js'
+import { getUser, hmacHex, jsonErr, lerPaginado, msg, serviceKey } from './_http.js'
 // Edge function — LINK PÚBLICO DE UM ANÚNCIO do Meta (página /anuncio/<token>).
 //
 // POST (time logado, JWT): { cliente, ad_id, de, ate } → { url }. O token é
@@ -77,17 +77,17 @@ async function gerarLink(req, SUPABASE_URL, SECRET, KEY) {
   const cliente = String(body.cliente || '').trim()
   const adId = String(body.ad_id || '').trim()
   const de = String(body.de || '').trim(), ate = String(body.ate || '').trim()
-  if (!cliente) return jsonErr('cliente obrigatório.', 400)
-  if (!/^\d+$/.test(adId)) return jsonErr('ad_id inválido.', 400)
-  if (!ISO.test(de) || !ISO.test(ate) || de > ate) return jsonErr('Período inválido.', 400)
+  if (!cliente) return jsonErr(msg(req, { pt: 'cliente obrigatório.', en: 'cliente is required.' }), 400)
+  if (!/^\d+$/.test(adId)) return jsonErr(msg(req, { pt: 'ad_id inválido.', en: 'Invalid ad_id.' }), 400)
+  if (!ISO.test(de) || !ISO.test(ate) || de > ate) return jsonErr(msg(req, { pt: 'Período inválido.', en: 'Invalid date range.' }), 400)
 
   // Confere que o anúncio é da conta antes de assinar, para não gerar link que
   // depois só daria erro.
   try {
     const hit = await linhasDoAnuncio(SUPABASE_URL, KEY, cliente, adId, null, null, 1)
-    if (!hit.length) return jsonErr('Anúncio não encontrado nesta conta.', 404)
+    if (!hit.length) return jsonErr(msg(req, { pt: 'Anúncio não encontrado nesta conta.', en: 'Ad not found in this account.' }), 404)
   } catch (e) {
-    return jsonErr('Falha ao validar o anúncio.', 502)
+    return jsonErr(msg(req, { pt: 'Falha ao validar o anúncio.', en: 'Failed to validate the ad.' }), 502)
   }
 
   const payload = b64url(JSON.stringify({ c: cliente, a: adId, de, ate }))
@@ -102,48 +102,48 @@ export default async function handler(req) {
   // chave de serviço atual (sb_secret, com fallback na service_role).
   const SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY || serviceKey()
   const KEY = serviceKey()
-  if (!SUPABASE_URL || !SECRET || !KEY) return jsonErr('Servidor não configurado.', 500)
+  if (!SUPABASE_URL || !SECRET || !KEY) return jsonErr(msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), 500)
 
   if (req.method === 'POST') return gerarLink(req, SUPABASE_URL, SECRET, KEY)
-  if (req.method !== 'GET') return jsonErr('Método não permitido.', 405)
+  if (req.method !== 'GET') return jsonErr(msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }), 405)
 
   // ── Token ───────────────────────────────────────────────────────────────────
   const url = new URL(req.url)
   const s = (url.searchParams.get('s') || '').trim()
   const [payload, sig] = s.split('.')
-  if (!payload || !sig) return jsonErr('Link incompleto.', 400)
+  if (!payload || !sig) return jsonErr(msg(req, { pt: 'Link incompleto.', en: 'Incomplete link.' }), 400)
   const expected = await hmacHex(SECRET, `anuncio|${payload}`)
-  if (!safeEq(sig.toLowerCase(), expected)) return jsonErr('Link inválido.', 403)
+  if (!safeEq(sig.toLowerCase(), expected)) return jsonErr(msg(req, { pt: 'Link inválido.', en: 'Invalid link.' }), 403)
   let tok
-  try { tok = JSON.parse(unb64url(payload)) } catch (e) { return jsonErr('Link inválido.', 403) }
+  try { tok = JSON.parse(unb64url(payload)) } catch (e) { return jsonErr(msg(req, { pt: 'Link inválido.', en: 'Invalid link.' }), 403) }
   const cliente = String(tok.c || ''), adId = String(tok.a || ''), de = String(tok.de || ''), ate = String(tok.ate || '')
-  if (!cliente || !/^\d+$/.test(adId) || !ISO.test(de) || !ISO.test(ate)) return jsonErr('Link inválido.', 403)
+  if (!cliente || !/^\d+$/.test(adId) || !ISO.test(de) || !ISO.test(ate)) return jsonErr(msg(req, { pt: 'Link inválido.', en: 'Invalid link.' }), 403)
 
   // ── Preview ─────────────────────────────────────────────────────────────────
   const fmt = url.searchParams.get('preview')
   if (fmt) {
     const META_TOKEN = process.env.META_TOKEN || process.env.META_ACCESS_TOKEN
-    if (!META_TOKEN) return jsonErr('Preview indisponível no momento.', 503)
+    if (!META_TOKEN) return jsonErr(msg(req, { pt: 'Preview indisponível no momento.', en: 'Preview unavailable right now.' }), 503)
     const F = fmt.toUpperCase()
-    if (!ALLOWED_FMT.includes(F)) return jsonErr('Formato de preview inválido.', 400)
+    if (!ALLOWED_FMT.includes(F)) return jsonErr(msg(req, { pt: 'Formato de preview inválido.', en: 'Invalid preview format.' }), 400)
     try {
       const hit = await linhasDoAnuncio(SUPABASE_URL, KEY, cliente, adId, null, null, 1)
-      if (!hit.length) return jsonErr('Anúncio não encontrado.', 404)
+      if (!hit.length) return jsonErr(msg(req, { pt: 'Anúncio não encontrado.', en: 'Ad not found.' }), 404)
     } catch (e) {
-      return jsonErr('Falha ao validar o anúncio.', 502)
+      return jsonErr(msg(req, { pt: 'Falha ao validar o anúncio.', en: 'Failed to validate the ad.' }), 502)
     }
     let prev
     try {
       const r = await fetch(`https://graph.facebook.com/v19.0/${adId}/previews?ad_format=${F}&access_token=${encodeURIComponent(META_TOKEN)}`)
       prev = await r.json()
-      if (!r.ok || prev.error) return jsonErr('Não foi possível gerar o preview deste formato.', 502)
+      if (!r.ok || prev.error) return jsonErr(msg(req, { pt: 'Não foi possível gerar o preview deste formato.', en: 'Couldn\'t generate the preview for this format.' }), 502)
     } catch (e) {
-      return jsonErr('Erro ao chamar o Meta.', 502)
+      return jsonErr(msg(req, { pt: 'Erro ao chamar o Meta.', en: 'Error calling Meta.' }), 502)
     }
     const m = (prev?.data?.[0]?.body || '').match(/src="([^"]+)"/)
-    if (!m) return jsonErr('Sem preview disponível para este formato.', 404)
+    if (!m) return jsonErr(msg(req, { pt: 'Sem preview disponível para este formato.', en: 'No preview available for this format.' }), 404)
     let html
-    try { html = await (await fetch(m[1].replace(/&amp;/g, '&'))).text() } catch (e) { return jsonErr('Erro ao carregar o preview.', 502) }
+    try { html = await (await fetch(m[1].replace(/&amp;/g, '&'))).text() } catch (e) { return jsonErr(msg(req, { pt: 'Erro ao carregar o preview.', en: 'Error loading the preview.' }), 502) }
     html = html.split(META_TOKEN).join('').split(encodeURIComponent(META_TOKEN)).join('')
     return json({ html }, 200, 'private, max-age=300')
   }
@@ -156,12 +156,12 @@ export default async function handler(req) {
   try {
     rows = await linhasDoAnuncio(SUPABASE_URL, KEY, cliente, adId, de, ate)
   } catch (e) {
-    return jsonErr('Falha ao ler as métricas.', 502)
+    return jsonErr(msg(req, { pt: 'Falha ao ler as métricas.', en: 'Failed to read the metrics.' }), 502)
   }
   if (!rows.length) {
     // Sem linha no período: ainda prova a posse para devolver ao menos o preview.
     const hit = await linhasDoAnuncio(SUPABASE_URL, KEY, cliente, adId, null, null, 1).catch(() => [])
-    if (!hit.length) return jsonErr('Anúncio não encontrado.', 404)
+    if (!hit.length) return jsonErr(msg(req, { pt: 'Anúncio não encontrado.', en: 'Ad not found.' }), 404)
   }
   let spend = 0, impr = 0, clicks = 0, conv = 0, nome = '', ultimoDia = ''
   for (const { day, data: r } of rows) {

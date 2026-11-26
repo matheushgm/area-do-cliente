@@ -1,4 +1,4 @@
-import { getUser, jsonErr, lerPaginado, filtroDias } from './_http.js'
+import { getUser, jsonErr, lerPaginado, filtroDias, msg } from './_http.js'
 // Edge function — serve o ROLLUP diário do Dashboard de Tráfego (public.dash_daily),
 // somente para usuários autenticados, com a mesma checagem de JWT do /api/dash-data.
 //
@@ -35,7 +35,7 @@ const COLS = {
 export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY
-  if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr('Servidor não configurado.', 500)
+  if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr(msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), 500)
 
   const auth = await getUser(req)
   if (!auth.ok) return jsonErr(auth.message, 401)
@@ -43,7 +43,7 @@ export default async function handler(req) {
 
   const url = new URL(req.url)
   const channel = url.searchParams.get('channel')
-  if (!COLS[channel]) return jsonErr('channel inválido (use meta|google).', 400)
+  if (!COLS[channel]) return jsonErr(msg(req, { pt: 'channel inválido (use meta|google).', en: 'Invalid channel (use meta|google).' }), 400)
 
   // Janela: `dias=N` ou `de`/`ate` (ver filtroDias). Sem nada, o histórico inteiro.
   const { qs: janela } = filtroDias(url)
@@ -69,7 +69,7 @@ export default async function handler(req) {
   try {
     rows = await lerPaginado(base, { apikey: SUPABASE_ANON, Authorization: `Bearer ${jwt}` }, { rotulo: channel })
   } catch (e) {
-    return jsonErr(`Erro ao consultar o rollup (${e?.message || e}).`, 500)
+    return jsonErr(`${msg(req, { pt: 'Erro ao consultar o rollup', en: 'Could not load the rollup' })} (${e?.message || e}).`, 500)
   }
 
   const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'

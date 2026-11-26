@@ -1,4 +1,4 @@
-import { getUser, json, sb } from './_http.js'
+import { getUser, json, sb, msg } from './_http.js'
 // Edge function AUTENTICADA (só o time logado) — CRUD dos "Roteiros Validados"
 // de um projeto: transcrições de anúncios em vídeo que performaram bem, salvas
 // como material de aprendizado para gerar copy nova. Usa SERVICE_ROLE no servidor
@@ -16,8 +16,8 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const clip = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
 
 export default async function handler(req) {
-  if (req.method !== 'POST') return json({ error: 'Método não permitido.' }, 405)
-  if (!SUPABASE_URL || !SUPABASE_ANON || !SERVICE_KEY) return json({ error: 'Servidor não configurado.' }, 500)
+  if (req.method !== 'POST') return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
+  if (!SUPABASE_URL || !SUPABASE_ANON || !SERVICE_KEY) return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
 
   // ── Autenticação (só o time logado) ─────────────────────────────────────────
   const auth = await getUser(req)
@@ -25,10 +25,10 @@ export default async function handler(req) {
   const user = auth.user || {}
 
   let body
-  try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
+  try { body = await req.json() } catch { return json({ error: msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }) }, 400) }
   const action = body?.action
   const projectId = String(body?.projectId || '').trim()
-  if (!projectId) return json({ error: 'projectId obrigatório.' }, 400)
+  if (!projectId) return json({ error: msg(req, { pt: 'projectId obrigatório.', en: 'projectId is required.' }) }, 400)
   const pid = encodeURIComponent(projectId)
 
   // ── list ────────────────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ export default async function handler(req) {
   // ── create ────────────────────────────────────────────────────────────────────
   if (action === 'create') {
     const transcription = clip(body.transcription, 20000)
-    if (!transcription) return json({ error: 'transcription obrigatória.' }, 400)
+    if (!transcription) return json({ error: msg(req, { pt: 'transcription obrigatória.', en: 'transcription is required.' }) }, 400)
     const row = {
       project_id: projectId,
       ad_id: clip(body.ad_id, 64) || null,
@@ -52,18 +52,18 @@ export default async function handler(req) {
       user_name: user?.user_metadata?.name || user?.user_metadata?.full_name || null,
     }
     const { data, status } = await sb('/roteiros_validados', { method: 'POST', body: JSON.stringify(row) })
-    if (status >= 300) return json({ error: 'Falha ao salvar o roteiro.' }, 502)
+    if (status >= 300) return json({ error: msg(req, { pt: 'Falha ao salvar o roteiro.', en: 'Could not save the script.' }) }, 502)
     return json({ item: Array.isArray(data) ? data[0] : data })
   }
 
   // ── delete ────────────────────────────────────────────────────────────────────
   if (action === 'delete') {
     const id = clip(body.id, 64)
-    if (!id) return json({ error: 'id obrigatório.' }, 400)
+    if (!id) return json({ error: msg(req, { pt: 'id obrigatório.', en: 'id is required.' }) }, 400)
     const { status } = await sb(`/roteiros_validados?id=eq.${encodeURIComponent(id)}&project_id=eq.${pid}`, { method: 'DELETE', prefer: 'return=minimal' })
-    if (status >= 300) return json({ error: 'Falha ao remover.' }, 502)
+    if (status >= 300) return json({ error: msg(req, { pt: 'Falha ao remover.', en: 'Could not remove.' }) }, 502)
     return json({ ok: true })
   }
 
-  return json({ error: 'Ação desconhecida.' }, 400)
+  return json({ error: msg(req, { pt: 'Ação desconhecida.', en: 'Unknown action.' }) }, 400)
 }

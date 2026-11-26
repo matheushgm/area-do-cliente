@@ -1,4 +1,4 @@
-import { NO_STORE, jsonCors, preflight, sb, getUser } from './_http.js'
+import { NO_STORE, jsonCors, preflight, sb, getUser, msg } from './_http.js'
 import { registrarIntake } from './_intake.js'
 import { hasPortalBearer, readPortalSession } from './_portal_auth.js'
 import { centralNivel } from '../src/lib/portalModules.js'
@@ -130,24 +130,24 @@ function sanitizeLeva(leva, companyName, { interno = false } = {}) {
 // Sessão do portal: a Central de anúncios (ou a Aprovação antiga) liberada na chave.
 async function projetoDoPortal(req, projectId, needEdit) {
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  if (!UUID.test(projectId || '')) return { erro: 'projectId inválido.', status: 400 }
+  if (!UUID.test(projectId || '')) return { erro: msg(req, { pt: 'projectId inválido.', en: 'Invalid projectId.' }), status: 400 }
   const sess = await readPortalSession(req, projectId)
   if (!sess.ok) return { erro: sess.message, status: sess.status }
   const nivel = centralNivel(sess.permissions)
-  if (!nivel || (needEdit && nivel !== 'edit')) return { erro: 'Sem acesso a este módulo.', status: 403 }
+  if (!nivel || (needEdit && nivel !== 'edit')) return { erro: msg(req, { pt: 'Sem acesso a este módulo.', en: 'You don\'t have access to this module.' }), status: 403 }
   const { data, status } = await sb(`/projects_v2?id=eq.${encodeURIComponent(projectId)}&select=${SELECT}`)
   const project = status === 200 && Array.isArray(data) ? data[0] : null
-  if (!project) return { erro: 'Projeto não encontrado.', status: 404 }
+  if (!project) return { erro: msg(req, { pt: 'Projeto não encontrado.', en: 'Project not found.' }), status: 404 }
   return { project }
 }
 
 // Link de revisão: só quem é do time (perfil ativo em `profiles`).
 async function membroDoTime(req) {
   const auth = await getUser(req)
-  if (!auth.ok || !auth.user?.id) return { erro: auth.message || 'Faça login.', status: 401 }
+  if (!auth.ok || !auth.user?.id) return { erro: auth.message || msg(req, { pt: 'Faça login.', en: 'Please log in.' }), status: 401 }
   const { data } = await sb(`/profiles?id=eq.${encodeURIComponent(auth.user.id)}&select=id,name,disabled`)
   const perfil = Array.isArray(data) ? data[0] : null
-  if (!perfil || perfil.disabled) return { erro: 'Só o time da Verta revisa estes textos.', status: 403 }
+  if (!perfil || perfil.disabled) return { erro: msg(req, { pt: 'Só o time da Verta revisa estes textos.', en: 'Only the Verta team reviews these texts.' }), status: 403 }
   return { pessoa: { id: perfil.id, nome: perfil.name || auth.user.email || 'Time' } }
 }
 
@@ -261,7 +261,7 @@ function novoAnuncio(leva, item, edicao = null) {
 
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return preflight()
-  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: 'Servidor não configurado.' }, 500)
+  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
 
   // ── GET: a leva que o cliente vai avaliar ───────────────────────────────────
   if (req.method === 'GET') {
@@ -283,9 +283,9 @@ export default async function handler(req) {
       if (m.erro) return json({ error: m.erro }, m.status)
     }
     const found = await findLeva(str(qs.get('token'), 60))
-    if (!found) return json({ error: 'Link inválido ou expirado.' }, 404)
+    if (!found) return json({ error: msg(req, { pt: 'Link inválido ou expirado.', en: 'Invalid or expired link.' }) }, 404)
     if (interno && !found.leva.revisaoInterna) {
-      return json({ error: 'Esta leva foi direto pro cliente, sem revisão interna.' }, 409)
+      return json({ error: msg(req, { pt: 'Esta leva foi direto pro cliente, sem revisão interna.', en: 'This batch went straight to the client, without internal review.' }) }, 409)
     }
     return json(sanitizeLeva(found.leva, found.project.company_name || '', { interno }))
   }
@@ -293,7 +293,7 @@ export default async function handler(req) {
   // ── POST: decisão do cliente sobre uma copy ─────────────────────────────────
   if (req.method === 'POST') {
     let body
-    try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
+    try { body = await req.json() } catch { return json({ error: msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }) }, 400) }
 
     const interno = body?.etapa === 'interna'
     let pessoa = null
@@ -313,7 +313,7 @@ export default async function handler(req) {
     } else {
       found = await findLeva(token)
     }
-    if (!found) return json({ error: 'Link inválido ou expirado.' }, 404)
+    if (!found) return json({ error: msg(req, { pt: 'Link inválido ou expirado.', en: 'Invalid or expired link.' }) }, 404)
 
     const { project, leva } = found
     const itemId   = str(body?.itemId, 60)
@@ -322,28 +322,28 @@ export default async function handler(req) {
     const sugestao = str(body?.sugestao, 2000)
 
     if (!itemId || !['aprovado', 'reprovado'].includes(decision)) {
-      return json({ error: 'Decisão inválida.' }, 400)
+      return json({ error: msg(req, { pt: 'Decisão inválida.', en: 'Invalid decision.' }) }, 400)
     }
     // Na revisão interna basta o motivo; o cliente diz também como deveria estar.
     if (decision === 'reprovado' && (!motivo || (!interno && !sugestao))) {
       return json({
-        error: interno ? 'Pra reprovar, diga o motivo.' : 'Pra reprovar, preencha o motivo e como deveria estar.',
+        error: interno ? msg(req, { pt: 'Pra reprovar, diga o motivo.', en: 'To reject, give a reason.' }) : msg(req, { pt: 'Pra reprovar, preencha o motivo e como deveria estar.', en: 'To reject, fill in the reason and how it should read.' }),
       }, 400)
     }
 
     const item = (leva.itens || []).find((it) => it?.id === itemId)
-    if (!item) return json({ error: 'Criativo não encontrado nesta leva.' }, 404)
+    if (!item) return json({ error: msg(req, { pt: 'Criativo não encontrado nesta leva.', en: 'Creative not found in this batch.' }) }, 404)
     if (interno) {
-      if (!leva.revisaoInterna) return json({ error: 'Esta leva foi direto pro cliente, sem revisão interna.' }, 409)
+      if (!leva.revisaoInterna) return json({ error: msg(req, { pt: 'Esta leva foi direto pro cliente, sem revisão interna.', en: 'This batch went straight to the client, without internal review.' }) }, 409)
       if ((item.revisao?.status || 'pendente') !== 'pendente') {
-        return json({ error: 'Esse texto já foi revisado.' }, 409)
+        return json({ error: msg(req, { pt: 'Esse texto já foi revisado.', en: 'This text has already been reviewed.' }) }, 409)
       }
     } else {
       if (!liberadoPraCliente(leva, item)) {
-        return json({ error: 'Esse texto ainda está em revisão pela equipe.' }, 403)
+        return json({ error: msg(req, { pt: 'Esse texto ainda está em revisão pela equipe.', en: 'This text is still being reviewed by the team.' }) }, 403)
       }
       if ((item.aprovacao?.status || 'pendente') !== 'pendente') {
-        return json({ error: 'Essa copy já foi avaliada.' }, 409)
+        return json({ error: msg(req, { pt: 'Essa copy já foi avaliada.', en: 'This copy has already been reviewed.' }) }, 409)
       }
     }
 
@@ -358,7 +358,7 @@ export default async function handler(req) {
     if (decision === 'aprovado' && body?.conteudo != null) {
       const texto    = str(body.conteudo, 20000)
       const original = str(item.conteudo, 20000)
-      if (!texto) return json({ error: 'O texto editado não pode ficar vazio.' }, 400)
+      if (!texto) return json({ error: msg(req, { pt: 'O texto editado não pode ficar vazio.', en: 'The edited text can\'t be empty.' }) }, 400)
       if (interno) {
         if (texto !== original) edicao = { texto, original }
       } else {
@@ -406,7 +406,7 @@ export default async function handler(req) {
         `/projects_v2?id=eq.${encodeURIComponent(project.id)}`,
         { method: 'PATCH', body: JSON.stringify(patch), headers: { Prefer: 'return=minimal' } }
       )
-      if (status >= 400) return json({ error: 'Erro ao salvar a revisão.' }, 500)
+      if (status >= 400) return json({ error: msg(req, { pt: 'Erro ao salvar a revisão.', en: 'Failed to save the review.' }) }, 500)
       return json({ success: true })
     }
 
@@ -459,7 +459,7 @@ export default async function handler(req) {
       `/projects_v2?id=eq.${encodeURIComponent(project.id)}`,
       { method: 'PATCH', body: JSON.stringify(patch), headers: { Prefer: 'return=minimal' } }
     )
-    if (status >= 400) return json({ error: 'Erro ao salvar a decisão.' }, 500)
+    if (status >= 400) return json({ error: msg(req, { pt: 'Erro ao salvar a decisão.', en: 'Failed to save the decision.' }) }, 500)
 
     if (decision === 'reprovado') {
       await registrarIntake({
@@ -475,5 +475,5 @@ export default async function handler(req) {
     return json({ success: true })
   }
 
-  return json({ error: 'Método não permitido.' }, 405)
+  return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
 }

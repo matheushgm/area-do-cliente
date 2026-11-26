@@ -1,6 +1,7 @@
 // Client helper para chamar a Edge Function /api/slack.
 // Fail-soft: erro nunca bloqueia o fluxo principal.
 import { apiFetch } from './api'
+import { t } from '../i18n'
 
 /**
  * Notifica no Slack quando um novo cliente é cadastrado.
@@ -12,6 +13,6 @@ export async function notifyNewClient(payload) {
     await apiFetch('/api/slack', { body: { action: 'notify_new_client', payload } })
     return { ok: true }
   } catch (e) {
-    return { ok: false, error: e?.message || 'Erro inesperado.' }
+    return { ok: false, error: e?.message || t('comum.erroInesperado') }
   }
 }

@@ -1,4 +1,4 @@
-import { bearer, getUser } from './_http.js'
+import { bearer, getUser, msg } from './_http.js'
 // Serverless Function (Node) — Chat ↔ ClickUp Chat.
 // GET/POST /api/chat-sync   (Authorization: Bearer <CRON_SECRET> ou JWT)
 //   ?push=0 | ?pull=0   opcional: só um dos sentidos
@@ -16,16 +16,16 @@ const envClean = (n) => String(process.env[n] || '').replace(/\\n/g, '').trim()
 const CHAT_SYNC_DESLIGADO = true
 
 export default async function handler(req, res) {
-  if (CHAT_SYNC_DESLIGADO) return res.status(503).json({ ok: false, error: 'Sincronização do chat desativada.' })
-  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido.' })
+  if (CHAT_SYNC_DESLIGADO) return res.status(503).json({ ok: false, error: msg(req, { pt: 'Sincronização do chat desativada.', en: 'Chat sync is turned off.' }) })
+  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) })
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SERVICE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
   const TOKEN = envClean('CLICKUP_API_TOKEN')
   const TEAM = envClean('CLICKUP_TEAM_ID') || '9009170774'
-  if (!SUPABASE_URL || !SERVICE_KEY || !TOKEN) return res.status(500).json({ error: 'Servidor não configurado.' })
+  if (!SUPABASE_URL || !SERVICE_KEY || !TOKEN) return res.status(500).json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) })
   const t = bearer(req)
   const cron = envClean('CRON_SECRET')
-  if (!(cron && t && t === cron)) { const a = await getUser(req); if (!a.ok) return res.status(401).json({ error: 'Não autorizado.' }) }
+  if (!(cron && t && t === cron)) { const a = await getUser(req); if (!a.ok) return res.status(401).json({ error: msg(req, { pt: 'Não autorizado.', en: 'Unauthorized.' }) }) }
   const body = req.method === 'POST' ? (req.body || {}) : {}
   const qp = (k) => body[k] ?? req.query?.[k]
   const sb = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })

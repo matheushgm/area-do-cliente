@@ -1,4 +1,4 @@
-import { getUser, json, jsonErr } from './_http.js'
+import { getUser, json, jsonErr, msg } from './_http.js'
 // Edge Function — notificação Slack quando um cliente novo é criado.
 // POST /api/slack com body { action: 'notify_new_client', payload: {...} }
 //
@@ -29,20 +29,20 @@ export default async function handler(req) {
   // Validar JWT do caller
   const SUPABASE_URL  = process.env.SUPABASE_URL
   const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY
-  if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr('Servidor não configurado.', 500)
+  if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr(msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), 500)
   const auth = await getUser(req)
   if (!auth.ok) return jsonErr(auth.message, 401)
 
   const webhookUrl = process.env.SLACK_WEBHOOK_URL
-  if (!webhookUrl) return jsonErr('SLACK_WEBHOOK_URL não configurado.', 500)
+  if (!webhookUrl) return jsonErr(msg(req, { pt: 'SLACK_WEBHOOK_URL não configurado.', en: 'SLACK_WEBHOOK_URL is not configured.' }), 500)
 
   let body
   try { body = await req.json() }
-  catch { return jsonErr('Body inválido.', 400) }
+  catch { return jsonErr(msg(req, { pt: 'Body inválido.', en: 'Invalid body.' }), 400) }
 
   const action = body?.action
   if (action !== 'notify_new_client') {
-    return jsonErr('Ação não suportada.', 400)
+    return jsonErr(msg(req, { pt: 'Ação não suportada.', en: 'Unsupported action.' }), 400)
   }
 
   const p = body?.payload || {}
@@ -112,10 +112,10 @@ export default async function handler(req) {
     })
     const text = await res.text()
     if (!res.ok || text !== 'ok') {
-      return jsonErr(`Slack webhook retornou: ${text || res.status}`, 502)
+      return jsonErr(`${msg(req, { pt: 'Slack webhook retornou', en: 'Slack webhook returned' })}: ${text || res.status}`, 502)
     }
     return jsonOk({ ok: true })
   } catch (e) {
-    return jsonErr(e?.message || 'Erro ao enviar notificação Slack', 502)
+    return jsonErr(e?.message || msg(req, { pt: 'Erro ao enviar notificação Slack', en: 'Could not send the Slack notification' }), 502)
   }
 }

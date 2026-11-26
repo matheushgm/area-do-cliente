@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { bearer, getUser } from './_http.js'
+import { bearer, getUser, msg } from './_http.js'
 // Serverless Function (Node) — integração com o Microsoft Clarity.
 //
 //   GET  /api/clarity?project_id=<uuid>   (JWT) estado da conexão + fotos dos últimos 30 dias
@@ -39,22 +39,24 @@ async function chamarClarity(token, dims) {
   const res = await fetch(`${CLARITY}?${qs}`, {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
   })
-  if (res.status === 401 || res.status === 403) throw Object.assign(new Error('Token do Clarity inválido ou sem permissão de exportação.'), { status: 400 })
-  if (res.status === 429) throw Object.assign(new Error('Limite diário de 10 chamadas do Clarity atingido. Tente amanhã.'), { status: 429 })
-  if (!res.ok) throw Object.assign(new Error(`Clarity respondeu ${res.status}.`), { status: 502 })
+  if (res.status === 401 || res.status === 403) throw Object.assign(new Error('Token do Clarity inválido ou sem permissão de exportação.'), { status: 400, en: 'Invalid Clarity token, or it lacks export permission.' })
+  if (res.status === 429) throw Object.assign(new Error('Limite diário de 10 chamadas do Clarity atingido. Tente amanhã.'), { status: 429, en: 'Clarity daily limit of 10 calls reached. Try again tomorrow.' })
+  if (!res.ok) throw Object.assign(new Error(`Clarity respondeu ${res.status}.`), { status: 502, en: `Clarity responded ${res.status}.` })
   const json = await res.json().catch(() => null)
-  if (!Array.isArray(json)) throw Object.assign(new Error('Resposta inesperada do Clarity.'), { status: 502 })
+  if (!Array.isArray(json)) throw Object.assign(new Error('Resposta inesperada do Clarity.'), { status: 502, en: 'Unexpected response from Clarity.' })
   return json
 }
 
-// Coleta as dimensões pedidas, respeitando o teto diário. Devolve { feitas, erro }.
+// Coleta as dimensões pedidas, respeitando o teto diário. Devolve { feitas, erro, erroEn }.
+// `erro` (pt) é o que fica gravado em clarity_conexoes.ultimo_erro; `erroEn` só volta na resposta.
 async function coletar(sb, conn, nomes) {
   const hoje = hojeBRT()
   let usadas = conn.chamadas_dia === hoje ? conn.chamadas_hoje : 0
   const feitas = []
   let erro = null
+  let erroEn = null
   for (const nome of nomes) {
-    if (usadas >= LIMITE_DIA) { erro = 'Teto diário de chamadas ao Clarity atingido; o resto fica para amanhã.'; break }
+    if (usadas >= LIMITE_DIA) { erro = 'Teto diário de chamadas ao Clarity atingido; o resto fica para amanhã.'; erroEn = 'Daily Clarity call cap reached; the rest will run tomorrow.'; break }
     try {
       const dados = await chamarClarity(conn.api_token, DIMENSOES[nome])
       usadas++
@@ -66,13 +68,14 @@ async function coletar(sb, conn, nomes) {
     } catch (e) {
       usadas++
       erro = e.message
+      erroEn = e.en || e.message
       if (e.status === 400 || e.status === 429) break
     }
   }
   await sb.from('clarity_conexoes').update({
     ultimo_sync: new Date().toISOString(), ultimo_erro: erro, chamadas_dia: hoje, chamadas_hoje: usadas,
   }).eq('project_id', conn.project_id)
-  return { feitas, erro }
+  return { feitas, erro, erroEn }
 }
 
 async function estado(sb, projectId) {
@@ -92,10 +95,10 @@ async function estado(sb, projectId) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: { message: 'Método não permitido.' } })
+  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: { message: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) } })
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SERVICE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!SUPABASE_URL || !SERVICE_KEY) return res.status(500).json({ error: { message: 'Servidor não configurado.' } })
+  if (!SUPABASE_URL || !SERVICE_KEY) return res.status(500).json({ error: { message: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) } })
   const sb = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
 
   const tok = bearer(req)
@@ -103,7 +106,7 @@ export default async function handler(req, res) {
   const viaCron = !!(cron && tok && tok === cron)
   if (!viaCron) {
     const auth = await getUser(req)
-    if (!auth.ok) return res.status(401).json({ error: { message: 'Não autorizado.' } })
+    if (!auth.ok) return res.status(401).json({ error: { message: msg(req, { pt: 'Não autorizado.', en: 'Unauthorized.' }) } })
   }
 
   const body = req.method === 'POST' ? (req.body || {}) : {}
@@ -120,14 +123,14 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, resumo })
   }
 
-  if (!projectId) return res.status(400).json({ error: { message: 'project_id obrigatório.' } })
+  if (!projectId) return res.status(400).json({ error: { message: msg(req, { pt: 'project_id obrigatório.', en: 'project_id is required.' }) } })
 
   if (req.method === 'GET') return res.status(200).json(await estado(sb, projectId))
 
   const action = body.action
   if (action === 'conectar') {
     const token = String(body.token || '').trim()
-    if (token.length < 40) return res.status(400).json({ error: { message: 'Cole o token completo da API do Clarity.' } })
+    if (token.length < 40) return res.status(400).json({ error: { message: msg(req, { pt: 'Cole o token completo da API do Clarity.', en: 'Paste the full Clarity API token.' }) } })
     const conn = { project_id: projectId, api_token: token, chamadas_dia: hojeBRT(), chamadas_hoje: 0 }
     // Valida o token com uma chamada real e já guarda a foto de URL.
     try {
@@ -136,16 +139,16 @@ export default async function handler(req, res) {
       if (e1) return res.status(500).json({ error: { message: e1.message } })
       await sb.from('clarity_snapshots').upsert({ project_id: projectId, dia: hojeBRT(), dimensao: 'url', dados, coletado_em: new Date().toISOString() })
     } catch (e) {
-      return res.status(e.status || 500).json({ error: { message: e.message } })
+      return res.status(e.status || 500).json({ error: { message: msg(req, { pt: e.message, en: e.en || e.message }) } })
     }
     return res.status(200).json(await estado(sb, projectId))
   }
 
   if (action === 'sync') {
     const { data: conn } = await sb.from('clarity_conexoes').select('*').eq('project_id', projectId).maybeSingle()
-    if (!conn) return res.status(404).json({ error: { message: 'Clarity não conectado neste projeto.' } })
+    if (!conn) return res.status(404).json({ error: { message: msg(req, { pt: 'Clarity não conectado neste projeto.', en: 'Clarity is not connected to this project.' }) } })
     const r = await coletar(sb, conn, ['url'])
-    if (r.erro && !r.feitas.length) return res.status(429).json({ error: { message: r.erro } })
+    if (r.erro && !r.feitas.length) return res.status(429).json({ error: { message: msg(req, { pt: r.erro, en: r.erroEn || r.erro }) } })
     return res.status(200).json(await estado(sb, projectId))
   }
 
@@ -154,5 +157,5 @@ export default async function handler(req, res) {
     return res.status(200).json({ conectado: false, snapshots: [] })
   }
 
-  return res.status(400).json({ error: { message: 'Ação inválida.' } })
+  return res.status(400).json({ error: { message: msg(req, { pt: 'Ação inválida.', en: 'Invalid action.' }) } })
 }

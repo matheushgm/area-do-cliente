@@ -1,4 +1,4 @@
-import { getUser, hmacHex, json, sb } from './_http.js'
+import { getUser, hmacHex, json, sb, msg } from './_http.js'
 // Edge function AUTENTICADA (só o time logado) — gerencia os usuários da
 // ferramenta pública "Criativos com IA" de um projeto e lê o histórico de
 // anúncios gerados por eles. Usa SERVICE_ROLE no servidor; o hash de senha
@@ -23,18 +23,18 @@ function hashSenha(projectId, email, password) {
 const clip = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
 
 export default async function handler(req) {
-  if (req.method !== 'POST') return json({ error: 'Método não permitido.' }, 405)
-  if (!SUPABASE_URL || !SUPABASE_ANON || !SERVICE_KEY) return json({ error: 'Servidor não configurado.' }, 500)
+  if (req.method !== 'POST') return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
+  if (!SUPABASE_URL || !SUPABASE_ANON || !SERVICE_KEY) return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
 
   // ── Autenticação (só o time logado) ─────────────────────────────────────────
   const auth = await getUser(req)
   if (!auth.ok) return json({ error: auth.message }, 401)
 
   let body
-  try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
+  try { body = await req.json() } catch { return json({ error: msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }) }, 400) }
   const action = body?.action
   const projectId = String(body?.projectId || '').trim()
-  if (!projectId) return json({ error: 'projectId obrigatório.' }, 400)
+  if (!projectId) return json({ error: msg(req, { pt: 'projectId obrigatório.', en: 'projectId is required.' }) }, 400)
   const pid = encodeURIComponent(projectId)
 
   // ── list-users ──────────────────────────────────────────────────────────────
@@ -53,13 +53,13 @@ export default async function handler(req) {
     const email = clip(body.email, 160).toLowerCase()
     const password = clip(body.password, 200)
     const name = clip(body.name, 120)
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: 'E-mail inválido.' }, 400)
-    if (password.length < 4) return json({ error: 'A senha precisa ter ao menos 4 caracteres.' }, 400)
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: msg(req, { pt: 'E-mail inválido.', en: 'Invalid email.' }) }, 400)
+    if (password.length < 4) return json({ error: msg(req, { pt: 'A senha precisa ter ao menos 4 caracteres.', en: 'Password must be at least 4 characters.' }) }, 400)
     const password_hash = await hashSenha(projectId, email, password)
     const row = { project_id: projectId, email, name: name || null, password_hash, active: true }
     const { status, data } = await sb('/criativos_users', { method: 'POST', body: JSON.stringify(row) })
-    if (status === 409) return json({ error: 'Já existe um usuário com esse e-mail.' }, 409)
-    if (status >= 400) return json({ error: 'Erro ao criar usuário.', detail: data }, 500)
+    if (status === 409) return json({ error: msg(req, { pt: 'Já existe um usuário com esse e-mail.', en: 'A user with this email already exists.' }) }, 409)
+    if (status >= 400) return json({ error: msg(req, { pt: 'Erro ao criar usuário.', en: 'Failed to create user.' }), detail: data }, 500)
     const u = Array.isArray(data) && data[0] ? data[0] : null
     return json({ success: true, user: u ? { id: u.id, email: u.email, name: u.name, active: u.active, created_at: u.created_at, generations: 0 } : null })
   }
@@ -67,35 +67,35 @@ export default async function handler(req) {
   // ── update-user (ativar/desativar, renomear, trocar senha) ──────────────────
   if (action === 'update-user') {
     const id = String(body.id || '').trim()
-    if (!id) return json({ error: 'id obrigatório.' }, 400)
+    if (!id) return json({ error: msg(req, { pt: 'id obrigatório.', en: 'id is required.' }) }, 400)
     const patch = {}
     if (typeof body.active === 'boolean') patch.active = body.active
     if (typeof body.name === 'string') patch.name = clip(body.name, 120) || null
     if (body.password) {
       const password = clip(body.password, 200)
-      if (password.length < 4) return json({ error: 'A senha precisa ter ao menos 4 caracteres.' }, 400)
+      if (password.length < 4) return json({ error: msg(req, { pt: 'A senha precisa ter ao menos 4 caracteres.', en: 'Password must be at least 4 characters.' }) }, 400)
       // precisa do email atual para recomputar o hash
       const { data: cur } = await sb(`/criativos_users?id=eq.${encodeURIComponent(id)}&project_id=eq.${pid}&select=email&limit=1`)
       const email = Array.isArray(cur) && cur[0] ? cur[0].email : null
-      if (!email) return json({ error: 'Usuário não encontrado.' }, 404)
+      if (!email) return json({ error: msg(req, { pt: 'Usuário não encontrado.', en: 'User not found.' }) }, 404)
       patch.password_hash = await hashSenha(projectId, email, password)
     }
-    if (!Object.keys(patch).length) return json({ error: 'Nada para atualizar.' }, 400)
+    if (!Object.keys(patch).length) return json({ error: msg(req, { pt: 'Nada para atualizar.', en: 'Nothing to update.' }) }, 400)
     const { status } = await sb(`/criativos_users?id=eq.${encodeURIComponent(id)}&project_id=eq.${pid}`, {
       method: 'PATCH', prefer: 'return=minimal', body: JSON.stringify(patch),
     })
-    if (status >= 400) return json({ error: 'Erro ao atualizar.' }, 500)
+    if (status >= 400) return json({ error: msg(req, { pt: 'Erro ao atualizar.', en: 'Failed to update.' }) }, 500)
     return json({ success: true })
   }
 
   // ── delete-user ─────────────────────────────────────────────────────────────
   if (action === 'delete-user') {
     const id = String(body.id || '').trim()
-    if (!id) return json({ error: 'id obrigatório.' }, 400)
+    if (!id) return json({ error: msg(req, { pt: 'id obrigatório.', en: 'id is required.' }) }, 400)
     const { status } = await sb(`/criativos_users?id=eq.${encodeURIComponent(id)}&project_id=eq.${pid}`, {
       method: 'DELETE', prefer: 'return=minimal',
     })
-    if (status >= 400) return json({ error: 'Erro ao remover.' }, 500)
+    if (status >= 400) return json({ error: msg(req, { pt: 'Erro ao remover.', en: 'Failed to remove.' }) }, 500)
     return json({ success: true })
   }
 
@@ -105,5 +105,5 @@ export default async function handler(req) {
     return json({ history: Array.isArray(data) ? data : [] })
   }
 
-  return json({ error: 'Ação desconhecida.' }, 400)
+  return json({ error: msg(req, { pt: 'Ação desconhecida.', en: 'Unknown action.' }) }, 400)
 }

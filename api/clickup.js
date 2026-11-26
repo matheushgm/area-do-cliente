@@ -1,4 +1,4 @@
-import { getUser, json, jsonErr } from './_http.js'
+import { getUser, json, jsonErr, msg } from './_http.js'
 // Edge Function — integração com ClickUp.
 // POST /api/clickup com body { action: 'create_client_folder', companyName, startDateISO }
 // Cria uma pasta no espaço "Clientes" e uma lista a partir do template
@@ -127,7 +127,7 @@ export default async function handler(req) {
   const SUPABASE_URL  = process.env.SUPABASE_URL
   const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY
   if (!SUPABASE_URL || !SUPABASE_ANON) {
-    return jsonErr('Servidor não configurado.', 500)
+    return jsonErr(msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), 500)
   }
   const auth = await getUser(req)
   if (!auth.ok) return jsonErr(auth.message, 401)
@@ -136,12 +136,12 @@ export default async function handler(req) {
   const token       = envClean('CLICKUP_API_TOKEN')
   const spaceId     = envClean('CLICKUP_CLIENTES_SPACE_ID') || DEFAULT_SPACE
   const templateId  = envClean('CLICKUP_TEMPLATE_LIST_ID')  || DEFAULT_TEMPLATE
-  if (!token) return jsonErr('CLICKUP_API_TOKEN não configurado.', 500)
+  if (!token) return jsonErr(msg(req, { pt: 'CLICKUP_API_TOKEN não configurado.', en: 'CLICKUP_API_TOKEN is not configured.' }), 500)
 
   // ── Parse do body ──────────────────────────────────────────────────────────
   let body
   try { body = await req.json() }
-  catch { return jsonErr('Body inválido.', 400) }
+  catch { return jsonErr(msg(req, { pt: 'Body inválido.', en: 'Invalid body.' }), 400) }
 
   const action = body?.action
 
@@ -159,12 +159,12 @@ export default async function handler(req) {
       })).filter((m) => Number.isFinite(m.id))
       return jsonOk({ members })
     } catch (e) {
-      return jsonErr(e?.message || 'Erro ao listar membros', e?.status >= 400 ? e.status : 502, { detail: e?.body })
+      return jsonErr(e?.message || msg(req, { pt: 'Erro ao listar membros', en: 'Failed to list members' }), e?.status >= 400 ? e.status : 502, { detail: e?.body })
     }
   }
 
   if (action !== 'create_client_folder') {
-    return jsonErr('Ação não suportada.', 400)
+    return jsonErr(msg(req, { pt: 'Ação não suportada.', en: 'Unsupported action.' }), 400)
   }
 
   const companyName  = (body?.companyName || '').trim()
@@ -180,7 +180,7 @@ export default async function handler(req) {
   const departmentToClickupId = (body?.departmentToClickupId && typeof body.departmentToClickupId === 'object')
     ? body.departmentToClickupId
     : {}
-  if (!companyName) return jsonErr('companyName é obrigatório.', 400)
+  if (!companyName) return jsonErr(msg(req, { pt: 'companyName é obrigatório.', en: 'companyName is required.' }), 400)
 
   // Data de referência: usa a data fornecida ou hoje.
   const refMillis = parseStartMillis(startDateISO) ?? Date.now()
@@ -193,7 +193,7 @@ export default async function handler(req) {
       name: companyName,
     })
     if (!folder?.id) {
-      return jsonErr('ClickUp não retornou folder válido.', 502, { folder })
+      return jsonErr(msg(req, { pt: 'ClickUp não retornou folder válido.', en: 'ClickUp did not return a valid folder.' }), 502, { folder })
     }
 
     // 1.5) Criar (ou reaproveitar) o canal de chat do cliente, com o mesmo
@@ -222,7 +222,7 @@ export default async function handler(req) {
     // tentamos ambos os formatos.
     const listId = list?.id || list?.list?.id
     if (!listId) {
-      return jsonErr('ClickUp não retornou list válido.', 502, { list })
+      return jsonErr(msg(req, { pt: 'ClickUp não retornou list válido.', en: 'ClickUp did not return a valid list.' }), 502, { list })
     }
 
     // 3) Buscar tasks da lista recém-criada. Mesmo com return_immediately:false,
@@ -303,7 +303,7 @@ export default async function handler(req) {
     })
   } catch (e) {
     return jsonErr(
-      e?.message || 'Erro ao integrar com ClickUp',
+      e?.message || msg(req, { pt: 'Erro ao integrar com ClickUp', en: 'ClickUp integration failed' }),
       e?.status && e.status >= 400 && e.status < 600 ? e.status : 502,
       { detail: e?.body }
     )

@@ -10,7 +10,7 @@ import AnexoPreview from '../components/UI/AnexoPreview'
 import { tipoDoAnexo, fmtBytes } from '../lib/anexos'
 import { StatusIcon, Avatar, PrioridadeIcon } from '../components/Tarefas/Campos'
 import { corDaPessoa, iniciais, fmtVencimentoClickUp, fmtDataNumerica, rotuloStatus, rotuloPrioridade, progressoChecklists } from '../lib/tarefas'
-import { useI18n } from '../i18n'
+import { useI18n, idiomaAtual } from '../i18n'
 
 const semAcento = (x) => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
@@ -101,7 +101,7 @@ export default function ListaPublica() {
     setAberta(tarefa)
     if (detalhes.current.has(tarefa.id)) return
     detalhes.current.set(tarefa.id, { carregando: true })
-    fetch(`/api/tarefas-publico?token=${encodeURIComponent(token || '')}&tarefa=${tarefa.id}`)
+    fetch(`/api/tarefas-publico?token=${encodeURIComponent(token || '')}&tarefa=${tarefa.id}`, { headers: { 'X-Idioma': idiomaAtual() } })
       .then((r) => r.json().catch(() => ({})))
       .then((j) => { detalhes.current.set(tarefa.id, j.tarefa ? { dados: j.tarefa } : { erro: j.error || 'erro' }) })
       .catch(() => { detalhes.current.set(tarefa.id, { erro: 'erro' }) })
@@ -112,7 +112,7 @@ export default function ListaPublica() {
   const carregar = useCallback(async () => {
     setCarregando(true)
     try {
-      const r = await fetch(`/api/tarefas-publico?token=${encodeURIComponent(token || '')}`)
+      const r = await fetch(`/api/tarefas-publico?token=${encodeURIComponent(token || '')}`, { headers: { 'X-Idioma': idiomaAtual() } })
       const j = await r.json().catch(() => ({}))
       if (!r.ok) { setErro(j.error || t('listaPublica.erro')); setDados(null) } else { setDados(j); setErro('') }
     } catch {

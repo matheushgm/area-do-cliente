@@ -1,4 +1,4 @@
-import { getUser, jsonErr } from './_http.js'
+import { getUser, idiomaDe, jsonErr, msg } from './_http.js'
 // Edge function: lê o LOG DE ATIVIDADES do Meta (o que realmente mudou na conta:
 // pausas, anúncios/campanhas criados, orçamento, público) e devolve já traduzido
 // em itens { data, cat, texto, nivel, autor }, nas mesmas categorias da aba
@@ -51,14 +51,14 @@ function diaBR(iso) {
   return d.toISOString().slice(0, 10)
 }
 const fmtDiaBR = (dia) => `${dia.slice(8, 10)}/${dia.slice(5, 7)}`
-const brl = (cents) => 'R$ ' + (Number(cents) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+const brl = (cents, en) => 'R$ ' + (Number(cents) / 100).toLocaleString(en ? 'en-US' : 'pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 const parse = (s) => { try { return JSON.parse(s) } catch { return {} } }
-const lista = (nomes, max = 3) => nomes.slice(0, max).map((n) => `"${n}"`).join(', ') + (nomes.length > max ? ` e mais ${nomes.length - max}` : '')
+const lista = (nomes, en, max = 3) => nomes.slice(0, max).map((n) => `"${n}"`).join(', ') + (nomes.length > max ? (en ? ` and ${nomes.length - max} more` : ` e mais ${nomes.length - max}`) : '')
 const ATIVO = /^ativ/i
 const INATIVO = /^inativ/i
 
-// Traduz os eventos brutos de UMA conta em itens para o cliente.
-function traduzir(events) {
+// Traduz os eventos brutos de UMA conta em itens para o cliente (no idioma de quem pediu: `en`).
+function traduzir(events, en) {
   const itens = []
   // qtd = quantas mudanças o item representa ("2 anúncios novos subiram" vale 2).
   const add = (ev, cat, texto, nivel, qtd = 1) => itens.push({
@@ -74,34 +74,34 @@ function traduzir(events) {
     const sistema = ev.actor_name === 'Meta'
 
     if (t === 'update_campaign_run_status' && !sistema) {
-      if (ATIVO.test(x.old_value) && INATIVO.test(x.new_value)) add(ev, 'pausou', `Campanha pausada: "${nome}".`, 'campanha')
-      else if (INATIVO.test(x.old_value) && ATIVO.test(x.new_value)) add(ev, 'outras', `Campanha reativada: "${nome}".`, 'campanha')
+      if (ATIVO.test(x.old_value) && INATIVO.test(x.new_value)) add(ev, 'pausou', en ? `Campaign paused: "${nome}".` : `Campanha pausada: "${nome}".`, 'campanha')
+      else if (INATIVO.test(x.old_value) && ATIVO.test(x.new_value)) add(ev, 'outras', en ? `Campaign reactivated: "${nome}".` : `Campanha reativada: "${nome}".`, 'campanha')
     } else if (t === 'update_ad_set_run_status' && !sistema) {
-      if (ATIVO.test(x.old_value) && INATIVO.test(x.new_value)) add(ev, 'pausou', `Conjunto de anúncios pausado: "${nome}".`, 'conjunto')
-      else if (INATIVO.test(x.old_value) && ATIVO.test(x.new_value)) add(ev, 'outras', `Conjunto de anúncios reativado: "${nome}".`, 'conjunto')
+      if (ATIVO.test(x.old_value) && INATIVO.test(x.new_value)) add(ev, 'pausou', en ? `Ad set paused: "${nome}".` : `Conjunto de anúncios pausado: "${nome}".`, 'conjunto')
+      else if (INATIVO.test(x.old_value) && ATIVO.test(x.new_value)) add(ev, 'outras', en ? `Ad set reactivated: "${nome}".` : `Conjunto de anúncios reativado: "${nome}".`, 'conjunto')
     } else if (t === 'update_ad_run_status' && !sistema) {
-      if (ATIVO.test(x.old_value) && INATIVO.test(x.new_value)) add(ev, 'pausou', `Anúncio pausado: "${nome}".`, 'anuncio')
-      else if (INATIVO.test(x.old_value) && ATIVO.test(x.new_value)) add(ev, 'outras', `Anúncio reativado: "${nome}".`, 'anuncio')
+      if (ATIVO.test(x.old_value) && INATIVO.test(x.new_value)) add(ev, 'pausou', en ? `Ad paused: "${nome}".` : `Anúncio pausado: "${nome}".`, 'anuncio')
+      else if (INATIVO.test(x.old_value) && ATIVO.test(x.new_value)) add(ev, 'outras', en ? `Ad reactivated: "${nome}".` : `Anúncio reativado: "${nome}".`, 'anuncio')
     } else if (t === 'create_ad') {
       const dia = diaBR(ev.event_time)
       if (!novosAds.has(dia)) novosAds.set(dia, { ev, nomes: [] })
       novosAds.get(dia).nomes.push(nome)
     } else if (t === 'create_campaign_group') {
-      add(ev, 'estrutura', `Campanha criada: "${nome}".`, 'campanha')
+      add(ev, 'estrutura', en ? `Campaign created: "${nome}".` : `Campanha criada: "${nome}".`, 'campanha')
     } else if (t === 'create_ad_set') {
-      add(ev, 'publico', `Conjunto de anúncios novo: "${nome}".`, 'conjunto')
+      add(ev, 'publico', en ? `New ad set: "${nome}".` : `Conjunto de anúncios novo: "${nome}".`, 'conjunto')
     } else if (t === 'update_ad_set_target_spec') {
-      add(ev, 'publico', `Público do conjunto "${nome}" foi ajustado.`, 'conjunto')
+      add(ev, 'publico', en ? `Audience of ad set "${nome}" was adjusted.` : `Público do conjunto "${nome}" foi ajustado.`, 'conjunto')
     } else if (/budget/.test(t || '')) {
       const o = Number(x.old_value), n = Number(x.new_value)
       const alvo = /campaign/.test(t) ? 'campanha' : 'conjunto'
-      const delta = Number.isFinite(o) && Number.isFinite(n) && o > 0 && n > 0 ? ` (de ${brl(o)} para ${brl(n)} por dia)` : ''
-      add(ev, 'orcamento', `Orçamento do ${alvo} "${nome}" foi alterado${delta}.`, alvo)
+      const delta = Number.isFinite(o) && Number.isFinite(n) && o > 0 && n > 0 ? (en ? ` (from ${brl(o, en)} to ${brl(n, en)} per day)` : ` (de ${brl(o)} para ${brl(n)} por dia)`) : ''
+      add(ev, 'orcamento', en ? `Budget of ${alvo === 'campanha' ? 'campaign' : 'ad set'} "${nome}" was changed${delta}.` : `Orçamento do ${alvo} "${nome}" foi alterado${delta}.`, alvo)
     }
   }
   for (const [, { ev, nomes }] of novosAds) {
     const n = nomes.length
-    add(ev, 'novoAnuncio', `${n} ${n === 1 ? 'anúncio novo subiu' : 'anúncios novos subiram'}: ${lista(nomes)}.`, 'anuncio', n)
+    add(ev, 'novoAnuncio', en ? `${n} new ${n === 1 ? 'ad went live' : 'ads went live'}: ${lista(nomes, en)}.` : `${n} ${n === 1 ? 'anúncio novo subiu' : 'anúncios novos subiram'}: ${lista(nomes)}.`, 'anuncio', n)
   }
   // Ruído de lançamento: o que acontece junto com a criação (reativar, ajustar
   // público do conjunto recém-criado) já está dito no próprio "criado". E o log
@@ -112,7 +112,7 @@ function traduzir(events) {
   const vistos = new Set()
   return itens.filter((i) => {
     const nomeCriado = [...criados].some((n) => i.texto.includes(`"${n}"`))
-    if (nomeCriado && (/foi ajustado\.$/.test(i.texto) || /reativad/.test(i.texto))) return false
+    if (nomeCriado && (/(foi ajustado|was adjusted)\.$/.test(i.texto) || /reativad|reactivated/.test(i.texto))) return false
     const k = `${i.data}|${i.texto}`
     if (vistos.has(k)) return false
     vistos.add(k)
@@ -146,7 +146,7 @@ export default async function handler(req) {
     process.env.META_TOKEN_CICAL,
     ...String(process.env.META_TOKENS_EXTRA || '').split(',').map((t) => t.trim()),
   ].filter(Boolean)
-  if (!tokens.length) return jsonErr('Indisponível: META_TOKEN não configurada na Vercel.', 503)
+  if (!tokens.length) return jsonErr(msg(req, { pt: 'Indisponível: META_TOKEN não configurada na Vercel.', en: 'Unavailable: META_TOKEN is not set in Vercel.' }), 503)
 
   const auth = await getUser(req)
   if (!auth.ok) return jsonErr(auth.message, 401)
@@ -155,9 +155,9 @@ export default async function handler(req) {
   const names = (url.searchParams.get('accounts') || '').split('|').map((s) => s.trim()).filter(Boolean)
   const since = url.searchParams.get('since') || ''
   const until = url.searchParams.get('until') || ''
-  if (!names.length) return jsonErr('Informe ?accounts=Nome1|Nome2.', 400)
-  if (names.length > 10) return jsonErr('Máximo de 10 contas por chamada.', 400)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(since) || !/^\d{4}-\d{2}-\d{2}$/.test(until)) return jsonErr('Informe since e until (AAAA-MM-DD).', 400)
+  if (!names.length) return jsonErr(msg(req, { pt: 'Informe ?accounts=Nome1|Nome2.', en: 'Provide ?accounts=Name1|Name2.' }), 400)
+  if (names.length > 10) return jsonErr(msg(req, { pt: 'Máximo de 10 contas por chamada.', en: 'Up to 10 accounts per request.' }), 400)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(since) || !/^\d{4}-\d{2}-\d{2}$/.test(until)) return jsonErr(msg(req, { pt: 'Informe since e until (AAAA-MM-DD).', en: 'Provide since and until (YYYY-MM-DD).' }), 400)
 
   // nome → act_<id> (primeiro token que enxerga a conta vence)
   const resolved = new Map()
@@ -175,11 +175,11 @@ export default async function handler(req) {
   const warnings = []
   await Promise.all(names.map(async (name) => {
     const hit = resolved.get(normStr(name))
-    if (!hit) { warnings.push(`Conta "${name}" não encontrada nos tokens do Meta.`); return }
+    if (!hit) { warnings.push(msg(req, { pt: `Conta "${name}" não encontrada nos tokens do Meta.`, en: `Account "${name}" was not found in the Meta tokens.` })); return }
     try {
       const ev = await pullAccount(hit.actId, hit.token, since, until)
       accounts.push(name)
-      for (const i of traduzir(ev)) itens.push({ ...i, conta: name })
+      for (const i of traduzir(ev, idiomaDe(req) === 'en')) itens.push({ ...i, conta: name })
     } catch (e) {
       warnings.push(`${name}: ${e.message}`)
     }

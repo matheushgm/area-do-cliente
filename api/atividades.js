@@ -1,4 +1,4 @@
-import { getUser, sb, usuarioRestrito } from './_http.js'
+import { getUser, idiomaDe, msg, sb, usuarioRestrito } from './_http.js'
 // Serverless Function (Node) — Planejador de Atividades.
 // POST /api/atividades  { action, ...payload }   (JWT do Supabase no Authorization)
 //
@@ -440,13 +440,56 @@ function fmtBR(iso) {
   return `${d}/${m}/${y}`
 }
 
+// ─── Mensagens para a tela em inglês ─────────────────────────────────────────
+// As actions devolvem o erro em português (o `aviso` também vai para
+// atividades_planejadas, em português); a tradução é feita só na resposta.
+const EN = {
+  'Servidor não configurado.': 'Server not configured.',
+  'Informe ao menos um responsável.': 'Add at least one assignee.',
+  'Horas estimadas inválidas.': 'Invalid estimated hours.',
+  'Informe as pessoas do time.': 'Add the team members.',
+  'No máximo 30 pessoas por chamada.': 'At most 30 people per request.',
+  'No máximo 8 pessoas por chamada.': 'At most 8 people per request.',
+  'Período inválido: "desde" é depois de "ate".': 'Invalid range: "desde" is after "ate".',
+  'Período máximo de 31 dias por chamada.': 'At most 31 days per request.',
+  'taskId inválido.': 'Invalid taskId.',
+  'Horas inválidas (entre 0,25 e 200).': 'Invalid hours (between 0.25 and 200).',
+  'Tipo de tarefa é obrigatório.': 'Task type is required.',
+  'folderId é obrigatório.': 'folderId is required.',
+  'Lista do ClickUp não informada.': 'ClickUp list is missing.',
+  'Título é obrigatório.': 'Title is required.',
+  'Data de entrega inválida.': 'Invalid due date.',
+  'Falha ao ler as tarefas': 'Failed to read the tasks',
+  'Pessoa sem perfil na Área do Cliente.': 'This person has no profile in the app.',
+  'ClickUp não permitiu atribuir o responsável por este token (usuário convidado). Atribua manualmente na tarefa.':
+    "ClickUp didn't allow assigning this person with this token (guest user). Assign them manually on the task.",
+  'Campos Cliente/Tipo/Departamento não foram preenchidos (opções não encontradas na lista).':
+    "The Client/Type/Department fields weren't filled (options not found in the list).",
+}
+function traduzir(req, s) {
+  if (!s || typeof s !== 'string' || idiomaDe(req) !== 'en') return s
+  const opcao = s.match(/^A opção "(.+)" não existe no campo Tipo de tarefa desta lista do ClickUp\.$/)
+  if (opcao) return `The option "${opcao[1]}" doesn't exist in the Task type field of this ClickUp list.`
+  let out = s
+  for (const [pt, en] of Object.entries(EN)) out = out.split(pt).join(en)
+  return out
+}
+// Erros por pessoa (erros[].error) e o aviso da criação, na resposta.
+function traduzirDados(req, data) {
+  if (!data || idiomaDe(req) !== 'en') return data
+  const out = { ...data }
+  if (Array.isArray(out.erros)) out.erros = out.erros.map((e) => ({ ...e, error: traduzir(req, e.error) }))
+  if (out.aviso) out.aviso = traduzir(req, out.aviso)
+  return out
+}
+
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Method not allowed' } })
 
   const auth = await validarJwt(req)
-  if (auth.error) return res.status(auth.status).json({ error: { message: auth.error } })
+  if (auth.error) return res.status(auth.status).json({ error: { message: traduzir(req, auth.error) } })
 
   // Vercel já entrega req.body parseado quando o content-type é JSON; o
   // fallback cobre o caso de vir como string (ex.: outro content-type).
@@ -458,7 +501,7 @@ export default async function handler(req, res) {
   // Usuário só VertaTask: a carga e a disponibilidade leem as tarefas de todos os clientes,
   // então ele só pega a config (o calendário da tarefa fica sem as cores de capacidade).
   if (usuarioRestrito(auth.user) && action !== 'config') {
-    return res.status(403).json({ error: { message: 'Acesso restrito ao VertaTask.' } })
+    return res.status(403).json({ error: { message: msg(req, { pt: 'Acesso restrito ao VertaTask.', en: 'Your access is limited to VertaTask.' }) } })
   }
 
   // Config não depende do ClickUp: serve mesmo sem token (a UI usa pra defaults)
@@ -466,7 +509,7 @@ export default async function handler(req, res) {
     try {
       return res.status(200).json({ config: await carregarConfig() })
     } catch (e) {
-      return res.status(502).json({ error: { message: e?.message || 'Erro ao ler configuração' } })
+      return res.status(502).json({ error: { message: e?.message || msg(req, { pt: 'Erro ao ler configuração', en: 'Error reading the settings' }) } })
     }
   }
 
@@ -474,15 +517,15 @@ export default async function handler(req, res) {
   if (action === 'disponibilidade') {
     try {
       const out = await actionDisponibilidade(body)
-      if (out.error) return res.status(out.status || 400).json({ error: { message: out.error } })
-      return res.status(200).json(out.data)
+      if (out.error) return res.status(out.status || 400).json({ error: { message: traduzir(req, out.error) } })
+      return res.status(200).json(traduzirDados(req, out.data))
     } catch (e) {
-      return res.status(502).json({ error: { message: e?.message || 'Erro ao ler a carga' } })
+      return res.status(502).json({ error: { message: e?.message || msg(req, { pt: 'Erro ao ler a carga', en: 'Error reading the workload' }) } })
     }
   }
 
   const token = envClean('CLICKUP_API_TOKEN')
-  if (!token) return res.status(500).json({ error: { message: 'CLICKUP_API_TOKEN não configurado.' } })
+  if (!token) return res.status(500).json({ error: { message: msg(req, { pt: 'CLICKUP_API_TOKEN não configurado.', en: 'CLICKUP_API_TOKEN isn\'t set.' }) } })
   const teamId = envClean('CLICKUP_TEAM_ID') || DEFAULT_TEAM
   const ctx = { token, teamId, user: auth.user }
 
@@ -495,15 +538,18 @@ export default async function handler(req, res) {
     else if (action === 'estimar') out = await actionEstimar(body, ctx)
     else if (action === 'tipar') out = await actionTipar(body, ctx)
     else if (action === 'criar') out = await actionCriar(body, ctx)
-    else return res.status(400).json({ error: { message: 'Ação não suportada.' } })
+    else return res.status(400).json({ error: { message: msg(req, { pt: 'Ação não suportada.', en: 'Unsupported action.' }) } })
 
-    if (out.error) return res.status(out.status || 400).json({ error: { message: out.error } })
-    return res.status(200).json(out.data)
+    if (out.error) return res.status(out.status || 400).json({ error: { message: traduzir(req, out.error) } })
+    return res.status(200).json(traduzirDados(req, out.data))
   } catch (e) {
     const status = e?.status >= 400 && e?.status < 600 ? e.status : 502
     const hint = e?.code === 'OAUTH_025' || e?.code === 'OAUTH_027'
-      ? ' O token do ClickUp (CLICKUP_API_TOKEN) parece inválido ou revogado: gere um novo em ClickUp → Configurações → Apps → API Token e atualize a variável na Vercel.'
+      ? msg(req, {
+        pt: ' O token do ClickUp (CLICKUP_API_TOKEN) parece inválido ou revogado: gere um novo em ClickUp → Configurações → Apps → API Token e atualize a variável na Vercel.',
+        en: ' The ClickUp token (CLICKUP_API_TOKEN) looks invalid or revoked: create a new one in ClickUp → Settings → Apps → API Token and update the variable on Vercel.',
+      })
       : ''
-    return res.status(status).json({ error: { message: (e?.message || 'Erro ao ler as tarefas') + hint, code: e?.code || null } })
+    return res.status(status).json({ error: { message: (e?.message || msg(req, { pt: 'Erro ao ler as tarefas', en: 'Error reading the tasks' })) + hint, code: e?.code || null } })
   }
 }

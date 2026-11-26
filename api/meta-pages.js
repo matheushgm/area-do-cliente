@@ -1,4 +1,4 @@
-import { getUser, jsonErr } from './_http.js'
+import { getUser, jsonErr, msg } from './_http.js'
 // Edge function: devolve a PÁGINA DE DESTINO (link do criativo) de uma lista de
 // anúncios do Meta. O dash_insights só guarda o tipo de destino (WhatsApp/Site);
 // o link em si está no criativo, então lemos via Graph API em lotes (`?ids=`).
@@ -26,15 +26,15 @@ function extrairLink(ad) {
 
 export default async function handler(req) {
   const META_TOKEN = process.env.META_TOKEN || process.env.META_ACCESS_TOKEN
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) return jsonErr('Servidor não configurado.', 500)
-  if (!META_TOKEN) return jsonErr('Indisponível: META_TOKEN não configurada na Vercel.', 503)
-  if (req.method !== 'POST') return jsonErr('Use POST.', 405)
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) return jsonErr(msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), 500)
+  if (!META_TOKEN) return jsonErr(msg(req, { pt: 'Indisponível: META_TOKEN não configurada na Vercel.', en: 'Unavailable: META_TOKEN is not set in Vercel.' }), 503)
+  if (req.method !== 'POST') return jsonErr(msg(req, { pt: 'Use POST.', en: 'Use POST.' }), 405)
 
   const auth = await getUser(req)
   if (!auth.ok) return jsonErr(auth.message, 401)
 
   let body
-  try { body = await req.json() } catch { return jsonErr('JSON inválido.', 400) }
+  try { body = await req.json() } catch { return jsonErr(msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }), 400) }
   const ids = [...new Set((body?.ad_ids || []).map(String).filter((x) => /^\d+$/.test(x)))].slice(0, MAX_ADS)
   if (!ids.length) return new Response(JSON.stringify({ links: {}, erros: 0 }), { status: 200, headers: { 'content-type': 'application/json' } })
 

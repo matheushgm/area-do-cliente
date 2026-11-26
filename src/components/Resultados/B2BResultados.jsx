@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import {
   ChevronLeft, ChevronRight, Plus, Edit2, Check, X, FileDown, Link2, CheckCircle2,
 } from 'lucide-react'
-import { fmtMoney, fmtPct, parseMoney, getWeekRanges, computeRoiPlan, MONTH_NAMES, nomeMes, diaMes, semanasPdf } from './resultadosHelpers'
+import { fmtMoney, fmtPct, parseMoney, getWeekRanges, computeRoiPlan, MONTH_NAMES, nomeMes, diaMes } from './resultadosHelpers'
 import { CostGrid } from './ResultadosCharts'
 import GraficosEvolucao from './GraficosEvolucao'
 import FunilDoMes, { FonteTag } from './FunilDoMes'
@@ -224,7 +224,7 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
             </button>
           )}
           <button
-            onClick={() => exportResultadosB2BPDF({ companyName, resultados, year, month, weekRanges: semanasPdf(weekRanges), MONTH_NAMES })}
+            onClick={() => exportResultadosB2BPDF({ companyName, resultados, year, month, weekRanges, MONTH_NAMES })}
             className="btn-secondary flex items-center gap-2 text-sm whitespace-nowrap"
             title={t('resultados.acoes.tituloPdf')}
           >

@@ -1,4 +1,4 @@
-import { bearer, getUser } from './_http.js'
+import { bearer, getUser, msg } from './_http.js'
 // Serverless Function (Node) — mão de volta VertaTask → ClickUp.
 // GET/POST /api/tarefas-push   (Authorization: Bearer <CRON_SECRET> ou JWT)
 // Esvazia a fila tarefas_outbox (ver api/_tarefas_push_core.js). O front chama
@@ -22,14 +22,14 @@ function somar(a, b) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido.' })
+  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) })
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SERVICE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
   const TOKEN = envClean('CLICKUP_API_TOKEN')
-  if (!SUPABASE_URL || !SERVICE_KEY || !TOKEN) return res.status(500).json({ error: 'Servidor não configurado.' })
+  if (!SUPABASE_URL || !SERVICE_KEY || !TOKEN) return res.status(500).json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) })
   const t = bearer(req)
   const cron = envClean('CRON_SECRET')
-  if (!(cron && t && t === cron)) { const a = await getUser(req, undefined, { restrito: true }); if (!a.ok) return res.status(401).json({ error: 'Não autorizado.' }) }
+  if (!(cron && t && t === cron)) { const a = await getUser(req, undefined, { restrito: true }); if (!a.ok) return res.status(401).json({ error: msg(req, { pt: 'Não autorizado.', en: 'Unauthorized.' }) }) }
   const sb = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
   try {
     // Rodadas seguidas na mesma invocação enquanto houver fila e tempo (um template pode

@@ -16,7 +16,7 @@ import {
   TIPOS_PEDIDO, TIPOS_PEDIDO_MAP, GRUPOS_PEDIDO, CAMPOS_FINAIS, camposVisiveis, validarPedido, montarPedido, lerLinkDrive, valorDe, telefoneTexto,
   valorTexto, numeroBR, resumir,
 } from '../lib/pedidoTipos'
-import { useI18n, idiomaAtual } from '../i18n'
+import { useI18n, idiomaAtual, t as traduzir } from '../i18n'
 
 const ICONES = { subir_criativos: UploadCloud, criativo_estatico: Image, criativo_video: Clapperboard, landing_page: LayoutTemplate, nova_campanha: Megaphone, orcamento: Wallet, whatsapp: MessageCircle, outras: PenLine }
 const ETAPAS = ['tipo', 'detalhes', 'revisao']
@@ -327,11 +327,11 @@ export function PedidoFormulario({ token, portal, embedded = false, onEnviado, o
   const corpoIdent = portal ? { projectId: portal.projectId } : { token }
   const enviarArquivo = useMemo(() => (sessao ? async (file) => {
     const res = await fetch('/api/intake-publico', {
-      method: 'POST', headers: { 'content-type': 'application/json', ...headers },
+      method: 'POST', headers: { 'content-type': 'application/json', ...headers, 'X-Idioma': idiomaAtual() },
       body: JSON.stringify({ projectId: projetoPortal, acao: 'upload', nome: file.name, tamanho: file.size, mime: file.type }),
     })
     const j = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(j.error || 'Não consegui preparar o envio.')
+    if (!res.ok) throw new Error(j.error || traduzir('pedido.prepararEnvio'))
     return j // { path, url }
   } : null), [sessao, headers, projetoPortal])
   const [info, setInfo] = useState(infoInicial) // { empresa, prazos }

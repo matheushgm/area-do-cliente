@@ -56,13 +56,13 @@ export function usuarioRestrito(user) {
 
 export async function getUser(req, apikey = process.env.SUPABASE_ANON_KEY, { restrito = false } = {}) {
   const jwt = bearer(req)
-  if (!jwt) return { ok: false, message: 'Não autorizado.' }
+  if (!jwt) return { ok: false, message: msg(req, { pt: 'Não autorizado.', en: 'Unauthorized.' }) }
   const r = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
     headers: { Authorization: `Bearer ${jwt}`, apikey },
   })
-  if (!r.ok) return { ok: false, message: 'Sessão inválida ou expirada.' }
+  if (!r.ok) return { ok: false, message: msg(req, { pt: 'Sessão inválida ou expirada.', en: 'Invalid or expired session.' }) }
   const user = await r.json().catch(() => null)
-  if (usuarioRestrito(user) && !restrito) return { ok: false, message: 'Acesso restrito ao VertaTask.' }
+  if (usuarioRestrito(user) && !restrito) return { ok: false, message: msg(req, { pt: 'Acesso restrito ao VertaTask.', en: 'Your access is limited to VertaTask.' }) }
   return { ok: true, jwt, user }
 }
 

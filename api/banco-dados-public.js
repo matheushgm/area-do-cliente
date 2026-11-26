@@ -1,4 +1,4 @@
-import { jsonCors, preflight, sb, serviceKey, NO_STORE } from './_http.js'
+import { jsonCors, preflight, sb, serviceKey, NO_STORE, msg } from './_http.js'
 // Edge Function pública — link de visualização de um "Banco de dados" para o
 // cliente: GET /api/banco-dados-public?t=<share_token>.
 // Somente leitura. Devolve o nome do banco, a empresa, os campos visíveis
@@ -13,17 +13,17 @@ const json = (body, status = 200) => jsonCors(body, status, NO_STORE)
 
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return preflight()
-  if (req.method !== 'GET') return json({ error: 'Método não permitido.' }, 405)
-  if (!process.env.SUPABASE_URL || !serviceKey()) return json({ error: 'Servidor não configurado.' }, 500)
+  if (req.method !== 'GET') return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
+  if (!process.env.SUPABASE_URL || !serviceKey()) return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
 
   const token = new URL(req.url).searchParams.get('t') || ''
-  if (!/^[a-f0-9]{24,64}$/i.test(token)) return json({ error: 'Link inválido.' }, 400)
+  if (!/^[a-f0-9]{24,64}$/i.test(token)) return json({ error: msg(req, { pt: 'Link inválido.', en: 'Invalid link.' }) }, 400)
 
   const { data: bancos, status } = await sb(
     `/bancos_dados?share_token=eq.${encodeURIComponent(token)}&select=id,nome,campos,share_ocultos,project_id`
   )
   if (status !== 200 || !Array.isArray(bancos) || !bancos.length) {
-    return json({ error: 'Este link não existe mais. Peça um novo para o time.' }, 404)
+    return json({ error: msg(req, { pt: 'Este link não existe mais. Peça um novo para o time.', en: 'This link no longer exists. Ask the team for a new one.' }) }, 404)
   }
   const banco = bancos[0]
 
@@ -44,7 +44,7 @@ export default async function handler(req) {
       `/bancos_dados_registros?banco_id=eq.${banco.id}&select=id,dados,created_at&order=created_at.desc,id.desc`,
       { range: `${from}-${from + PAGE - 1}`, prefer: '' }
     )
-    if (!ok || !Array.isArray(data)) return json({ error: 'Erro ao carregar os leads.' }, 500)
+    if (!ok || !Array.isArray(data)) return json({ error: msg(req, { pt: 'Erro ao carregar os leads.', en: 'Failed to load leads.' }) }, 500)
     for (const r of data) {
       const dados = {}
       for (const c of campos) {

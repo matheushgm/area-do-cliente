@@ -1,4 +1,4 @@
-import { hmacHex, jsonCors, preflight } from './_http.js'
+import { hmacHex, jsonCors, preflight, msg } from './_http.js'
 import { hasPortalBearer, readPortalSession } from './_portal_auth.js'
 // Public Edge Function — ferramenta pública "Criativos com IA" de um cliente.
 // Sem login: validada por token HMAC (`projectId|senha`) gerado em
@@ -524,8 +524,8 @@ function sanitizeTypes(raw) {
   return out
 }
 
-async function anthropicSSE(system, instruction, context, maxTokens) {
-  if (!ANTHROPIC_KEY) return json({ error: 'IA não configurada no servidor.' }, 500)
+async function anthropicSSE(req, system, instruction, context, maxTokens) {
+  if (!ANTHROPIC_KEY) return json({ error: msg(req, { pt: 'IA não configurada no servidor.', en: 'AI is not configured on the server.' }) }, 500)
   const messages = [{
     role: 'user',
     content: [
@@ -555,15 +555,15 @@ async function anthropicSSE(system, instruction, context, maxTokens) {
 // ─── Handler ──────────────────────────────────────────────────────────────────
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return preflight()
-  if (req.method !== 'POST') return json({ error: 'Método não permitido.' }, 405)
-  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: 'Servidor não configurado.' }, 500)
+  if (req.method !== 'POST') return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
+  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
 
   let body
-  try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
+  try { body = await req.json() } catch { return json({ error: msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }) }, 400) }
 
   const action = body?.action || 'login'
   const projectId = String(body?.projectId || '').trim()
-  if (!projectId) return json({ error: 'Link incompleto.' }, 400)
+  if (!projectId) return json({ error: msg(req, { pt: 'Link incompleto.', en: 'Incomplete link.' }) }, 400)
 
   let user
   if (hasPortalBearer(req)) {
@@ -571,26 +571,26 @@ export default async function handler(req) {
     // O "usuário" é a chave de acesso; o histórico fica em user_email = portal:<id>.
     const sess = await readPortalSession(req, projectId)
     if (!sess.ok) return json({ error: sess.message }, sess.status)
-    if (sess.permissions.criativos !== 'edit') return json({ error: 'Sem acesso a este módulo.' }, 403)
+    if (sess.permissions.criativos !== 'edit') return json({ error: msg(req, { pt: 'Sem acesso a este módulo.', en: 'You don\'t have access to this module.' }) }, 403)
     user = { id: null, email: `portal:${sess.share.id}`, name: sess.share.label }
   } else {
     const token = String(body?.token || '').trim().toLowerCase()
-    if (!token) return json({ error: 'Link incompleto.' }, 400)
+    if (!token) return json({ error: msg(req, { pt: 'Link incompleto.', en: 'Incomplete link.' }) }, 400)
 
     // token = HMAC(projectId) — prova que o link é legítimo para este projeto.
     const expectedToken = await hmacHex(SERVICE_KEY, projectId)
-    if (!safeEq(token, expectedToken)) return json({ error: 'Link inválido.' }, 403)
+    if (!safeEq(token, expectedToken)) return json({ error: msg(req, { pt: 'Link inválido.', en: 'Invalid link.' }) }, 403)
 
     // Autentica o usuário-cliente (email + senha) a cada chamada.
     const email = String(body?.email || '').trim().toLowerCase()
     const password = String(body?.password || '')
-    if (!email || !password) return json({ error: 'Informe email e senha.' }, 401)
+    if (!email || !password) return json({ error: msg(req, { pt: 'Informe email e senha.', en: 'Enter your email and password.' }) }, 401)
     user = await findUser(projectId, email, password)
-    if (!user) return json({ error: 'Email ou senha incorretos.' }, 403)
+    if (!user) return json({ error: msg(req, { pt: 'Email ou senha incorretos.', en: 'Incorrect email or password.' }) }, 403)
   }
 
   const project = await loadProject(projectId)
-  if (!project) return json({ error: 'Cliente não encontrado.' }, 404)
+  if (!project) return json({ error: msg(req, { pt: 'Cliente não encontrado.', en: 'Client not found.' }) }, 404)
 
   // ── login: devolve o contexto mínimo + dados do usuário ─────────────────────
   if (action === 'login') {
@@ -599,7 +599,7 @@ export default async function handler(req) {
     return json({
       success: true,
       user: { id: user.id, email: user.email, name: user.name },
-      companyName: project.companyName || 'Cliente',
+      companyName: project.companyName || msg(req, { pt: 'Cliente', en: 'Client' }),
       dores,
       produtos: project.produtos.map((p) => ({ id: p.id, nome: p.nome })).filter((p) => p.nome),
       personas: project.personas.map((p) => ({ id: p.id, name: p.name })).filter((p) => p.name),
@@ -620,9 +620,9 @@ export default async function handler(req) {
       selection: body?.selection && typeof body.selection === 'object' ? body.selection : null,
       content: clip(body?.content, 60000) || null,
     }
-    if (!row.content) return json({ error: 'Nada para salvar.' }, 400)
+    if (!row.content) return json({ error: msg(req, { pt: 'Nada para salvar.', en: 'Nothing to save.' }) }, 400)
     const { status } = await sbWrite('/criativos_history', 'POST', row, 'return=minimal')
-    if (status >= 400) return json({ error: 'Erro ao salvar no histórico.' }, 500)
+    if (status >= 400) return json({ error: msg(req, { pt: 'Erro ao salvar no histórico.', en: 'Failed to save to history.' }) }, 500)
     return json({ success: true })
   }
 
@@ -659,18 +659,18 @@ export default async function handler(req) {
 
     // Funil é obrigatório: define o objetivo/CTA do anúncio.
     const funilId = String(body?.funil || '').trim()
-    if (!FUNIS_OBJETIVO[funilId]) return json({ error: 'Selecione o funil em que o anúncio vai rodar.' }, 400)
+    if (!FUNIS_OBJETIVO[funilId]) return json({ error: msg(req, { pt: 'Selecione o funil em que o anúncio vai rodar.', en: 'Select the funnel this ad will run in.' }) }, 400)
 
     // Nível de consciência é obrigatório: todas as peças são escritas nele.
     const nivelId = String(body?.nivel || '').trim()
     if (!NIVEIS_BY_ID[nivelId]) {
-      return json({ error: 'Selecione o nível de consciência do seu público.' }, 400)
+      return json({ error: msg(req, { pt: 'Selecione o nível de consciência do seu público.', en: 'Select your audience\'s awareness level.' }) }, 400)
     }
 
     // Quantidade total de peças desta geração.
     const quantidade = Math.floor(Number(body?.quantidade))
     if (!Number.isFinite(quantidade) || quantidade < 1 || quantidade > MAX_PECAS) {
-      return json({ error: `Escolha uma quantidade entre 1 e ${MAX_PECAS}.` }, 400)
+      return json({ error: msg(req, { pt: `Escolha uma quantidade entre 1 e ${MAX_PECAS}.`, en: `Choose a quantity between 1 and ${MAX_PECAS}.` }) }, 400)
     }
 
     // Detalhes/particularidades deste anúncio (opcional, texto livre).
@@ -678,14 +678,15 @@ export default async function handler(req) {
 
     if (mode === 'video') {
       const adTypes = sanitizeTypes(body?.adTypes)
-      if (!adTypes.length) return json({ error: 'Selecione ao menos um tipo de gancho.' }, 400)
+      if (!adTypes.length) return json({ error: msg(req, { pt: 'Selecione ao menos um tipo de gancho.', en: 'Select at least one hook type.' }) }, 400)
       if (adTypes.length > MAX_BLOCOS) {
-        return json({ error: `Muitos tipos de uma vez. Selecione no máximo ${MAX_BLOCOS}.` }, 400)
+        return json({ error: msg(req, { pt: `Muitos tipos de uma vez. Selecione no máximo ${MAX_BLOCOS}.`, en: `Too many types at once. Select up to ${MAX_BLOCOS}.` }) }, 400)
       }
       if (quantidade < adTypes.length) {
-        return json({ error: `Você pediu ${quantidade} roteiros para ${adTypes.length} tipos de gancho. Aumente a quantidade ou selecione menos tipos.` }, 400)
+        return json({ error: msg(req, { pt: `Você pediu ${quantidade} roteiros para ${adTypes.length} tipos de gancho. Aumente a quantidade ou selecione menos tipos.`, en: `You asked for ${quantidade} scripts across ${adTypes.length} hook types. Increase the quantity or select fewer types.` }) }, 400)
       }
       return anthropicSSE(
+        req,
         VIDEO_SYSTEM(nivelId),
         buildVideoInstruction(adTypes, funilId, detalhes, nivelId, quantidade),
         context,
@@ -701,15 +702,16 @@ export default async function handler(req) {
       const types = sanitizeTypes(d?.types)
       if (text && types.length) dores.push({ text, types })
     }
-    if (!dores.length) return json({ error: 'Selecione ao menos uma dor com um tipo de criativo.' }, 400)
+    if (!dores.length) return json({ error: msg(req, { pt: 'Selecione ao menos uma dor com um tipo de criativo.', en: 'Select at least one pain point with a creative type.' }) }, 400)
     const blocos = dores.reduce((s, d) => s + d.types.length, 0)
     if (blocos > MAX_BLOCOS) {
-      return json({ error: `Muitas combinações de uma vez. Selecione no máximo ${MAX_BLOCOS} (dor x tipo).` }, 400)
+      return json({ error: msg(req, { pt: `Muitas combinações de uma vez. Selecione no máximo ${MAX_BLOCOS} (dor x tipo).`, en: `Too many combinations at once. Select up to ${MAX_BLOCOS} (pain point x type).` }) }, 400)
     }
     if (quantidade < blocos) {
-      return json({ error: `Você pediu ${quantidade} headlines para ${blocos} combinações. Aumente a quantidade ou selecione menos combinações.` }, 400)
+      return json({ error: msg(req, { pt: `Você pediu ${quantidade} headlines para ${blocos} combinações. Aumente a quantidade ou selecione menos combinações.`, en: `You asked for ${quantidade} headlines across ${blocos} combinations. Increase the quantity or select fewer combinations.` }) }, 400)
     }
     return anthropicSSE(
+      req,
       DORES_SYSTEM(nivelId),
       buildStaticInstruction(dores, funilId, detalhes, nivelId, quantidade),
       context,
@@ -717,5 +719,5 @@ export default async function handler(req) {
     )
   }
 
-  return json({ error: 'Ação desconhecida.' }, 400)
+  return json({ error: msg(req, { pt: 'Ação desconhecida.', en: 'Unknown action.' }) }, 400)
 }

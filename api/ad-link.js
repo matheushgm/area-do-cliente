@@ -1,4 +1,4 @@
-import { getUser, jsonErr } from './_http.js'
+import { getUser, jsonErr, msg } from './_http.js'
 // Edge function — retorna o destino (link real) de um anúncio do Meta.
 // O dado da planilha tem só o TIPO de destino (WhatsApp/Site/...); o link em si
 // (LP) não é coletado, então buscamos no criativo via Graph API (token só no
@@ -9,21 +9,21 @@ export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY
   const META_TOKEN = process.env.META_TOKEN || process.env.META_ACCESS_TOKEN
-  if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr('Servidor não configurado.', 500)
-  if (!META_TOKEN) return jsonErr('Indisponível: META_TOKEN não configurada na Vercel.', 503)
+  if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr(msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), 500)
+  if (!META_TOKEN) return jsonErr(msg(req, { pt: 'Indisponível: META_TOKEN não configurada na Vercel.', en: 'Unavailable: META_TOKEN isn\'t set on Vercel.' }), 503)
 
   const auth = await getUser(req)
   if (!auth.ok) return jsonErr(auth.message, 401)
 
   const adId = (new URL(req.url).searchParams.get('ad_id') || '').trim()
-  if (!/^\d+$/.test(adId)) return jsonErr('ad_id inválido.', 400)
+  if (!/^\d+$/.test(adId)) return jsonErr(msg(req, { pt: 'ad_id inválido.', en: 'Invalid ad_id.' }), 400)
 
   let ad
   try {
     const r = await fetch(`https://graph.facebook.com/v19.0/${adId}?fields=creative{object_story_spec,asset_feed_spec,call_to_action_type}&access_token=${encodeURIComponent(META_TOKEN)}`)
     ad = await r.json()
-    if (!r.ok || ad.error) return jsonErr('Meta: ' + (ad.error?.message || 'falha ao ler o anúncio'), 502)
-  } catch (e) { return jsonErr('Erro ao chamar a API do Meta.', 502) }
+    if (!r.ok || ad.error) return jsonErr('Meta: ' + (ad.error?.message || msg(req, { pt: 'falha ao ler o anúncio', en: 'failed to read the ad' })), 502)
+  } catch (e) { return jsonErr(msg(req, { pt: 'Erro ao chamar a API do Meta.', en: 'Error calling the Meta API.' }), 502) }
 
   const cr = ad.creative || {}, oss = cr.object_story_spec || {}, afs = cr.asset_feed_spec || {}
   const ld = oss.link_data || {}, vd = oss.video_data || {}

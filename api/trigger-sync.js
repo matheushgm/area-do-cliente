@@ -1,4 +1,4 @@
-import { getUser, jsonErr } from './_http.js'
+import { getUser, jsonErr, msg } from './_http.js'
 // Edge function — dispara o GitHub Action de sync (dashboard-sync.yml) sob demanda
 // (botão "Atualizar" da dashboard). Valida o JWT do usuário (igual /api/dash-data)
 // e então chama a API do GitHub (workflow_dispatch) com um token de serviço.
@@ -13,8 +13,8 @@ export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY
   const GH_TOKEN = process.env.GH_DISPATCH_TOKEN
-  if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr('Servidor não configurado.', 500)
-  if (!GH_TOKEN) return jsonErr('GH_DISPATCH_TOKEN não configurado no servidor.', 500)
+  if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr(msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), 500)
+  if (!GH_TOKEN) return jsonErr(msg(req, { pt: 'GH_DISPATCH_TOKEN não configurado no servidor.', en: 'GH_DISPATCH_TOKEN is not configured on the server.' }), 500)
 
   // ── Autenticação (mesmo padrão de /api/dash-data) ───────────────────────────
   const auth = await getUser(req)
@@ -42,5 +42,5 @@ export default async function handler(req) {
     })
   }
   const txt = await r.text()
-  return jsonErr(`Falha ao disparar atualização (GitHub ${r.status}): ${txt.slice(0, 200)}`, 502)
+  return jsonErr(`${msg(req, { pt: 'Falha ao disparar atualização', en: 'Could not start the refresh' })} (GitHub ${r.status}): ${txt.slice(0, 200)}`, 502)
 }

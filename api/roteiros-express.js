@@ -1,4 +1,4 @@
-import { jsonCors, preflight, sb } from './_http.js'
+import { jsonCors, preflight, sb, msg } from './_http.js'
 // Public Edge Function — questionário público "Roteiros Express".
 // Sem login: validado por um token de compartilhamento fixo.
 //   action=submit       → grava as respostas (service role) e devolve o id
@@ -80,8 +80,8 @@ const json = jsonCors
 
 const clip = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
 
-async function anthropicSSE(system, messages, maxTokens) {
-  if (!ANTHROPIC_KEY) return json({ error: 'IA não configurada no servidor.' }, 500)
+async function anthropicSSE(req, system, messages, maxTokens) {
+  if (!ANTHROPIC_KEY) return json({ error: msg(req, { pt: 'IA não configurada no servidor.', en: 'AI is not configured on the server.' }) }, 500)
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -108,26 +108,26 @@ async function loadRow(id) {
 
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return preflight()
-  if (req.method !== 'POST') return json({ error: 'Método não permitido.' }, 405)
-  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: 'Servidor não configurado.' }, 500)
+  if (req.method !== 'POST') return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
+  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
 
   let body
-  try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
+  try { body = await req.json() } catch { return json({ error: msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }) }, 400) }
 
   const action = body?.action || 'submit'
-  if (body?.token !== PUBLIC_TOKEN) return json({ error: 'Link inválido.' }, 403)
+  if (body?.token !== PUBLIC_TOKEN) return json({ error: msg(req, { pt: 'Link inválido.', en: 'Invalid link.' }) }, 403)
 
   // ── submit: grava as respostas ─────────────────────────────────────────────
   if (action === 'submit') {
     if (body.website) return json({ success: true, id: null }) // honeypot
 
     const answers = body.answers
-    if (!answers || typeof answers !== 'object') return json({ error: 'Respostas ausentes.' }, 400)
+    if (!answers || typeof answers !== 'object') return json({ error: msg(req, { pt: 'Respostas ausentes.', en: 'Missing answers.' }) }, 400)
 
     const clean = {}
     for (const k of REQUIRED_KEYS) {
       const v = clip(answers[k], 1200)
-      if (!v) return json({ error: 'Responda todas as perguntas.' }, 400)
+      if (!v) return json({ error: msg(req, { pt: 'Responda todas as perguntas.', en: 'Please answer every question.' }) }, 400)
       clean[k] = v
     }
 
@@ -136,10 +136,10 @@ export default async function handler(req) {
     const telefone = clip(body.telefone, 60)
     const empresa  = clip(body.empresa, 160)
     if (!nome || !email || !telefone || !empresa) {
-      return json({ error: 'Preencha nome, e-mail, telefone e empresa.' }, 400)
+      return json({ error: msg(req, { pt: 'Preencha nome, e-mail, telefone e empresa.', en: 'Please fill in name, email, phone and company.' }) }, 400)
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return json({ error: 'E-mail inválido.' }, 400)
+      return json({ error: msg(req, { pt: 'E-mail inválido.', en: 'Invalid email.' }) }, 400)
     }
 
     const row = {
@@ -152,28 +152,28 @@ export default async function handler(req) {
       origem:  'link-publico',
     }
     const { status, data } = await sb('/roteiros_express', { method: 'POST', body: JSON.stringify(row) })
-    if (status >= 400) return json({ error: 'Erro ao salvar.', detail: data }, 500)
+    if (status >= 400) return json({ error: msg(req, { pt: 'Erro ao salvar.', en: 'Could not save.' }), detail: data }, 500)
     return json({ success: true, id: Array.isArray(data) && data[0] ? data[0].id : null })
   }
 
   // ── generate: cria os 2 roteiros a partir da linha salva ───────────────────
   if (action === 'generate') {
     const row = await loadRow(body.id)
-    if (!row) return json({ error: 'Cadastro não encontrado.' }, 404)
-    return anthropicSSE(SYSTEM_GERAR, [{ role: 'user', content: buildBrief(row.answers) }], 8000)
+    if (!row) return json({ error: msg(req, { pt: 'Cadastro não encontrado.', en: 'Record not found.' }) }, 404)
+    return anthropicSSE(req, SYSTEM_GERAR, [{ role: 'user', content: buildBrief(row.answers) }], 8000)
   }
 
   // ── refine: refina 1 roteiro (1x por roteiro, enforced no servidor) ────────
   if (action === 'refine') {
     const { id, index, note } = body
     const row = await loadRow(id)
-    if (!row) return json({ error: 'Cadastro não encontrado.' }, 404)
+    if (!row) return json({ error: msg(req, { pt: 'Cadastro não encontrado.', en: 'Record not found.' }) }, 404)
     const scripts = Array.isArray(row.scripts) ? row.scripts : []
     const sc = scripts[index]
-    if (!sc || !sc.content) return json({ error: 'Roteiro não encontrado.' }, 400)
-    if (sc.refineUsed) return json({ error: 'Este roteiro já foi refinado.' }, 403)
+    if (!sc || !sc.content) return json({ error: msg(req, { pt: 'Roteiro não encontrado.', en: 'Script not found.' }) }, 400)
+    if (sc.refineUsed) return json({ error: msg(req, { pt: 'Este roteiro já foi refinado.', en: 'This script has already been refined.' }) }, 403)
     const cleanNote = clip(note, 800)
-    if (!cleanNote) return json({ error: 'Descreva o ajuste desejado.' }, 400)
+    if (!cleanNote) return json({ error: msg(req, { pt: 'Descreva o ajuste desejado.', en: 'Describe the change you want.' }) }, 400)
 
     // Marca como refinado já (consome o refino mesmo se o cliente não salvar depois).
     const updated = scripts.map((s, i) => (i === index ? { ...s, refineUsed: true } : s))
@@ -182,13 +182,13 @@ export default async function handler(req) {
     })
 
     const userMsg = `## ROTEIRO ORIGINAL\n\n${sc.content}\n\n## PEDIDO DE REFINAMENTO\n\n${cleanNote}`
-    return anthropicSSE(SYSTEM_REFINAR, [{ role: 'user', content: userMsg }], 4000)
+    return anthropicSSE(req, SYSTEM_REFINAR, [{ role: 'user', content: userMsg }], 4000)
   }
 
   // ── save-scripts: persiste os roteiros (após o stream terminar no cliente) ──
   if (action === 'save-scripts') {
     const { id, scripts } = body
-    if (!id || !Array.isArray(scripts)) return json({ error: 'Dados incompletos.' }, 400)
+    if (!id || !Array.isArray(scripts)) return json({ error: msg(req, { pt: 'Dados incompletos.', en: 'Incomplete data.' }) }, 400)
     const safe = scripts.slice(0, 2).map((s) => ({
       content: clip(s?.content, 8000),
       refineUsed: !!s?.refineUsed,
@@ -197,9 +197,9 @@ export default async function handler(req) {
       method: 'PATCH', prefer: 'return=minimal',
       body: JSON.stringify({ scripts: safe, status: 'gerado' }),
     })
-    if (status >= 400) return json({ error: 'Erro ao salvar roteiros.', detail: data }, 500)
+    if (status >= 400) return json({ error: msg(req, { pt: 'Erro ao salvar roteiros.', en: 'Could not save the scripts.' }), detail: data }, 500)
     return json({ success: true })
   }
 
-  return json({ error: 'Ação desconhecida.' }, 400)
+  return json({ error: msg(req, { pt: 'Ação desconhecida.', en: 'Unknown action.' }) }, 400)
 }

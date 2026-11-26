@@ -28,8 +28,9 @@ Começou em 09/11/2026. Última atualização: 13/11/2026 (ondas 0 a 4 completas
 | 2 | VertaTask (tarefas, sprints, atividades; o Chat sai) | 83 | ✅ 09/11/2026 | 0 |
 | 3 | Página do cliente e módulos | 133 | ✅ 11/11/2026 (PDFs de `exportPDF.js` na onda 6) | 0 |
 | 4 | Páginas públicas (portal, formulários, aprovações) | 33 | ✅ 13/11/2026 | 0 |
-| 5 | Dashboard de Tráfego | 6 | | 838 |
-| 6 | PDFs, mensagens das funções `/api/*`, helpers | 75 | 🟡 PDFs de ROI, metas, Personas e Produto | 996 |
+| 5 | Dashboard de Tráfego | 6 | ✅ 26/11/2026 | 0 |
+| 6 | PDFs, mensagens das funções `/api/*`, helpers | 75 | ✅ 26/11/2026 | 0 |
+| 7 | Telas que entraram depois de 13/11 (Portal novo, Contratação…) | 19 | | ~240 |
 
 A preferência de idioma fica no perfil (`profiles.idioma`, migration 130) e vale para as ondas 0 a 3 e 5; as
 páginas públicas não têm login e seguem a regra da 4.0.
@@ -531,19 +532,35 @@ páginas públicas não têm login e seguem a regra da 4.0.
 
 ## Onda 5 — Dashboard de Tráfego
 
+> **Feito em 26/11/2026.** Mini-i18n `public/dash-teste/vendor/viewerI18n.js` (lê `rl_lang`; no link público
+> `?shared=1` e na página do anúncio vale `?lang=` → salvo → navegador). Dicionários por trecho do viewer em
+> `vendor/i18n/{v1,v2,v3,v4,anuncio}.js` (`export default { pt, en }`); no viewer a função chama `tt()` (o `t`
+> já era variável local). Troca ao vivo: o evento `storage` dispara `idioma-mudou`, que refaz os rótulos de
+> período e redesenha. Toda chamada a `/api/*` do viewer leva `X-Idioma` por um embrulho do `fetch` no topo do
+> módulo. `dashboardData.js` (as duas cópias, sem import) e `dashCache.js` leem `rl_lang` como o
+> `playbookTextos.js`; `fmtBR` vira mm/dd e os decimais seguem o idioma. Ficam em pt: nomes de coluna do CSV,
+> chaves de `CFG`, status comparados (`CRÍTICO`, `QUEDA`…), `BANCO_FUNIS` e nomes de campanha/conta/anúncio.
+
 ### 5.1 Dashboard de Tráfego (viewer)
 
 > O viewer é HTML estático (não importa de `src/`): precisa de um mini-i18n próprio que leia `localStorage.rl_lang`, como já faz com o tema, e acompanhe a troca pelo evento `storage`. No link público (`?shared=1`) vale a regra das páginas públicas. `vendor/dashboardData.js` é cópia à mão de `src/lib/dashboardData.js`; `vendor/playbookSugestoes.js` e `vendor/dashCache.js` são gerados (traduzir na origem). O texto das sugestões já segue `rl_lang` no viewer; os rótulos em volta ("Conta:", "O que fazer:") e o
 `PRIORIDADE_LABEL` ficam para esta onda (use `rotuloPrioridade`/`rotuloTipo` de `playbookSugestoes.js`).
 
-- [ ] `src/pages/DashboardApiTeste.jsx` — ~2
-- [ ] `public/dash-teste/viewer.html` — ~800
-- [ ] `public/dash-teste/vendor/dashboardData.js`
-- [ ] `src/lib/dashboardData.js` — ~33
-- [ ] `src/lib/dashCache.js` — ~3
-- [ ] `src/hooks/useDashboardData.js`
+- [x] `src/pages/DashboardApiTeste.jsx` — ~2
+- [x] `public/dash-teste/viewer.html` — ~800
+- [x] `public/dash-teste/vendor/dashboardData.js`
+- [x] `src/lib/dashboardData.js` — ~33
+- [x] `src/lib/dashCache.js` — ~3
+- [x] `src/hooks/useDashboardData.js`
 
 ## Onda 6 — Transversais
+
+> **Feito em 26/11/2026.** Todos os PDFs de `exportPDF.js` no idioma de quem gera (namespace `pdf`); o
+> `semanasPdf` saiu (o PDF monta os rótulos das semanas). Nas funções `/api/*`, só o que volta para a tela usa
+> `msg(req, { pt, en })`, inclusive o `getUser` e a sessão do portal. Ficam em pt de propósito: o que é gravado
+> no banco (outbox, `tarefas_sync_log`, Intake, descrição de tarefa no ClickUp), logs, cron e webhook, prompts
+> de IA e mensagens que chegam de Meta/Google/ClickUp. Os criativos com IA continuam gerados em pt (a saída é
+> lida por regex). Os `[–]` abaixo não têm texto de interface.
 
 ### 6.1 PDFs
 
@@ -555,89 +572,114 @@ páginas públicas não têm login e seguem a regra da 4.0.
 
 > Os outros geradores de PDF estão nas ondas das telas que os usam. O PDF sai no idioma de quem gera.
 
-- [ ] `src/utils/exportPDF.js` — ~207
+- [x] `src/utils/exportPDF.js` — ~207
 
 ### 6.2 Mensagens que vêm das funções `/api/*`
 
 > Decidido: a tela manda `X-Idioma` e a função responde traduzida com `msg(req, { pt, en })` de `api/_http.js`.
 
-- [ ] `api/_atividades_engine.js` — ~24
-- [ ] `api/_atividades_fonte.js` — ~5
-- [ ] `api/_chat_sync_core.js` — ~13
-- [ ] `api/_clickup_fotos.js` — ~3
-- [ ] `api/_crm.js` — ~4
-- [ ] `api/_http.js` — ~3
-- [ ] `api/_intake.js` — ~1
-- [ ] `api/_portal_auth.js` — ~4
-- [ ] `api/_tarefas_clickup_map.js` — ~21
-- [ ] `api/_tarefas_push_core.js` — ~46
-- [ ] `api/_tarefas_relacoes.js` — ~5
-- [ ] `api/_tarefas_sync_core.js` — ~23
-- [ ] `api/_tarefas_webhook_core.js` — ~8
-- [ ] `api/_tarefas_webhook_saude.js` — ~5
-- [ ] `api/activate-ad.js` — ~11
-- [ ] `api/ad-link.js` — ~5
-- [ ] `api/ad-media.js` — ~14
-- [ ] `api/ad-preview-public.js` — ~15
-- [ ] `api/ad-preview.js` — ~8
-- [ ] `api/admin-users.js` — ~9
-- [ ] `api/ads-roadmap.js` — ~4
-- [ ] `api/anthropic.js` — ~4
-- [ ] `api/anuncios-aprovacao.js` — ~14
-- [ ] `api/atividades.js` — ~29
-- [ ] `api/b2b-results.js` — ~7
-- [ ] `api/b2c-results.js` — ~7
-- [ ] `api/banco-dados-public.js` — ~5
-- [ ] `api/campaign-budgets.js` — ~5
-- [ ] `api/campanhas-public.js` — ~4
-- [ ] `api/chat-sync.js` — ~4
-- [ ] `api/clarity.js` — ~12
-- [ ] `api/clickup-webhook.js` — ~3
-- [ ] `api/clickup.js` — ~11
-- [ ] `api/client-form.js` — ~11
-- [ ] `api/copy-aprovacao.js` — ~20
-- [ ] `api/criativos-public.js` — ~114
-- [ ] `api/criativos-share-token.js` — ~4
-- [ ] `api/criativos-users.js` — ~16
-- [ ] `api/crm-assist.js` — ~18
-- [ ] `api/crm-test.js` — ~4
-- [ ] `api/dash-benchmark.js` — ~3
-- [ ] `api/dash-data.js` — ~5
-- [ ] `api/dash-public.js` — ~7
-- [ ] `api/dash-rollup.js` — ~11
-- [ ] `api/dash-share-token.js` — ~5
-- [ ] `api/intake-publico.js` — ~14
-- [ ] `api/launch-creative.js` — ~3
-- [ ] `api/lead-capture.js` — ~6
-- [ ] `api/matriz-objecao.js` — ~7
-- [ ] `api/meeting-minute.js` — ~10
-- [ ] `api/meta-activities.js` — ~14
-- [ ] `api/meta-pages.js` — ~3
-- [ ] `api/nps.js` — ~9
-- [ ] `api/portal.js` — ~23
-- [ ] `api/precificacao-form.js` — ~7
-- [ ] `api/resultados-autofill.js` — ~10
-- [ ] `api/roteiros-express.js` — ~22
-- [ ] `api/roteiros-validados.js` — ~9
-- [ ] `api/slack.js` — ~13
-- [ ] `api/tarefas-push.js` — ~3
-- [ ] `api/tarefas-sync.js` — ~3
-- [ ] `api/transcribe-ad.js` — ~14
-- [ ] `api/trigger-sync.js` — ~3
-- [ ] `api/webinar-public.js` — ~7
+- [x] `api/_atividades_engine.js` — ~24
+- [x] `api/_atividades_fonte.js` — ~5
+- [x] `api/_chat_sync_core.js` — ~13
+- [x] `api/_clickup_fotos.js` — ~3
+- [x] `api/_crm.js` — ~4
+- [x] `api/_http.js` — ~3
+- [x] `api/_intake.js` — ~1
+- [x] `api/_portal_auth.js` — ~4
+- [x] `api/_tarefas_clickup_map.js` — ~21
+- [x] `api/_tarefas_push_core.js` — ~46
+- [x] `api/_tarefas_relacoes.js` — ~5
+- [x] `api/_tarefas_sync_core.js` — ~23
+- [x] `api/_tarefas_webhook_core.js` — ~8
+- [x] `api/_tarefas_webhook_saude.js` — ~5
+- [x] `api/activate-ad.js` — ~11
+- [x] `api/ad-link.js` — ~5
+- [x] `api/ad-media.js` — ~14
+- [x] `api/ad-preview-public.js` — ~15
+- [x] `api/ad-preview.js` — ~8
+- [x] `api/admin-users.js` — ~9
+- [x] `api/ads-roadmap.js` — ~4
+- [x] `api/anthropic.js` — ~4
+- [x] `api/anuncios-aprovacao.js` — ~14
+- [x] `api/atividades.js` — ~29
+- [x] `api/b2b-results.js` — ~7
+- [x] `api/b2c-results.js` — ~7
+- [x] `api/banco-dados-public.js` — ~5
+- [x] `api/campaign-budgets.js` — ~5
+- [x] `api/campanhas-public.js` — ~4
+- [x] `api/chat-sync.js` — ~4
+- [x] `api/clarity.js` — ~12
+- [–] `api/clickup-webhook.js` — ~3
+- [x] `api/clickup.js` — ~11
+- [x] `api/client-form.js` — ~11
+- [x] `api/copy-aprovacao.js` — ~20
+- [x] `api/criativos-public.js` — ~114
+- [x] `api/criativos-share-token.js` — ~4
+- [x] `api/criativos-users.js` — ~16
+- [x] `api/crm-assist.js` — ~18
+- [x] `api/crm-test.js` — ~4
+- [x] `api/dash-benchmark.js` — ~3
+- [x] `api/dash-data.js` — ~5
+- [x] `api/dash-public.js` — ~7
+- [x] `api/dash-rollup.js` — ~11
+- [x] `api/dash-share-token.js` — ~5
+- [x] `api/intake-publico.js` — ~14
+- [x] `api/launch-creative.js` — ~3
+- [x] `api/lead-capture.js` — ~6
+- [x] `api/matriz-objecao.js` — ~7
+- [x] `api/meeting-minute.js` — ~10
+- [x] `api/meta-activities.js` — ~14
+- [x] `api/meta-pages.js` — ~3
+- [x] `api/nps.js` — ~9
+- [x] `api/portal.js` — ~23
+- [x] `api/precificacao-form.js` — ~7
+- [x] `api/resultados-autofill.js` — ~10
+- [x] `api/roteiros-express.js` — ~22
+- [x] `api/roteiros-validados.js` — ~9
+- [x] `api/slack.js` — ~13
+- [x] `api/tarefas-push.js` — ~3
+- [x] `api/tarefas-sync.js` — ~3
+- [x] `api/transcribe-ad.js` — ~14
+- [x] `api/trigger-sync.js` — ~3
+- [x] `api/webinar-public.js` — ~7
 
 ### 6.3 Demais helpers e hooks
 
 - [x] `src/lib/api.js`
-- [ ] `src/lib/buildContext.js` — ~28
+- [–] `src/lib/buildContext.js` — ~28
 - [x] `src/lib/claude.js`
-- [ ] `src/lib/clickup.js` — ~2
-- [ ] `src/lib/roasPorUnidade.js` — ~1
-- [ ] `src/lib/roteiroVideoHabilidade.js` — ~18
-- [ ] `src/lib/slack.js` — ~1
-- [ ] `src/lib/supabase.js` — ~1
-- [ ] `src/lib/wireframeHtml.js` — ~3
-- [ ] `src/routes/legacyRedirects.jsx` — ~1
+- [x] `src/lib/clickup.js` — ~2
+- [–] `src/lib/roasPorUnidade.js` — ~1
+- [–] `src/lib/roteiroVideoHabilidade.js` — ~18
+- [x] `src/lib/slack.js` — ~1
+- [–] `src/lib/supabase.js` — ~1
+- [x] `src/lib/wireframeHtml.js` — ~3
+- [–] `src/routes/legacyRedirects.jsx` — ~1
+
+## Onda 7 — Telas novas (depois de 13/11/2026)
+
+> Entraram sem tradução antes da regra do `CLAUDE.md` ("todo texto de tela nasce em português e inglês").
+> O Portal (Início, Central, Solicitações, Dashboard) é o que o cliente vê; a Contratação é só admin.
+
+- [ ] `src/components/Contratacao/BancoTalentos.jsx` (25)
+- [ ] `src/components/Contratacao/CandidatoPerfil.jsx` (30)
+- [ ] `src/components/Contratacao/CargosGrid.jsx` (15)
+- [ ] `src/components/Contratacao/data.js` (11)
+- [ ] `src/components/Contratacao/Entrevista.jsx` (23)
+- [ ] `src/components/Contratacao/NovaEntrevista.jsx` (12)
+- [ ] `src/components/Contratacao/ResultadoPainel.jsx` (5)
+- [ ] `src/components/Contratacao/ResumoIA.jsx` (15)
+- [ ] `src/components/Contratacao/ui.jsx` (5)
+- [ ] `src/components/Pedido/CampoArquivos.jsx` (6)
+- [ ] `src/components/Portal/PortalCentral.jsx` (38)
+- [ ] `src/components/Portal/PortalDashboard.jsx` (10)
+- [ ] `src/components/Portal/PortalInicio.jsx` (21)
+- [ ] `src/components/Portal/PortalResultados.jsx` (1)
+- [ ] `src/components/Portal/PortalSolicitacoes.jsx` (16)
+- [ ] `src/components/Tarefas/HorasView.jsx` (2)
+- [ ] `src/pages/Contratacao.jsx` (1)
+- [ ] `src/pages/ListaPublica.jsx` (3)
+- [ ] `src/pages/TestesAB.jsx` (1)
 
 ## Regras para traduzir
 

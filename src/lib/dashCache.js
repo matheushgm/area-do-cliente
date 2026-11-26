@@ -129,6 +129,11 @@ function diaMaisAntigoDesde(cfg, canal, versao) {
 
 // ─── Servidor ────────────────────────────────────────────────────────────────
 // `de` (inclusivo) e `ate` (exclusivo), YYYY-MM-DD; sem `de` = desde o começo.
+// Idioma de quem pede, para a mensagem de erro da função (sem import: este arquivo vai para o viewer).
+function idiomaDoNavegador() {
+  try { return globalThis.localStorage?.getItem('rl_lang') === 'en' ? 'en' : 'pt' } catch { return 'pt' }
+}
+
 async function baixar(cfg, fonte, canal, contas, { de = null, ate = null } = {}) {
   // encodeURIComponent, não URLSearchParams: este troca espaço por "+", que o
   // `vercel dev` não devolve como espaço ("Complexo+Agro" não casava com conta nenhuma).
@@ -136,7 +141,7 @@ async function baixar(cfg, fonte, canal, contas, { de = null, ate = null } = {})
   for (const a of contas || []) qs.push(`account=${encodeURIComponent(a)}`)
   if (de) qs.push(`de=${de}`)
   if (ate) qs.push(`ate=${ate}`)
-  const r = await fetch(`/api/dash-${fonte}?${qs.join('&')}`, { headers: { Authorization: `Bearer ${cfg.token}` }, cache: 'no-store' })
+  const r = await fetch(`/api/dash-${fonte}?${qs.join('&')}`, { headers: { Authorization: `Bearer ${cfg.token}`, 'X-Idioma': idiomaDoNavegador() }, cache: 'no-store' })
   if (!r.ok) {
     const m = await r.clone().json().then((j) => j?.error?.message).catch(() => null)
     const e = new Error(`${canal}: HTTP ${r.status}${m ? ` — ${m}` : ''}`)
@@ -254,7 +259,12 @@ async function conferirDono(uid) {
 // `cfg` = { token, sbUrl, sbKey, parseCSV }.
 export async function lerDash({ fonte, canal, contas = null, dias = null, desde = null, fresco = false, ...cfg }) {
   const uid = usuarioDo(cfg.token)
-  if (!uid) throw Object.assign(new Error('Sessão inválida.'), { status: 401 })
+  if (!uid) {
+    // Sem imports (o arquivo vai para o viewer): o idioma vem do mesmo `rl_lang` que o app grava.
+    let en = false
+    try { en = globalThis.localStorage?.getItem('rl_lang') === 'en' } catch { /* sem storage */ }
+    throw Object.assign(new Error(en ? 'Invalid session.' : 'Sessão inválida.'), { status: 401 })
+  }
   await conferirDono(uid)
   const lista = contas ? [...new Set(contas.map((c) => c.trim()).filter(Boolean))].sort() : null
   const inicio = desde || (dias ? somaDias(isoHoje(), -dias) : null)

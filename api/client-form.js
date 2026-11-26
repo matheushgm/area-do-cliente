@@ -1,4 +1,4 @@
-import { jsonCors, preflight, sb } from './_http.js'
+import { jsonCors, preflight, sb, msg } from './_http.js'
 // Public Edge Function — no auth required, validated only by client_share_token
 export const config = { runtime: 'edge' }
 
@@ -18,20 +18,20 @@ export default async function handler(req) {
   if (req.method === 'OPTIONS') return preflight()
 
   if (!SUPABASE_URL || !SERVICE_KEY) {
-    return json({ error: 'Servidor não configurado.' }, 500)
+    return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
   }
 
   // ── GET — carrega dados do projeto pelo token ─────────────────────────────
   if (req.method === 'GET') {
     const url   = new URL(req.url)
     const token = url.searchParams.get('token')
-    if (!token) return json({ error: 'Token inválido.' }, 400)
+    if (!token) return json({ error: msg(req, { pt: 'Token inválido.', en: 'Invalid token.' }) }, 400)
 
     const { data: projects, status } = await sb(
       `/projects_v2?client_share_token=eq.${encodeURIComponent(token)}&select=id,company_name,mecanismo_unico`
     )
     if (status !== 200 || !Array.isArray(projects) || !projects.length) {
-      return json({ error: 'Link inválido ou expirado.' }, 404)
+      return json({ error: msg(req, { pt: 'Link inválido ou expirado.', en: 'Invalid or expired link.' }) }, 404)
     }
 
     const pid = projects[0].id
@@ -58,17 +58,17 @@ export default async function handler(req) {
   // ── PATCH — salva dados ───────────────────────────────────────────────────
   if (req.method === 'PATCH') {
     let body
-    try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
+    try { body = await req.json() } catch { return json({ error: msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }) }, 400) }
 
     const { token, module: mod, data } = body
-    if (!token || !mod || !data) return json({ error: 'Dados incompletos.' }, 400)
+    if (!token || !mod || !data) return json({ error: msg(req, { pt: 'Dados incompletos.', en: 'Incomplete data.' }) }, 400)
 
     // Verifica token
     const { data: projects } = await sb(
       `/projects_v2?client_share_token=eq.${encodeURIComponent(token)}&select=id`
     )
     if (!Array.isArray(projects) || !projects.length) {
-      return json({ error: 'Token inválido.' }, 404)
+      return json({ error: msg(req, { pt: 'Token inválido.', en: 'Invalid token.' }) }, 404)
     }
     const pid = projects[0].id
 
@@ -98,7 +98,7 @@ export default async function handler(req) {
             }))
           ),
         })
-        if (status >= 400) return json({ error: 'Erro ao salvar produto.', detail: res }, 500)
+        if (status >= 400) return json({ error: msg(req, { pt: 'Erro ao salvar produto.', en: 'Failed to save product.' }), detail: res }, 500)
       }
       return json({ success: true })
     }
@@ -132,7 +132,7 @@ export default async function handler(req) {
             }))
           ),
         })
-        if (status >= 400) return json({ error: 'Erro ao salvar persona.', detail: res }, 500)
+        if (status >= 400) return json({ error: msg(req, { pt: 'Erro ao salvar persona.', en: 'Failed to save persona.' }), detail: res }, 500)
       }
       return json({ success: true })
     }
@@ -158,7 +158,7 @@ export default async function handler(req) {
           answers:    data.ofertaData || {},
         }),
       })
-      if (status >= 400) return json({ error: 'Erro ao salvar oferta.', detail: res }, 500)
+      if (status >= 400) return json({ error: msg(req, { pt: 'Erro ao salvar oferta.', en: 'Failed to save offer.' }), detail: res }, 500)
       return json({ success: true })
     }
 
@@ -169,12 +169,12 @@ export default async function handler(req) {
         method: 'PATCH',
         body:   JSON.stringify({ mecanismo_unico: data.mecanismoUnico || {} }),
       })
-      if (status >= 400) return json({ error: 'Erro ao salvar mecanismo.', detail: res }, 500)
+      if (status >= 400) return json({ error: msg(req, { pt: 'Erro ao salvar mecanismo.', en: 'Failed to save mechanism.' }), detail: res }, 500)
       return json({ success: true })
     }
 
-    return json({ error: 'Módulo desconhecido.' }, 400)
+    return json({ error: msg(req, { pt: 'Módulo desconhecido.', en: 'Unknown module.' }) }, 400)
   }
 
-  return json({ error: 'Método não permitido.' }, 405)
+  return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
 }

@@ -1,4 +1,4 @@
-import { json } from './_http.js'
+import { json, msg, idiomaDe } from './_http.js'
 // Edge Function — a IA lê a documentação da API do CRM e propõe a configuração
 // de integração (endpoint, headers e bodyTemplate com placeholders {{chave}}).
 // Só o time autenticado pode chamar.
@@ -11,12 +11,12 @@ const DOCS_TIMEOUT_MS = 10000
 const DOCS_MAX_CHARS = 60000
 
 /** Busca a doc e reduz HTML a texto (heurística simples, suficiente para docs). */
-async function fetchDocs(url) {
+async function fetchDocs(req, url) {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), DOCS_TIMEOUT_MS)
   try {
     const res = await fetch(url, { signal: ctrl.signal, headers: { 'User-Agent': 'RevenueLab-CRM-Assist' } })
-    if (!res.ok) return { ok: false, error: `A doc respondeu ${res.status}.` }
+    if (!res.ok) return { ok: false, error: msg(req, { pt: `A doc respondeu ${res.status}.`, en: `The docs page responded ${res.status}.` }) }
     const html = await res.text()
     const text = html
       .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -25,11 +25,13 @@ async function fetchDocs(url) {
       .replace(/&nbsp;/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-    if (!text) return { ok: false, error: 'A página não retornou texto legível (pode exigir login/JS).' }
+    if (!text) return { ok: false, error: msg(req, { pt: 'A página não retornou texto legível (pode exigir login/JS).', en: 'The page returned no readable text (it may require login or JavaScript).' }) }
     return { ok: true, text: text.slice(0, DOCS_MAX_CHARS) }
   } catch (e) {
-    const msg = e.name === 'AbortError' ? 'Timeout ao buscar a doc.' : `Falha ao buscar a doc: ${e.message}`
-    return { ok: false, error: msg }
+    const erro = e.name === 'AbortError'
+      ? msg(req, { pt: 'Timeout ao buscar a doc.', en: 'Timed out fetching the docs.' })
+      : msg(req, { pt: `Falha ao buscar a doc: ${e.message}`, en: `Failed to fetch the docs: ${e.message}` })
+    return { ok: false, error: erro }
   } finally {
     clearTimeout(timer)
   }
@@ -55,14 +57,14 @@ Regras rígidas:
 - Se algum campo obrigatório do CRM não tiver correspondente nos nossos campos, deixe um valor fixo sensato ou "" e avise em "notas".`
 
 export default async function handler(req) {
-  if (req.method !== 'POST') return json({ error: 'Método não permitido.' }, 405)
-  if (!(await isAuthed(req))) return json({ error: 'Não autorizado.' }, 401)
+  if (req.method !== 'POST') return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
+  if (!(await isAuthed(req))) return json({ error: msg(req, { pt: 'Não autorizado.', en: 'Unauthorized.' }) }, 401)
 
   const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return json({ error: 'ANTHROPIC_API_KEY não configurada no servidor.' }, 500)
+  if (!apiKey) return json({ error: msg(req, { pt: 'ANTHROPIC_API_KEY não configurada no servidor.', en: 'ANTHROPIC_API_KEY is not configured on the server.' }) }, 500)
 
   let body
-  try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
+  try { body = await req.json() } catch { return json({ error: msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }) }, 400) }
 
   const { campos = [], endpoint = '', docsText = '', docsUrl = '' } = body
 
@@ -70,12 +72,12 @@ export default async function handler(req) {
   let docs = String(docsText || '').slice(0, DOCS_MAX_CHARS)
   let docsAviso = null
   if (docsUrl) {
-    const fetched = await fetchDocs(docsUrl)
+    const fetched = await fetchDocs(req, docsUrl)
     if (fetched.ok) docs += `\n\n--- Conteúdo buscado de ${docsUrl} ---\n${fetched.text}`
     else docsAviso = fetched.error
   }
   if (!docs.trim()) {
-    return json({ error: docsAviso || 'Cole o texto da documentação ou informe um link acessível.' }, 400)
+    return json({ error: docsAviso || msg(req, { pt: 'Cole o texto da documentação ou informe um link acessível.', en: 'Paste the documentation text or provide an accessible link.' }) }, 400)
   }
 
   const camposLista = campos.map((c) => `- {{${c.key}}} (${c.label || c.key}, tipo ${c.type || 'text'})`).join('\n')
@@ -103,16 +105,17 @@ Monte a configuração do POST que cria um lead nesse CRM.`
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 2000,
-        system: SYSTEM,
+        // O JSON é lido pelas chaves; só o texto de "notas" segue o idioma de quem gera.
+        system: SYSTEM + (idiomaDe(req) === 'en' ? '\n- Escreva o valor de "notas" em inglês.' : ''),
         messages: [{ role: 'user', content: userMsg }],
       }),
     })
   } catch (e) {
-    return json({ error: `Falha ao chamar a IA: ${e.message}` }, 502)
+    return json({ error: msg(req, { pt: `Falha ao chamar a IA: ${e.message}`, en: `Failed to call the AI: ${e.message}` }) }, 502)
   }
 
   const data = await res.json().catch(() => null)
-  if (!res.ok) return json({ error: data?.error?.message || `Erro ${res.status} na IA.` }, 502)
+  if (!res.ok) return json({ error: data?.error?.message || msg(req, { pt: `Erro ${res.status} na IA.`, en: `AI error ${res.status}.` }) }, 502)
 
   const text = Array.isArray(data?.content) ? (data.content.find((b) => b.type === 'text')?.text || '') : ''
   // A IA às vezes envolve em ```json — limpamos antes do parse.
@@ -120,7 +123,7 @@ Monte a configuração do POST que cria um lead nesse CRM.`
 
   let cfg
   try { cfg = JSON.parse(limpo) } catch {
-    return json({ error: 'A IA não devolveu um JSON válido. Tente colar um trecho mais específico da doc.', raw: limpo.slice(0, 1500) }, 422)
+    return json({ error: msg(req, { pt: 'A IA não devolveu um JSON válido. Tente colar um trecho mais específico da doc.', en: 'The AI did not return valid JSON. Try pasting a more specific section of the docs.' }), raw: limpo.slice(0, 1500) }, 422)
   }
 
   // Normaliza o formato esperado pelo front.

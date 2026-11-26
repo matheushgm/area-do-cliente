@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus, Edit2, Check, X, Link2, CheckCircle2, FileDown } from 'lucide-react'
-import { fmtMoney, fmtPct, parseMoney, getDaysInMonth, getWeekRanges, computeRoiPlan, weekdayShort, MONTH_NAMES, nomeMes, diaMes, semanasPdf } from './resultadosHelpers'
+import { fmtMoney, fmtPct, parseMoney, getDaysInMonth, getWeekRanges, computeRoiPlan, weekdayShort, MONTH_NAMES, nomeMes, diaMes } from './resultadosHelpers'
 import { MonthNav } from './B2BResultados'
 import { CostTile } from './ResultadosCharts'
 import GraficosEvolucao from './GraficosEvolucao'
@@ -371,7 +371,7 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
           <button
             onClick={() => exportResultadosB2CPDF({
               companyName, resultados, year, month, mode,
-              weekRanges: semanasPdf(weeks), unidades, plan, MONTH_NAMES,
+              weekRanges: weeks, unidades, plan, MONTH_NAMES,
             })}
             className="btn-secondary flex items-center gap-2 text-sm whitespace-nowrap"
             title={t('resultados.acoes.tituloPdf')}

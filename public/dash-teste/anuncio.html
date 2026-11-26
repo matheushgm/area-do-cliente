@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Anúncio</title>
+<title data-i18n="anuncio.anuncio">Anúncio</title>
 <!-- Página pública de UM anúncio do Meta: preview + métricas do período.
      Servida em /anuncio/<token> (rewrite no vercel.json) e também em
      /dash-teste/anuncio.html?s=<token>. Tudo inline: o caminho da URL muda
@@ -64,89 +64,123 @@
 </head>
 <body>
 <main class="wrap" id="app">
-  <div class="msg"><div class="spin"></div>Carregando anúncio…</div>
+  <div class="msg"><div class="spin"></div><span data-i18n="anuncio.carregando">Carregando anúncio…</span></div>
 </main>
-<script>
-(function () {
-  var FORMATOS = [
-    ['Feed', 'MOBILE_FEED_STANDARD'], ['Instagram', 'INSTAGRAM_STANDARD'],
-    ['Stories IG', 'INSTAGRAM_STORY'], ['Stories FB', 'FACEBOOK_STORY_MOBILE'], ['Desktop', 'DESKTOP_FEED_STANDARD'],
-  ]
-  var app = document.getElementById('app')
-  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] }) }
+<script type="module">
+// Caminho absoluto: a página também é servida em /anuncio/<token>, onde um caminho relativo quebraria.
+import { t as tt, locale as localeAtual, idioma as idiomaAtual, registrar, traduzirDom } from '/dash-teste/vendor/viewerI18n.js'
+import anuncio from '/dash-teste/vendor/i18n/anuncio.js'
+registrar('anuncio', anuncio)
+traduzirDom()
 
-  // Token: /anuncio/<token> ou ?s=<token>
-  var m = location.pathname.match(/\/anuncio\/([^/?#]+)/)
-  var token = (m && decodeURIComponent(m[1])) || new URLSearchParams(location.search).get('s') || ''
-  var api = function (extra) { return '/api/anuncio-publico?s=' + encodeURIComponent(token) + (extra || '') }
+var FORMATOS = [
+  ['formatos.feed', 'MOBILE_FEED_STANDARD'], ['formatos.instagram', 'INSTAGRAM_STANDARD'],
+  ['formatos.storiesIg', 'INSTAGRAM_STORY'], ['formatos.storiesFb', 'FACEBOOK_STORY_MOBILE'], ['formatos.desktop', 'DESKTOP_FEED_STANDARD'],
+]
+var app = document.getElementById('app')
+var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] }) }
 
-  function erro(titulo, texto) {
-    app.innerHTML = '<div class="erro"><h1>' + esc(titulo) + '</h1><p>' + esc(texto) + '</p></div>'
-  }
-  if (!token) { erro('Link incompleto', 'Confira se o link foi copiado inteiro.'); return }
+// Token: /anuncio/<token> ou ?s=<token>
+var m = location.pathname.match(/\/anuncio\/([^/?#]+)/)
+var token = (m && decodeURIComponent(m[1])) || new URLSearchParams(location.search).get('s') || ''
+var api = function (extra) { return '/api/anuncio-publico?s=' + encodeURIComponent(token) + (extra || '') }
+var buscar = function (url) { return fetch(url, { headers: { 'X-Idioma': idiomaAtual() } }) }
 
-  var brl = function (v) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
-  var pct = function (v) { return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%' }
-  var dataBR = function (iso) { var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0] }
+// O que está na tela, para redesenhar na troca de idioma: { erro: [titulo, texto] } ou { d, fmt }.
+var tela = null
 
-  function tile(rotulo, valor, vazio, dica) {
-    var tem = valor != null
-    return '<div class="tile"><div class="tile-l">' + rotulo + '</div>' +
-      '<div class="tile-v' + (tem ? '' : ' na') + '">' + (tem ? valor : esc(vazio)) + '</div>' +
-      '<div class="tile-h">' + dica + '</div></div>'
-  }
+function erro(titulo, texto) {
+  tela = { erro: [titulo, texto] }
+  app.innerHTML = '<div class="erro"><h1>' + esc(titulo()) + '</h1><p>' + esc(texto()) + '</p></div>'
+}
+var chave = function (k) { return function () { return tt('anuncio.' + k) } }
+var fixo = function (txt) { return function () { return txt } }
 
-  fetch(api()).then(function (r) {
+var brl = function (v) { return v.toLocaleString(localeAtual(), { style: 'currency', currency: 'BRL' }) }
+var pct = function (v) { return v.toLocaleString(localeAtual(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%' }
+var dataBR = function (iso) { var p = iso.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(localeAtual(), { day: '2-digit', month: '2-digit', year: 'numeric' }) }
+
+function tile(rotulo, valor, vazio, dica) {
+  var tem = valor != null
+  return '<div class="tile"><div class="tile-l">' + rotulo + '</div>' +
+    '<div class="tile-v' + (tem ? '' : ' na') + '">' + (tem ? valor : esc(vazio)) + '</div>' +
+    '<div class="tile-h">' + dica + '</div></div>'
+}
+
+function carregarPreview(fmt) {
+  var prev = document.getElementById('prev')
+  if (!prev) return
+  tela.fmt = fmt
+  prev.innerHTML = '<div class="msg"><div class="spin"></div>' + esc(tt('anuncio.carregandoPreview')) + '</div>'
+  buscar(api('&preview=' + fmt)).then(function (r) {
+    return r.json().catch(function () { return {} }).then(function (x) { return { ok: r.ok, x: x } })
+  }).then(function (res) {
+    if (tela.fmt !== fmt) return
+    if (!res.ok) { prev.innerHTML = '<div class="msg">' + esc((res.x.error && res.x.error.message) || tt('anuncio.previewIndisponivel')) + '</div>'; return }
+    var ifr = document.createElement('iframe')
+    // Sem allow-same-origin: os scripts do Meta rodam isolados desta página.
+    ifr.setAttribute('sandbox', 'allow-scripts allow-popups')
+    ifr.setAttribute('title', tt('anuncio.previewTitulo'))
+    ifr.srcdoc = res.x.html || ''
+    prev.innerHTML = ''; prev.appendChild(ifr)
+  }).catch(function () { if (tela.fmt === fmt) prev.innerHTML = '<div class="msg">' + esc(tt('anuncio.falhaPreview')) + '</div>' })
+}
+
+function desenhar(d, fmt) {
+  tela = { d: d, fmt: fmt }
+  var mt = d.metricas || {}
+  var nome = (d.anuncio && d.anuncio.nome) || tt('anuncio.anuncio')
+  document.title = nome + ' | ' + tt('anuncio.anuncio')
+  app.innerHTML =
+    '<p class="eyebrow">' + esc(tt('anuncio.anuncio')) + '</p><h1>' + esc(nome) + '</h1>' +
+    '<div class="tabs" role="tablist">' + FORMATOS.map(function (f) {
+      var on = f[1] === fmt
+      return '<button type="button" role="tab" class="tab' + (on ? ' on' : '') + '" data-fmt="' + f[1] + '" aria-selected="' + on + '">' + esc(tt('anuncio.' + f[0])) + '</button>'
+    }).join('') + '</div>' +
+    '<div class="card preview" id="prev"></div>' +
+    '<div class="periodo">' + tt('anuncio.periodo', { de: '<b>' + dataBR(d.periodo.de) + '</b>', ate: '<b>' + dataBR(d.periodo.ate) + '</b>' }) + '</div>' +
+    '<div class="grid">' +
+      tile('CTR', mt.ctr != null ? pct(mt.ctr) : null, tt('anuncio.semImpressoes'), esc(tt('anuncio.dicaCtr'))) +
+      tile('CPM', mt.cpm != null ? brl(mt.cpm) : null, tt('anuncio.semImpressoes'), esc(tt('anuncio.dicaCpm'))) +
+      tile(esc(tt('anuncio.taxaConversao')), mt.taxa_conversao != null ? pct(mt.taxa_conversao) : null, tt('anuncio.semCliques'), esc(tt('anuncio.dicaTaxa'))) +
+      tile('CPL', mt.cpl != null ? brl(mt.cpl) : null, tt('anuncio.semLeads'), esc(tt('anuncio.dicaCpl'))) +
+    '</div>' +
+    '<p class="foot">' + esc(tt('anuncio.rodape')) + '</p>'
+
+  app.querySelectorAll('.tab').forEach(function (b) {
+    b.onclick = function () {
+      app.querySelectorAll('.tab').forEach(function (x) { x.classList.remove('on'); x.setAttribute('aria-selected', 'false') })
+      b.classList.add('on'); b.setAttribute('aria-selected', 'true'); carregarPreview(b.dataset.fmt)
+    }
+  })
+  carregarPreview(fmt)
+}
+
+window.addEventListener('idioma-mudou', function () {
+  traduzirDom()
+  if (!tela) return
+  if (tela.erro) erro(tela.erro[0], tela.erro[1])
+  else desenhar(tela.d, tela.fmt)
+})
+
+if (!token) {
+  erro(chave('linkIncompleto'), chave('linkIncompletoTexto'))
+} else {
+  buscar(api()).then(function (r) {
     return r.json().catch(function () { return {} }).then(function (d) { return { ok: r.ok, status: r.status, d: d } })
   }).then(function (res) {
     if (!res.ok) {
-      if (res.status === 403) erro('Link inválido', 'Este link não é válido. Peça um novo a quem enviou.')
-      else if (res.status === 404) erro('Anúncio não encontrado', 'Este anúncio não está mais disponível.')
-      else erro('Não foi possível abrir', (res.d && res.d.error && res.d.error.message) || 'Tente de novo em instantes.')
+      if (res.status === 403) erro(chave('linkInvalido'), chave('linkInvalidoTexto'))
+      else if (res.status === 404) erro(chave('naoEncontrado'), chave('naoEncontradoTexto'))
+      else {
+        var msgApi = res.d && res.d.error && res.d.error.message
+        erro(chave('naoAbriu'), msgApi ? fixo(msgApi) : chave('tenteDeNovo'))
+      }
       return
     }
-    var d = res.d, mt = d.metricas || {}
-    var nome = (d.anuncio && d.anuncio.nome) || 'Anúncio'
-    document.title = nome + ' | Anúncio'
-    app.innerHTML =
-      '<p class="eyebrow">Anúncio</p><h1>' + esc(nome) + '</h1>' +
-      '<div class="tabs" role="tablist">' + FORMATOS.map(function (f, i) {
-        return '<button type="button" role="tab" class="tab' + (i === 0 ? ' on' : '') + '" data-fmt="' + f[1] + '" aria-selected="' + (i === 0) + '">' + f[0] + '</button>'
-      }).join('') + '</div>' +
-      '<div class="card preview" id="prev"></div>' +
-      '<div class="periodo">📅 Resultados de <b>' + dataBR(d.periodo.de) + '</b> a <b>' + dataBR(d.periodo.ate) + '</b></div>' +
-      '<div class="grid">' +
-        tile('CTR', mt.ctr != null ? pct(mt.ctr) : null, 'Sem impressões', 'Cliques no link a cada 100 impressões') +
-        tile('CPM', mt.cpm != null ? brl(mt.cpm) : null, 'Sem impressões', 'Custo a cada mil impressões') +
-        tile('Taxa de conversão', mt.taxa_conversao != null ? pct(mt.taxa_conversao) : null, 'Sem cliques', 'Leads a cada 100 cliques no link') +
-        tile('CPL', mt.cpl != null ? brl(mt.cpl) : null, 'Sem leads', 'Custo por lead') +
-      '</div>' +
-      '<p class="foot">Dados do Meta Ads no período indicado.</p>'
-
-    var prev = document.getElementById('prev')
-    var carregar = function (fmt) {
-      prev.innerHTML = '<div class="msg"><div class="spin"></div>Carregando preview…</div>'
-      fetch(api('&preview=' + fmt)).then(function (r) {
-        return r.json().catch(function () { return {} }).then(function (x) { return { ok: r.ok, x: x } })
-      }).then(function (res) {
-        if (!res.ok) { prev.innerHTML = '<div class="msg">' + esc((res.x.error && res.x.error.message) || 'Preview indisponível.') + '</div>'; return }
-        var ifr = document.createElement('iframe')
-        // Sem allow-same-origin: os scripts do Meta rodam isolados desta página.
-        ifr.setAttribute('sandbox', 'allow-scripts allow-popups')
-        ifr.setAttribute('title', 'Preview do anúncio')
-        ifr.srcdoc = res.x.html || ''
-        prev.innerHTML = ''; prev.appendChild(ifr)
-      }).catch(function () { prev.innerHTML = '<div class="msg">Falha ao carregar o preview.</div>' })
-    }
-    app.querySelectorAll('.tab').forEach(function (b) {
-      b.onclick = function () {
-        app.querySelectorAll('.tab').forEach(function (x) { x.classList.remove('on'); x.setAttribute('aria-selected', 'false') })
-        b.classList.add('on'); b.setAttribute('aria-selected', 'true'); carregar(b.dataset.fmt)
-      }
-    })
-    carregar(FORMATOS[0][1])
-  }).catch(function () { erro('Não foi possível abrir', 'Verifique a conexão e tente de novo.') })
-})()
+    desenhar(res.d, FORMATOS[0][1])
+  }).catch(function () { erro(chave('naoAbriu'), chave('verifiqueConexao')) })
+}
 </script>
 </body>
 </html>

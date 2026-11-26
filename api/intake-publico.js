@@ -1,4 +1,4 @@
-import { NO_STORE, jsonCors, preflight, sb } from './_http.js'
+import { NO_STORE, jsonCors, msg, preflight, sb } from './_http.js'
 import { registrarIntake } from './_intake.js'
 import { hasPortalBearer, readPortalSession } from './_portal_auth.js'
 import { serviceKey } from './_http.js'
@@ -43,17 +43,17 @@ const MAX_ARQUIVOS = 20
 // Devolve { project, portal: bool } ou { error, status }.
 async function resolverProjeto(req, token, projectId, precisaPedir) {
   if (hasPortalBearer(req) && projectId) {
-    if (!UUID_RE.test(projectId)) return { error: 'projectId inválido.', status: 400 }
+    if (!UUID_RE.test(projectId)) return { error: msg(req, { pt: 'projectId inválido.', en: 'Invalid projectId.' }), status: 400 }
     const sess = await readPortalSession(req, projectId)
     if (!sess.ok) return { error: sess.message, status: sess.status }
     const nivel = sess.permissions.solicitacoes
-    if (!nivel || (precisaPedir && nivel !== 'edit')) return { error: 'Sem acesso a este módulo.', status: 403 }
+    if (!nivel || (precisaPedir && nivel !== 'edit')) return { error: msg(req, { pt: 'Sem acesso a este módulo.', en: 'You don\'t have access to this module.' }), status: 403 }
     const { data } = await sb(`/projects_v2?id=eq.${encodeURIComponent(projectId)}&select=id,company_name`)
     const project = Array.isArray(data) ? data[0] : null
-    return project ? { project, portal: true, nivel } : { error: 'Projeto não encontrado.', status: 404 }
+    return project ? { project, portal: true, nivel } : { error: msg(req, { pt: 'Projeto não encontrado.', en: 'Project not found.' }), status: 404 }
   }
   const project = await findProject(token)
-  return project ? { project, portal: false } : { error: 'Link inválido ou expirado.', status: 404 }
+  return project ? { project, portal: false } : { error: msg(req, { pt: 'Link inválido ou expirado.', en: 'This link is invalid or has expired.' }), status: 404 }
 }
 
 const nomeSeguro = (n) => String(n || 'arquivo').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -81,7 +81,7 @@ function limparArquivos(projectId, lista) {
 }
 
 // Onde está cada pedido: na fila, recusado ou virou tarefa (status da tarefa e das subtarefas).
-async function pedidosDoProjeto(projectId) {
+async function pedidosDoProjeto(req, projectId) {
   const origens = ORIGENS_DO_CLIENTE.map((o) => `"${o}"`).join(',')
   const { data } = await sb(`/tarefas_intake?project_id=eq.${projectId}&origem=in.(${encodeURIComponent(origens)})&select=id,titulo,origem,status,tarefa_id,motivo_recusa,payload,created_at,decidido_em,prioridade,adiado_ate&order=created_at.desc&limit=100`)
   const lista = Array.isArray(data) ? data : []
@@ -112,9 +112,9 @@ async function pedidosDoProjeto(projectId) {
     const pl = p.payload && typeof p.payload === 'object' ? p.payload : {}
     // Reprovação na aprovação: o título foi escrito para o time ("… reprovada pelo cliente").
     const titulo = String(p.titulo || '')
-      .replace(/^Copy reprovada pelo cliente:\s*/i, 'Ajuste no texto: ')
-      .replace(/^Anúncio reprovado pelo cliente:?\s*/i, 'Ajuste no anúncio: ')
-      .replace(/^Landing page reprovada pelo cliente:?\s*/i, 'Ajuste na landing page: ')
+      .replace(/^Copy reprovada pelo cliente:\s*/i, msg(req, { pt: 'Ajuste no texto: ', en: 'Copy changes: ' }))
+      .replace(/^Anúncio reprovado pelo cliente:?\s*/i, msg(req, { pt: 'Ajuste no anúncio: ', en: 'Ad changes: ' }))
+      .replace(/^Landing page reprovada pelo cliente:?\s*/i, msg(req, { pt: 'Ajuste na landing page: ', en: 'Landing page changes: ' }))
       .replace(/: $/, '')
     return {
       id: p.id, titulo, origem: p.origem, etapa, criadoEm: p.created_at, decididoEm: p.decidido_em,
@@ -194,7 +194,7 @@ function limparRespostas(tipo, bruto) {
 
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return preflight()
-  if (!process.env.SUPABASE_URL) return json({ error: 'Servidor não configurado.' }, 500)
+  if (!process.env.SUPABASE_URL) return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
 
   if (req.method === 'GET') {
     const q = new URL(req.url).searchParams
@@ -204,19 +204,19 @@ export default async function handler(req) {
     const drive = q.get('drive')
     if (drive != null) {
       const res = await conferirDrive(str(drive, 1000))
-      if (!res) return json({ error: 'Esse não é um link do Google Drive.' }, 400)
+      if (!res) return json({ error: msg(req, { pt: 'Esse não é um link do Google Drive.', en: 'That\'s not a Google Drive link.' }) }, 400)
       return json(res, 200)
     }
     const [prazos, pedidos] = await Promise.all([
       prazosDosTemplates().catch(() => ({})),
-      r0.portal ? pedidosDoProjeto(project.id).catch(() => []) : Promise.resolve(undefined),
+      r0.portal ? pedidosDoProjeto(req, project.id).catch(() => []) : Promise.resolve(undefined),
     ])
     return json({ empresa: project.company_name || '', prazos, ...(r0.portal ? { pedidos, podePedir: r0.nivel === 'edit' } : {}) }, 200)
   }
 
   if (req.method === 'POST') {
     let body
-    try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
+    try { body = await req.json() } catch { return json({ error: msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }) }, 400) }
     const r0 = await resolverProjeto(req, str(body?.token, 60), str(body?.projectId, 60), true)
     if (r0.error) return json({ error: r0.error }, r0.status)
     const project = r0.project
@@ -224,28 +224,28 @@ export default async function handler(req) {
 
     // Upload de arquivo (só pelo portal): devolve a URL assinada; o pedido leva o `path`.
     if (body?.acao === 'upload') {
-      if (!r0.portal) return json({ error: 'Envio de arquivos só pelo portal.' }, 403)
+      if (!r0.portal) return json({ error: msg(req, { pt: 'Envio de arquivos só pelo portal.', en: 'Files can only be uploaded through the portal.' }) }, 403)
       const tamanho = Number(body?.tamanho) || 0
-      if (tamanho > LIMITE_ARQUIVO) return json({ error: 'Arquivo acima de 50 MB. Mande pelo link do Google Drive.' }, 413)
+      if (tamanho > LIMITE_ARQUIVO) return json({ error: msg(req, { pt: 'Arquivo acima de 50 MB. Mande pelo link do Google Drive.', en: 'File is over 50 MB. Send it as a Google Drive link.' }) }, 413)
       const up = await urlDeUpload(project.id, str(body?.nome, 200))
-      return up ? json(up, 200) : json({ error: 'Não consegui preparar o envio. Tente de novo.' }, 500)
+      return up ? json(up, 200) : json({ error: msg(req, { pt: 'Não consegui preparar o envio. Tente de novo.', en: 'Couldn\'t prepare the upload. Please try again.' }) }, 500)
     }
 
     const desde = new Date(Date.now() - 3600 * 1000).toISOString()
     const { data: recentes } = await sb(`/tarefas_intake?project_id=eq.${project.id}&origem=eq.${encodeURIComponent(origem)}&created_at=gte.${encodeURIComponent(desde)}&select=id`)
-    if (Array.isArray(recentes) && recentes.length >= (r0.portal ? 20 : 8)) return json({ error: 'Muitos pedidos em pouco tempo. Tente de novo mais tarde.' }, 429)
+    if (Array.isArray(recentes) && recentes.length >= (r0.portal ? 20 : 8)) return json({ error: msg(req, { pt: 'Muitos pedidos em pouco tempo. Tente de novo mais tarde.', en: 'Too many requests in a short time. Please try again later.' }) }, 429)
     const origem_ref = `link:${project.id}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`
 
     // Formato antigo (página aberta antes da troca): resumo + detalhes + contato.
     if (!body?.tipo) {
       const titulo = str(body?.titulo, 200)
-      if (titulo.length < 4) return json({ error: 'Descreva o pedido em poucas palavras.' }, 400)
+      if (titulo.length < 4) return json({ error: msg(req, { pt: 'Descreva o pedido em poucas palavras.', en: 'Describe your request in a few words.' }) }, 400)
       const ok = await registrarIntake({ project_id: project.id, titulo, descricao: str(body?.descricao, 3000), contato: str(body?.contato, 160), origem, origem_ref })
-      return ok ? json({ success: true, titulo }, 200) : json({ error: 'Não consegui registrar agora. Tente de novo.' }, 500)
+      return ok ? json({ success: true, titulo }, 200) : json({ error: msg(req, { pt: 'Não consegui registrar agora. Tente de novo.', en: 'Couldn\'t submit right now. Please try again.' }) }, 500)
     }
 
     const tipo = TIPOS_PEDIDO_MAP[body.tipo]
-    if (!tipo) return json({ error: 'Tipo de pedido inválido.' }, 400)
+    if (!tipo) return json({ error: msg(req, { pt: 'Tipo de pedido inválido.', en: 'Invalid request type.' }) }, 400)
     const r = limparRespostas(tipo, body.respostas)
     // Arquivos só valem pelo portal (o link aberto não tem como subir nada).
     const arquivos = r0.portal ? limparArquivos(project.id, body?.respostas?.arquivos) : []
@@ -257,7 +257,7 @@ export default async function handler(req) {
       drive[c.k] = await conferirDrive(r[c.k])
     }
     const erros = validarPedido(tipo, r, { drive, comUpload: r0.portal })
-    if (Object.keys(erros).length) return json({ error: 'Faltam informações no pedido.', erros }, 400)
+    if (Object.keys(erros).length) return json({ error: msg(req, { pt: 'Faltam informações no pedido.', en: 'Some information is missing from your request.' }), erros }, 400)
 
     const pedido = montarPedido(tipo, r, { drive, via: r0.portal ? 'portal' : 'link' })
     const ok = await registrarIntake({
@@ -266,9 +266,9 @@ export default async function handler(req) {
       origem, origem_ref,
       payload: { versao: 2, tipo: tipo.id, tipo_nome: tipo.nome, template: tipo.template || null, prazo: r.prazo || null, respostas: r, itens: pedido.itens, arquivos },
     })
-    if (!ok) return json({ error: 'Não consegui registrar agora. Tente de novo.' }, 500)
+    if (!ok) return json({ error: msg(req, { pt: 'Não consegui registrar agora. Tente de novo.', en: 'Couldn\'t submit right now. Please try again.' }) }, 500)
     return json({ success: true, titulo: pedido.titulo }, 200)
   }
 
-  return json({ error: 'Método não permitido.' }, 405)
+  return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
 }

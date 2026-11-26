@@ -1,4 +1,4 @@
-import { NO_STORE, jsonCors, preflight, sb } from './_http.js'
+import { NO_STORE, jsonCors, preflight, sb, msg } from './_http.js'
 // Edge Function pública (SOMENTE LEITURA) do módulo de Campanhas / Planejamento de Verba.
 // Validação SÓ pelo client_share_token (sem JWT), igual a api/precificacao-form.js.
 //
@@ -96,25 +96,25 @@ export default async function handler(req) {
   if (req.method === 'OPTIONS') return preflight()
 
   if (req.method !== 'GET') {
-    return json({ error: 'Método não permitido.' }, 405)
+    return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
   }
 
   if (!SUPABASE_URL || !SERVICE_KEY) {
-    return json({ error: 'Servidor não configurado.' }, 500)
+    return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
   }
 
   const url   = new URL(req.url)
   const token = url.searchParams.get('token')
   // Só aceita UUID — evita mandar lixo pro PostgREST e corta fuzzing barato.
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token || '')
-  if (!isUuid) return json({ error: 'Link inválido ou expirado.' }, 404)
+  if (!isUuid) return json({ error: msg(req, { pt: 'Link inválido ou expirado.', en: 'Invalid or expired link.' }) }, 404)
 
   const { data: projects, status } = await sb(
     `/projects_v2?client_share_token=eq.${encodeURIComponent(token)}&select=id,company_name`
   )
   if (status !== 200 || !Array.isArray(projects) || !projects.length) {
     // 404 genérico: não diferencia "projeto não existe" de "token errado".
-    return json({ error: 'Link inválido ou expirado.' }, 404)
+    return json({ error: msg(req, { pt: 'Link inválido ou expirado.', en: 'Invalid or expired link.' }) }, 404)
   }
 
   const project = projects[0]

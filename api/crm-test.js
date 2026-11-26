@@ -1,4 +1,4 @@
-import { json } from './_http.js'
+import { json, msg } from './_http.js'
 // Edge Function — dispara um lead de exemplo para o CRM e devolve a resposta
 // crua (status + corpo), sem gravar nada. Usado pelo botão "Testar envio".
 import { isAuthed, sendToCrm, buildBody } from './_crm.js'
@@ -6,14 +6,14 @@ import { isAuthed, sendToCrm, buildBody } from './_crm.js'
 export const config = { runtime: 'edge' }
 
 export default async function handler(req) {
-  if (req.method !== 'POST') return json({ error: 'Método não permitido.' }, 405)
-  if (!(await isAuthed(req))) return json({ error: 'Não autorizado.' }, 401)
+  if (req.method !== 'POST') return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
+  if (!(await isAuthed(req))) return json({ error: msg(req, { pt: 'Não autorizado.', en: 'Unauthorized.' }) }, 401)
 
   let body
-  try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
+  try { body = await req.json() } catch { return json({ error: msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }) }, 400) }
 
   const { config: cfg, dados = {} } = body
-  if (!cfg?.endpoint) return json({ error: 'Informe o endpoint do CRM antes de testar.' }, 400)
+  if (!cfg?.endpoint) return json({ error: msg(req, { pt: 'Informe o endpoint do CRM antes de testar.', en: 'Enter the CRM endpoint before testing.' }) }, 400)
 
   // Valida o template antes de sair batendo no CRM — erro mais claro pro usuário.
   const built = buildBody(cfg, dados)

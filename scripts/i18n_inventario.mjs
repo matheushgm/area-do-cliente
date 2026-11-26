@@ -17,7 +17,7 @@ const args = process.argv.slice(2)
 const modoMd = args.includes('--md')
 const iArq = args.indexOf('--arquivo')
 const soArquivo = iArq >= 0 ? args[iArq + 1] : null
-const alvos = args.filter((a, i) => !a.startsWith('--') && i !== iArq + 1)
+const alvos = args.filter((a, i) => !a.startsWith('--') && (iArq < 0 || i !== iArq + 1))
 const PADRAO = ['src', 'public/dash-teste', 'api']
 const IGNORAR_DIR = new Set(['node_modules', 'dev', 'fixtures', 'vendor', 'mock', 'i18n'])
 const EXT = new Set(['.js', '.jsx', '.mjs', '.html'])

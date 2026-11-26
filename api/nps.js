@@ -1,4 +1,4 @@
-import { jsonCors, preflight, sb } from './_http.js'
+import { jsonCors, preflight, sb, msg } from './_http.js'
 // Public Edge Function — NPS por marco, validado por client_share_token
 //
 // Os marcos deixaram de ser uma lista fixa no código (marco1/marco2/marco3) e
@@ -24,17 +24,17 @@ export default async function handler(req) {
   if (req.method === 'OPTIONS') return preflight()
 
   if (!SUPABASE_URL || !SERVICE_KEY) {
-    return json({ error: 'Servidor não configurado.' }, 500)
+    return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
   }
 
   // ── GET — marcos do projeto pelo token ───────────────────────────────────
   if (req.method === 'GET') {
     const url   = new URL(req.url)
     const token = url.searchParams.get('token')
-    if (!token) return json({ error: 'Token inválido.' }, 400)
+    if (!token) return json({ error: msg(req, { pt: 'Token inválido.', en: 'Invalid token.' }) }, 400)
 
     const project = await projectByToken(token)
-    if (!project) return json({ error: 'Link inválido ou expirado.' }, 404)
+    if (!project) return json({ error: msg(req, { pt: 'Link inválido ou expirado.', en: 'This link is invalid or has expired.' }) }, 404)
 
     const { data: marcos } = await sb(
       `/nps_marcos?project_id=eq.${project.id}` +
@@ -80,18 +80,18 @@ export default async function handler(req) {
   // ── PATCH — registra a resposta de um respondente ────────────────────────
   if (req.method === 'PATCH') {
     let body
-    try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
+    try { body = await req.json() } catch { return json({ error: msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }) }, 400) }
 
     const { token, marcoId, data } = body
-    if (!token || !marcoId || !data) return json({ error: 'Dados incompletos.' }, 400)
+    if (!token || !marcoId || !data) return json({ error: msg(req, { pt: 'Dados incompletos.', en: 'Incomplete data.' }) }, 400)
 
     const score = Number(data.score)
     if (!Number.isInteger(score) || score < 0 || score > 10) {
-      return json({ error: 'Nota inválida.' }, 400)
+      return json({ error: msg(req, { pt: 'Nota inválida.', en: 'Invalid score.' }) }, 400)
     }
 
     const project = await projectByToken(token, 'id')
-    if (!project) return json({ error: 'Token inválido.' }, 404)
+    if (!project) return json({ error: msg(req, { pt: 'Token inválido.', en: 'Invalid token.' }) }, 404)
 
     // O marco tem que ser deste projeto — é o que substitui a antiga lista fixa
     const { data: marcos } = await sb(
@@ -99,7 +99,7 @@ export default async function handler(req) {
       `&project_id=eq.${project.id}&select=id`
     )
     if (!Array.isArray(marcos) || !marcos.length) {
-      return json({ error: 'Marco inválido.' }, 400)
+      return json({ error: msg(req, { pt: 'Marco inválido.', en: 'Invalid milestone.' }) }, 400)
     }
 
     // INSERT, não read-modify-write do JSONB inteiro: dois respondentes
@@ -118,10 +118,10 @@ export default async function handler(req) {
         submitted_at: data.submittedAt || new Date().toISOString(),
       }),
     })
-    if (status >= 400) return json({ error: 'Erro ao salvar.', detail: res }, 500)
+    if (status >= 400) return json({ error: msg(req, { pt: 'Erro ao salvar.', en: 'Could not save.' }), detail: res }, 500)
 
     return json({ success: true })
   }
 
-  return json({ error: 'Método não permitido.' }, 405)
+  return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
 }

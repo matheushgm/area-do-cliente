@@ -20,7 +20,7 @@
 //
 // A tabela project_shares tem RLS sem policies: só esta função (chave de
 // serviço) lê e escreve. Ver migration 090.
-import { getUser, hmacHex, json, jsonErr, sb, serviceKey, lerPaginado } from './_http.js'
+import { getUser, hmacHex, json, jsonErr, msg, sb, serviceKey, lerPaginado } from './_http.js'
 import { tokenDashPortal } from './_dash_token.js'
 import { sanitizePermissions } from '../src/lib/portalModules.js'
 import { sanitizePlan } from './campanhas-public.js'
@@ -256,24 +256,24 @@ const FILE_BUCKETS = {
 // ─── handler ────────────────────────────────────────────────────────────────
 export default async function handler(req) {
   const SECRET = serviceKey()
-  if (!process.env.SUPABASE_URL || !SECRET) return err('Servidor não configurado.', 500)
+  if (!process.env.SUPABASE_URL || !SECRET) return err(msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), 500)
 
   const url = new URL(req.url)
   let body = {}
   if (req.method === 'POST') {
-    try { body = await req.json() } catch { return err('JSON inválido.', 400) }
+    try { body = await req.json() } catch { return err(msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }), 400) }
   } else if (req.method !== 'GET') {
-    return err('Método não permitido.', 405)
+    return err(msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }), 405)
   }
   const action    = String(body.action || url.searchParams.get('action') || '')
   const projectId = String(body.projectId || url.searchParams.get('projectId') || '').trim()
-  if (!UUID_RE.test(projectId)) return err('projectId inválido.', 400)
+  if (!UUID_RE.test(projectId)) return err(msg(req, { pt: 'projectId inválido.', en: 'Invalid projectId.' }), 400)
 
   // ── Gestão (JWT) ──────────────────────────────────────────────────────────
   if (action === 'list' || action === 'save' || action === 'delete') {
     const auth = await getUser(req)
     if (!auth.ok) return err(auth.message, 401)
-    if (!(await canManage(auth.user, projectId))) return err('Sem acesso a este projeto.', 403)
+    if (!(await canManage(auth.user, projectId))) return err(msg(req, { pt: 'Sem acesso a este projeto.', en: 'You don\'t have access to this project.' }), 403)
 
     if (action === 'list') {
       const { data } = await sb(`/project_shares?project_id=eq.${enc(projectId)}&select=*&order=created_at.asc`)
@@ -281,9 +281,9 @@ export default async function handler(req) {
     }
 
     if (action === 'delete') {
-      if (!UUID_RE.test(String(body.id || ''))) return err('id inválido.', 400)
+      if (!UUID_RE.test(String(body.id || ''))) return err(msg(req, { pt: 'id inválido.', en: 'Invalid id.' }), 400)
       const r = await sb(`/project_shares?id=eq.${enc(body.id)}&project_id=eq.${enc(projectId)}`, { method: 'DELETE', prefer: 'return=minimal' })
-      if (!r.ok) return err('Falha ao excluir.', 500)
+      if (!r.ok) return err(msg(req, { pt: 'Falha ao excluir.', en: 'Could not delete.' }), 500)
       return ok({ ok: true })
     }
 
@@ -291,7 +291,7 @@ export default async function handler(req) {
     const patch = {}
     if (body.label !== undefined) {
       const label = String(body.label || '').trim().slice(0, 80)
-      if (!label) return err('Nome da chave obrigatório.', 400)
+      if (!label) return err(msg(req, { pt: 'Nome da chave obrigatório.', en: 'A key name is required.' }), 400)
       patch.label = label
     }
     if (body.enabled !== undefined) patch.enabled = !!body.enabled
@@ -300,25 +300,25 @@ export default async function handler(req) {
       if (body.expires_at === null || body.expires_at === '') patch.expires_at = null
       else {
         const d = new Date(body.expires_at)
-        if (isNaN(d)) return err('Validade inválida.', 400)
+        if (isNaN(d)) return err(msg(req, { pt: 'Validade inválida.', en: 'Invalid expiration date.' }), 400)
         patch.expires_at = d.toISOString()
       }
     }
     if (body.password !== undefined && body.password !== null && body.password !== '') {
       const pwd = String(body.password)
-      if (pwd.length < 6 || pwd.length > 128) return err('A senha precisa ter entre 6 e 128 caracteres.', 400)
+      if (pwd.length < 6 || pwd.length > 128) return err(msg(req, { pt: 'A senha precisa ter entre 6 e 128 caracteres.', en: 'The password must be 6 to 128 characters long.' }), 400)
       patch.password_hash = await hashPassword(SECRET, pwd)
     }
 
     if (body.id) {
-      if (!UUID_RE.test(String(body.id))) return err('id inválido.', 400)
+      if (!UUID_RE.test(String(body.id))) return err(msg(req, { pt: 'id inválido.', en: 'Invalid id.' }), 400)
       const r = await sb(`/project_shares?id=eq.${enc(body.id)}&project_id=eq.${enc(projectId)}`, { method: 'PATCH', body: JSON.stringify(patch) })
-      if (!r.ok || !Array.isArray(r.data) || !r.data.length) return err('Chave não encontrada.', 404)
+      if (!r.ok || !Array.isArray(r.data) || !r.data.length) return err(msg(req, { pt: 'Chave não encontrada.', en: 'Key not found.' }), 404)
       return ok({ share: publicShare(r.data[0]) })
     }
 
-    if (!patch.label) return err('Nome da chave obrigatório.', 400)
-    if (!patch.password_hash) return err('Senha obrigatória.', 400)
+    if (!patch.label) return err(msg(req, { pt: 'Nome da chave obrigatório.', en: 'A key name is required.' }), 400)
+    if (!patch.password_hash) return err(msg(req, { pt: 'Senha obrigatória.', en: 'A password is required.' }), 400)
     const row = {
       project_id:  projectId,
       label:       patch.label,
@@ -329,17 +329,17 @@ export default async function handler(req) {
       created_by:  auth.user?.id || null,
     }
     const r = await sb('/project_shares', { method: 'POST', body: JSON.stringify(row) })
-    if (!r.ok || !Array.isArray(r.data) || !r.data.length) return err('Falha ao criar a chave.', 500)
+    if (!r.ok || !Array.isArray(r.data) || !r.data.length) return err(msg(req, { pt: 'Falha ao criar a chave.', en: 'Could not create the key.' }), 500)
     return ok({ share: publicShare(r.data[0]) })
   }
 
   // ── Login do visitante ────────────────────────────────────────────────────
   if (action === 'login') {
-    if (req.method !== 'POST') return err('Método não permitido.', 405)
+    if (req.method !== 'POST') return err(msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }), 405)
     const password = String(body.password || '')
     const ip = clientIp(req)
-    if (!password) return err('Senha obrigatória.', 400)
-    if (await tooManyAttempts(projectId, ip)) return err('Muitas tentativas. Tente mais tarde.', 429)
+    if (!password) return err(msg(req, { pt: 'Senha obrigatória.', en: 'A password is required.' }), 400)
+    if (await tooManyAttempts(projectId, ip)) return err(msg(req, { pt: 'Muitas tentativas. Tente mais tarde.', en: 'Too many attempts. Please try again later.' }), 429)
 
     const { data } = await sb(`/project_shares?project_id=eq.${enc(projectId)}&enabled=is.true&select=*`)
     const candidates = (Array.isArray(data) ? data : []).filter((s) => !isExpired(s))
@@ -349,7 +349,7 @@ export default async function handler(req) {
     }
     await recordAttempt(projectId, ip, !!match)
     // 404 genérico quando não há chave nenhuma; 401 quando a senha não bate.
-    if (!match) return err(candidates.length ? 'Senha incorreta.' : 'Portal indisponível.', candidates.length ? 401 : 404)
+    if (!match) return err(candidates.length ? msg(req, { pt: 'Senha incorreta.', en: 'Wrong password.' }) : msg(req, { pt: 'Portal indisponível.', en: 'Portal unavailable.' }), candidates.length ? 401 : 404)
 
     await sb(`/project_shares?id=eq.${enc(match.id)}`, {
       method: 'PATCH', prefer: 'return=minimal',
@@ -369,21 +369,21 @@ export default async function handler(req) {
       const bucket = String(url.searchParams.get('bucket') || '')
       const path   = String(url.searchParams.get('path') || '')
       const needed = FILE_BUCKETS[bucket]
-      if (!needed || !needed.some((m) => permissions[m])) return err('Sem acesso.', 403)
-      if (!path.startsWith(`${projectId}/`) || path.includes('..')) return err('Caminho inválido.', 400)
+      if (!needed || !needed.some((m) => permissions[m])) return err(msg(req, { pt: 'Sem acesso.', en: 'Access denied.' }), 403)
+      if (!path.startsWith(`${projectId}/`) || path.includes('..')) return err(msg(req, { pt: 'Caminho inválido.', en: 'Invalid path.' }), 400)
       const r = await fetch(`${process.env.SUPABASE_URL}/storage/v1/object/sign/${bucket}/${path.split('/').map(enc).join('/')}`, {
         method: 'POST',
         headers: { apikey: SECRET, Authorization: `Bearer ${SECRET}`, 'content-type': 'application/json' },
         body: JSON.stringify({ expiresIn: 3600 }),
       })
       const j = await r.json().catch(() => null)
-      if (!r.ok || !j?.signedURL) return err('Arquivo não encontrado.', 404)
+      if (!r.ok || !j?.signedURL) return err(msg(req, { pt: 'Arquivo não encontrado.', en: 'File not found.' }), 404)
       return ok({ url: `${process.env.SUPABASE_URL}/storage/v1${j.signedURL}` })
     }
 
     const { data: prows } = await sb(`/projects_v2?id=eq.${enc(projectId)}&select=*&limit=1`)
     const row = Array.isArray(prows) ? prows[0] : null
-    if (!row) return err('Projeto não encontrado.', 404)
+    if (!row) return err(msg(req, { pt: 'Projeto não encontrado.', en: 'Project not found.' }), 404)
 
     const ids = Object.keys(permissions).filter((k) => LOADERS[k])
     const results = await Promise.all(ids.map((k) => LOADERS[k](projectId, row).catch((e) => { console.error(`[portal] ${k}:`, e?.message); return null })))
@@ -398,5 +398,5 @@ export default async function handler(req) {
     })
   }
 
-  return err(`Ação desconhecida: ${action}`, 400)
+  return err(`${msg(req, { pt: 'Ação desconhecida', en: 'Unknown action' })}: ${action}`, 400)
 }

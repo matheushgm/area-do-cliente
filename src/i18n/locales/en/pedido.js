@@ -18,6 +18,7 @@ export default {
   trocarTipo: 'Change the type',
   prazoContato: 'Deadline and contact',
   faltou: 'Something is missing. The fields in red show what.',
+  prepararEnvio: "Couldn't prepare the upload.",
   revisarPedido: 'Review request',
   voltarEditar: 'Go back and edit',
   confereTitulo: 'Check that everything is right',

@@ -1,4 +1,4 @@
-import { NO_STORE, jsonCors, preflight, sb, serviceKey } from './_http.js'
+import { NO_STORE, jsonCors, preflight, sb, serviceKey, msg } from './_http.js'
 
 // Link público de uma lista (ou da pasta inteira de um cliente) do VertaTask, sem login:
 // a página /lista/:token (src/pages/ListaPublica.jsx) chama
@@ -51,11 +51,11 @@ async function urlAssinada(path) {
 }
 
 // Detalhe de uma tarefa do link: descrição, checklists e anexos (o resto a página já tem)
-async function detalhe(tarefaId, listaIds) {
-  if (!UUID_RE.test(tarefaId)) return { error: 'tarefa inválida' }
+async function detalhe(req, tarefaId, listaIds) {
+  if (!UUID_RE.test(tarefaId)) return { error: msg(req, { pt: 'tarefa inválida', en: 'invalid task' }) }
   const { data } = await sb(`/tarefas_itens?id=eq.${tarefaId}&arquivada=eq.false&select=id,lista_id,descricao,checklists,anexos`, { prefer: null })
   const t = Array.isArray(data) ? data[0] : null
-  if (!t || !listaIds.includes(t.lista_id)) return { error: 'Esta tarefa não faz parte do link.' }
+  if (!t || !listaIds.includes(t.lista_id)) return { error: msg(req, { pt: 'Esta tarefa não faz parte do link.', en: 'This task is not part of the link.' }) }
   const anexos = await Promise.all((t.anexos || []).map(async (a) => ({
     nome: a.name || a.title || (a.path ? String(a.path).split('/').pop().replace(/^\d+-/, '') : 'arquivo'),
     type: a.type || a.mimetype || null,
@@ -76,13 +76,13 @@ async function detalhe(tarefaId, listaIds) {
 
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return preflight()
-  if (req.method !== 'GET') return json({ error: 'método não suportado' }, 405)
+  if (req.method !== 'GET') return json({ error: msg(req, { pt: 'método não suportado', en: 'method not supported' }) }, 405)
   const token = new URL(req.url).searchParams.get('token') || ''
-  if (!UUID_RE.test(token)) return json({ error: 'link inválido' }, 404)
+  if (!UUID_RE.test(token)) return json({ error: msg(req, { pt: 'link inválido', en: 'invalid link' }) }, 404)
 
   const { data: links } = await sb(`/tarefas_links_publicos?token=eq.${token}&ativo=eq.true&select=lista_id,pasta_id`, { prefer: null })
   const link = Array.isArray(links) ? links[0] : null
-  if (!link) return json({ error: 'Este link não existe ou foi desativado.' }, 404)
+  if (!link) return json({ error: msg(req, { pt: 'Este link não existe ou foi desativado.', en: 'This link does not exist or was turned off.' }) }, 404)
 
   try {
     let listas = []
@@ -95,10 +95,10 @@ export default async function handler(req) {
       const { data } = await sb(`/tarefas_listas?pasta_id=eq.${link.pasta_id}&arquivada=eq.false&select=id,nome,statuses,pasta_id,posicao,arquivada&order=posicao.asc.nullslast,nome.asc`, { prefer: null })
       listas = Array.isArray(data) ? data : []
     }
-    if (!listas.length) return json({ error: 'Esta lista não existe mais.' }, 404)
+    if (!listas.length) return json({ error: msg(req, { pt: 'Esta lista não existe mais.', en: 'This list no longer exists.' }) }, 404)
 
     const tarefaId = new URL(req.url).searchParams.get('tarefa')
-    if (tarefaId) return json(await detalhe(tarefaId, listas.map((l) => l.id)))
+    if (tarefaId) return json(await detalhe(req, tarefaId, listas.map((l) => l.id)))
 
     let cliente = null
     if (pastaId) {
@@ -139,6 +139,7 @@ export default async function handler(req) {
       atualizadoEm: new Date().toISOString(),
     })
   } catch (e) {
-    return json({ error: String(e?.message || e) }, 500)
+    console.error('[tarefas-publico]', e)
+    return json({ error: msg(req, { pt: 'Não consegui carregar as tarefas. Tente de novo.', en: 'Couldn\'t load the tasks. Please try again.' }) }, 500)
   }
 }

@@ -1,4 +1,4 @@
-import { getUser } from './_http.js'
+import { getUser, msg } from './_http.js'
 // ADS Roadmap: lê a página "Roadmap Ads" do Playbook Operacional no ClickUp e
 // devolve as tabelas por faixa de verba em JSON.
 //
@@ -29,7 +29,7 @@ function envClean(name) {
 }
 
 async function validarJwt(req) {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) return { error: 'Servidor não configurado.', status: 500 }
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) return { error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), status: 500 }
   const auth = await getUser(req)
   return auth.ok ? { ok: true, user: auth.user } : { error: auth.message, status: 401 }
 }
@@ -120,7 +120,7 @@ export default async function handler(req, res) {
   }
 
   const token = envClean('CLICKUP_API_TOKEN')
-  if (!token) return res.status(500).json({ error: { message: 'CLICKUP_API_TOKEN não configurado.' } })
+  if (!token) return res.status(500).json({ error: { message: msg(req, { pt: 'CLICKUP_API_TOKEN não configurado.', en: 'CLICKUP_API_TOKEN isn\'t set.' }) } })
   const team = envClean('CLICKUP_TEAM_ID') || DEFAULT_TEAM
   const doc = envClean('ADS_ROADMAP_DOC_ID') || DEFAULT_DOC
   const page = envClean('ADS_ROADMAP_PAGE_ID') || DEFAULT_PAGE
@@ -132,8 +132,8 @@ export default async function handler(req, res) {
     )
     const json = await r.json().catch(() => null)
     if (!r.ok) {
-      const msg = json?.err || `ClickUp respondeu ${r.status}`
-      return res.status(502).json({ error: { message: msg } })
+      const erro = json?.err || msg(req, { pt: `ClickUp respondeu ${r.status}`, en: `ClickUp responded ${r.status}` })
+      return res.status(502).json({ error: { message: erro } })
     }
     const faixas = parseRoadmap(String(json?.content || ''))
     const data = {
@@ -145,6 +145,6 @@ export default async function handler(req, res) {
     cache = { at: Date.now(), data }
     return res.status(200).json({ ...data, cached: false })
   } catch (e) {
-    return res.status(502).json({ error: { message: e?.message || 'Erro ao ler o ClickUp' } })
+    return res.status(502).json({ error: { message: e?.message || msg(req, { pt: 'Erro ao ler o ClickUp', en: 'Error reading ClickUp' }) } })
   }
 }

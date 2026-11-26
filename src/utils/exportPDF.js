@@ -1,26 +1,22 @@
 import { fmtCurrency, projectCurrency, fmtNum, escapeHtml } from '../lib/utils'
-import { t, localeAtual } from '../i18n'
+import { t, localeAtual, idiomaAtual } from '../i18n'
 import { printDocument, docHeader, markdownToHtml, PAGE_CSS } from '../lib/printDoc'
-import { BUSINESS_LABELS, MATURITY_LABELS } from '../lib/constants'
-import { PROPOSTA_SECTIONS } from '../lib/propostaComercial'
 import {
-  ABERTURA_BLOCOS, HISTORIA_TIPOS, HISTORIA_TRANSICOES,
-  HISTORIA_3A_BLOCOS, HISTORIA_3B_BLOCOS,
-  CONTEUDO_ETAPA1, CONTEUDO_TEMAS, CONTEUDO_ETAPA4, CONTEUDO_ETAPA5, CONTEUDO_ETAPA6,
-  CONTEUDO_ROTEIRO_ABERTURA, CONTEUDO_ROTEIRO_PILARES, CONTEUDO_ROTEIRO_PONTOS,
-  CONTEUDO_ETAPA9, CONTEUDO_TRANSICOES,
-  OA_BLOCOS, OA_OBJECOES_FIXAS, OA_FECHAMENTO,
-} from '../components/Webinar/webinarData'
+  rotuloNegocio, rotuloMaturidade, rotuloSegmento, rotuloModeloContrato, rotuloPagamento,
+  rotuloServico, rotuloFunil,
+} from '../lib/constants'
+import { PROPOSTA_SECTIONS } from '../lib/propostaComercial'
+import { webinarNoIdioma } from '../components/Webinar/webinarData'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const fmtBRL = (n) => fmtCurrency(n, 2)
 const esc = escapeHtml
 
-// Formata percentuais no padrão BR (vírgula decimal). Ex: 10 → "10%", 10.5 → "10,5%".
+// Formata percentuais no locale de quem gera. Ex: 10 → "10%", 10.5 → "10,5%" (pt) / "10.5%" (en).
 function fmtPct(n) {
   if (n == null || isNaN(n) || !isFinite(n)) return '—'
-  const formatted = Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+  const formatted = Number(n).toLocaleString(localeAtual(), { maximumFractionDigits: 2 })
   return `${formatted}%`
 }
 
@@ -144,8 +140,8 @@ export function exportPropostaComercialPDF(project, data = {}) {
     if (!filled.length) return ''
 
     const badge = sec.tipo === 'SLIDE'
-      ? '<span class="pc-badge slide">Slide</span>'
-      : '<span class="pc-badge momento">Momento</span>'
+      ? `<span class="pc-badge slide">${L('proposta.slide')}</span>`
+      : `<span class="pc-badge momento">${L('proposta.momento')}</span>`
 
     const fieldsHTML = filled
       .map((f) => `
@@ -168,9 +164,9 @@ export function exportPropostaComercialPDF(project, data = {}) {
   }).filter(Boolean).join('\n')
 
   const body = blocks
-    || '<section><p class="prose">Nenhum campo preenchido ainda. Volte e preencha o roteiro.</p></section>'
-  const subtitle = project.companyName || project.nome || 'Proposta'
-  printHTML('Proposta Comercial', subtitle, body)
+    || `<section><p class="prose">${L('proposta.vazio')}</p></section>`
+  const subtitle = project.companyName || project.nome || t('pdf.proposta.subtitulo')
+  printHTML(t('pdf.proposta.titulo'), subtitle, body)
 }
 
 // ─── Onboarding PDF ───────────────────────────────────────────────────────────
@@ -181,59 +177,58 @@ export function exportOnboardingPDF(project) {
 
   const serviceDetailEntries = Object.entries(project.servicesData || {}).reduce((acc, [id, data]) => {
     if (!data || Object.keys(data).length === 0) return acc
-    const SERVICE_DETAIL_LABELS = { imagemQty: 'Imagens', videoQty: 'Vídeos', estaticosQty: 'Estáticos', qty: 'Qtd.', nivel: 'Nível' }
-    const parts = Object.entries(data).filter(([, v]) => v).map(([key, val]) => `${SERVICE_DETAIL_LABELS[key] || key}: ${val}`).join(' · ')
+    const SERVICE_DETAIL_KEYS = ['imagemQty', 'videoQty', 'estaticosQty', 'qty', 'nivel']
+    const parts = Object.entries(data).filter(([, v]) => v).map(([key, val]) => `${SERVICE_DETAIL_KEYS.includes(key) ? t(`pdf.onboarding.detalhe.${key}`) : key}: ${val}`).join(' · ')
     if (parts) acc.push({ id, detail: parts })
     return acc
   }, [])
 
-  const CONTRACT_MODEL_LABELS = { aceleracao: '🚀 Programa de Aceleração', assessoria: '📅 Assessoria Mensal' }
-  const CONTRACT_PAYMENT_LABELS = { unico: 'Valor Único', mensal: 'Parcelado (Mensal)' }
+  const simNao = (v) => L(v ? 'comum.sim' : 'comum.nao')
 
   const body = `
     <section>
-      <div class="section-title">🏢 Empresa</div>
+      <div class="section-title">${L('onboarding.empresa')}</div>
       <div class="grid grid-3">
-        ${project.businessType    ? `<div class="field"><div class="field-label">Tipo de Negócio</div><div class="field-value">${esc(BUSINESS_LABELS[project.businessType] || project.businessType)}</div></div>` : ''}
-        ${project.segmento        ? `<div class="field"><div class="field-label">Segmento</div><div class="field-value">${esc(project.segmento)}</div></div>` : ''}
-        ${project.cnpj            ? `<div class="field"><div class="field-label">CNPJ</div><div class="field-value">${esc(project.cnpj)}</div></div>` : ''}
-        ${project.responsibleName ? `<div class="field"><div class="field-label">Responsável</div><div class="field-value">${esc(project.responsibleName)}</div></div>` : ''}
-        ${project.responsibleRole ? `<div class="field"><div class="field-label">Cargo</div><div class="field-value">${esc(project.responsibleRole)}</div></div>` : ''}
-        ${project.contractDate    ? `<div class="field"><div class="field-label">Data do Contrato</div><div class="field-value">${new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')}</div></div>` : ''}
+        ${project.businessType    ? `<div class="field"><div class="field-label">${L('onboarding.tipoNegocio')}</div><div class="field-value">${esc(rotuloNegocio(project.businessType))}</div></div>` : ''}
+        ${project.segmento        ? `<div class="field"><div class="field-label">${L('onboarding.segmento')}</div><div class="field-value">${esc(rotuloSegmento(project.segmento))}</div></div>` : ''}
+        ${project.cnpj            ? `<div class="field"><div class="field-label">${L('onboarding.cnpj')}</div><div class="field-value">${esc(project.cnpj)}</div></div>` : ''}
+        ${project.responsibleName ? `<div class="field"><div class="field-label">${L('onboarding.responsavel')}</div><div class="field-value">${esc(project.responsibleName)}</div></div>` : ''}
+        ${project.responsibleRole ? `<div class="field"><div class="field-label">${L('onboarding.cargo')}</div><div class="field-value">${esc(project.responsibleRole)}</div></div>` : ''}
+        ${project.contractDate    ? `<div class="field"><div class="field-label">${L('onboarding.dataContrato')}</div><div class="field-value">${new Date(project.contractDate + 'T00:00:00').toLocaleDateString(localeAtual())}</div></div>` : ''}
       </div>
     </section>
 
     ${(project.contractModel || project.contractValue) ? `
     <section>
-      <div class="section-title">📋 Contrato</div>
+      <div class="section-title">${L('onboarding.contrato')}</div>
       <div class="grid grid-3">
-        ${project.contractModel ? `<div class="field"><div class="field-label">Modelo</div><div class="field-value">${esc(CONTRACT_MODEL_LABELS[project.contractModel] || project.contractModel)}</div></div>` : ''}
-        ${project.contractModel === 'aceleracao' && project.contractPaymentType ? `<div class="field"><div class="field-label">Tipo de Pagamento</div><div class="field-value">${esc(CONTRACT_PAYMENT_LABELS[project.contractPaymentType])}</div></div>` : ''}
-        ${project.contractModel === 'aceleracao' ? `<div class="field"><div class="field-label">Duração</div><div class="field-value">${Number(project.contractDurationMonths) || 3} meses</div></div>` : ''}
-        ${project.contractValue ? `<div class="field"><div class="field-label">${project.contractModel === 'aceleracao' ? 'Valor do Contrato' : 'Valor Mensal'}</div><div class="field-value purple">${fmtBRL(project.contractValue)}</div></div>` : ''}
+        ${project.contractModel ? `<div class="field"><div class="field-label">${L('onboarding.modelo')}</div><div class="field-value">${esc(rotuloModeloContrato(project.contractModel))}</div></div>` : ''}
+        ${project.contractModel === 'aceleracao' && project.contractPaymentType ? `<div class="field"><div class="field-label">${L('onboarding.tipoPagamento')}</div><div class="field-value">${esc(rotuloPagamento(project.contractPaymentType))}</div></div>` : ''}
+        ${project.contractModel === 'aceleracao' ? `<div class="field"><div class="field-label">${L('onboarding.duracao')}</div><div class="field-value">${L('onboarding.nMeses', { count: Number(project.contractDurationMonths) || 3, n: Number(project.contractDurationMonths) || 3 })}</div></div>` : ''}
+        ${project.contractValue ? `<div class="field"><div class="field-label">${project.contractModel === 'aceleracao' ? L('onboarding.valorContrato') : L('onboarding.valorMensal')}</div><div class="field-value purple">${fmtBRL(project.contractValue)}</div></div>` : ''}
       </div>
     </section>` : ''}
 
     ${project.services?.length ? `
     <section>
-      <div class="section-title">⚙️ Serviços Contratados</div>
-      <div>${project.services.map((s) => `<span class="chip">${esc(s)}</span>`).join('')}</div>
+      <div class="section-title">${L('onboarding.servicos')}</div>
+      <div>${project.services.map((s) => `<span class="chip">${esc(rotuloServico(s))}</span>`).join('')}</div>
       ${serviceDetailEntries.length ? `<div style="margin-top:8px">${serviceDetailEntries.map(({ detail }) => `<p style="font-size:11px;color:#64748b;margin-top:4px">↳ ${esc(detail)}</p>`).join('')}</div>` : ''}
     </section>` : ''}
 
     <section>
-      <div class="section-title">👥 Equipe &amp; Maturidade</div>
+      <div class="section-title">${L('onboarding.equipe')}</div>
       <div class="grid grid-3">
-        ${project.hasSalesTeam != null ? `<div class="field"><div class="field-label">Time de Vendas</div><div class="field-value">${project.hasSalesTeam ? 'Sim' : 'Não'}</div></div>` : ''}
-        ${project.digitalMaturity ? `<div class="field"><div class="field-label">Maturidade Digital</div><div class="field-value">${esc(MATURITY_LABELS[project.digitalMaturity] || project.digitalMaturity)}</div></div>` : ''}
-        ${project.upsellPotential != null ? `<div class="field"><div class="field-label">Potencial de Upsell</div><div class="field-value">${project.upsellPotential ? 'Sim' : 'Não'}</div></div>` : ''}
+        ${project.hasSalesTeam != null ? `<div class="field"><div class="field-label">${L('onboarding.timeVendas')}</div><div class="field-value">${simNao(project.hasSalesTeam)}</div></div>` : ''}
+        ${project.digitalMaturity ? `<div class="field"><div class="field-label">${L('onboarding.maturidade')}</div><div class="field-value">${esc(rotuloMaturidade(project.digitalMaturity))}</div></div>` : ''}
+        ${project.upsellPotential != null ? `<div class="field"><div class="field-label">${L('onboarding.upsell')}</div><div class="field-value">${simNao(project.upsellPotential)}</div></div>` : ''}
       </div>
-      ${project.upsellNotes ? `<div class="field" style="margin-top:8px"><div class="field-label">Obs. Upsell</div><div class="field-value" style="font-weight:400">${esc(project.upsellNotes)}</div></div>` : ''}
+      ${project.upsellNotes ? `<div class="field" style="margin-top:8px"><div class="field-label">${L('onboarding.obsUpsell')}</div><div class="field-value" style="font-weight:400">${esc(project.upsellNotes)}</div></div>` : ''}
     </section>
 
     ${otherPeople.length ? `
     <section>
-      <div class="section-title">👤 Outras Pessoas Envolvidas</div>
+      <div class="section-title">${L('onboarding.outrasPessoas')}</div>
       <div class="grid grid-3">
         ${otherPeople.map((p) => `<div class="field"><div class="field-label">${esc(p.name)}</div>${p.role ? `<div class="field-value" style="font-size:11px;color:#9ca3af">${esc(p.role)}</div>` : ''}</div>`).join('')}
       </div>
@@ -241,34 +236,34 @@ export function exportOnboardingPDF(project) {
 
     ${competitors.length ? `
     <section>
-      <div class="section-title">⚔️ Concorrentes</div>
+      <div class="section-title">${L('onboarding.concorrentes')}</div>
       <div>${competitors.map((c) => `<span class="chip">${esc(c)}</span>`).join('')}</div>
     </section>` : ''}
 
     ${project.productDescription ? `
     <section>
-      <div class="section-title">🛍️ Produto / Serviço</div>
+      <div class="section-title">${L('onboarding.produto')}</div>
       <div class="field"><div class="field-value" style="font-weight:400;line-height:1.6">${esc(project.productDescription)}</div></div>
     </section>` : ''}
     ${project.targetAudience ? `
     <section>
-      <div class="section-title">🎯 Público-Alvo</div>
+      <div class="section-title">${L('onboarding.publico')}</div>
       <div class="field"><div class="field-value" style="font-weight:400;line-height:1.6">${esc(project.targetAudience)}</div></div>
     </section>` : ''}
     ${project.observacoes ? `
     <section>
-      <div class="section-title">📝 Observações</div>
+      <div class="section-title">${L('onboarding.observacoes')}</div>
       <div class="field"><div class="field-value" style="font-weight:400;line-height:1.6;white-space:pre-wrap">${esc(project.observacoes)}</div></div>
     </section>` : ''}
   `
 
-  printHTML('Dados do Cliente', project.companyName, body)
+  printHTML(t('pdf.onboarding.titulo'), project.companyName, body)
 }
 
 // ─── ROI Calculator PDF ───────────────────────────────────────────────────────
 
-// Rótulos do PDF de ROI, Metas Semanais, Personas e Produto/Serviço saem no idioma de
-// quem gera (namespace `pdf`); o que foi gravado e o que a IA gerou aparecem como estão.
+// Rótulos dos PDFs saem no idioma de quem gera (namespace `pdf`); o que foi gravado e
+// o que a IA gerou aparecem como estão.
 const L = (chave, vars) => esc(t(`pdf.${chave}`, vars))
 const pctLocal = (n) => (n == null || n === '' || isNaN(Number(n))
   ? '—'
@@ -430,45 +425,41 @@ export function exportPersonasPDF(personas, project) {
 
 // ─── Oferta Matadora PDF ──────────────────────────────────────────────────────
 
-// Labels dos campos guiados do wizard (espelham ofertaShared.js — manter em sync)
-const OFERTA_DRIVER_LABELS = {
-  valor:         'Não vale a pena (valor)',
-  probabilidade: 'Não vai funcionar (probabilidade)',
-  esforco:       'É difícil demais (esforço)',
-  tempo:         'Vai demorar (tempo)',
-}
-const OFERTA_ATENCAO_LABELS  = { '1a1': '1 a 1', grupo: 'Pequeno grupo', muitos: 'Um-para-muitos' }
-const OFERTA_ESFORCO_LABELS  = { dfy: 'Feito por nós (DFY)', dwy: 'Feito com você (DWY)', diy: 'Você faz sozinho (DIY)' }
-const OFERTA_GARANTIA_LABELS = { incondicional: 'Incondicional', condicional: 'Condicional', anti: 'Anti-garantia', implicita: 'Performance' }
+// Labels dos campos guiados do wizard (espelham ofertaShared.js — manter em sync).
+// Valor gravado → chave em pdf.oferta.*; valor desconhecido aparece como veio.
+const OFERTA_ATENCAO_CHAVE = { '1a1': 'umAUm', grupo: 'grupo', muitos: 'muitos' }
+const OFERTA_ESFORCO_IDS   = ['dfy', 'dwy', 'diy']
+const OFERTA_GARANTIA_IDS  = ['incondicional', 'condicional', 'anti', 'implicita']
+const OFERTA_DRIVER_IDS    = ['valor', 'probabilidade', 'esforco', 'tempo']
 
 export function exportOfertaPDF(oferta, project) {
   const bonusValidos = (oferta.bonus || []).filter((b) => b.trim())
-  const fmtR$ = (n) => `R$ ${(Number(n) || 0).toLocaleString('pt-BR')}`
+  const fmtR$ = (n) => `R$ ${(Number(n) || 0).toLocaleString(localeAtual())}`
 
   // ── Diagnóstico (Passo 0) ──
   const diag = oferta.diagnostico
-  const tipoLabel = oferta.tipoCliente === 'b2b' ? '🏢 B2B (empresa)' : oferta.tipoCliente === 'b2c' ? '🙋 B2C (consumidor)' : ''
+  const tipoLabel = oferta.tipoCliente === 'b2b' ? t('pdf.oferta.tipoB2b') : oferta.tipoCliente === 'b2c' ? t('pdf.oferta.tipoB2c') : ''
   const diagHTML = (diag?.verdict || tipoLabel) ? `
     <section>
-      <div class="section-title">🩺 Diagnóstico de Viabilidade</div>
+      <div class="section-title">${L('oferta.diagnostico')}</div>
       <div class="grid grid-2">
-        ${tipoLabel ? `<div class="field"><div class="field-label">Tipo de cliente</div><div class="field-value">${esc(tipoLabel)}</div></div>` : ''}
-        ${diag?.verdict ? `<div class="field"><div class="field-label">Veredito</div><div class="field-value" style="color:${esc(diag.verdict.color || '#374151')}">${esc(diag.verdict.emoji || '')} ${esc(diag.verdict.label || '')} · ${esc(String(diag.totalScore ?? ''))}/100</div></div>` : ''}
+        ${tipoLabel ? `<div class="field"><div class="field-label">${L('oferta.tipoCliente')}</div><div class="field-value">${esc(tipoLabel)}</div></div>` : ''}
+        ${diag?.verdict ? `<div class="field"><div class="field-label">${L('oferta.veredito')}</div><div class="field-value" style="color:${esc(diag.verdict.color || '#374151')}">${esc(diag.verdict.emoji || '')} ${esc(diag.verdict.label || '')} · ${esc(String(diag.totalScore ?? ''))}/100</div></div>` : ''}
       </div>
     </section>` : ''
 
   // ── Sonho (Passo 1) ──
   const fieldsHTML = `
     <section>
-      <div class="section-title">📋 Dados da Oferta</div>
+      <div class="section-title">${L('oferta.dados')}</div>
       <div class="grid" style="grid-template-columns:1fr;">
-        ${oferta.nome ? `<div class="field"><div class="field-label">🏷️ Nome da Oferta</div><div class="field-value purple">${esc(oferta.nome)}</div></div>` : ''}
-        ${oferta.dorAtual ? `<div class="field"><div class="field-label">😣 Dor Atual (onde está hoje)</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.dorAtual)}</div></div>` : ''}
-        ${oferta.resultadoSonho ? `<div class="field"><div class="field-label">✨ Resultado do Sonho</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.resultadoSonho)}</div></div>` : ''}
-        ${oferta.statusGanho ? `<div class="field"><div class="field-label">👑 Status Ganho (como será visto)</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.statusGanho)}</div></div>` : ''}
-        ${oferta.porqueVaiFuncionar ? `<div class="field"><div class="field-label">💡 Por que vai funcionar</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.porqueVaiFuncionar)}</div></div>` : ''}
-        ${oferta.velocidade ? `<div class="field"><div class="field-label">⚡ Velocidade (1ª vitória)</div><div class="field-value" style="font-weight:400">${esc(oferta.velocidade)}</div></div>` : ''}
-        ${oferta.esforcoMinimo ? `<div class="field"><div class="field-label">🤝 Esforço Mínimo do Cliente</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.esforcoMinimo)}</div></div>` : ''}
+        ${oferta.nome ? `<div class="field"><div class="field-label">${L('oferta.nome')}</div><div class="field-value purple">${esc(oferta.nome)}</div></div>` : ''}
+        ${oferta.dorAtual ? `<div class="field"><div class="field-label">${L('oferta.dorAtual')}</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.dorAtual)}</div></div>` : ''}
+        ${oferta.resultadoSonho ? `<div class="field"><div class="field-label">${L('oferta.resultadoSonho')}</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.resultadoSonho)}</div></div>` : ''}
+        ${oferta.statusGanho ? `<div class="field"><div class="field-label">${L('oferta.statusGanho')}</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.statusGanho)}</div></div>` : ''}
+        ${oferta.porqueVaiFuncionar ? `<div class="field"><div class="field-label">${L('oferta.porqueFunciona')}</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.porqueVaiFuncionar)}</div></div>` : ''}
+        ${oferta.velocidade ? `<div class="field"><div class="field-label">${L('oferta.velocidade')}</div><div class="field-value" style="font-weight:400">${esc(oferta.velocidade)}</div></div>` : ''}
+        ${oferta.esforcoMinimo ? `<div class="field"><div class="field-label">${L('oferta.esforcoMinimo')}</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.esforcoMinimo)}</div></div>` : ''}
       </div>
     </section>
   `
@@ -479,14 +470,14 @@ export function exportOfertaPDF(oferta, project) {
   const solByProb = (pid) => solucoes.find((s) => s.problemaId === pid)?.comoResolve?.trim()
   const problemasHTML = problemas.length ? `
     <section>
-      <div class="section-title">🧱 Problemas &amp; Soluções (Equação de Valor)</div>
+      <div class="section-title">${L('oferta.problemas')}</div>
       <div class="grid" style="grid-template-columns:1fr;">
         ${['valor', 'probabilidade', 'esforco', 'tempo'].map((driver) => {
           const doDriver = problemas.filter((p) => p.driver === driver)
           if (!doDriver.length) return ''
           return `
             <div class="field">
-              <div class="field-label">${esc(OFERTA_DRIVER_LABELS[driver] || driver)}</div>
+              <div class="field-label">${OFERTA_DRIVER_IDS.includes(driver) ? L(`oferta.driver.${driver}`) : esc(driver)}</div>
               ${doDriver.map((p) => {
                 const sol = solByProb(p.id)
                 return `<div style="font-size:11px;color:#374151;margin:3px 0 3px 8px">• ${esc(p.texto)}${sol ? `<br><span style="color:#7c3aed;margin-left:12px">→ ${esc(sol)}</span>` : ''}</div>`
@@ -499,13 +490,13 @@ export function exportOfertaPDF(oferta, project) {
   // ── Entrega (Passo 4) ──
   const ent = oferta.entrega || {}
   const entregaParts = [
-    ent.atencao ? OFERTA_ATENCAO_LABELS[ent.atencao] || ent.atencao : null,
-    ent.esforcoModelo ? OFERTA_ESFORCO_LABELS[ent.esforcoModelo] || ent.esforcoModelo : null,
+    ent.atencao ? (OFERTA_ATENCAO_CHAVE[ent.atencao] ? t(`pdf.oferta.atencao.${OFERTA_ATENCAO_CHAVE[ent.atencao]}`) : ent.atencao) : null,
+    ent.esforcoModelo ? (OFERTA_ESFORCO_IDS.includes(ent.esforcoModelo) ? t(`pdf.oferta.esforcoModelo.${ent.esforcoModelo}`) : ent.esforcoModelo) : null,
     (ent.meio || []).length ? (ent.meio || []).join(', ') : null,
   ].filter(Boolean)
   const entregaHTML = entregaParts.length ? `
     <section>
-      <div class="section-title">📡 Modelo de Entrega</div>
+      <div class="section-title">${L('oferta.entrega')}</div>
       <div class="field"><div class="field-value" style="font-weight:400">${esc(entregaParts.join(' · '))}</div></div>
     </section>` : ''
 
@@ -516,20 +507,20 @@ export function exportOfertaPDF(oferta, project) {
   const ratio = preco > 0 && valorTotal > 0 ? (valorTotal / preco) : 0
   const stackHTML = (oferta.nucleo || stack.length || preco) ? `
     <section>
-      <div class="section-title">📦 Núcleo, Stack &amp; Preço</div>
+      <div class="section-title">${L('oferta.stack')}</div>
       <div class="grid" style="grid-template-columns:1fr;">
-        ${oferta.nucleo ? `<div class="field"><div class="field-label">🎯 Entrega principal (núcleo)</div><div class="field-value" style="font-weight:400">${esc(oferta.nucleo)}</div></div>` : ''}
+        ${oferta.nucleo ? `<div class="field"><div class="field-label">${L('oferta.nucleo')}</div><div class="field-value" style="font-weight:400">${esc(oferta.nucleo)}</div></div>` : ''}
         ${stack.length ? `
           <div class="field">
-            <div class="field-label">Entregas da oferta</div>
-            ${stack.map((i, idx) => `<div style="font-size:11px;color:#374151;margin:3px 0 3px 8px;display:flex;justify-content:space-between"><span>📦 Entrega ${idx + 1}: ${esc(i.nome)}</span><span style="font-weight:600;white-space:nowrap;margin-left:12px">${fmtR$(i.valor)}</span></div>`).join('')}
+            <div class="field-label">${L('oferta.entregas')}</div>
+            ${stack.map((i, idx) => `<div style="font-size:11px;color:#374151;margin:3px 0 3px 8px;display:flex;justify-content:space-between"><span>${L('oferta.entregaN', { n: idx + 1, nome: i.nome })}</span><span style="font-weight:600;white-space:nowrap;margin-left:12px">${fmtR$(i.valor)}</span></div>`).join('')}
           </div>` : ''}
         ${(valorTotal || preco) ? `
           <div class="field">
             <div class="field-value" style="font-size:13px">
-              ${valorTotal ? `Valor total: <b>${fmtR$(valorTotal)}</b>` : ''}
-              ${preco ? ` · Preço: <b class="gold">${fmtR$(preco)}</b>` : ''}
-              ${ratio ? ` · <b>${ratio.toFixed(1)}x</b> de valor sobre o preço` : ''}
+              ${valorTotal ? `${L('oferta.valorTotal')} <b>${fmtR$(valorTotal)}</b>` : ''}
+              ${preco ? ` · ${L('oferta.preco')} <b class="gold">${fmtR$(preco)}</b>` : ''}
+              ${ratio ? ` · <b>${ratio.toLocaleString(localeAtual(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })}x</b> ${L('oferta.deValor')}` : ''}
             </div>
           </div>` : ''}
       </div>
@@ -538,20 +529,20 @@ export function exportOfertaPDF(oferta, project) {
   // ── Escassez + Urgência (Passo 6) ──
   const escUrgHTML = (oferta.escassez || oferta.urgencia) ? `
     <section>
-      <div class="section-title">🔥 Escassez &amp; Urgência</div>
+      <div class="section-title">${L('oferta.escassezUrgencia')}</div>
       <div class="grid" style="grid-template-columns:1fr;">
-        ${oferta.escassez ? `<div class="field"><div class="field-label">🔒 Escassez</div><div class="field-value" style="font-weight:400">${esc(oferta.escassez)}</div></div>` : ''}
-        ${oferta.urgencia ? `<div class="field"><div class="field-label">⏳ Urgência</div><div class="field-value" style="font-weight:400">${esc(oferta.urgencia)}</div></div>` : ''}
+        ${oferta.escassez ? `<div class="field"><div class="field-label">${L('oferta.escassez')}</div><div class="field-value" style="font-weight:400">${esc(oferta.escassez)}</div></div>` : ''}
+        ${oferta.urgencia ? `<div class="field"><div class="field-label">${L('oferta.urgencia')}</div><div class="field-value" style="font-weight:400">${esc(oferta.urgencia)}</div></div>` : ''}
       </div>
     </section>` : ''
 
   // ── Bônus (Passo 7) ──
   const bonusHTML = bonusValidos.length ? `
     <section>
-      <div class="section-title">🎁 Stack de Bônus</div>
+      <div class="section-title">${L('oferta.bonus')}</div>
       <div class="grid" style="grid-template-columns:1fr;">
         ${bonusValidos.map((b, i) => `
-          <div class="field"><div class="field-label">Bônus ${i + 1}</div><div class="field-value" style="font-weight:400">${esc(b)}</div></div>
+          <div class="field"><div class="field-label">${L('oferta.bonusN', { n: i + 1 })}</div><div class="field-value" style="font-weight:400">${esc(b)}</div></div>
         `).join('')}
       </div>
     </section>` : ''
@@ -559,18 +550,18 @@ export function exportOfertaPDF(oferta, project) {
   // ── Garantia (Passo 8) ──
   const garantiaHTML = oferta.garantia ? `
     <section>
-      <div class="section-title">🛡️ Garantia${oferta.garantiaTipo ? ` — ${esc(OFERTA_GARANTIA_LABELS[oferta.garantiaTipo] || oferta.garantiaTipo)}` : ''}</div>
+      <div class="section-title">${L('oferta.garantia')}${oferta.garantiaTipo ? ` — ${OFERTA_GARANTIA_IDS.includes(oferta.garantiaTipo) ? L(`oferta.garantiaTipo.${oferta.garantiaTipo}`) : esc(oferta.garantiaTipo)}` : ''}</div>
       <div class="field"><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.garantia)}</div></div>
     </section>` : ''
 
   const generatedHTML = oferta.generatedOffer ? `
     <section>
-      <div class="section-title">🤖 Oferta Matadora Gerada por IA</div>
+      <div class="section-title">${L('oferta.gerada')}</div>
       <div class="prose">${markdownToHtml(oferta.generatedOffer)}</div>
     </section>` : ''
 
   printHTML(
-    'Oferta Matadora',
+    t('pdf.oferta.titulo'),
     project.companyName,
     diagHTML + fieldsHTML + problemasHTML + entregaHTML + stackHTML + escUrgHTML + bonusHTML + garantiaHTML + generatedHTML
   )
@@ -578,7 +569,7 @@ export function exportOfertaPDF(oferta, project) {
 
 // ─── Campaign Planner PDF ─────────────────────────────────────────────────────
 
-const STAGE_LABELS = { topo: 'Topo de Funil — Inconsciente do Problema', meio: 'Meio de Funil — Consciente do Problema', fundo: 'Fundo de Funil — Consciente do Problema e da Solução' }
+const stageLabel   = (key) => t(`pdf.campanha.etapa.${key}`)
 const STAGE_KEYS   = ['topo', 'meio', 'fundo']
 const META_TAX     = 0.13
 
@@ -602,7 +593,7 @@ function defaultDaysOfCurrentMonth() {
 
 function fmtCampaignPeriod(startISO, endISO) {
   if (!startISO || !endISO) return null
-  const fmt = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+  const fmt = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString(localeAtual(), { day: '2-digit', month: '2-digit' })
   return `${fmt(startISO)} → ${fmt(endISO)}`
 }
 
@@ -617,12 +608,12 @@ export function exportCampaignPDF(campaignPlan, project) {
   const periodLabel = (() => {
     if (!planEndISO) {
       const today = new Date()
-      const monthOnly = today.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+      const monthOnly = today.toLocaleDateString(localeAtual(), { month: 'long', year: 'numeric' })
       return `${monthOnly.charAt(0).toUpperCase()}${monthOnly.slice(1)}`
     }
-    const fmt = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    if (planStartISO) return `${fmt(planStartISO)} até ${fmt(planEndISO)}`
-    return `até ${fmt(planEndISO)}`
+    const fmt = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString(localeAtual(), { day: '2-digit', month: '2-digit', year: 'numeric' })
+    if (planStartISO) return t('pdf.campanha.periodoDeAte', { inicio: fmt(planStartISO), fim: fmt(planEndISO) })
+    return t('pdf.campanha.periodoAte', { fim: fmt(planEndISO) })
   })()
 
   const { totalBudget, channels = [] } = campaignPlan
@@ -638,7 +629,7 @@ export function exportCampaignPDF(campaignPlan, project) {
     netTotal += chMon
 
     const metaInfo = isMeta
-      ? `<span style="display:block;font-size:9px;color:#94A3B8;font-weight:500">Bruto: ${fmtBRL(chMonBruto)} · −13% impostos</span>`
+      ? `<span style="display:block;font-size:9px;color:#94A3B8;font-weight:500">${L('campanha.bruto', { valor: fmtBRL(chMonBruto) })}</span>`
       : ''
 
     const channelRow = `<tr class="channel-header">
@@ -662,11 +653,11 @@ export function exportCampaignPDF(campaignPlan, project) {
         const ownDays      = hasOwnPeriod ? daysBetweenISO(c.startDate, c.endDate) : null
         const cDay         = hasOwnPeriod ? cMon / ownDays : cMon / daysLeft
         const periodInfo   = hasOwnPeriod
-          ? `<span style="display:block;font-size:9px;color:#7C3AED;font-weight:600">📅 ${fmtCampaignPeriod(c.startDate, c.endDate)} · ${ownDays} ${ownDays === 1 ? 'dia' : 'dias'}</span>`
+          ? `<span style="display:block;font-size:9px;color:#7C3AED;font-weight:600">📅 ${fmtCampaignPeriod(c.startDate, c.endDate)} · ${L('campanha.nDias', { count: ownDays, n: ownDays })}</span>`
           : ''
         const dailyLabel = hasOwnPeriod ? `${fmtBRL(cDay)} <span style="font-size:9px;color:#94A3B8">(${ownDays}d)</span>` : fmtBRL(cDay)
         return `<tr class="campaign-row">
-          <td>${esc(c.name || '(sem nome)')}${periodInfo}</td>
+          <td>${esc(c.name || t('pdf.campanha.semNome'))}${periodInfo}</td>
           <td>${fmtPct(c.percentage)}</td>
           <td>${fmtBRL(cMon)}</td>
           <td>${dailyLabel}</td>
@@ -674,7 +665,7 @@ export function exportCampaignPDF(campaignPlan, project) {
       }).join('')
 
       return `<tr class="stage-row">
-        <td>${esc(STAGE_LABELS[key])}</td>
+        <td>${esc(stageLabel(key))}</td>
         <td>${fmtPct(st.percentage)}</td>
         <td>${fmtBRL(stMon)}</td>
         <td>${fmtBRL(stDay)}</td>
@@ -687,7 +678,7 @@ export function exportCampaignPDF(campaignPlan, project) {
       ? subAccounts.map((ac) => {
         const acMon = chMon * ((ac.percentage || 0) / 100)
         return `<tr class="account-row">
-          <td>${esc(ac.name || '(conta sem nome)')}</td>
+          <td>${esc(ac.name || t('pdf.campanha.contaSemNome'))}</td>
           <td>${fmtPct(ac.percentage)}</td>
           <td>${fmtBRL(acMon)}</td>
           <td>${fmtBRL(acMon / daysLeft)}</td>
@@ -700,31 +691,31 @@ export function exportCampaignPDF(campaignPlan, project) {
 
   const hasMetaChannel = channels.some((ch) => ch.name === 'Meta Ads')
   const grossLine = hasMetaChannel
-    ? `<div class="field"><div class="field-label">Investimento Bruto</div><div class="field-value">${fmtBRL(totalBudget)}</div></div>`
+    ? `<div class="field"><div class="field-label">${L('campanha.investBruto')}</div><div class="field-value">${fmtBRL(totalBudget)}</div></div>`
     : ''
   const netLine = hasMetaChannel
-    ? `<div class="field"><div class="field-label">Investimento Líquido (após −13% Meta)</div><div class="field-value purple" style="font-size:20px">${fmtBRL(netTotal)}</div></div>`
-    : `<div class="field"><div class="field-label">Orçamento Total</div><div class="field-value purple" style="font-size:20px">${fmtBRL(totalBudget)}</div></div>`
+    ? `<div class="field"><div class="field-label">${L('campanha.investLiquido')}</div><div class="field-value purple" style="font-size:20px">${fmtBRL(netTotal)}</div></div>`
+    : `<div class="field"><div class="field-label">${L('campanha.orcamentoTotal')}</div><div class="field-value purple" style="font-size:20px">${fmtBRL(totalBudget)}</div></div>`
 
   const body = `
     <section>
-      <div class="section-title">📅 Resumo do Orçamento</div>
+      <div class="section-title">${L('campanha.resumo')}</div>
       <div class="grid grid-3">
         ${netLine}
-        <div class="field"><div class="field-label">Orçamento Diário Médio</div><div class="field-value">${fmtBRL(netTotal / daysLeft)}</div></div>
-        <div class="field"><div class="field-label">Período</div><div class="field-value" style="font-size:12px">${periodLabel} · ${daysLeft} ${daysLeft === 1 ? 'dia' : 'dias'}</div></div>
+        <div class="field"><div class="field-label">${L('campanha.diarioMedio')}</div><div class="field-value">${fmtBRL(netTotal / daysLeft)}</div></div>
+        <div class="field"><div class="field-label">${L('campanha.periodo')}</div><div class="field-value" style="font-size:12px">${esc(periodLabel)} · ${L('campanha.nDias', { count: daysLeft, n: daysLeft })}</div></div>
       </div>
       ${hasMetaChannel ? `<div style="margin-top:8px">${grossLine}</div>` : ''}
     </section>
     <section>
-      <div class="section-title">📊 Distribuição por Canal, Funil e Campanhas</div>
+      <div class="section-title">${L('campanha.distribuicao')}</div>
       <table>
         <thead>
           <tr>
-            <th>Canal / Etapa / Campanha</th>
-            <th>% Verba</th>
-            <th>Mensal</th>
-            <th>Diário</th>
+            <th>${L('campanha.colCanal')}</th>
+            <th>${L('campanha.colVerba')}</th>
+            <th>${L('campanha.colMensal')}</th>
+            <th>${L('campanha.colDiario')}</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -732,7 +723,7 @@ export function exportCampaignPDF(campaignPlan, project) {
     </section>
   `
 
-  printHTML('Planejamento de Campanhas', project.companyName, body)
+  printHTML(t('pdf.campanha.titulo'), project.companyName, body)
 }
 
 // ─── Planejamento de Marketing PDF (paisagem) ───────────────────────────────────
@@ -774,42 +765,46 @@ const PLANEJAMENTO_MKT_CSS = `
 `
 
 export function exportPlanejamentoMarketingPDF(data, plan, project) {
-  const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-  const empresa = project?.companyName || project?.company_name || project?.nome || 'Cliente'
-  const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-
+  const loc = localeAtual()
+  const MESES = Array.from({ length: 12 }, (_, i) => {
+    const m = new Date(2000, i, 1).toLocaleDateString(loc, { month: 'short' }).replace('.', '')
+    return m.charAt(0).toUpperCase() + m.slice(1)
+  })
+  const empresa = project?.companyName || project?.company_name || project?.nome || t('pdf.produto.cliente')
+  const today = new Date().toLocaleDateString(loc, { day: '2-digit', month: 'long', year: 'numeric' })
   const money = (n) => (n == null || !isFinite(n) || isNaN(n)) ? '—'
-    : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })
-  const pctv = (n) => (n == null || !isFinite(n) || isNaN(n)) ? '—' : `${(n * 100).toFixed(1).replace('.', ',')}%`
-  const numv = (n) => (n == null || !isFinite(n) || isNaN(n)) ? '—' : Math.ceil(n).toLocaleString('pt-BR')
+    : n.toLocaleString(loc, { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  const pctv = (n) => (n == null || !isFinite(n) || isNaN(n)) ? '—'
+    : `${(n * 100).toLocaleString(loc, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+  const numv = (n) => (n == null || !isFinite(n) || isNaN(n)) ? '—' : Math.ceil(n).toLocaleString(loc)
 
-  const distLabel = plan.distribuicao === 'linear' ? 'Distribuição: Linear'
-    : plan.distribuicao === 'igual' ? 'Distribuição: Igual' : 'Distribuição: Composto'
+  const distLabel = plan.distribuicao === 'linear' ? t('pdf.planejamento.distribuicao.linear')
+    : plan.distribuicao === 'igual' ? t('pdf.planejamento.distribuicao.igual') : t('pdf.planejamento.distribuicao.composto')
 
   const crescIgual = plan.distribuicao === 'igual'
-  const crescLabel = crescIgual ? 'Meta por mês (igual)'
-    : plan.distribuicao === 'linear' ? 'Crescimento médio/mês' : 'Crescimento necessário/mês'
+  const crescLabel = crescIgual ? t('pdf.planejamento.metaPorMes')
+    : plan.distribuicao === 'linear' ? t('pdf.planejamento.crescMedio') : t('pdf.planejamento.crescNecessario')
   const crescValue = crescIgual
     ? ((plan.mesesRestantes > 0 && plan.gap > 0) ? money(plan.gap / plan.mesesRestantes) : '—')
     : (plan.crescimentoRef != null ? pctv(plan.crescimentoRef) : '—')
 
   const kpis = [
-    { label: 'Faturamento até agora', value: money(plan.realizadoTotal), cls: '' },
-    { label: `Média mensal (${plan.mesesDecorridos})`, value: money(plan.mediaMensal), cls: 'cyan' },
-    { label: 'Meta anual', value: money(plan.metaAnual), cls: 'green' },
-    { label: 'Projeção mantendo média', value: money(plan.projetadoMedia), cls: 'gold' },
+    { label: t('pdf.planejamento.faturamentoAteAgora'), value: money(plan.realizadoTotal), cls: '' },
+    { label: t('pdf.planejamento.mediaMensal', { n: plan.mesesDecorridos }), value: money(plan.mediaMensal), cls: 'cyan' },
+    { label: t('pdf.planejamento.metaAnual'), value: money(plan.metaAnual), cls: 'green' },
+    { label: t('pdf.planejamento.projecao'), value: money(plan.projetadoMedia), cls: 'gold' },
     { label: crescLabel, value: crescValue, cls: 'purple' },
-    { label: 'Gap para a meta', value: money(plan.gap), cls: 'gold' },
+    { label: t('pdf.planejamento.gap'), value: money(plan.gap), cls: 'gold' },
   ]
 
   const rowsCfg = [
-    { label: 'Meta de faturamento', get: (r) => r.meta,         fmt: money, tk: 'meta',         strong: true, cls: 'green' },
-    { label: 'Crescimento',         get: (r) => r.crescimento,  fmt: pctv,  tk: null,           cls: 'purple' },
-    { label: 'Novas vendas',        get: (r) => r.vendas,       fmt: numv,  tk: 'vendas',       cls: '' },
+    { label: t('pdf.planejamento.metaFaturamento'), get: (r) => r.meta,         fmt: money, tk: 'meta',         strong: true, cls: 'green' },
+    { label: t('pdf.planejamento.crescimento'), get: (r) => r.crescimento,  fmt: pctv,  tk: null,           cls: 'purple' },
+    { label: t('pdf.planejamento.novasVendas'), get: (r) => r.vendas,       fmt: numv,  tk: 'vendas',       cls: '' },
     { label: 'SQLs',                get: (r) => r.sqls,         fmt: numv,  tk: 'sqls',         cls: 'cyan' },
     { label: 'MQLs',                get: (r) => r.mqls,         fmt: numv,  tk: 'mqls',         cls: 'purple' },
     { label: 'Leads',               get: (r) => r.leads,        fmt: numv,  tk: 'leads',        cls: 'blue' },
-    { label: 'Investimento em mídia', get: (r) => r.investimento, fmt: money, tk: 'investimento', strong: true, cls: 'gold' },
+    { label: t('pdf.planejamento.investimento'), get: (r) => r.investimento, fmt: money, tk: 'investimento', strong: true, cls: 'gold' },
     { label: 'CPL',                 get: (r) => r.cpl,          fmt: money, tk: 'cpl',          cls: '' },
     { label: 'CPMql',               get: (r) => r.cpmql,        fmt: money, tk: 'cpmql',        cls: 'purple' },
     { label: 'CPSql',               get: (r) => r.cpsql,        fmt: money, tk: 'cpsql',        cls: 'cyan' },
@@ -831,17 +826,17 @@ export function exportPlanejamentoMarketingPDF(data, plan, project) {
   }).join('')
 
   printDocument({
-    title: `Planejamento de Marketing — ${empresa}`,
+    title: `${t('pdf.planejamento.titulo')} — ${empresa}`,
     css: PLANEJAMENTO_MKT_CSS,
     body: `
   <div class="header">
     <div>
       <div class="logo">Revenue Lab · Internal</div>
-      <div class="doc-title">Planejamento de Marketing</div>
+      <div class="doc-title">${L('planejamento.titulo')}</div>
       <div class="doc-subtitle">${esc(empresa)}</div>
     </div>
     <div class="doc-meta">
-      Gerado em ${today}
+      ${L('doc.geradoEm', { data: today })}
       <div class="badge">${esc(distLabel)}</div>
     </div>
   </div>
@@ -853,18 +848,18 @@ export function exportPlanejamentoMarketingPDF(data, plan, project) {
   <table>
     <thead>
       <tr>
-        <th class="rowlabel">Indicador</th>
+        <th class="rowlabel">${L('planejamento.indicador')}</th>
         ${headCols}
-        <th class="total">Total</th>
+        <th class="total">${L('planejamento.total')}</th>
       </tr>
     </thead>
     <tbody>${bodyRows}</tbody>
   </table>
 
   <p class="foot">
-    Meses já decorridos exibem o faturamento realizado (fundo cinza); os demais, o plano necessário para bater a meta anual.
-    Funil reverso: Meta ÷ ticket = vendas · ÷ taxa SQL→venda = SQLs · ÷ taxa MQL→SQL = MQLs · ÷ taxa Lead→MQL = Leads.
-    CPL/CPMql/CPSql/CAC = investimento do mês ÷ leads/MQLs/SQLs/vendas (coluna Total = custo médio ponderado).
+    ${L('planejamento.rodape1')}
+    ${L('planejamento.rodape2')}
+    ${L('planejamento.rodape3')}
   </p>`,
     width: 1200, height: 800,
   })
@@ -1163,7 +1158,8 @@ const V2_CSS = `
 `
 
 export function exportEstrategiaV2PDF(project, data) {
-  const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const loc = localeAtual()
+  const today = new Date().toLocaleDateString(loc, { day: '2-digit', month: 'long', year: 'numeric' })
 
   const { mesesPlano = [], problemas = [], swot = {}, concorrentes = [], riscos = [], funis = [],
           roiResult = null, roiCalc = null } = data
@@ -1173,36 +1169,36 @@ export function exportEstrategiaV2PDF(project, data) {
 
   function fmtBudget(n) {
     if (!n || !isFinite(n) || isNaN(n)) return '—'
-    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+    return n.toLocaleString(loc, { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
   }
   function fmtN(n) {
     if (n == null || isNaN(n)) return '—'
     if (!isFinite(n)) return '∞'
-    return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+    return n.toLocaleString(loc, { maximumFractionDigits: 0 })
   }
 
   // ── Cover ──────────────────────────────────────────────────────────────────
   const cover = `
     <div class="cover">
       <div class="cover-logo">Revenue Lab</div>
-      <div class="cover-badge">Estratégia Digital V2</div>
+      <div class="cover-badge">${L('estrategia.badge')}</div>
       <div class="cover-company">${esc(project.companyName)}</div>
-      <div class="cover-title">Documento de Estratégia Digital</div>
+      <div class="cover-title">${L('estrategia.docTitulo')}</div>
       <div class="cover-meta">
         <div class="cover-meta-item">
-          <div class="cover-meta-label">Data</div>
+          <div class="cover-meta-label">${L('estrategia.data')}</div>
           <div class="cover-meta-value">${today}</div>
         </div>
         ${project.businessType ? `<div class="cover-meta-item">
-          <div class="cover-meta-label">Tipo de Negócio</div>
-          <div class="cover-meta-value">${esc({ b2b:'B2B', local:'Negócio Local', ecommerce:'E-commerce', infoproduto:'Infoproduto' }[project.businessType] || project.businessType)}</div>
+          <div class="cover-meta-label">${L('onboarding.tipoNegocio')}</div>
+          <div class="cover-meta-value">${esc(rotuloNegocio(project.businessType))}</div>
         </div>` : ''}
         ${problemas.length ? `<div class="cover-meta-item">
-          <div class="cover-meta-label">Problemas</div>
+          <div class="cover-meta-label">${L('estrategia.problemas')}</div>
           <div class="cover-meta-value">${problemas.length}</div>
         </div>` : ''}
         ${funis.length ? `<div class="cover-meta-item">
-          <div class="cover-meta-label">Funis</div>
+          <div class="cover-meta-label">${L('estrategia.funis')}</div>
           <div class="cover-meta-value">${funis.length}</div>
         </div>` : ''}
       </div>
@@ -1211,13 +1207,13 @@ export function exportEstrategiaV2PDF(project, data) {
   // ── Vitórias & Metas por Mês ──────────────────────────────────────────────
   const mesesHTML = mesesPlano.some(m => m.vitorias || m.metas) ? `
     <div class="section page-break">
-      <div class="section-title">00 · Vitórias &amp; Metas por Mês</div>
+      <div class="section-title">00 · ${L('estrategia.vitoriasMetas')}</div>
       <table style="width:100%;border-collapse:collapse;margin-top:12px">
         <thead>
           <tr>
-            <th style="width:33.3%;padding:10px 14px;background:#f0f2ff;border:1px solid #d8ddf5;font-size:12px;color:#164496;text-align:left">Mês 1</th>
-            <th style="width:33.3%;padding:10px 14px;background:#f0f2ff;border:1px solid #d8ddf5;font-size:12px;color:#164496;text-align:left">Mês 2</th>
-            <th style="width:33.3%;padding:10px 14px;background:#f0f2ff;border:1px solid #d8ddf5;font-size:12px;color:#164496;text-align:left">Mês 3</th>
+            <th style="width:33.3%;padding:10px 14px;background:#f0f2ff;border:1px solid #d8ddf5;font-size:12px;color:#164496;text-align:left">${L('estrategia.mesN', { n: 1 })}</th>
+            <th style="width:33.3%;padding:10px 14px;background:#f0f2ff;border:1px solid #d8ddf5;font-size:12px;color:#164496;text-align:left">${L('estrategia.mesN', { n: 2 })}</th>
+            <th style="width:33.3%;padding:10px 14px;background:#f0f2ff;border:1px solid #d8ddf5;font-size:12px;color:#164496;text-align:left">${L('estrategia.mesN', { n: 3 })}</th>
           </tr>
         </thead>
         <tbody>
@@ -1225,9 +1221,9 @@ export function exportEstrategiaV2PDF(project, data) {
             ${[0,1,2].map(i => {
               const m = mesesPlano[i] || { vitorias: '', metas: '' }
               return `<td style="vertical-align:top;padding:12px 14px;border:1px solid #d8ddf5;font-size:11px;line-height:1.6">
-                ${m.vitorias ? `<div style="margin-bottom:8px"><strong style="display:block;color:#16a34a;font-size:10px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px">🏆 Vitórias</strong><div style="white-space:pre-wrap;color:#374151">${esc(m.vitorias)}</div></div>` : ''}
-                ${m.metas    ? `<div><strong style="display:block;color:#7c3aed;font-size:10px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px">🎯 Metas</strong><div style="white-space:pre-wrap;color:#374151">${esc(m.metas)}</div></div>` : ''}
-                ${!m.vitorias && !m.metas ? '<span style="color:#9ca3af;font-style:italic">Não preenchido</span>' : ''}
+                ${m.vitorias ? `<div style="margin-bottom:8px"><strong style="display:block;color:#16a34a;font-size:10px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px">${L('estrategia.vitorias')}</strong><div style="white-space:pre-wrap;color:#374151">${esc(m.vitorias)}</div></div>` : ''}
+                ${m.metas    ? `<div><strong style="display:block;color:#7c3aed;font-size:10px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px">${L('estrategia.metas')}</strong><div style="white-space:pre-wrap;color:#374151">${esc(m.metas)}</div></div>` : ''}
+                ${!m.vitorias && !m.metas ? `<span style="color:#9ca3af;font-style:italic">${L('estrategia.naoPreenchido')}</span>` : ''}
               </td>`
             }).join('')}
           </tr>
@@ -1243,7 +1239,7 @@ export function exportEstrategiaV2PDF(project, data) {
   // ── Problemas ─────────────────────────────────────────────────────────────
   const problemasHTML = `
     <div class="section">
-      <div class="section-title">${secN()} · Problemas Identificados no Kickoff</div>
+      <div class="section-title">${secN()} · ${L('estrategia.problemasKickoff')}</div>
       ${problemas.length ? `
         <ul class="problema-list">
           ${problemas.map((p, i) => `
@@ -1252,28 +1248,28 @@ export function exportEstrategiaV2PDF(project, data) {
               <span class="problema-text">${esc(p)}</span>
             </li>`).join('')}
         </ul>
-      ` : '<div class="empty-state">Nenhum problema registrado.</div>'}`
+      ` : `<div class="empty-state">${L('estrategia.semProblemas')}</div>`}`
 
   // ── SWOT ──────────────────────────────────────────────────────────────────
   // Ocultável por projeto — quando swot.oculto === true, some do PDF por completo
   const swotHTML = swot.oculto ? '' : `
     <div class="section page-break">
-      <div class="section-title">${secN()} · Análise SWOT</div>
+      <div class="section-title">${secN()} · ${L('estrategia.swot')}</div>
       <div class="swot-grid">
         <div class="swot-cell forcas">
-          <div class="swot-label">Forças</div>
+          <div class="swot-label">${L('estrategia.forcas')}</div>
           <div class="swot-content">${esc(swot.forcas || '—')}</div>
         </div>
         <div class="swot-cell fraquezas">
-          <div class="swot-label">Fraquezas</div>
+          <div class="swot-label">${L('estrategia.fraquezas')}</div>
           <div class="swot-content">${esc(swot.fraquezas || '—')}</div>
         </div>
         <div class="swot-cell oportunidades">
-          <div class="swot-label">Oportunidades</div>
+          <div class="swot-label">${L('estrategia.oportunidades')}</div>
           <div class="swot-content">${esc(swot.oportunidades || '—')}</div>
         </div>
         <div class="swot-cell ameacas">
-          <div class="swot-label">Ameaças</div>
+          <div class="swot-label">${L('estrategia.ameacas')}</div>
           <div class="swot-content">${esc(swot.ameacas || '—')}</div>
         </div>
       </div>
@@ -1282,40 +1278,40 @@ export function exportEstrategiaV2PDF(project, data) {
   // ── Benchmark ─────────────────────────────────────────────────────────────
   const benchmarkHTML = `
     <div class="section page-break">
-      <div class="section-title">${secN()} · Benchmark de Concorrentes</div>
+      <div class="section-title">${secN()} · ${L('estrategia.benchmark')}</div>
       ${concorrentes.length ? concorrentes.map(c => `
         <div class="competitor-block">
-          <div class="competitor-name">${esc(c.nome || 'Concorrente')}</div>
+          <div class="competitor-name">${esc(c.nome || t('pdf.estrategia.concorrente'))}</div>
           <table class="competitor-table">
             <tr>
-              <td>Plataformas</td>
+              <td>${L('estrategia.plataformas')}</td>
               <td>
-                ${c.metaAds   ? '<span class="platform-badge badge-meta">Meta Ads</span>'   : '<span class="platform-badge badge-no">Sem Meta Ads</span>'}
-                ${c.googleAds ? '<span class="platform-badge badge-google">Google Ads</span>' : '<span class="platform-badge badge-no">Sem Google Ads</span>'}
+                ${c.metaAds   ? '<span class="platform-badge badge-meta">Meta Ads</span>'   : `<span class="platform-badge badge-no">${L('estrategia.semMeta')}</span>`}
+                ${c.googleAds ? '<span class="platform-badge badge-google">Google Ads</span>' : `<span class="platform-badge badge-no">${L('estrategia.semGoogle')}</span>`}
               </td>
             </tr>
-            ${c.linkSite ? `<tr><td>Site</td><td style="word-break:break-all"><a href="${esc(c.linkSite)}" style="color:#164496">${esc(c.linkSite)}</a></td></tr>` : ''}
+            ${c.linkSite ? `<tr><td>${L('estrategia.site')}</td><td style="word-break:break-all"><a href="${esc(c.linkSite)}" style="color:#164496">${esc(c.linkSite)}</a></td></tr>` : ''}
             ${c.linkInstagram ? `<tr><td>Instagram</td><td style="word-break:break-all"><a href="${esc(c.linkInstagram)}" style="color:#164496">${esc(c.linkInstagram)}</a></td></tr>` : ''}
-            ${c.metaAds && c.linkBiblioteca ? `<tr><td>Anúncios no Meta</td><td style="word-break:break-all">${esc(c.linkBiblioteca)}</td></tr>` : ''}
-            ${c.googleAds && c.linkBibliotecaGoogle ? `<tr><td>Anúncios no Google</td><td style="word-break:break-all">${esc(c.linkBibliotecaGoogle)}</td></tr>` : ''}
-            ${c.grandePromessa ? `<tr><td>Grande Promessa</td><td>${esc(c.grandePromessa)}</td></tr>` : ''}
-            ${c.comunicacao ? `<tr><td>Comunicação</td><td>${esc(c.comunicacao)}</td></tr>` : ''}
+            ${c.metaAds && c.linkBiblioteca ? `<tr><td>${L('estrategia.anunciosMeta')}</td><td style="word-break:break-all">${esc(c.linkBiblioteca)}</td></tr>` : ''}
+            ${c.googleAds && c.linkBibliotecaGoogle ? `<tr><td>${L('estrategia.anunciosGoogle')}</td><td style="word-break:break-all">${esc(c.linkBibliotecaGoogle)}</td></tr>` : ''}
+            ${c.grandePromessa ? `<tr><td>${L('estrategia.grandePromessa')}</td><td>${esc(c.grandePromessa)}</td></tr>` : ''}
+            ${c.comunicacao ? `<tr><td>${L('estrategia.comunicacao')}</td><td>${esc(c.comunicacao)}</td></tr>` : ''}
           </table>
-        </div>`).join('') : '<div class="empty-state">Nenhum concorrente registrado.</div>'}`
+        </div>`).join('') : `<div class="empty-state">${L('estrategia.semConcorrentes')}</div>`}`
 
   // ── Riscos ────────────────────────────────────────────────────────────────
-  const nivelLabel = { baixo: 'Baixo', medio: 'Médio', alto: 'Alto' }
+  const nivelLabel = (n) => L(`estrategia.nivel.${['baixo', 'medio', 'alto'].includes(n) ? n : 'medio'}`)
   const riscosHTML = `
     <div class="section">
-      <div class="section-title">${secN()} · Riscos do Projeto</div>
+      <div class="section-title">${secN()} · ${L('estrategia.riscos')}</div>
       ${riscos.length ? `
         <table class="risk-table">
           <thead>
             <tr>
-              <th style="width:28%">Problema / Causa</th>
-              <th style="width:28%">Risco Gerado</th>
-              <th style="width:28%">Impacto</th>
-              <th style="width:16%">Nível</th>
+              <th style="width:28%">${L('estrategia.colProblema')}</th>
+              <th style="width:28%">${L('estrategia.colRisco')}</th>
+              <th style="width:28%">${L('estrategia.colImpacto')}</th>
+              <th style="width:16%">${L('estrategia.colNivel')}</th>
             </tr>
           </thead>
           <tbody>
@@ -1324,16 +1320,16 @@ export function exportEstrategiaV2PDF(project, data) {
                 <td>${esc(r.problema  || '—')}</td>
                 <td>${esc(r.riscoGerado || '—')}</td>
                 <td>${esc(r.impacto   || '—')}</td>
-                <td><span class="nivel-badge nivel-${r.nivel || 'medio'}">${nivelLabel[r.nivel] || 'Médio'}</span></td>
+                <td><span class="nivel-badge nivel-${r.nivel || 'medio'}">${nivelLabel(r.nivel)}</span></td>
               </tr>`).join('')}
           </tbody>
         </table>
-      ` : '<div class="empty-state">Nenhum risco registrado.</div>'}`
+      ` : `<div class="empty-state">${L('estrategia.semRiscos')}</div>`}`
 
   // ── ICPs ──────────────────────────────────────────────────────────────────
   const icpsHTML = `
     <div class="section page-break">
-      <div class="section-title">${secN()} · Resumo dos ICPs</div>
+      <div class="section-title">${secN()} · ${L('estrategia.icps')}</div>
       ${personas.length ? `
         <div class="icp-grid">
           ${personas.map(p => {
@@ -1341,32 +1337,32 @@ export function exportEstrategiaV2PDF(project, data) {
             const pick = (key) => (a[key] || []).filter(Boolean).slice(0, 3)
             return `
               <div class="icp-card">
-                <div class="icp-name">${esc(p.name || 'Persona Principal')}</div>
-                ${pick('resultado').length ? `<div class="icp-attr-row"><span class="icp-attr-label">Deseja</span><div class="icp-chips">${pick('resultado').map(x => `<span class="icp-chip chip-green">${esc(x)}</span>`).join('')}</div></div>` : ''}
-                ${pick('objecoes').length  ? `<div class="icp-attr-row"><span class="icp-attr-label">Objeção</span><div class="icp-chips">${pick('objecoes').map(x => `<span class="icp-chip chip-red">${esc(x)}</span>`).join('')}</div></div>` : ''}
-                ${pick('medos').length     ? `<div class="icp-attr-row"><span class="icp-attr-label">Medo</span><div class="icp-chips">${pick('medos').map(x => `<span class="icp-chip chip-gold">${esc(x)}</span>`).join('')}</div></div>` : ''}
-                ${pick('sonhos').length    ? `<div class="icp-attr-row"><span class="icp-attr-label">Sonha</span><div class="icp-chips">${pick('sonhos').map(x => `<span class="icp-chip chip-purple">${esc(x)}</span>`).join('')}</div></div>` : ''}
+                <div class="icp-name">${esc(p.name || t('pdf.estrategia.personaPrincipal'))}</div>
+                ${pick('resultado').length ? `<div class="icp-attr-row"><span class="icp-attr-label">${L('estrategia.deseja')}</span><div class="icp-chips">${pick('resultado').map(x => `<span class="icp-chip chip-green">${esc(x)}</span>`).join('')}</div></div>` : ''}
+                ${pick('objecoes').length  ? `<div class="icp-attr-row"><span class="icp-attr-label">${L('estrategia.objecao')}</span><div class="icp-chips">${pick('objecoes').map(x => `<span class="icp-chip chip-red">${esc(x)}</span>`).join('')}</div></div>` : ''}
+                ${pick('medos').length     ? `<div class="icp-attr-row"><span class="icp-attr-label">${L('estrategia.medo')}</span><div class="icp-chips">${pick('medos').map(x => `<span class="icp-chip chip-gold">${esc(x)}</span>`).join('')}</div></div>` : ''}
+                ${pick('sonhos').length    ? `<div class="icp-attr-row"><span class="icp-attr-label">${L('estrategia.sonha')}</span><div class="icp-chips">${pick('sonhos').map(x => `<span class="icp-chip chip-purple">${esc(x)}</span>`).join('')}</div></div>` : ''}
                 ${p.generatedProfile ? `<div class="icp-profile">${esc(p.generatedProfile.slice(0, 220))}${p.generatedProfile.length > 220 ? '…' : ''}</div>` : ''}
               </div>`
           }).join('')}
         </div>
-      ` : '<div class="empty-state">Nenhum ICP cadastrado.</div>'}`
+      ` : `<div class="empty-state">${L('estrategia.semIcps')}</div>`}`
 
   // ── Funis ─────────────────────────────────────────────────────────────────
   const funisHTML = `
     <div class="section">
-      <div class="section-title">${secN()} · Tipos de Funis Selecionados</div>
+      <div class="section-title">${secN()} · ${L('estrategia.funisSelecionados')}</div>
       ${funis.length ? `
         <div class="funil-grid">
-          ${funis.map(f => `<div class="funil-item"><span class="funil-dot"></span>${esc(f)}</div>`).join('')}
+          ${funis.map(f => `<div class="funil-item"><span class="funil-dot"></span>${esc(rotuloFunil(f))}</div>`).join('')}
         </div>
-      ` : '<div class="empty-state">Nenhum funil selecionado.</div>'}`
+      ` : `<div class="empty-state">${L('estrategia.semFunis')}</div>`}`
 
   // ── Metas do Funil (ROI) ─────────────────────────────────────────────────
-  let metasHTML = `<div class="section page-break"><div class="section-title">${secN()} · Metas do Funil (ROI)</div>`
+  let metasHTML = `<div class="section page-break"><div class="section-title">${secN()} · ${L('estrategia.metasFunil')}</div>`
 
   if (!roiResult) {
-    metasHTML += '<div class="empty-state">Calculadora de ROI não preenchida.</div>'
+    metasHTML += `<div class="empty-state">${L('estrategia.roiVazio')}</div>`
   } else {
     const nivelLiquidoClass = roiResult.lucroLiquido >= 0 ? 'color:#16A34A' : 'color:#DC2626'
     metasHTML += `
@@ -1374,10 +1370,10 @@ export function exportEstrategiaV2PDF(project, data) {
       <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
         <tr>
           ${[
-            { label: 'ROI Desejado',    value: roiCalc?.roiDesejado != null ? `${roiCalc.roiDesejado}%` : '—', style: 'color:#7C3AED;font-weight:800' },
-            { label: 'Total Investido', value: fmtBudget(roiResult.totalInvestimento), style: 'color:#1a1a2e;font-weight:800' },
-            { label: 'Faturamento Alvo',value: fmtBudget(roiResult.faturamento),       style: 'color:#2563EB;font-weight:800' },
-            { label: 'Lucro Líquido',   value: fmtBudget(roiResult.lucroLiquido),      style: nivelLiquidoClass+';font-weight:800' },
+            { label: L('estrategia.roiDesejado'), value: roiCalc?.roiDesejado != null ? `${roiCalc.roiDesejado}%` : '—', style: 'color:#7C3AED;font-weight:800' },
+            { label: L('roi.totalInvestido'), value: fmtBudget(roiResult.totalInvestimento), style: 'color:#1a1a2e;font-weight:800' },
+            { label: L('roi.faturamentoAlvo'), value: fmtBudget(roiResult.faturamento),       style: 'color:#2563EB;font-weight:800' },
+            { label: L('roi.lucroLiquido'), value: fmtBudget(roiResult.lucroLiquido),      style: nivelLiquidoClass+';font-weight:800' },
           ].map(k => `<td style="text-align:center;padding:10px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px">
             <div style="font-size:11px;color:#94A3B8;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">${k.label}</div>
             <div style="font-size:15px;${k.style}">${k.value}</div>
@@ -1389,7 +1385,7 @@ export function exportEstrategiaV2PDF(project, data) {
       <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
         <thead>
           <tr>
-            ${['Leads', 'MQLs', 'SQLs', 'Vendas'].map(h => `<th style="text-align:center;padding:6px;font-size:10px;color:#64748B;font-weight:800;text-transform:uppercase;letter-spacing:.07em;border-bottom:2px solid #E2E8F0">${h}</th>`).join('')}
+            ${['Leads', 'MQLs', 'SQLs', L('estrategia.vendas')].map(h => `<th style="text-align:center;padding:6px;font-size:10px;color:#64748B;font-weight:800;text-transform:uppercase;letter-spacing:.07em;border-bottom:2px solid #E2E8F0">${h}</th>`).join('')}
           </tr>
         </thead>
         <tbody>
@@ -1402,7 +1398,7 @@ export function exportEstrategiaV2PDF(project, data) {
             ].map(s => `<td style="text-align:center;padding:10px 6px;background:${s.bg};border:1px solid ${s.border};border-radius:6px">
               <div style="font-size:22px;font-weight:900;color:${s.color}">${fmtN(s.value)}</div>
               <div style="font-size:11px;font-weight:700;color:${s.color};margin-top:1px">${fmtBudget(s.cost)}<br><span style="font-size:9px;color:#94A3B8">${s.label}</span></div>
-              ${s.rate != null ? `<div style="font-size:9px;color:#94A3B8;margin-top:3px">${s.rate}% conv.</div>` : ''}
+              ${s.rate != null ? `<div style="font-size:9px;color:#94A3B8;margin-top:3px">${L('estrategia.conv', { n: s.rate })}</div>` : ''}
             </td>`).join('<td style="width:6px;text-align:center;color:#CBD5E1;font-size:14px">→</td>')}
           </tr>
         </tbody>
@@ -1412,10 +1408,10 @@ export function exportEstrategiaV2PDF(project, data) {
       <table style="width:100%;border-collapse:collapse">
         <tr>
           ${[
-            { label: 'Lucro Bruto',        value: fmtBudget(roiResult.lucroBruto),      style: 'color:#0891B2' },
-            { label: 'CAC (mídia)',         value: fmtBudget(roiResult.cac),             style: 'color:#B45309' },
-            { label: 'Breakeven (vendas)',  value: fmtN(roiResult.vendasBreakeven),      style: 'color:#1a1a2e' },
-            { label: 'Lucro/Venda',        value: fmtBudget(roiResult.lucroPorVenda),   style: 'color:#16A34A' },
+            { label: L('roi.lucroBruto'), value: fmtBudget(roiResult.lucroBruto),      style: 'color:#0891B2' },
+            { label: L('estrategia.cacMidia'), value: fmtBudget(roiResult.cac),             style: 'color:#B45309' },
+            { label: L('estrategia.breakeven'), value: fmtN(roiResult.vendasBreakeven),      style: 'color:#1a1a2e' },
+            { label: L('estrategia.lucroVenda'), value: fmtBudget(roiResult.lucroPorVenda),   style: 'color:#16A34A' },
           ].map(k => `<td style="text-align:center;padding:8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px">
             <div style="font-size:10px;color:#94A3B8;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px">${k.label}</div>
             <div style="font-size:13px;font-weight:800;${k.style}">${k.value}</div>
@@ -1428,10 +1424,10 @@ export function exportEstrategiaV2PDF(project, data) {
   // ── Campanhas ─────────────────────────────────────────────────────────────
   let campanhasHTML = `
     <div class="section page-break">
-      <div class="section-title">${secN()} · Planejamento de Campanhas por Canais</div>`
+      <div class="section-title">${secN()} · ${L('estrategia.campanhas')}</div>`
 
   if (!campaignPlan || !campaignPlan.channels?.length) {
-    campanhasHTML += '<div class="empty-state">Planejamento de campanhas não preenchido.</div>'
+    campanhasHTML += `<div class="empty-state">${L('estrategia.campanhasVazio')}</div>`
   } else {
     campanhasHTML += campaignPlan.channels.map(ch => {
       const chBudget = totalBudget * (ch.percentage / 100)
@@ -1440,14 +1436,13 @@ export function exportEstrategiaV2PDF(project, data) {
         const stage = stages[key]
         if (!stage || !stage.campaigns?.length) return ''
         const stageBudget = chBudget * (stage.percentage / 100)
-        const label = key === 'topo' ? 'Topo de Funil — Inconsciente do Problema' : key === 'meio' ? 'Meio de Funil — Consciente do Problema' : 'Fundo de Funil — Consciente do Problema e da Solução'
         return `
           <div class="stage-row">
-            <div class="stage-label">${label} — ${fmtBudget(stageBudget)}/mês</div>
+            <div class="stage-label">${esc(stageLabel(key))} — ${L('estrategia.porMes', { valor: fmtBudget(stageBudget) })}</div>
             ${stage.campaigns.map(camp => `
               <div class="campaign-row">
                 <span>${esc(camp.name || '—')}</span>
-                <span>${fmtBudget(stageBudget * (camp.percentage / 100))}/mês</span>
+                <span>${L('estrategia.porMes', { valor: fmtBudget(stageBudget * (camp.percentage / 100)) })}</span>
               </div>`).join('')}
           </div>`
       }).join('')
@@ -1455,7 +1450,7 @@ export function exportEstrategiaV2PDF(project, data) {
         <div class="channel-block">
           <div class="channel-header">
             <span class="channel-name">${esc(ch.name)}</span>
-            <span><span class="channel-budget">${fmtBudget(chBudget)}/mês</span><span class="channel-pct">${ch.percentage}%</span></span>
+            <span><span class="channel-budget">${L('estrategia.porMes', { valor: fmtBudget(chBudget) })}</span><span class="channel-pct">${ch.percentage}%</span></span>
           </div>
           ${stagesHTML}
         </div>`
@@ -1467,13 +1462,13 @@ export function exportEstrategiaV2PDF(project, data) {
   const footer = `
     <div class="footer">
       <span class="footer-brand">Revenue Lab</span>
-      <span>Documento confidencial · ${esc(project.companyName)}</span>
+      <span>${L('estrategia.confidencial', { empresa: project.companyName })}</span>
       <span>${today}</span>
     </div>`
 
   // ── Assemble ──────────────────────────────────────────────────────────────
   printDocument({
-    title: `Estratégia V2 — ${project.companyName}`,
+    title: `${t('pdf.estrategia.titulo')} — ${project.companyName}`,
     css: V2_CSS,
     body: `
   ${cover}
@@ -1653,9 +1648,20 @@ const RESULTADOS_CSS = `
   @media print { body { max-width: 100%; } .week-card { page-break-inside: avoid; } .section { page-break-inside: auto; } }
 `
 
-export function exportResultadosB2BPDF({ companyName, resultados, year, month, weekRanges, MONTH_NAMES: monthNames }) {
-  const today      = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-  const monthLabel = `${monthNames[month]} ${year}`
+// Mês e semanas saem no idioma de quem gera. `MONTH_NAMES` e o `label` das semanas
+// que a tela manda são ignorados (vinham em português); só `start`/`end` são lidos.
+function rotuloMesAno(year, month) {
+  const m = new Date(year, month, 1).toLocaleDateString(localeAtual(), { month: 'long' })
+  return `${m.charAt(0).toUpperCase()}${m.slice(1)} ${year}`
+}
+const rotuloSemana = (i) => L('resultados.semana', { n: i + 1 })
+const nLoc = (n) => Number(n || 0).toLocaleString(localeAtual())
+const pct1 = (n) => n.toLocaleString(localeAtual(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+const xRoas = (n) => `${n.toLocaleString(localeAtual(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}x`
+
+export function exportResultadosB2BPDF({ companyName, resultados, year, month, weekRanges }) {
+  const today      = new Date().toLocaleDateString(localeAtual(), { day: '2-digit', month: 'long', year: 'numeric' })
+  const monthLabel = rotuloMesAno(year, month)
   const monthKey   = `${year}-${String(month + 1).padStart(2, '0')}`
   const monthData  = resultados.b2b?.[monthKey] || {}
 
@@ -1678,15 +1684,15 @@ export function exportResultadosB2BPDF({ companyName, resultados, year, month, w
   // Cover
   const cover = `
     <div class="cover">
-      <div class="cover-date">Gerado em ${today}</div>
-      <div class="cover-tag">Revenue Lab · Relatório de Resultados</div>
+      <div class="cover-date">${L('doc.geradoEm', { data: today })}</div>
+      <div class="cover-tag">${L('resultados.tag')}</div>
       <div class="cover-company">${esc(companyName)}</div>
-      <div class="cover-period">${monthLabel}</div>
+      <div class="cover-period">${esc(monthLabel)}</div>
       <div class="cover-chips">
-        <span class="cover-chip">📊 B2B · Semanal</span>
-        ${totals.investido > 0 ? `<span class="cover-chip">💰 Investido: ${fmtBRL(totals.investido)}</span>` : ''}
-        ${totals.receitaVendas > 0 ? `<span class="cover-chip">📈 Receita: ${fmtBRL(totals.receitaVendas)}</span>` : ''}
-        ${roas != null ? `<span class="cover-chip">🎯 ROAS: ${roas.toFixed(2)}x</span>` : ''}
+        <span class="cover-chip">${L('resultados.chipB2b')}</span>
+        ${totals.investido > 0 ? `<span class="cover-chip">${L('resultados.chipInvestido', { valor: fmtBRL(totals.investido) })}</span>` : ''}
+        ${totals.receitaVendas > 0 ? `<span class="cover-chip">${L('resultados.chipReceita', { valor: fmtBRL(totals.receitaVendas) })}</span>` : ''}
+        ${roas != null ? `<span class="cover-chip">${L('resultados.chipRoas', { valor: xRoas(roas) })}</span>` : ''}
       </div>
     </div>`
 
@@ -1694,24 +1700,24 @@ export function exportResultadosB2BPDF({ companyName, resultados, year, month, w
   const kpiStrip = `
     <div class="kpi-strip">
       <div class="kpi-item">
-        <div class="kpi-label">Total Investido</div>
+        <div class="kpi-label">${L('resultados.totalInvestido')}</div>
         <div class="kpi-value gold">${fmtBRL(totals.investido)}</div>
-        <div class="kpi-sub">no mês</div>
+        <div class="kpi-sub">${L('resultados.noMes')}</div>
       </div>
       <div class="kpi-item">
-        <div class="kpi-label">Receita de Vendas</div>
+        <div class="kpi-label">${L('resultados.receitaVendas')}</div>
         <div class="kpi-value green">${totals.receitaVendas > 0 ? fmtBRL(totals.receitaVendas) : '—'}</div>
-        <div class="kpi-sub">no mês</div>
+        <div class="kpi-sub">${L('resultados.noMes')}</div>
       </div>
       <div class="kpi-item">
         <div class="kpi-label">ROAS</div>
-        <div class="kpi-value ${roas != null && roas >= 1 ? 'green' : ''}">${roas != null ? roas.toFixed(2) + 'x' : '—'}</div>
-        <div class="kpi-sub">${roas != null ? (roas >= 1 ? '✅ Positivo' : '⚠️ Negativo') : 'sem dados'}</div>
+        <div class="kpi-value ${roas != null && roas >= 1 ? 'green' : ''}">${roas != null ? xRoas(roas) : '—'}</div>
+        <div class="kpi-sub">${roas != null ? L(roas >= 1 ? 'resultados.positivo' : 'resultados.negativo') : L('resultados.semDados')}</div>
       </div>
       <div class="kpi-item">
-        <div class="kpi-label">Ticket Médio</div>
+        <div class="kpi-label">${L('resultados.ticketMedio')}</div>
         <div class="kpi-value cyan">${ticketMedio != null ? fmtBRL(ticketMedio) : '—'}</div>
-        <div class="kpi-sub">${totals.vendas > 0 ? totals.vendas + ' venda(s)' : 'sem vendas'}</div>
+        <div class="kpi-sub">${totals.vendas > 0 ? L('roi.nVendas', { count: totals.vendas, n: nLoc(totals.vendas) }) : L('resultados.semVendas')}</div>
       </div>
     </div>`
 
@@ -1724,46 +1730,46 @@ export function exportResultadosB2BPDF({ companyName, resultados, year, month, w
     if (!wk) return `
       <div class="week-card">
         <div class="week-header">
-          <span class="week-name">${week.label}</span>
+          <span class="week-name">${rotuloSemana(i)}</span>
           <span class="week-dates">${week.start}/${month + 1} – ${week.end}/${month + 1}</span>
         </div>
-        <div class="week-no-data">Sem dados registrados</div>
+        <div class="week-no-data">${L('resultados.semDadosRegistrados')}</div>
       </div>`
 
     return `
       <div class="week-card">
         <div class="week-header">
-          <span class="week-name">${week.label}</span>
+          <span class="week-name">${rotuloSemana(i)}</span>
           <span class="week-dates">${week.start}/${month + 1} – ${week.end}/${month + 1}</span>
         </div>
         <div class="week-body">
           <div class="finance-row">
             <div class="finance-left">
               <div>
-                <div class="fi-label">Investido</div>
+                <div class="fi-label">${L('resultados.investido')}</div>
                 <div class="fi-value gold">${fmtBRL(wk.investido)}</div>
               </div>
               ${wk.receitaVendas > 0 ? `
               <div>
-                <div class="fi-label">Receita</div>
+                <div class="fi-label">${L('resultados.receita')}</div>
                 <div class="fi-value green">${fmtBRL(wk.receitaVendas)}</div>
               </div>` : ''}
             </div>
             ${wkRoas != null ? `
             <div class="roas-badge">
               <div class="roas-badge-label">ROAS</div>
-              <div class="roas-badge-value">${wkRoas.toFixed(2)}x</div>
+              <div class="roas-badge-value">${xRoas(wkRoas)}</div>
             </div>` : ''}
           </div>
           <div class="funnel-row">
             <div class="funnel-item"><div class="fi2-label">Leads</div><div class="fi2-value" style="color:#3B82F6">${wk.leads || 0}</div></div>
             <div class="funnel-item"><div class="fi2-label">MQL</div><div class="fi2-value" style="color:#0284C7">${wk.mql || 0}</div></div>
             <div class="funnel-item"><div class="fi2-label">SQL</div><div class="fi2-value" style="color:#7C3AED">${wk.sql || 0}</div></div>
-            <div class="funnel-item"><div class="fi2-label">Vendas</div><div class="fi2-value" style="color:#D97706">${wk.vendas || 0}</div></div>
+            <div class="funnel-item"><div class="fi2-label">${L('resultados.vendas')}</div><div class="fi2-value" style="color:#D97706">${wk.vendas || 0}</div></div>
           </div>
           ${wkTicket != null ? `
           <div class="ticket-row">
-            <span class="ticket-label">🎫 Ticket Médio</span>
+            <span class="ticket-label">🎫 ${L('resultados.ticketMedio')}</span>
             <span class="ticket-value">${fmtBRL(wkTicket)}</span>
           </div>` : ''}
         </div>
@@ -1773,36 +1779,36 @@ export function exportResultadosB2BPDF({ companyName, resultados, year, month, w
   // Monthly consolidation
   const consolidadoHTML = (totals.leads > 0 || totals.investido > 0) ? `
     <div class="section">
-      <div class="section-title">📊 Consolidado do Mês — ${monthLabel}</div>
+      <div class="section-title">${L('resultados.consolidado', { mes: monthLabel })}</div>
       <div class="sum-grid">
-        <div class="sum-card"><div class="sum-label">Investido</div><div class="sum-value gold">${fmtBRL(totals.investido)}</div></div>
-        <div class="sum-card"><div class="sum-label">Receita Vendas</div><div class="sum-value green">${totals.receitaVendas > 0 ? fmtBRL(totals.receitaVendas) : '—'}</div></div>
-        <div class="sum-card"><div class="sum-label">ROAS</div><div class="sum-value ${roas != null && roas >= 1 ? 'green' : ''}">${roas != null ? roas.toFixed(2) + 'x' : '—'}</div>${roas != null ? `<div class="sum-sub">${roas >= 1 ? '✅ Positivo' : '⚠️ Negativo'}</div>` : ''}</div>
-        <div class="sum-card"><div class="sum-label">Ticket Médio</div><div class="sum-value cyan">${ticketMedio != null ? fmtBRL(ticketMedio) : '—'}</div></div>
+        <div class="sum-card"><div class="sum-label">${L('resultados.investido')}</div><div class="sum-value gold">${fmtBRL(totals.investido)}</div></div>
+        <div class="sum-card"><div class="sum-label">${L('resultados.receitaVendas')}</div><div class="sum-value green">${totals.receitaVendas > 0 ? fmtBRL(totals.receitaVendas) : '—'}</div></div>
+        <div class="sum-card"><div class="sum-label">ROAS</div><div class="sum-value ${roas != null && roas >= 1 ? 'green' : ''}">${roas != null ? xRoas(roas) : '—'}</div>${roas != null ? `<div class="sum-sub">${L(roas >= 1 ? 'resultados.positivo' : 'resultados.negativo')}</div>` : ''}</div>
+        <div class="sum-card"><div class="sum-label">${L('resultados.ticketMedio')}</div><div class="sum-value cyan">${ticketMedio != null ? fmtBRL(ticketMedio) : '—'}</div></div>
       </div>
       <div class="sum-grid">
-        <div class="sum-card"><div class="sum-label">Leads</div><div class="sum-value blue">${totals.leads.toLocaleString('pt-BR')}</div>${totals.leads > 0 && totals.investido > 0 ? `<div class="sum-sub">${fmtBRL(totals.investido / totals.leads)}/lead</div>` : ''}</div>
-        <div class="sum-card"><div class="sum-label">MQL</div><div class="sum-value cyan">${totals.mql.toLocaleString('pt-BR')}</div>${totals.mql > 0 && totals.leads > 0 ? `<div class="sum-sub">${((totals.mql / totals.leads) * 100).toFixed(1)}% dos leads</div>` : ''}</div>
-        <div class="sum-card"><div class="sum-label">SQL</div><div class="sum-value purple">${totals.sql.toLocaleString('pt-BR')}</div>${totals.sql > 0 && totals.mql > 0 ? `<div class="sum-sub">${((totals.sql / totals.mql) * 100).toFixed(1)}% dos MQL</div>` : ''}</div>
-        <div class="sum-card"><div class="sum-label">Vendas</div><div class="sum-value gold">${totals.vendas.toLocaleString('pt-BR')}</div>${totals.vendas > 0 && totals.sql > 0 ? `<div class="sum-sub">${((totals.vendas / totals.sql) * 100).toFixed(1)}% dos SQL</div>` : ''}</div>
+        <div class="sum-card"><div class="sum-label">Leads</div><div class="sum-value blue">${nLoc(totals.leads)}</div>${totals.leads > 0 && totals.investido > 0 ? `<div class="sum-sub">${L('resultados.porLead', { valor: fmtBRL(totals.investido / totals.leads) })}</div>` : ''}</div>
+        <div class="sum-card"><div class="sum-label">MQL</div><div class="sum-value cyan">${nLoc(totals.mql)}</div>${totals.mql > 0 && totals.leads > 0 ? `<div class="sum-sub">${L('resultados.dosLeads', { pct: pct1((totals.mql / totals.leads) * 100) })}</div>` : ''}</div>
+        <div class="sum-card"><div class="sum-label">SQL</div><div class="sum-value purple">${nLoc(totals.sql)}</div>${totals.sql > 0 && totals.mql > 0 ? `<div class="sum-sub">${L('resultados.dosMql', { pct: pct1((totals.sql / totals.mql) * 100) })}</div>` : ''}</div>
+        <div class="sum-card"><div class="sum-label">${L('resultados.vendas')}</div><div class="sum-value gold">${nLoc(totals.vendas)}</div>${totals.vendas > 0 && totals.sql > 0 ? `<div class="sum-sub">${L('resultados.dosSql', { pct: pct1((totals.vendas / totals.sql) * 100) })}</div>` : ''}</div>
       </div>
     </div>` : ''
 
   const footer = `
     <div class="footer">
       <div class="footer-brand">Revenue Lab</div>
-      <div>Relatório de Resultados · ${esc(companyName)} · ${today}</div>
+      <div>${L('resultados.rodape', { empresa: companyName, data: today })}</div>
     </div>`
 
   printDocument({
-    title: `Resultados ${monthLabel} — ${companyName}`,
+    title: t('pdf.resultados.titulo', { mes: monthLabel, empresa: companyName }),
     css: RESULTADOS_CSS,
     body: `
   ${cover}
   ${kpiStrip}
   <div class="content">
     <div class="section">
-      <div class="section-title">📅 Resultados por Semana</div>
+      <div class="section-title">${L('resultados.porSemana')}</div>
       <div class="weeks-grid">${weekCards}</div>
     </div>
     ${consolidadoHTML}
@@ -1822,14 +1828,14 @@ export function exportResultadosB2BPDF({ companyName, resultados, year, month, w
 
 // Uma linha do Plano vs Realizado. `better: 'low'` inverte a lógica (custo).
 function b2cGoalRow({ label, real, meta, money = false, better = 'high' }) {
-  const fmt = money ? fmtBRL : (n) => Number(n || 0).toLocaleString('pt-BR')
+  const fmt = money ? fmtBRL : nLoc
   const hasMeta = meta != null && meta > 0
   const hasReal = real > 0
 
   if (!hasMeta) {
     return `<div class="goal-row">
       <span class="goal-label">${esc(label)}</span>
-      <span class="goal-badge none">sem meta</span>
+      <span class="goal-badge none">${L('resultados.semMeta')}</span>
     </div>`
   }
 
@@ -1851,10 +1857,10 @@ function b2cGoalRow({ label, real, meta, money = false, better = 'high' }) {
 
 export function exportResultadosB2CPDF({
   companyName, resultados, year, month, mode = 'diario',
-  weekRanges, unidades = null, plan = null, MONTH_NAMES: monthNames,
+  weekRanges, unidades = null, plan = null,
 }) {
-  const today      = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-  const monthLabel = `${monthNames[month]} ${year}`
+  const today      = new Date().toLocaleDateString(localeAtual(), { day: '2-digit', month: 'long', year: 'numeric' })
+  const monthLabel = rotuloMesAno(year, month)
   const monthKey   = `${year}-${String(month + 1).padStart(2, '0')}`
 
   const monthData = resultados.b2c?.[monthKey] || {}
@@ -1881,20 +1887,20 @@ export function exportResultadosB2CPDF({
   const roas   = totals.investido > 0 ? totals.valorVendas / totals.investido : 0
   const ticket = totals.vendas > 0 ? totals.valorVendas / totals.vendas : 0
 
-  const modeLabel = isWeekly ? 'Semanal' : mode === 'unidades' ? 'Por unidade' : 'Diário'
+  const modeLabel = t(`pdf.resultados.modo.${isWeekly ? 'semanal' : mode === 'unidades' ? 'unidades' : 'diario'}`)
 
   // ── Capa ────────────────────────────────────────────────────────────────────
   const cover = `
     <div class="cover">
-      <div class="cover-date">Gerado em ${today}</div>
-      <div class="cover-tag">Revenue Lab · Relatório de Resultados</div>
+      <div class="cover-date">${L('doc.geradoEm', { data: today })}</div>
+      <div class="cover-tag">${L('resultados.tag')}</div>
       <div class="cover-company">${esc(companyName || '')}</div>
-      <div class="cover-period">${monthLabel}</div>
+      <div class="cover-period">${esc(monthLabel)}</div>
       <div class="cover-chips">
-        <span class="cover-chip">🛒 B2C · ${modeLabel}</span>
-        ${totals.investido > 0 ? `<span class="cover-chip">💰 Investido: ${fmtBRL(totals.investido)}</span>` : ''}
-        ${totals.leads > 0 ? `<span class="cover-chip">👥 ${totals.leads.toLocaleString('pt-BR')} leads</span>` : ''}
-        ${roas > 0 ? `<span class="cover-chip">🎯 ROAS: ${roas.toFixed(2)}x</span>` : ''}
+        <span class="cover-chip">${L('resultados.chipB2c', { modo: modeLabel })}</span>
+        ${totals.investido > 0 ? `<span class="cover-chip">${L('resultados.chipInvestido', { valor: fmtBRL(totals.investido) })}</span>` : ''}
+        ${totals.leads > 0 ? `<span class="cover-chip">${L('resultados.chipLeads', { n: nLoc(totals.leads) })}</span>` : ''}
+        ${roas > 0 ? `<span class="cover-chip">${L('resultados.chipRoas', { valor: xRoas(roas) })}</span>` : ''}
       </div>
     </div>`
 
@@ -1902,26 +1908,26 @@ export function exportResultadosB2CPDF({
   const kpiStrip = `
     <div class="kpi-strip">
       <div class="kpi-item">
-        <div class="kpi-label">Investimento</div>
+        <div class="kpi-label">${L('resultados.investimento')}</div>
         <div class="kpi-value gold">${fmtBRL(totals.investido)}</div>
-        <div class="kpi-sub">${monthLabel}</div>
+        <div class="kpi-sub">${esc(monthLabel)}</div>
       </div>
       <div class="kpi-item">
-        <div class="kpi-label">Custo por Lead</div>
+        <div class="kpi-label">${L('resultados.custoPorLead')}</div>
         <div class="kpi-value cyan">${cpl > 0 ? fmtBRL(cpl) : '—'}</div>
-        <div class="kpi-sub">${totals.leads.toLocaleString('pt-BR')} leads no período</div>
+        <div class="kpi-sub">${L('resultados.leadsPeriodo', { n: nLoc(totals.leads) })}</div>
       </div>
       <div class="kpi-item">
         <div class="kpi-label">CAC</div>
         <div class="kpi-value">${cac > 0 ? fmtBRL(cac) : '—'}</div>
         <div class="kpi-sub">${totals.vendas > 0
-          ? `${totals.vendas.toLocaleString('pt-BR')} vendas · ticket ${fmtBRL(ticket)}`
-          : 'sem vendas lançadas'}</div>
+          ? L('resultados.vendasTicket', { count: totals.vendas, n: nLoc(totals.vendas), ticket: fmtBRL(ticket) })
+          : L('resultados.semVendasLancadas')}</div>
       </div>
       <div class="kpi-item">
         <div class="kpi-label">ROAS</div>
-        <div class="kpi-value ${roas >= 1 ? 'green' : ''}">${roas > 0 ? roas.toFixed(2) + 'x' : '—'}</div>
-        <div class="kpi-sub">${totals.valorVendas > 0 ? `${fmtBRL(totals.valorVendas)} de receita` : 'sem receita lançada'}</div>
+        <div class="kpi-value ${roas >= 1 ? 'green' : ''}">${roas > 0 ? xRoas(roas) : '—'}</div>
+        <div class="kpi-sub">${totals.valorVendas > 0 ? L('resultados.deReceita', { valor: fmtBRL(totals.valorVendas) }) : L('resultados.semReceita')}</div>
       </div>
     </div>`
 
@@ -1929,38 +1935,38 @@ export function exportResultadosB2CPDF({
   const hasData = totals.investido > 0 || totals.leads > 0
   const consolidadoHTML = hasData ? `
     <div class="section">
-      <div class="section-title">📊 Consolidado do Mês — ${monthLabel}</div>
+      <div class="section-title">${L('resultados.consolidado', { mes: monthLabel })}</div>
       <div class="sum-grid">
-        <div class="sum-card"><div class="sum-label">Investido</div><div class="sum-value gold">${fmtBRL(totals.investido)}</div></div>
-        <div class="sum-card"><div class="sum-label">Leads</div><div class="sum-value blue">${totals.leads.toLocaleString('pt-BR')}</div>${cpl > 0 ? `<div class="sum-sub">${fmtBRL(cpl)}/lead</div>` : ''}</div>
-        <div class="sum-card"><div class="sum-label">Vendas</div><div class="sum-value purple">${totals.vendas.toLocaleString('pt-BR')}</div>${cac > 0 ? `<div class="sum-sub">${fmtBRL(cac)}/venda</div>` : ''}</div>
-        <div class="sum-card"><div class="sum-label">Receita</div><div class="sum-value green">${totals.valorVendas > 0 ? fmtBRL(totals.valorVendas) : '—'}</div></div>
+        <div class="sum-card"><div class="sum-label">${L('resultados.investido')}</div><div class="sum-value gold">${fmtBRL(totals.investido)}</div></div>
+        <div class="sum-card"><div class="sum-label">Leads</div><div class="sum-value blue">${nLoc(totals.leads)}</div>${cpl > 0 ? `<div class="sum-sub">${L('resultados.porLead', { valor: fmtBRL(cpl) })}</div>` : ''}</div>
+        <div class="sum-card"><div class="sum-label">${L('resultados.vendas')}</div><div class="sum-value purple">${nLoc(totals.vendas)}</div>${cac > 0 ? `<div class="sum-sub">${L('resultados.porVenda', { valor: fmtBRL(cac) })}</div>` : ''}</div>
+        <div class="sum-card"><div class="sum-label">${L('resultados.receita')}</div><div class="sum-value green">${totals.valorVendas > 0 ? fmtBRL(totals.valorVendas) : '—'}</div></div>
       </div>
       <div class="sum-grid" style="grid-template-columns:repeat(2,1fr)">
-        <div class="sum-card"><div class="sum-label">Ticket Médio</div><div class="sum-value cyan">${ticket > 0 ? fmtBRL(ticket) : '—'}</div></div>
-        <div class="sum-card"><div class="sum-label">ROAS</div><div class="sum-value ${roas >= 1 ? 'green' : ''}">${roas > 0 ? roas.toFixed(2) + 'x' : '—'}</div>${roas > 0 ? `<div class="sum-sub">${roas >= 1 ? '✅ Positivo' : '⚠️ Negativo'}</div>` : ''}</div>
+        <div class="sum-card"><div class="sum-label">${L('resultados.ticketMedio')}</div><div class="sum-value cyan">${ticket > 0 ? fmtBRL(ticket) : '—'}</div></div>
+        <div class="sum-card"><div class="sum-label">ROAS</div><div class="sum-value ${roas >= 1 ? 'green' : ''}">${roas > 0 ? xRoas(roas) : '—'}</div>${roas > 0 ? `<div class="sum-sub">${L(roas >= 1 ? 'resultados.positivo' : 'resultados.negativo')}</div>` : ''}</div>
       </div>
     </div>` : ''
 
   // ── Plano vs Realizado (meta da Calculadora de ROI) ─────────────────────────
   const planoHTML = plan ? `
     <div class="section">
-      <div class="section-title">🎯 Plano vs Realizado — meta da Calculadora de ROI</div>
+      <div class="section-title">${L('resultados.plano')}</div>
       <div class="goal-grid">
         <div>
-          <div class="goal-group-title">Volume</div>
+          <div class="goal-group-title">${L('resultados.volume')}</div>
           ${b2cGoalRow({ label: 'Leads',   real: totals.leads,       meta: plan.leads })}
-          ${b2cGoalRow({ label: 'Vendas',  real: totals.vendas,      meta: plan.vendas })}
-          ${b2cGoalRow({ label: 'Receita', real: totals.valorVendas, meta: plan.faturamento, money: true })}
+          ${b2cGoalRow({ label: t('pdf.resultados.vendas'),  real: totals.vendas,      meta: plan.vendas })}
+          ${b2cGoalRow({ label: t('pdf.resultados.receita'), real: totals.valorVendas, meta: plan.faturamento, money: true })}
         </div>
         <div>
-          <div class="goal-group-title">Custo · quanto menor, melhor</div>
-          ${b2cGoalRow({ label: 'Custo / Lead', real: cpl, meta: plan.cpl, money: true, better: 'low' })}
+          <div class="goal-group-title">${L('resultados.custoMenor')}</div>
+          ${b2cGoalRow({ label: t('pdf.resultados.custoLead'), real: cpl, meta: plan.cpl, money: true, better: 'low' })}
           ${b2cGoalRow({ label: 'CAC',          real: cac, meta: plan.cac, money: true, better: 'low' })}
         </div>
       </div>
       <div class="note">
-        Verba planejada <strong>${fmtBRL(plan.mediaOrcamento)}</strong> · investido <strong>${fmtBRL(totals.investido)}</strong>
+        ${L('resultados.verbaPlanejada')} <strong>${fmtBRL(plan.mediaOrcamento)}</strong> · ${L('resultados.investidoMin')} <strong>${fmtBRL(totals.investido)}</strong>
       </div>
     </div>` : ''
 
@@ -1969,11 +1975,11 @@ export function exportResultadosB2CPDF({
     const w = weekData[String(i + 1)]
     const header = `
       <div class="week-header">
-        <span class="week-name">${week.label}</span>
+        <span class="week-name">${rotuloSemana(i)}</span>
         <span class="week-dates">${week.start}/${month + 1} – ${week.end}/${month + 1}</span>
       </div>`
 
-    if (!w) return `<div class="week-card">${header}<div class="week-no-data">Sem dados registrados</div></div>`
+    if (!w) return `<div class="week-card">${header}<div class="week-no-data">${L('resultados.semDadosRegistrados')}</div></div>`
 
     const wCpl    = w.leads  > 0 && w.investido > 0 ? w.investido / w.leads  : 0
     const wCac    = w.vendas > 0 && w.investido > 0 ? w.investido / w.vendas : 0
@@ -1986,20 +1992,20 @@ export function exportResultadosB2CPDF({
         <div class="week-body">
           <div class="finance-row">
             <div class="finance-left">
-              <div><div class="fi-label">Investido</div><div class="fi-value gold">${fmtBRL(w.investido)}</div></div>
-              ${w.valorVendas > 0 ? `<div><div class="fi-label">Receita</div><div class="fi-value green">${fmtBRL(w.valorVendas)}</div></div>` : ''}
+              <div><div class="fi-label">${L('resultados.investido')}</div><div class="fi-value gold">${fmtBRL(w.investido)}</div></div>
+              ${w.valorVendas > 0 ? `<div><div class="fi-label">${L('resultados.receita')}</div><div class="fi-value green">${fmtBRL(w.valorVendas)}</div></div>` : ''}
             </div>
-            ${wRoas > 0 ? `<div class="roas-badge"><div class="roas-badge-label">ROAS</div><div class="roas-badge-value">${wRoas.toFixed(2)}x</div></div>` : ''}
+            ${wRoas > 0 ? `<div class="roas-badge"><div class="roas-badge-label">ROAS</div><div class="roas-badge-value">${xRoas(wRoas)}</div></div>` : ''}
           </div>
           <div class="funnel-row">
             <div class="funnel-item"><div class="fi2-label">Leads</div><div class="fi2-value" style="color:#3B82F6">${w.leads || 0}</div></div>
-            <div class="funnel-item"><div class="fi2-label">Vendas</div><div class="fi2-value" style="color:#7C3AED">${w.vendas || 0}</div></div>
-            <div class="funnel-item"><div class="fi2-label">Custo / Lead</div><div class="fi2-value" style="color:#0284C7">${wCpl > 0 ? fmtBRL(wCpl) : '—'}</div></div>
+            <div class="funnel-item"><div class="fi2-label">${L('resultados.vendas')}</div><div class="fi2-value" style="color:#7C3AED">${w.vendas || 0}</div></div>
+            <div class="funnel-item"><div class="fi2-label">${L('resultados.custoLead')}</div><div class="fi2-value" style="color:#0284C7">${wCpl > 0 ? fmtBRL(wCpl) : '—'}</div></div>
             <div class="funnel-item"><div class="fi2-label">CAC</div><div class="fi2-value" style="color:#D97706">${wCac > 0 ? fmtBRL(wCac) : '—'}</div></div>
           </div>
           ${wTicket > 0 ? `
           <div class="ticket-row">
-            <span class="ticket-label">🎫 Ticket Médio · ${w.vendas} venda(s)</span>
+            <span class="ticket-label">${L('resultados.ticketVendas', { count: w.vendas, n: nLoc(w.vendas) })}</span>
             <span class="ticket-value">${fmtBRL(wTicket)}</span>
           </div>` : ''}
         </div>
@@ -2025,70 +2031,70 @@ export function exportResultadosB2CPDF({
       <td>${d.valorVendas ? fmtBRL(d.valorVendas) : '—'}</td>
       <td>${dCpl > 0 ? fmtBRL(dCpl) : '—'}</td>
       <td>${dCac > 0 ? fmtBRL(dCac) : '—'}</td>
-      <td>${dRoas > 0 ? dRoas.toFixed(2) + 'x' : '—'}</td>
+      <td>${dRoas > 0 ? xRoas(dRoas) : '—'}</td>
     </tr>`
   }).join('')
 
   const dailyTableHTML = dayKeys.length ? `
     <div class="section">
-      <div class="section-title">📅 Resultados por Dia</div>
+      <div class="section-title">${L('resultados.porDia')}</div>
       <table class="rtable">
         <thead>
           <tr>
-            <th>Dia</th><th>Investido</th><th>Leads</th><th>Vendas</th>
-            <th>Receita</th><th>CPL</th><th>CAC</th><th>ROAS</th>
+            <th>${L('resultados.dia')}</th><th>${L('resultados.investido')}</th><th>Leads</th><th>${L('resultados.vendas')}</th>
+            <th>${L('resultados.receita')}</th><th>CPL</th><th>CAC</th><th>ROAS</th>
           </tr>
         </thead>
         <tbody>${dailyRows}</tbody>
         <tfoot>
           <tr>
-            <td>Total</td>
+            <td>${L('resultados.total')}</td>
             <td>${fmtBRL(totals.investido)}</td>
-            <td>${totals.leads.toLocaleString('pt-BR')}</td>
-            <td>${totals.vendas.toLocaleString('pt-BR')}</td>
+            <td>${nLoc(totals.leads)}</td>
+            <td>${nLoc(totals.vendas)}</td>
             <td>${fmtBRL(totals.valorVendas)}</td>
             <td>${cpl > 0 ? fmtBRL(cpl) : '—'}</td>
             <td>${cac > 0 ? fmtBRL(cac) : '—'}</td>
-            <td>${roas > 0 ? roas.toFixed(2) + 'x' : '—'}</td>
+            <td>${roas > 0 ? xRoas(roas) : '—'}</td>
           </tr>
         </tfoot>
       </table>
     </div>` : ''
 
   // Resumo por semana agregado a partir dos dias — só faz sentido no Diário.
-  const weeklyFromDays = weekRanges.map((week) => {
+  const weeklyFromDays = weekRanges.map((week, i) => {
     const rows = []
     for (let d = week.start; d <= week.end; d++) {
       const row = monthData[String(d).padStart(2, '0')]
       if (row) rows.push(row)
     }
-    return { week, t: sum(rows) }
+    return { week, i, t: sum(rows) }
   })
 
   const weeklyRollupHTML = dayKeys.length ? `
     <div class="section">
-      <div class="section-title">🗓️ Resumo por Semana</div>
+      <div class="section-title">${L('resultados.resumoSemana')}</div>
       <table class="rtable">
         <thead>
           <tr>
-            <th>Semana</th><th>Investido</th><th>Leads</th><th>Vendas</th>
-            <th>Receita</th><th>CPL</th><th>CAC</th><th>ROAS</th>
+            <th>${L('resultados.colSemana')}</th><th>${L('resultados.investido')}</th><th>Leads</th><th>${L('resultados.vendas')}</th>
+            <th>${L('resultados.receita')}</th><th>CPL</th><th>CAC</th><th>ROAS</th>
           </tr>
         </thead>
         <tbody>
-          ${weeklyFromDays.map(({ week, t }) => {
+          ${weeklyFromDays.map(({ week, i, t }) => {
             const wCpl  = t.leads  > 0 && t.investido > 0 ? t.investido / t.leads  : 0
             const wCac  = t.vendas > 0 && t.investido > 0 ? t.investido / t.vendas : 0
             const wRoas = t.investido > 0 ? t.valorVendas / t.investido : 0
             return `<tr>
-              <td>${week.label} <span style="color:#94A3B8;font-weight:400">(${week.start}–${week.end})</span></td>
+              <td>${rotuloSemana(i)} <span style="color:#94A3B8;font-weight:400">(${week.start}–${week.end})</span></td>
               <td>${t.investido ? fmtBRL(t.investido) : '—'}</td>
               <td>${t.leads || '—'}</td>
               <td>${t.vendas || '—'}</td>
               <td>${t.valorVendas ? fmtBRL(t.valorVendas) : '—'}</td>
               <td>${wCpl > 0 ? fmtBRL(wCpl) : '—'}</td>
               <td>${wCac > 0 ? fmtBRL(wCac) : '—'}</td>
-              <td>${wRoas > 0 ? wRoas.toFixed(2) + 'x' : '—'}</td>
+              <td>${wRoas > 0 ? xRoas(wRoas) : '—'}</td>
             </tr>`
           }).join('')}
         </tbody>
@@ -2116,10 +2122,10 @@ export function exportResultadosB2CPDF({
     if (totUnid.vendas > 0 || totUnid.valorVendas > 0) {
       unidadesHTML = `
         <div class="section">
-          <div class="section-title">🏬 Vendas por Unidade</div>
+          <div class="section-title">${L('resultados.porUnidade')}</div>
           <table class="rtable">
             <thead>
-              <tr><th>Unidade</th><th>Vendas</th><th>Receita</th><th>Ticket Médio</th><th>% da Receita</th></tr>
+              <tr><th>${L('resultados.unidade')}</th><th>${L('resultados.vendas')}</th><th>${L('resultados.receita')}</th><th>${L('resultados.ticketMedio')}</th><th>${L('resultados.pctReceita')}</th></tr>
             </thead>
             <tbody>
               ${porUnidade.map((u) => {
@@ -2136,8 +2142,8 @@ export function exportResultadosB2CPDF({
             </tbody>
             <tfoot>
               <tr>
-                <td>Total</td>
-                <td>${totUnid.vendas.toLocaleString('pt-BR')}</td>
+                <td>${L('resultados.total')}</td>
+                <td>${nLoc(totUnid.vendas)}</td>
                 <td>${fmtBRL(totUnid.valorVendas)}</td>
                 <td>${totUnid.vendas > 0 ? fmtBRL(totUnid.valorVendas / totUnid.vendas) : '—'}</td>
                 <td>100%</td>
@@ -2150,7 +2156,7 @@ export function exportResultadosB2CPDF({
 
   const detalheHTML = isWeekly
     ? `<div class="section">
-         <div class="section-title">📅 Resultados por Semana</div>
+         <div class="section-title">${L('resultados.porSemana')}</div>
          <div class="weeks-grid">${weekCardsHTML}</div>
        </div>`
     : `${unidadesHTML}${weeklyRollupHTML}${dailyTableHTML}`
@@ -2158,18 +2164,18 @@ export function exportResultadosB2CPDF({
   const vazioHTML = hasData ? '' : `
     <div class="section">
       <div class="week-no-data" style="border:1px dashed #E2E8F0;border-radius:12px">
-        Nenhum resultado lançado em ${monthLabel}.
+        ${L('resultados.vazio', { mes: monthLabel })}
       </div>
     </div>`
 
   const footer = `
     <div class="footer">
       <div class="footer-brand">Revenue Lab</div>
-      <div>Relatório de Resultados · ${esc(companyName || '')} · ${today}</div>
+      <div>${L('resultados.rodape', { empresa: companyName || '', data: today })}</div>
     </div>`
 
   printDocument({
-    title: `Resultados ${monthLabel} — ${companyName || ''}`,
+    title: t('pdf.resultados.titulo', { mes: monthLabel, empresa: companyName || '' }),
     css: RESULTADOS_CSS,
     body: `
   ${cover}
@@ -2187,11 +2193,14 @@ export function exportResultadosB2CPDF({
 
 // ─── Google Ads (Estrutura de Campanhas) PDF ─────────────────────────────────
 
+// Chave = valor gravado (em pt); o rótulo exibido vem de googleAds.concorrencia.*.
 const GOOGLE_ADS_COMPETITION_BADGE = {
   Baixo: 'background:#dcfce7;color:#15803d',
   Médio: 'background:#fef3c7;color:#92400e',
   Alto:  'background:#fee2e2;color:#b91c1c',
 }
+const GOOGLE_ADS_COMPETITION_CHAVE = { Baixo: 'baixo', Médio: 'medio', Alto: 'alto' }
+const GOOGLE_ADS_TIPOS = ['marca', 'generico', 'concorrentes', 'problema']
 
 /**
  * Exporta a estrutura de Google Ads (grupos de palavras-chave + último
@@ -2207,7 +2216,7 @@ export function exportGoogleAdsPDF(project, entry = null) {
   const lastGen = list.filter((e) => !e.isDraft).at(-1)
   const src     = entry || draft || lastGen
   if (!src) {
-    alert('Nada a exportar — adicione grupos de palavras-chave primeiro.')
+    alert(t('pdf.googleAds.nada'))
     return
   }
 
@@ -2222,13 +2231,13 @@ export function exportGoogleAdsPDF(project, entry = null) {
   const generated = src.content || src.generated_content || src.generatedContent || null
   const generatedHTML = generated ? `
     <section>
-      <div class="section-title">🤖 Estrutura de Campanhas Gerada por IA</div>
+      <div class="section-title">${L('googleAds.gerada')}</div>
       <div class="prose">${markdownToHtml(generated)}</div>
     </section>
   ` : ''
 
   const groupsHTML = filledGroups.length === 0
-    ? `<p style="color:#64748b;font-size:13px;font-style:italic">Nenhum grupo com palavras-chave preenchidas.</p>`
+    ? `<p style="color:#64748b;font-size:13px;font-style:italic">${L('googleAds.semGrupos')}</p>`
     : filledGroups.map((g, i) => {
         const keywordsRows = (g.keywords || [])
           .filter((k) => (k.keyword || '').trim())
@@ -2239,7 +2248,7 @@ export function exportGoogleAdsPDF(project, entry = null) {
               <td style="text-align:right">${fmtNum(Number(k.searches) || 0)}</td>
               <td style="text-align:center">
                 <span style="display:inline-block;padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:600;${compStyle}">
-                  ${esc(k.competition || '—')}
+                  ${GOOGLE_ADS_COMPETITION_CHAVE[k.competition] ? esc(t(`googleAds.concorrencia.${GOOGLE_ADS_COMPETITION_CHAVE[k.competition]}`)) : esc(k.competition || '—')}
                 </span>
               </td>
             </tr>`
@@ -2248,14 +2257,14 @@ export function exportGoogleAdsPDF(project, entry = null) {
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 12px;background:#f8fafe;border:1px solid #d8e0f0;border-radius:10px">
             <span style="font-size:11px;font-weight:700;color:#94a3b8">#${i + 1}</span>
             <strong style="font-size:14px;color:#0f172a">${esc((g.name || '').toUpperCase())}</strong>
-            <span style="margin-left:auto;font-size:10px;font-weight:600;color:#94a3b8">${(g.keywords || []).filter((k) => (k.keyword || '').trim()).length} palavras</span>
+            <span style="margin-left:auto;font-size:10px;font-weight:600;color:#94a3b8">${(() => { const n = (g.keywords || []).filter((k) => (k.keyword || '').trim()).length; return L('googleAds.nPalavras', { count: n, n }) })()}</span>
           </div>
           <table>
             <thead>
               <tr>
-                <th>Palavra-chave</th>
-                <th style="text-align:right">Buscas/mês</th>
-                <th style="text-align:center">Concorrência</th>
+                <th>${L('googleAds.colPalavra')}</th>
+                <th style="text-align:right">${L('googleAds.colBuscas')}</th>
+                <th style="text-align:center">${L('googleAds.colConcorrencia')}</th>
               </tr>
             </thead>
             <tbody>${keywordsRows}</tbody>
@@ -2266,29 +2275,28 @@ export function exportGoogleAdsPDF(project, entry = null) {
   const types = Array.isArray(src.campaignTypes) ? src.campaignTypes : []
   const typesHTML = types.length > 0 ? `
     <section>
-      <div class="section-title">🎯 Campanhas selecionadas</div>
+      <div class="section-title">${L('googleAds.campanhasSelecionadas')}</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">
-        ${types.map((t) => `<span style="display:inline-block;padding:4px 12px;border-radius:9999px;background:#ede9fe;color:#6d28d9;font-size:11px;font-weight:600">${esc(t)}</span>`).join('')}
+        ${types.map((tipo) => `<span style="display:inline-block;padding:4px 12px;border-radius:9999px;background:#ede9fe;color:#6d28d9;font-size:11px;font-weight:600">${esc(GOOGLE_ADS_TIPOS.includes(tipo) ? t(`googleAds.tipos.${tipo}.label`) : tipo)}</span>`).join('')}
       </div>
     </section>
   ` : ''
 
   const summaryHTML = `
     <section>
-      <div class="section-title">📊 Resumo</div>
+      <div class="section-title">${L('googleAds.resumo')}</div>
       <div class="grid grid-3">
-        <div class="field"><div class="field-label">Grupos</div><div class="field-value purple">${filledGroups.length}</div></div>
-        <div class="field"><div class="field-label">Total de Palavras</div><div class="field-value">${fmtNum(totalKeywords)}</div></div>
-        <div class="field"><div class="field-label">Metodologia</div><div class="field-value" style="font-size:11px">🍰 Bolo de Cenoura Fofinho</div></div>
+        <div class="field"><div class="field-label">${L('googleAds.grupos')}</div><div class="field-value purple">${filledGroups.length}</div></div>
+        <div class="field"><div class="field-label">${L('googleAds.totalPalavras')}</div><div class="field-value">${fmtNum(totalKeywords)}</div></div>
+        <div class="field"><div class="field-label">${L('googleAds.metodologia')}</div><div class="field-value" style="font-size:11px">${L('googleAds.bolo')}</div></div>
       </div>
       <p style="font-size:11px;color:#64748b;margin-top:10px;line-height:1.5">
-        A palavra pesquisada pelo lead aparece no título do anúncio e espelha a headline da landing page —
-        garantindo máxima relevância e Quality Score.
+        ${L('googleAds.nota')}
       </p>
     </section>
   `
 
-  printHTML('Google Ads — Estrutura de Campanhas', project.companyName, summaryHTML + typesHTML + groupsHTML + generatedHTML)
+  printHTML(t('pdf.googleAds.titulo'), project.companyName, summaryHTML + typesHTML + groupsHTML + generatedHTML)
 }
 
 // ─── Webinar PDF ──────────────────────────────────────────────────────────────
@@ -2313,7 +2321,7 @@ function wbFieldHTML(f, data) {
 
   if (f.type === 'info') {
     return `<div style="${WB_SCRIPT_BOX}">
-      <div style="${WB_SCRIPT_LABEL}">🎙️ ${esc(f.label || 'Script')}</div>
+      <div style="${WB_SCRIPT_LABEL}">🎙️ ${esc(f.label || t('pdf.webinar.script'))}</div>
       <div style="font-size:12px;color:#4C1D95;line-height:1.6">${esc(f.text)}</div>
     </div>`
   }
@@ -2351,7 +2359,11 @@ function wbFieldHTML(f, data) {
     if (!Array.isArray(arr) || !arr.length) return ''
     return `<div class="qa-item">
       <div class="qa-label">${esc(f.label)}</div>
-      ${arr.map((o) => `<div class="qa-value">✓ ${esc(o)}</div>`).join('')}
+      ${arr.map((o) => {
+        // Grava-se o texto da opção em pt; no inglês `labels` traz o rótulo na mesma posição.
+        const idx = (f.options || []).indexOf(o)
+        return `<div class="qa-value">✓ ${esc((idx >= 0 && f.labels?.[idx]) || o)}</div>`
+      }).join('')}
     </div>`
   }
 
@@ -2385,18 +2397,27 @@ function wbBlocksHTML(blocos, data) {
   }).join('')
 }
 
-function wbEtapaHeader(emoji, num, label) {
-  return `<div class="section-title" style="font-size:14px;margin-top:8px">${emoji} Etapa ${num} — ${esc(label)}</div>`
+function wbEtapaHeader(emoji, num, chave) {
+  return `<div class="section-title" style="font-size:14px;margin-top:8px">${L('webinar.etapa', { emoji, n: num, label: t(`pdf.webinar.etapas.${chave}`) })}</div>`
 }
 
 export function exportWebinarPDF(webinar, project) {
+  // Estrutura (blocos, rótulos, scripts-modelo) no idioma de quem gera; ids iguais nos dois.
+  const {
+    ABERTURA_BLOCOS, HISTORIA_TIPOS, HISTORIA_TRANSICOES,
+    HISTORIA_3A_BLOCOS, HISTORIA_3B_BLOCOS,
+    CONTEUDO_ETAPA1, CONTEUDO_TEMAS, CONTEUDO_ETAPA4, CONTEUDO_ETAPA5, CONTEUDO_ETAPA6,
+    CONTEUDO_ROTEIRO_ABERTURA, CONTEUDO_ROTEIRO_PILARES, CONTEUDO_ROTEIRO_PONTOS,
+    CONTEUDO_ETAPA9, CONTEUDO_TRANSICOES,
+    OA_BLOCOS, OA_OBJECOES_FIXAS, OA_FECHAMENTO,
+  } = webinarNoIdioma(idiomaAtual())
   const et = webinar?.etapas || {}
   const sections = []
 
   // ── Etapa 1: Abertura ──
   const ab = et.abertura || {}
   if (Object.keys(ab).length) {
-    sections.push(`<section>${wbEtapaHeader('🎬', 1, 'Abertura')}${wbBlocksHTML(ABERTURA_BLOCOS, ab)}</section>`)
+    sections.push(`<section>${wbEtapaHeader('🎬', 1, 'abertura')}${wbBlocksHTML(ABERTURA_BLOCOS, ab)}</section>`)
   }
 
   // ── Etapa 2: História ──
@@ -2404,7 +2425,7 @@ export function exportWebinarPDF(webinar, project) {
   if (Object.keys(hi).length) {
     const tipoMeta = HISTORIA_TIPOS.find((t) => t.id === hi.tipo)
     const tipoHTML = tipoMeta
-      ? `<div class="field" style="margin-bottom:12px"><div class="field-label">Tipo de história</div><div class="field-value purple">Opção ${esc(tipoMeta.id)} — ${esc(tipoMeta.label)}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${esc(tipoMeta.desc)}</div></div>`
+      ? `<div class="field" style="margin-bottom:12px"><div class="field-label">${L('webinar.tipoHistoria')}</div><div class="field-value purple">${L('webinar.opcao', { id: tipoMeta.id, label: tipoMeta.label })}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${esc(tipoMeta.desc)}</div></div>`
       : ''
     const transHTML = HISTORIA_TRANSICOES.map((tr) => {
       if (!wbVal(hi, tr.field.id)) return ''
@@ -2412,13 +2433,13 @@ export function exportWebinarPDF(webinar, project) {
         <div class="persona-name">${esc(tr.title)}</div>
         ${wbFieldHTML(tr.field, hi)}
         <div style="${WB_SCRIPT_BOX}">
-          <div style="${WB_SCRIPT_LABEL}">💡 Sua transição fica</div>
+          <div style="${WB_SCRIPT_LABEL}">${L('webinar.transicaoFica')}</div>
           <div style="font-size:12px;color:#4C1D95;line-height:1.6">${esc(tr.compute(hi))}</div>
         </div>
       </div>`
     }).join('')
     const blocos = hi.tipo === 'A' ? HISTORIA_3A_BLOCOS : hi.tipo === 'B' ? HISTORIA_3B_BLOCOS : []
-    sections.push(`<section>${wbEtapaHeader('📖', 2, 'História')}${tipoHTML}${transHTML}${wbBlocksHTML(blocos, hi)}</section>`)
+    sections.push(`<section>${wbEtapaHeader('📖', 2, 'historia')}${tipoHTML}${transHTML}${wbBlocksHTML(blocos, hi)}</section>`)
   }
 
   // ── Etapa 3: Conteúdo ──
@@ -2429,13 +2450,13 @@ export function exportWebinarPDF(webinar, project) {
     const temaMeta = CONTEUDO_TEMAS.find((t) => t.id === co.tema)
     if (temaMeta) {
       parts.push(`<div class="persona-block">
-        <div class="persona-name">Tema da aula — Opção ${esc(temaMeta.id)}: ${esc(temaMeta.label)}</div>
+        <div class="persona-name">${L('webinar.temaAula', { id: temaMeta.id, label: temaMeta.label })}</div>
         ${(temaMeta.fields || []).map((f) => wbFieldHTML(f, co)).join('')}
       </div>`)
     }
 
     const rotAbertura = wbFieldHTML(CONTEUDO_ROTEIRO_ABERTURA, co)
-    if (rotAbertura) parts.push(`<div class="persona-block"><div class="persona-name">Roteiro — Abertura do conteúdo</div>${rotAbertura}</div>`)
+    if (rotAbertura) parts.push(`<div class="persona-block"><div class="persona-name">${L('webinar.roteiroAbertura')}</div>${rotAbertura}</div>`)
 
     const roteiro = co.tema === 'A' ? CONTEUDO_ROTEIRO_PILARES : (co.tema === 'B' || co.tema === 'C') ? CONTEUDO_ROTEIRO_PONTOS : []
     parts.push(wbBlocksHTML(roteiro, co))
@@ -2448,13 +2469,13 @@ export function exportWebinarPDF(webinar, project) {
     const transFinal = wbVal(co, 'c_transicao_final')
     if (transMeta || transFinal) {
       parts.push(`<div class="persona-block">
-        <div class="persona-name">Transição para a oferta${transMeta ? ` — ${esc(transMeta.titulo)}` : ''}</div>
-        ${transMeta ? `<div style="${WB_SCRIPT_BOX}"><div style="${WB_SCRIPT_LABEL}">Modelo</div><div style="font-size:12px;color:#4C1D95;line-height:1.6">${esc(transMeta.texto)}</div></div>` : ''}
-        ${transFinal ? `<div class="qa-item"><div class="qa-label">Sua transição</div><div class="qa-value" style="white-space:pre-wrap">${esc(transFinal)}</div></div>` : ''}
+        <div class="persona-name">${L('webinar.transicaoOferta')}${transMeta ? ` — ${esc(transMeta.titulo)}` : ''}</div>
+        ${transMeta ? `<div style="${WB_SCRIPT_BOX}"><div style="${WB_SCRIPT_LABEL}">${L('webinar.modelo')}</div><div style="font-size:12px;color:#4C1D95;line-height:1.6">${esc(transMeta.texto)}</div></div>` : ''}
+        ${transFinal ? `<div class="qa-item"><div class="qa-label">${L('webinar.suaTransicao')}</div><div class="qa-value" style="white-space:pre-wrap">${esc(transFinal)}</div></div>` : ''}
       </div>`)
     }
 
-    sections.push(`<section>${wbEtapaHeader('🎓', 3, 'Conteúdo')}${parts.join('')}</section>`)
+    sections.push(`<section>${wbEtapaHeader('🎓', 3, 'conteudo')}${parts.join('')}</section>`)
   }
 
   // ── Etapa 4: Oferta de Agendamento ──
@@ -2466,9 +2487,9 @@ export function exportWebinarPDF(webinar, project) {
       const resp = wbVal(oa, `oa_obj${obj.n}_resp`)
       if (!resp) return ''
       return `<div class="persona-block">
-        <div class="persona-name">Objeção ${obj.n}: “${esc(obj.pergunta)}”</div>
-        <div class="qa-item"><div class="qa-label">Resposta</div><div class="qa-value" style="white-space:pre-wrap">${esc(resp)}</div></div>
-        <div class="qa-item"><div class="qa-label">CTA</div><div class="qa-value">${esc(obj.cta)}</div></div>
+        <div class="persona-name">${L('webinar.objecao', { n: obj.n, pergunta: obj.pergunta })}</div>
+        <div class="qa-item"><div class="qa-label">${L('webinar.resposta')}</div><div class="qa-value" style="white-space:pre-wrap">${esc(resp)}</div></div>
+        <div class="qa-item"><div class="qa-label">${L('webinar.cta')}</div><div class="qa-value">${esc(obj.cta)}</div></div>
       </div>`
     }).join('')
 
@@ -2477,24 +2498,24 @@ export function exportWebinarPDF(webinar, project) {
       const resp = wbVal(oa, `oa_obj${n}_resp`)
       if (!perg && !resp) return ''
       return `<div class="persona-block">
-        <div class="persona-name">Objeção ${n} (do nicho): “${esc(perg || '—')}”</div>
-        ${resp ? `<div class="qa-item"><div class="qa-label">Resposta</div><div class="qa-value" style="white-space:pre-wrap">${esc(resp)}</div></div>` : ''}
-        ${wbVal(oa, `oa_obj${n}_cta`) ? `<div class="qa-item"><div class="qa-label">CTA</div><div class="qa-value">${esc(wbVal(oa, `oa_obj${n}_cta`))}</div></div>` : ''}
+        <div class="persona-name">${L('webinar.objecaoNicho', { n, pergunta: perg || '—' })}</div>
+        ${resp ? `<div class="qa-item"><div class="qa-label">${L('webinar.resposta')}</div><div class="qa-value" style="white-space:pre-wrap">${esc(resp)}</div></div>` : ''}
+        ${wbVal(oa, `oa_obj${n}_cta`) ? `<div class="qa-item"><div class="qa-label">${L('webinar.cta')}</div><div class="qa-value">${esc(wbVal(oa, `oa_obj${n}_cta`))}</div></div>` : ''}
       </div>`
     }).join('')
 
     if (fixasHTML || customHTML) {
-      parts.push(`<div class="persona-name" style="border:none;margin-top:4px">Objeções + respostas</div>${fixasHTML}${customHTML}`)
+      parts.push(`<div class="persona-name" style="border:none;margin-top:4px">${L('webinar.objecoesRespostas')}</div>${fixasHTML}${customHTML}`)
     }
     parts.push(wbBlocksHTML(OA_FECHAMENTO, oa))
 
-    sections.push(`<section>${wbEtapaHeader('📅', 4, 'Oferta para Agendamento')}${parts.join('')}</section>`)
+    sections.push(`<section>${wbEtapaHeader('📅', 4, 'ofertaAgendamento')}${parts.join('')}</section>`)
   }
 
   const body = sections.length
     ? sections.join('\n')
-    : '<section><p class="prose">Nenhuma etapa preenchida ainda. Volte e preencha o webinar.</p></section>'
+    : `<section><p class="prose">${L('webinar.vazio')}</p></section>`
 
   const empresa = project?.companyName || project?.company_name || ''
-  printHTML(webinar?.nome || 'Webinar', empresa ? `Webinar · ${empresa}` : 'Webinar', body)
+  printHTML(webinar?.nome || t('pdf.webinar.titulo'), empresa ? t('pdf.webinar.subtitulo', { empresa }) : t('pdf.webinar.titulo'), body)
 }

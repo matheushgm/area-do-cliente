@@ -1,4 +1,4 @@
-import { jsonCors, preflight, sb } from './_http.js'
+import { jsonCors, preflight, sb, msg } from './_http.js'
 // Public Edge Function — captação de leads das landing pages.
 // A LP faz POST /api/lead-capture?t=<ingest_token> com um JSON qualquer.
 // O payload inteiro é gravado como um registro do banco correspondente e,
@@ -16,12 +16,12 @@ const json = jsonCors
 
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return preflight()
-  if (req.method !== 'POST') return json({ error: 'Método não permitido.' }, 405)
-  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: 'Servidor não configurado.' }, 500)
+  if (req.method !== 'POST') return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
+  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
 
   const url   = new URL(req.url)
   const token = url.searchParams.get('t') || url.searchParams.get('token')
-  if (!token) return json({ error: 'Token de captação ausente.' }, 400)
+  if (!token) return json({ error: msg(req, { pt: 'Token de captação ausente.', en: 'Missing capture token.' }) }, 400)
 
   // Aceita JSON ou form-urlencoded (para <form> nativo sem JS).
   let payload = {}
@@ -34,7 +34,7 @@ export default async function handler(req) {
       for (const [k, v] of form.entries()) payload[k] = v
     }
   } catch {
-    return json({ error: 'Corpo inválido.' }, 400)
+    return json({ error: msg(req, { pt: 'Corpo inválido.', en: 'Invalid body.' }) }, 400)
   }
 
   // Remove chaves de controle que não são dados do lead.
@@ -52,7 +52,7 @@ export default async function handler(req) {
     `/bancos_dados?ingest_token=eq.${encodeURIComponent(token)}&select=id,crm_config`
   )
   if (bStatus !== 200 || !Array.isArray(bancos) || !bancos.length) {
-    return json({ error: 'Banco de dados não encontrado para este token.' }, 404)
+    return json({ error: msg(req, { pt: 'Banco de dados não encontrado para este token.', en: 'No database found for this token.' }) }, 404)
   }
 
   const banco = bancos[0]
@@ -63,7 +63,7 @@ export default async function handler(req) {
     prefer: 'return=representation',
     body: JSON.stringify({ banco_id: banco.id, dados: payload, origem: 'webhook' }),
   })
-  if (iStatus >= 400) return json({ error: 'Erro ao gravar lead.', detail: ins }, 500)
+  if (iStatus >= 400) return json({ error: msg(req, { pt: 'Erro ao gravar lead.', en: 'Could not save the lead.' }), detail: ins }, 500)
 
   const registroId = Array.isArray(ins) ? ins[0]?.id : ins?.id
 

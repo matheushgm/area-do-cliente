@@ -1,4 +1,4 @@
-import { jsonCors, preflight, sb } from './_http.js'
+import { jsonCors, preflight, sb, msg } from './_http.js'
 // Edge Function pública pra ata de reunião assinável pelo cliente.
 // Validação SÓ pelo share_token (sem JWT). Operações: GET (carregar) e PATCH
 // (marcar ciência + assinar).
@@ -13,14 +13,14 @@ export default async function handler(req) {
   if (req.method === 'OPTIONS') return preflight()
 
   if (!SUPABASE_URL || !SERVICE_KEY) {
-    return json({ error: 'Servidor não configurado.' }, 500)
+    return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
   }
 
   // ── GET — carrega ata pública via share_token ────────────────────────────
   if (req.method === 'GET') {
     const url   = new URL(req.url)
     const token = url.searchParams.get('token')
-    if (!token) return json({ error: 'Token inválido.' }, 400)
+    if (!token) return json({ error: msg(req, { pt: 'Token inválido.', en: 'Invalid token.' }) }, 400)
 
     const select = encodeURIComponent(
       'id,project_id,title,meeting_date,recording_url,attendees,template,next_actions,notes,client_acknowledgements,client_signature,created_at,updated_at'
@@ -29,7 +29,7 @@ export default async function handler(req) {
       `/meeting_minutes?share_token=eq.${encodeURIComponent(token)}&select=${select}`
     )
     if (status !== 200 || !Array.isArray(rows) || !rows.length) {
-      return json({ error: 'Link inválido ou expirado.' }, 404)
+      return json({ error: msg(req, { pt: 'Link inválido ou expirado.', en: 'This link is invalid or has expired.' }) }, 404)
     }
     const minute = rows[0]
 
@@ -47,12 +47,12 @@ export default async function handler(req) {
   // ── PATCH — marca ciência ou assina ──────────────────────────────────────
   if (req.method === 'PATCH') {
     let body
-    try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
+    try { body = await req.json() } catch { return json({ error: msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }) }, 400) }
 
     const { token, acknowledgements, signature } = body
-    if (!token) return json({ error: 'Token obrigatório.' }, 400)
+    if (!token) return json({ error: msg(req, { pt: 'Token obrigatório.', en: 'Token is required.' }) }, 400)
     if (!acknowledgements && !signature) {
-      return json({ error: 'Informe acknowledgements ou signature.' }, 400)
+      return json({ error: msg(req, { pt: 'Informe acknowledgements ou signature.', en: 'Provide acknowledgements or signature.' }) }, 400)
     }
 
     // Localiza a ata
@@ -60,13 +60,13 @@ export default async function handler(req) {
       `/meeting_minutes?share_token=eq.${encodeURIComponent(token)}&select=id,client_acknowledgements,client_signature`
     )
     if (getStatus !== 200 || !Array.isArray(rows) || !rows.length) {
-      return json({ error: 'Token inválido.' }, 404)
+      return json({ error: msg(req, { pt: 'Token inválido.', en: 'Invalid token.' }) }, 404)
     }
     const minute = rows[0]
 
     // Se já está assinado, não permite mudar nada (assinatura é definitiva).
     if (minute.client_signature) {
-      return json({ error: 'Ata já assinada — não pode mais ser alterada.' }, 409)
+      return json({ error: msg(req, { pt: 'Ata já assinada — não pode mais ser alterada.', en: 'These minutes are already signed and can no longer be changed.' }) }, 409)
     }
 
     const patch = {}
@@ -79,7 +79,7 @@ export default async function handler(req) {
     }
     if (signature && typeof signature === 'object') {
       const name = String(signature.name || '').trim()
-      if (!name) return json({ error: 'Nome obrigatório pra assinar.' }, 400)
+      if (!name) return json({ error: msg(req, { pt: 'Nome obrigatório pra assinar.', en: 'A name is required to sign.' }) }, 400)
       patch.client_signature = {
         name,
         signedAt:  new Date().toISOString(),
@@ -100,11 +100,11 @@ export default async function handler(req) {
       { method: 'PATCH', body: JSON.stringify(patch) }
     )
     if (status >= 400) {
-      return json({ error: 'Erro ao salvar.', detail: data }, 500)
+      return json({ error: msg(req, { pt: 'Erro ao salvar.', en: 'Could not save.' }), detail: data }, 500)
     }
 
     return json({ success: true, minute: Array.isArray(data) ? data[0] : data })
   }
 
-  return json({ error: 'Método não permitido.' }, 405)
+  return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
 }

@@ -1,4 +1,4 @@
-import { NO_STORE, jsonCors, preflight, sb } from './_http.js'
+import { NO_STORE, jsonCors, msg, preflight, sb } from './_http.js'
 import { hasPortalBearer, readPortalSession } from './_portal_auth.js'
 import { registrarIntake } from './_intake.js'
 import { centralNivel } from '../src/lib/portalModules.js'
@@ -89,18 +89,18 @@ async function findProject(token) {
 // Devolve { project } ou { error, status }. `needEdit` exige permissão 'edit'.
 async function resolveProject(req, token, projectId, needEdit) {
   if (hasPortalBearer(req)) {
-    if (!UUID_RE.test(projectId || '')) return { error: 'projectId inválido.', status: 400 }
+    if (!UUID_RE.test(projectId || '')) return { error: msg(req, { pt: 'projectId inválido.', en: 'Invalid projectId.' }), status: 400 }
     const sess = await readPortalSession(req, projectId)
     if (!sess.ok) return { error: sess.message, status: sess.status }
     // Central de anúncios (`debriefing`) ou a chave antiga de Aprovação (`aprovacao`).
     const level = centralNivel(sess.permissions)
-    if (!level || (needEdit && level !== 'edit')) return { error: 'Sem acesso a este módulo.', status: 403 }
+    if (!level || (needEdit && level !== 'edit')) return { error: msg(req, { pt: 'Sem acesso a este módulo.', en: 'You don\'t have access to this module.' }), status: 403 }
     const { data, status } = await sb(`/projects_v2?id=eq.${encodeURIComponent(projectId)}&select=${PROJECT_COLS}`)
-    if (status !== 200 || !Array.isArray(data) || !data.length) return { error: 'Projeto não encontrado.', status: 404 }
+    if (status !== 200 || !Array.isArray(data) || !data.length) return { error: msg(req, { pt: 'Projeto não encontrado.', en: 'Project not found.' }), status: 404 }
     return { project: data[0] }
   }
   const project = await findProject(token)
-  return project ? { project } : { error: 'Link inválido ou expirado.', status: 404 }
+  return project ? { project } : { error: msg(req, { pt: 'Link inválido ou expirado.', en: 'Invalid or expired link.' }), status: 404 }
 }
 
 function sanitizeAprovacao(aprovacao) {
@@ -163,7 +163,7 @@ async function sanitizeAd(ad) {
 
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return preflight()
-  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: 'Servidor não configurado.' }, 500)
+  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
 
   // ── GET: lista pro cliente ──────────────────────────────────────────────────
   if (req.method === 'GET') {
@@ -192,7 +192,7 @@ export default async function handler(req) {
   // ── POST: decisão do cliente ────────────────────────────────────────────────
   if (req.method === 'POST') {
     let body
-    try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
+    try { body = await req.json() } catch { return json({ error: msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }) }, 400) }
 
     const r = await resolveProject(req, str(body?.token, 60), str(body?.projectId, 60), true)
     if (r.error) return json({ error: r.error }, r.status)
@@ -205,10 +205,10 @@ export default async function handler(req) {
     const sugestao = str(body?.sugestao, 2000)
 
     if (!adId || !['aprovado', 'reprovado'].includes(decision) || !['ad', 'lp'].includes(kind)) {
-      return json({ error: 'Decisão inválida.' }, 400)
+      return json({ error: msg(req, { pt: 'Decisão inválida.', en: 'Invalid decision.' }) }, 400)
     }
     if (decision === 'reprovado' && (!motivo || !sugestao)) {
-      return json({ error: 'Pra reprovar, preencha o motivo e como deveria estar.' }, 400)
+      return json({ error: msg(req, { pt: 'Pra reprovar, preencha o motivo e como deveria estar.', en: 'To reject, fill in the reason and how it should be.' }) }, 400)
     }
 
     // Mesmo ciclo pros dois tipos — muda só a coluna e a chave da lista.
@@ -217,9 +217,9 @@ export default async function handler(req) {
     const store = project[column] || {}
     const list = Array.isArray(store[listKey]) ? store[listKey] : []
     const target = list.find((it) => it?.id === adId && it?.aprovacao)
-    if (!target) return json({ error: 'Item não encontrado.' }, 404)
+    if (!target) return json({ error: msg(req, { pt: 'Item não encontrado.', en: 'Item not found.' }) }, 404)
     if (target.aprovacao.status !== 'pendente') {
-      return json({ error: 'Esse item já foi avaliado.' }, 409)
+      return json({ error: msg(req, { pt: 'Esse item já foi avaliado.', en: 'This item has already been reviewed.' }) }, 409)
     }
 
     const now = new Date().toISOString()
@@ -242,7 +242,7 @@ export default async function handler(req) {
       `/projects_v2?id=eq.${encodeURIComponent(project.id)}`,
       { method: 'PATCH', body: JSON.stringify({ [column]: next }), headers: { Prefer: 'return=minimal' } }
     )
-    if (status >= 400) return json({ error: 'Erro ao salvar a decisão.' }, 500)
+    if (status >= 400) return json({ error: msg(req, { pt: 'Erro ao salvar a decisão.', en: 'Error saving the decision.' }) }, 500)
 
     // Reprovação vira pedido na fila do Intake do VertaTask, para o time decidir quem refaz.
     if (decision === 'reprovado') {
@@ -260,5 +260,5 @@ export default async function handler(req) {
     return json({ success: true })
   }
 
-  return json({ error: 'Método não permitido.' }, 405)
+  return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
 }

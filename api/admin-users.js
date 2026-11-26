@@ -1,4 +1,4 @@
-import { getUser, json, sb } from './_http.js'
+import { getUser, json, msg, sb } from './_http.js'
 // Edge Runtime: proxy seguro para operações admin do Supabase Auth
 export const config = { runtime: 'edge' }
 
@@ -8,18 +8,18 @@ const PAPEIS = ['admin', 'member', 'vertatask']
 
 // Troca os clientes liberados de um usuário só VertaTask. Outro papel = nenhum (não sobra
 // acesso antigo se a pessoa voltar a ser restrita). Devolve a mensagem de erro, ou null.
-async function gravarClientes(userId, role, clientes, adminId) {
+async function gravarClientes(req, userId, role, clientes, adminId) {
   const ids = role === 'vertatask'
     ? [...new Set((Array.isArray(clientes) ? clientes : []).filter((c) => typeof c === 'string' && /^[0-9a-f-]{36}$/i.test(c)))]
     : []
   const del = await sb(`/vertatask_acessos?user_id=eq.${userId}`, { method: 'DELETE', prefer: 'return=minimal' })
-  if (!del.ok) return 'Não consegui atualizar os clientes liberados.'
+  if (!del.ok) return msg(req, { pt: 'Não consegui atualizar os clientes liberados.', en: 'Couldn\'t update the allowed clients.' })
   if (!ids.length) return null
   const ins = await sb('/vertatask_acessos', {
     method: 'POST', prefer: 'return=minimal',
     body: JSON.stringify(ids.map((project_id) => ({ user_id: userId, project_id, criado_por: adminId || null }))),
   })
-  return ins.ok ? null : 'Usuário salvo, mas os clientes liberados não foram gravados.'
+  return ins.ok ? null : msg(req, { pt: 'Usuário salvo, mas os clientes liberados não foram gravados.', en: 'User saved, but the allowed clients weren\'t saved.' })
 }
 
 export default async function handler(req) {
@@ -31,7 +31,7 @@ export default async function handler(req) {
   const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!SUPABASE_URL || !SERVICE_KEY) {
-    return json({ error: 'Servidor não configurado. Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.' }, 500)
+    return json({ error: msg(req, { pt: 'Servidor não configurado. Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.', en: 'Server not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.' }) }, 500)
   }
 
   // Verificar JWT do caller
@@ -39,27 +39,27 @@ export default async function handler(req) {
   if (!auth.ok) return json({ error: auth.message }, 401)
 
   if (auth.user?.app_metadata?.role !== 'admin') {
-    return json({ error: 'Forbidden: apenas admins podem executar esta ação.' }, 403)
+    return json({ error: msg(req, { pt: 'Forbidden: apenas admins podem executar esta ação.', en: 'Forbidden: only admins can do this.' }) }, 403)
   }
 
   let body
   try { body = await req.json() }
-  catch { return json({ error: 'Corpo da requisição inválido.' }, 400) }
+  catch { return json({ error: msg(req, { pt: 'Corpo da requisição inválido.', en: 'Invalid request body.' }) }, 400) }
 
   const { action, userId, ...data } = body
 
   if ('role' in data && data.role && !PAPEIS.includes(data.role)) {
-    return json({ error: `Permissão inválida: ${data.role}.` }, 400)
+    return json({ error: msg(req, { pt: `Permissão inválida: ${data.role}.`, en: `Invalid permission: ${data.role}.` }) }, 400)
   }
   if (data.role === 'vertatask' && !(Array.isArray(data.clientes) && data.clientes.length)) {
-    return json({ error: 'Escolha ao menos um cliente para o acesso só VertaTask.' }, 400)
+    return json({ error: msg(req, { pt: 'Escolha ao menos um cliente para o acesso só VertaTask.', en: 'Pick at least one client for VertaTask-only access.' }) }, 400)
   }
 
   // ── Criar usuário ──────────────────────────────────────────────────────────
   if (action === 'create_user') {
     const { name, email, password, role } = data
     if (!name || !email || !password || !role) {
-      return json({ error: 'Campos obrigatórios: name, email, password, role.' }, 400)
+      return json({ error: msg(req, { pt: 'Campos obrigatórios: name, email, password, role.', en: 'Required fields: name, email, password, role.' }) }, 400)
     }
     const avatar = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
     const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
@@ -87,7 +87,7 @@ export default async function handler(req) {
       const achado = await sb('/rpc/admin_usuario_por_email', { method: 'POST', body: JSON.stringify({ p_email: email }) })
       const existente = Array.isArray(achado.data) ? achado.data[0] : null
       if (existente?.role) {
-        return json({ error: `Esse e-mail já é usuário da Área do Cliente (permissão ${existente.role}). Edite pela lista.` }, 409)
+        return json({ error: msg(req, { pt: `Esse e-mail já é usuário da Área do Cliente (permissão ${existente.role}). Edite pela lista.`, en: `This email is already a user (permission ${existente.role}). Edit it from the list.` }) }, 409)
       }
       if (existente?.id) {
         const upd = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${existente.id}`, {
@@ -109,18 +109,18 @@ export default async function handler(req) {
         let atualizado = null
         try { atualizado = JSON.parse(updText) } catch { /* resposta sem JSON */ }
         if (!upd.ok || !atualizado?.id) {
-          return json({ error: atualizado?.msg || 'Esse e-mail já tinha cadastro e não consegui liberar o acesso.' }, upd.status || 500)
+          return json({ error: atualizado?.msg || msg(req, { pt: 'Esse e-mail já tinha cadastro e não consegui liberar o acesso.', en: 'This email was already registered and I couldn\'t grant access.' }) }, upd.status || 500)
         }
-        const erro = await gravarClientes(atualizado.id, role, data.clientes, auth.user?.id)
+        const erro = await gravarClientes(req, atualizado.id, role, data.clientes, auth.user?.id)
         return json(erro ? { ...atualizado, aviso: erro } : atualizado, 200)
       }
     }
 
     if (!res.ok) {
-      return json({ error: criado?.msg || criado?.error_description || criado?.error || `Não consegui criar o usuário (HTTP ${res.status}).` }, res.status)
+      return json({ error: criado?.msg || criado?.error_description || criado?.error || msg(req, { pt: `Não consegui criar o usuário (HTTP ${res.status}).`, en: `Couldn't create the user (HTTP ${res.status}).` }) }, res.status)
     }
     if (criado?.id) {
-      const erro = await gravarClientes(criado.id, role, data.clientes, auth.user?.id)
+      const erro = await gravarClientes(req, criado.id, role, data.clientes, auth.user?.id)
       if (erro) return json({ ...criado, aviso: erro }, 200)
     }
     return new Response(text, { status: res.status, headers: { 'content-type': 'application/json' } })
@@ -128,7 +128,7 @@ export default async function handler(req) {
 
   // ── Atualizar usuário (email, nome, role) ──────────────────────────────────
   if (action === 'update_user') {
-    if (!userId) return json({ error: 'userId obrigatório.' }, 400)
+    if (!userId) return json({ error: msg(req, { pt: 'userId obrigatório.', en: 'userId is required.' }) }, 400)
     const { name, email, role, clickup_user_id } = data
     const avatar = name ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : undefined
     const payload = {}
@@ -172,7 +172,7 @@ export default async function handler(req) {
     const results = await Promise.all(updates)
     const falhou = results.find((r) => !r.ok)
     if (role && !falhou) {
-      const erro = await gravarClientes(userId, role, data.clientes, auth.user?.id)
+      const erro = await gravarClientes(req, userId, role, data.clientes, auth.user?.id)
       if (erro) return json({ error: erro }, 500)
     }
     const lastRes = results[results.length - 1] || null
@@ -183,7 +183,7 @@ export default async function handler(req) {
 
   // ── Desativar / reativar usuário ───────────────────────────────────────────
   if (action === 'toggle_user') {
-    if (!userId) return json({ error: 'userId obrigatório.' }, 400)
+    if (!userId) return json({ error: msg(req, { pt: 'userId obrigatório.', en: 'userId is required.' }) }, 400)
     const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
       method: 'PUT',
       headers: {
@@ -199,10 +199,10 @@ export default async function handler(req) {
 
   // ── Redefinir senha ───────────────────────────────────────────────────────
   if (action === 'reset_password') {
-    if (!userId) return json({ error: 'userId obrigatório.' }, 400)
+    if (!userId) return json({ error: msg(req, { pt: 'userId obrigatório.', en: 'userId is required.' }) }, 400)
     const { password } = data
     if (!password || password.length < 6) {
-      return json({ error: 'Senha deve ter no mínimo 6 caracteres.' }, 400)
+      return json({ error: msg(req, { pt: 'Senha deve ter no mínimo 6 caracteres.', en: 'Password must be at least 6 characters.' }) }, 400)
     }
     const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
       method: 'PUT',
@@ -217,5 +217,5 @@ export default async function handler(req) {
     return new Response(text, { status: res.status, headers: { 'content-type': 'application/json' } })
   }
 
-  return json({ error: `Ação desconhecida: ${action}` }, 400)
+  return json({ error: msg(req, { pt: `Ação desconhecida: ${action}`, en: `Unknown action: ${action}` }) }, 400)
 }

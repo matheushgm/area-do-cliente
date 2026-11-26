@@ -1,4 +1,4 @@
-import { getUser, jsonErr } from './_http.js'
+import { getUser, jsonErr, msg } from './_http.js'
 // Edge function — gera o PREVIEW de um anúncio do Meta a partir do ad_id.
 // Fluxo seguro: valida o JWT da sessão (igual api/dash-data.js), chama a Graph
 // API com o token do Meta que vive SÓ no servidor (env META_ACCESS_TOKEN),
@@ -19,8 +19,8 @@ export default async function handler(req) {
   const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY // publishable (sb_...)
   // Reusa o token que já existe na Vercel (META_TOKEN); aceita META_ACCESS_TOKEN como fallback.
   const META_TOKEN = process.env.META_TOKEN || process.env.META_ACCESS_TOKEN
-  if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr('Servidor não configurado.', 500)
-  if (!META_TOKEN) return jsonErr('Preview indisponível: a variável META_TOKEN não está configurada na Vercel.', 503)
+  if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr(msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), 500)
+  if (!META_TOKEN) return jsonErr(msg(req, { pt: 'Preview indisponível: a variável META_TOKEN não está configurada na Vercel.', en: 'Preview unavailable: the META_TOKEN variable isn\'t set on Vercel.' }), 503)
 
   // ── Autenticação (mesmo padrão de dash-data) ───────────────────────────────
   const auth = await getUser(req)
@@ -29,9 +29,9 @@ export default async function handler(req) {
   // ── Parâmetros ─────────────────────────────────────────────────────────────
   const url = new URL(req.url)
   const adId = (url.searchParams.get('ad_id') || '').trim()
-  if (!/^\d+$/.test(adId)) return jsonErr('ad_id inválido.', 400)
+  if (!/^\d+$/.test(adId)) return jsonErr(msg(req, { pt: 'ad_id inválido.', en: 'Invalid ad_id.' }), 400)
   const fmt = (url.searchParams.get('format') || 'MOBILE_FEED_STANDARD').toUpperCase()
-  if (!ALLOWED_FMT.includes(fmt)) return jsonErr('Formato de preview inválido.', 400)
+  if (!ALLOWED_FMT.includes(fmt)) return jsonErr(msg(req, { pt: 'Formato de preview inválido.', en: 'Invalid preview format.' }), 400)
 
   // ── 1) Gera o iframe de preview na Graph API ───────────────────────────────
   let prev
@@ -40,13 +40,13 @@ export default async function handler(req) {
       `https://graph.facebook.com/v19.0/${adId}/previews?ad_format=${fmt}&access_token=${encodeURIComponent(META_TOKEN)}`
     )
     prev = await r.json()
-    if (!r.ok || prev.error) return jsonErr('Meta: ' + (prev.error?.message || 'falha ao gerar o preview'), 502)
+    if (!r.ok || prev.error) return jsonErr('Meta: ' + (prev.error?.message || msg(req, { pt: 'falha ao gerar o preview', en: 'failed to generate the preview' })), 502)
   } catch (e) {
-    return jsonErr('Erro ao chamar a API do Meta.', 502)
+    return jsonErr(msg(req, { pt: 'Erro ao chamar a API do Meta.', en: 'Error calling the Meta API.' }), 502)
   }
   const body = prev?.data?.[0]?.body || ''
   const m = body.match(/src="([^"]+)"/)
-  if (!m) return jsonErr('Sem preview disponível para este formato.', 404)
+  if (!m) return jsonErr(msg(req, { pt: 'Sem preview disponível para este formato.', en: 'No preview available for this format.' }), 404)
   const src = m[1].replace(/&amp;/g, '&')
 
   // ── 2) Proxy: busca o HTML do preview no servidor (token fica aqui) ─────────
@@ -55,7 +55,7 @@ export default async function handler(req) {
     const r2 = await fetch(src)
     html = await r2.text()
   } catch (e) {
-    return jsonErr('Erro ao carregar o preview.', 502)
+    return jsonErr(msg(req, { pt: 'Erro ao carregar o preview.', en: 'Error loading the preview.' }), 502)
   }
 
   // Remove qualquer ocorrência do token antes de devolver (defesa em profundidade).

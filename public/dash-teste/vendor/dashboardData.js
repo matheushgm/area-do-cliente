@@ -22,6 +22,80 @@ export const CFG = {
 // Range de combining diacritical marks — usado para remover acentos.
 const COMBINING = /[̀-ͯ]/g
 
+// ─── Idioma (pt/en) ──────────────────────────────────────────────────────────
+// Este arquivo é usado pelo app e pelo viewer estático (public/dash-teste/vendor/), então
+// não importa nada: lê o idioma na hora, do mesmo `rl_lang` do localStorage que o app grava
+// (sem ele, o `lang` do <html>, que o viewer põe no link público). Só textos e formatação de
+// exibição mudam; valores comparados (status 'CRÍTICO', culprit, colunas do CSV) não.
+export function idiomaDash() {
+  try {
+    const salvo = globalThis.localStorage?.getItem('rl_lang')
+    if (salvo === 'en' || salvo === 'pt') return salvo
+    return /^en/i.test(globalThis.document?.documentElement?.lang || '') ? 'en' : 'pt'
+  } catch { return 'pt' }
+}
+const localeDash = () => (idiomaDash() === 'en' ? 'en-US' : 'pt-BR')
+// Número com casas fixas no separador decimal do idioma (vírgula em pt, ponto em en).
+const decDash = (n, casas) => (idiomaDash() === 'en' ? n.toFixed(casas) : n.toFixed(casas).replace('.', ','))
+
+const TEXTOS_DASH = {
+  pt: {
+    status: { 'CRÍTICO': 'CRÍTICO', QUEDA: 'QUEDA', 'ESTÁVEL': 'ESTÁVEL', MELHORA: 'MELHORA' },
+    ativo: 'ATIVO',
+    pausado: 'PAUSADO',
+    passoCtr: (c, ctr, alvo) => `Precisamos testar mais criativos na campanha "${c}" — CTR está em ${ctr}% (alvo ≥ ${alvo}%).`,
+    passoConv: (c, taxa, alvo) => `Precisamos testar a landing page da campanha "${c}" — taxa de conversão está em ${taxa}% (alvo ≥ ${alvo}%).`,
+    passoOk: 'Performance dentro do esperado — manter cadência e seguir monitorando.',
+    semVariacao: 'sem variação (ambos zero)',
+    deZero: '+100% (de 0)',
+    semConversoes: 'sem conversões',
+    semConversoesAmbos: 'sem conversões em ambos',
+    deSemConv: (v) => `de sem conversões para ${v}`,
+    paraSemConv: (v) => `de ${v} para sem conversões`,
+    mensagem: ({ canal, atual, anterior, gasto, conv, cpl, convComp, gastoComp, cplComp, proximos }) => `Bom dia! Segue os dados dos últimos 7 dias de ${canal} (${atual}):
+
+• Valor investido: ${gasto}
+• Conversões: ${conv}
+• Custo por conversão: ${cpl}
+
+Comparação com os 7 dias anteriores (${anterior}):
+   • Conversões: ${convComp}
+   • Investimento: ${gastoComp}
+   • Custo por conversão: ${cplComp}
+
+Próximos passos:
+${proximos}`,
+  },
+  en: {
+    status: { 'CRÍTICO': 'CRITICAL', QUEDA: 'DECLINING', 'ESTÁVEL': 'STABLE', MELHORA: 'IMPROVING' },
+    ativo: 'ACTIVE',
+    pausado: 'PAUSED',
+    passoCtr: (c, ctr, alvo) => `We need to test more creatives in the "${c}" campaign — CTR is at ${ctr}% (target ≥ ${alvo}%).`,
+    passoConv: (c, taxa, alvo) => `We need to test the landing page for the "${c}" campaign — conversion rate is at ${taxa}% (target ≥ ${alvo}%).`,
+    passoOk: 'Performance is on track — keep the current cadence and keep monitoring.',
+    semVariacao: 'no change (both zero)',
+    deZero: '+100% (from 0)',
+    semConversoes: 'no conversions',
+    semConversoesAmbos: 'no conversions in either period',
+    deSemConv: (v) => `from no conversions to ${v}`,
+    paraSemConv: (v) => `from ${v} to no conversions`,
+    mensagem: ({ canal, atual, anterior, gasto, conv, cpl, convComp, gastoComp, cplComp, proximos }) => `Good morning! Here are your ${canal} results for the last 7 days (${atual}):
+
+• Amount spent: ${gasto}
+• Conversions: ${conv}
+• Cost per conversion: ${cpl}
+
+Compared with the previous 7 days (${anterior}):
+   • Conversions: ${convComp}
+   • Spend: ${gastoComp}
+   • Cost per conversion: ${cplComp}
+
+Next steps:
+${proximos}`,
+  },
+}
+const txDash = () => TEXTOS_DASH[idiomaDash()]
+
 // ─── Normalização de strings (fuzzy match) ───────────────────────────────────
 export function normStr(s) {
   return (s || '').toLowerCase().trim()
@@ -101,16 +175,17 @@ export function diffDays(a, b) {
   return Math.round((new Date(b + 'T12:00:00Z') - new Date(a + 'T12:00:00Z')) / 86400000)
 }
 
-export function fmtBR(iso) { if (!iso) return ''; const [, m, d] = iso.split('-'); return `${d}/${m}` }
+// Dia e mês para exibir: dd/mm em pt, mm/dd em en.
+export function fmtBR(iso) { if (!iso) return ''; const [, m, d] = iso.split('-'); return idiomaDash() === 'en' ? `${m}/${d}` : `${d}/${m}` }
 // Padrão BR completo: ponto de milhar e vírgula decimal ("R$ 73.504,80"). Sem o
 // separador de milhar, valor de conta grande virava um bloco de dígitos difícil
 // de ler ("R$ 73504,80") e enganava a comparação rápida entre linhas.
 export function fmtMoney(n) {
   return n == null ? '—'
-    : 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : 'R$ ' + n.toLocaleString(localeDash(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 export function fmtPct(n) { if (n == null) return '—'; return (n >= 0 ? '+' : '') + n.toFixed(1) + '%' }
-export function fmtNum(n) { return n != null ? Math.round(n).toLocaleString('pt-BR') : '0' }
+export function fmtNum(n) { return n != null ? Math.round(n).toLocaleString(localeDash()) : '0' }
 export function inRange(d, s, e) { return d && s && e && d >= s && d <= e }
 export function localDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -226,6 +301,8 @@ export function getStatus(varConv, varCpl, conv1) {
   if (varConv >= 20) return 'MELHORA'
   return 'ESTÁVEL'
 }
+// Rótulo exibido do status da conta (o valor de getStatus continua em português).
+export function rotuloStatusConta(s) { return txDash().status[s] || s }
 export function pillCls(s) { return s === 'MELHORA' ? 'pill-green' : s === 'ESTÁVEL' ? 'pill-yellow' : 'pill-red' }
 export function pillIco(s) { return s === 'MELHORA' ? '🟢' : s === 'ESTÁVEL' ? '🟡' : '🔴' }
 export function varCls(n, inv) { if (n == null) return 'fl'; const g = inv ? n < -5 : n > 5, b = inv ? n > 5 : n < -5; return g ? 'up' : b ? 'dn' : 'fl' }
@@ -367,13 +444,33 @@ const STATUS_PT = {
   PROGRAMADO: ['st-other', 'PROGRAMADO'],
   'SEM ENTREGA': ['st-other', 'SEM ENTREGA'],
 }
+// Os mesmos rótulos em inglês (idioma "en").
+const STATUS_EN = {
+  ACTIVE: 'ACTIVE',
+  ENABLED: 'ACTIVE',
+  PAUSED: 'PAUSED',
+  ADSET_PAUSED: 'PAUSED (ad set)',
+  CAMPAIGN_PAUSED: 'PAUSED (campaign)',
+  ARCHIVED: 'ARCHIVED',
+  DELETED: 'DELETED',
+  REMOVED: 'REMOVED',
+  WITH_ISSUES: 'WITH ISSUES',
+  DISAPPROVED: 'DISAPPROVED',
+  PENDING_REVIEW: 'IN REVIEW',
+  PREAPPROVED: 'PRE-APPROVED',
+  PENDING_BILLING_INFO: 'NO PAYMENT METHOD',
+  IN_PROCESS: 'PROCESSING',
+  ENCERRADO: 'COMPLETED',
+  PROGRAMADO: 'SCHEDULED',
+  'SEM ENTREGA': 'NOT DELIVERING',
+}
 export function statusTagInfo(s) {
   if (!s) return null
   const hit = STATUS_PT[s.trim().toUpperCase()]
-  if (hit) return { cls: hit[0], label: hit[1] }
+  if (hit) return { cls: hit[0], label: idiomaDash() === 'en' ? (STATUS_EN[s.trim().toUpperCase()] || hit[1]) : hit[1] }
   const lower = s.toLowerCase()
-  if (lower.includes('ativ') || lower === 'active' || lower === 'enabled') return { cls: 'st-active', label: 'ATIVO' }
-  if (lower.includes('paus') || lower === 'paused') return { cls: 'st-paused', label: 'PAUSADO' }
+  if (lower.includes('ativ') || lower === 'active' || lower === 'enabled') return { cls: 'st-active', label: txDash().ativo }
+  if (lower.includes('paus') || lower === 'paused') return { cls: 'st-paused', label: txDash().pausado }
   return { cls: 'st-other', label: s }
 }
 
@@ -413,9 +510,10 @@ export function buildClientFacingSteps(rows, channel) {
   lowConv.sort(sortByStage)
 
   const steps = []
-  lowCtr.slice(0, 3).forEach(c => steps.push(`Precisamos testar mais criativos na campanha "${c.key}" — CTR está em ${c.ctr.toFixed(2).replace('.', ',')}% (alvo ≥ ${ctrThreshold}%).`))
-  lowConv.slice(0, 3).forEach(c => steps.push(`Precisamos testar a landing page da campanha "${c.key}" — taxa de conversão está em ${c.convRate.toFixed(1).replace('.', ',')}% (alvo ≥ ${convThreshold}%).`))
-  if (!steps.length) steps.push('Performance dentro do esperado — manter cadência e seguir monitorando.')
+  const T = txDash()
+  lowCtr.slice(0, 3).forEach(c => steps.push(T.passoCtr(c.key, decDash(c.ctr, 2), ctrThreshold)))
+  lowConv.slice(0, 3).forEach(c => steps.push(T.passoConv(c.key, decDash(c.convRate, 1), convThreshold)))
+  if (!steps.length) steps.push(T.passoOk)
   return steps
 }
 
@@ -449,19 +547,20 @@ export function buildWeeklyMessage(channelRows, channel, client) {
   const cur = sumPeriod(p1s, p1e)
   const prv = sumPeriod(p2s, p2e)
 
+  const T = txDash()
   const fmtPctDiff = (c, p) => {
-    if (p === 0 && c === 0) return 'sem variação (ambos zero)'
-    if (p === 0) return c > 0 ? '+100% (de 0)' : '—'
+    if (p === 0 && c === 0) return T.semVariacao
+    if (p === 0) return c > 0 ? T.deZero : '—'
     const pct = ((c - p) / p) * 100
-    return `${pct >= 0 ? '+' : ''}${pct.toFixed(1).replace('.', ',')}%`
+    return `${pct >= 0 ? '+' : ''}${decDash(pct, 1)}%`
   }
   const curCpl = cur.conv > 0 ? cur.spend / cur.conv : null
   const prvCpl = prv.conv > 0 ? prv.spend / prv.conv : null
-  const fmtCpl = v => v == null ? 'sem conversões' : fmtMoney(v)
+  const fmtCpl = v => v == null ? T.semConversoes : fmtMoney(v)
   const fmtCplDiff = (c, p) => {
-    if (c == null && p == null) return 'sem conversões em ambos'
-    if (p == null) return `de sem conversões para ${fmtMoney(c)}`
-    if (c == null) return `de ${fmtMoney(p)} para sem conversões`
+    if (c == null && p == null) return T.semConversoesAmbos
+    if (p == null) return T.deSemConv(fmtMoney(c))
+    if (c == null) return T.paraSemConv(fmtMoney(p))
     return `${fmtMoney(p)} → ${fmtMoney(c)} (${fmtPctDiff(c, p)})`
   }
 
@@ -469,19 +568,18 @@ export function buildWeeklyMessage(channelRows, channel, client) {
   const proximos = buildClientFacingSteps(lastWeekRows, channel).map(s => `• ${s}`).join('\n')
   const canalLabel = channel === 'meta' ? 'Meta Ads' : 'Google Ads'
 
-  const msg = `Bom dia! Segue os dados dos últimos 7 dias de ${canalLabel} (${fmtBR(p1s)} – ${fmtBR(p1e)}):
-
-• Valor investido: ${fmtMoney(cur.spend)}
-• Conversões: ${fmtNum(cur.conv)}
-• Custo por conversão: ${fmtCpl(curCpl)}
-
-Comparação com os 7 dias anteriores (${fmtBR(p2s)} – ${fmtBR(p2e)}):
-   • Conversões: ${fmtNum(prv.conv)} → ${fmtNum(cur.conv)} (${fmtPctDiff(cur.conv, prv.conv)})
-   • Investimento: ${fmtMoney(prv.spend)} → ${fmtMoney(cur.spend)} (${fmtPctDiff(cur.spend, prv.spend)})
-   • Custo por conversão: ${fmtCplDiff(curCpl, prvCpl)}
-
-Próximos passos:
-${proximos}`
+  const msg = T.mensagem({
+    canal: canalLabel,
+    atual: `${fmtBR(p1s)} – ${fmtBR(p1e)}`,
+    anterior: `${fmtBR(p2s)} – ${fmtBR(p2e)}`,
+    gasto: fmtMoney(cur.spend),
+    conv: fmtNum(cur.conv),
+    cpl: fmtCpl(curCpl),
+    convComp: `${fmtNum(prv.conv)} → ${fmtNum(cur.conv)} (${fmtPctDiff(cur.conv, prv.conv)})`,
+    gastoComp: `${fmtMoney(prv.spend)} → ${fmtMoney(cur.spend)} (${fmtPctDiff(cur.spend, prv.spend)})`,
+    cplComp: fmtCplDiff(curCpl, prvCpl),
+    proximos,
+  })
 
   return { msg, periodLabel: `${fmtBR(p1s)} – ${fmtBR(p1e)}` }
 }

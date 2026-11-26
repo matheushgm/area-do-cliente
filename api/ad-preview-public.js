@@ -1,4 +1,4 @@
-import { jsonErr } from './_http.js'
+import { jsonErr, msg } from './_http.js'
 import { tokenDashValido } from './_dash_token.js'
 // Edge function — PREVIEW de um anúncio do Meta para o LINK PÚBLICO do dashboard.
 // Versão sem login do api/ad-preview.js: em vez do JWT da sessão, valida o mesmo
@@ -26,8 +26,8 @@ export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY // segredo do HMAC + leitura do dash_insights
   const META_TOKEN = process.env.META_TOKEN || process.env.META_ACCESS_TOKEN
-  if (!SUPABASE_URL || !SERVICE_KEY) return jsonErr('Servidor não configurado.', 500)
-  if (!META_TOKEN) return jsonErr('Preview indisponível: a variável META_TOKEN não está configurada na Vercel.', 503)
+  if (!SUPABASE_URL || !SERVICE_KEY) return jsonErr(msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), 500)
+  if (!META_TOKEN) return jsonErr(msg(req, { pt: 'Preview indisponível: a variável META_TOKEN não está configurada na Vercel.', en: 'Preview unavailable: the META_TOKEN variable isn\'t set on Vercel.' }), 503)
 
   // ── Parâmetros ─────────────────────────────────────────────────────────────
   const url = new URL(req.url)
@@ -37,17 +37,17 @@ export default async function handler(req) {
   const adId = (url.searchParams.get('ad_id') || '').trim()
   const fmt = (url.searchParams.get('format') || 'MOBILE_FEED_STANDARD').toUpperCase()
 
-  if (!cliente || !token) return jsonErr('Link incompleto.', 400)
+  if (!cliente || !token) return jsonErr(msg(req, { pt: 'Link incompleto.', en: 'Incomplete link.' }), 400)
   // Preview só existe no Meta; um link de Google nunca deve chegar aqui.
-  if (canal !== 'meta') return jsonErr('Preview disponível apenas para Meta Ads.', 400)
+  if (canal !== 'meta') return jsonErr(msg(req, { pt: 'Preview disponível apenas para Meta Ads.', en: 'Preview is only available for Meta Ads.' }), 400)
   // ^\d+$ também barra o ad_id vazio das linhas-zero sintéticas (contas paradas),
   // que se repete entre contas e não identificaria uma conta só.
-  if (!/^\d+$/.test(adId)) return jsonErr('ad_id inválido.', 400)
-  if (!ALLOWED_FMT.includes(fmt)) return jsonErr('Formato de preview inválido.', 400)
+  if (!/^\d+$/.test(adId)) return jsonErr(msg(req, { pt: 'ad_id inválido.', en: 'Invalid ad_id.' }), 400)
+  if (!ALLOWED_FMT.includes(fmt)) return jsonErr(msg(req, { pt: 'Formato de preview inválido.', en: 'Invalid preview format.' }), 400)
 
   // ── 1) Token do link (mesmo HMAC do /api/dash-public) ──────────────────────
   // Permanente ou do portal (24 h), ver api/_dash_token.js.
-  if (!(await tokenDashValido(cliente, canal, token))) return jsonErr('Link inválido ou expirado.', 403)
+  if (!(await tokenDashValido(cliente, canal, token))) return jsonErr(msg(req, { pt: 'Link inválido ou expirado.', en: 'Invalid or expired link.' }), 403)
 
   // ── 2) Posse: este ad_id é mesmo da conta assinada no token? ───────────────
   try {
@@ -56,13 +56,13 @@ export default async function handler(req) {
       `&data->>ad_id=eq.${encodeURIComponent(adId)}&select=row_key&limit=1`,
       { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
     )
-    if (!r.ok) return jsonErr('Falha ao validar o anúncio.', 502)
+    if (!r.ok) return jsonErr(msg(req, { pt: 'Falha ao validar o anúncio.', en: 'Failed to validate the ad.' }), 502)
     const hit = await r.json()
     // Mesma mensagem para "não é seu" e "não existe" — não confirma a existência
     // de ad_ids de outras contas para quem estiver sondando.
-    if (!Array.isArray(hit) || !hit.length) return jsonErr('Anúncio não encontrado nesta conta.', 404)
+    if (!Array.isArray(hit) || !hit.length) return jsonErr(msg(req, { pt: 'Anúncio não encontrado nesta conta.', en: 'Ad not found in this account.' }), 404)
   } catch (e) {
-    return jsonErr('Erro ao validar o anúncio.', 500)
+    return jsonErr(msg(req, { pt: 'Erro ao validar o anúncio.', en: 'Error validating the ad.' }), 500)
   }
 
   // ── 3) Gera o iframe de preview na Graph API ───────────────────────────────
@@ -72,13 +72,13 @@ export default async function handler(req) {
       `https://graph.facebook.com/v19.0/${adId}/previews?ad_format=${fmt}&access_token=${encodeURIComponent(META_TOKEN)}`
     )
     prev = await r.json()
-    if (!r.ok || prev.error) return jsonErr('Meta: ' + (prev.error?.message || 'falha ao gerar o preview'), 502)
+    if (!r.ok || prev.error) return jsonErr('Meta: ' + (prev.error?.message || msg(req, { pt: 'falha ao gerar o preview', en: 'failed to generate the preview' })), 502)
   } catch (e) {
-    return jsonErr('Erro ao chamar a API do Meta.', 502)
+    return jsonErr(msg(req, { pt: 'Erro ao chamar a API do Meta.', en: 'Error calling the Meta API.' }), 502)
   }
   const body = prev?.data?.[0]?.body || ''
   const m = body.match(/src="([^"]+)"/)
-  if (!m) return jsonErr('Sem preview disponível para este formato.', 404)
+  if (!m) return jsonErr(msg(req, { pt: 'Sem preview disponível para este formato.', en: 'No preview available for this format.' }), 404)
   const src = m[1].replace(/&amp;/g, '&')
 
   // ── 4) Proxy: busca o HTML do preview no servidor (o token fica aqui) ──────
@@ -87,7 +87,7 @@ export default async function handler(req) {
     const r2 = await fetch(src)
     html = await r2.text()
   } catch (e) {
-    return jsonErr('Erro ao carregar o preview.', 502)
+    return jsonErr(msg(req, { pt: 'Erro ao carregar o preview.', en: 'Error loading the preview.' }), 502)
   }
 
   // Remove qualquer ocorrência do token antes de devolver (defesa em profundidade).

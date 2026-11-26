@@ -1,4 +1,4 @@
-import { getUser, jsonErr } from './_http.js'
+import { getUser, jsonErr, msg } from './_http.js'
 // Edge Runtime: sem timeout fixo, suporta streaming nativo
 export const config = { runtime: 'edge' }
 
@@ -12,7 +12,7 @@ export default async function handler(req) {
   const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY
 
   if (!SUPABASE_URL || !SUPABASE_ANON) {
-    return jsonErr('Servidor não configurado corretamente.', 500)
+    return jsonErr(msg(req, { pt: 'Servidor não configurado corretamente.', en: 'Server isn\'t configured correctly.' }), 500)
   }
 
   const auth = await getUser(req)
@@ -20,12 +20,12 @@ export default async function handler(req) {
 
   // ── Validar env e body ────────────────────────────────────────────────────
   const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return jsonErr('ANTHROPIC_API_KEY não configurada no servidor.', 500)
+  if (!apiKey) return jsonErr(msg(req, { pt: 'ANTHROPIC_API_KEY não configurada no servidor.', en: 'ANTHROPIC_API_KEY isn\'t set on the server.' }), 500)
 
   let body
   try { body = await req.json() }
   catch {
-    return jsonErr('Corpo da requisição inválido.', 400)
+    return jsonErr(msg(req, { pt: 'Corpo da requisição inválido.', en: 'Invalid request body.' }), 400)
   }
 
   // Permitir apenas campos esperados pela API da Anthropic
@@ -54,7 +54,7 @@ export default async function handler(req) {
   } catch (err) {
     console.error('[/api/anthropic] Erro interno:', err)
     return new Response(
-      JSON.stringify({ error: { message: 'Erro interno. Tente novamente.' } }),
+      JSON.stringify({ error: { message: msg(req, { pt: 'Erro interno. Tente novamente.', en: 'Internal error. Please try again.' }) } }),
       { status: 500, headers: { 'content-type': 'application/json' } }
     )
   }

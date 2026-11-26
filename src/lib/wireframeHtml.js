@@ -3,6 +3,8 @@
 // então o arquivo abre em qualquer navegador sem depender do Tailwind do app.
 // Usado pelo LandingPageModule no botão "Baixar HTML".
 
+import { localeAtual } from '../i18n'
+
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
 // Propriedades tratadas manualmente (fora do diff) — ver regras em inlineStyles().
@@ -122,7 +124,7 @@ export function elementToHtmlBlob(el, opts = {}) {
   const safeTitle = String(title).replace(/&/g, '&amp;').replace(/</g, '&lt;')
   const html = [
     '<!doctype html>',
-    '<html lang="pt-BR">',
+    `<html lang="${localeAtual()}">`,
     '<head>',
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',

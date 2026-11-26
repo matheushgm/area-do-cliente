@@ -1,4 +1,4 @@
-import { jsonErr, lerPaginado, filtroDias } from './_http.js'
+import { jsonErr, lerPaginado, filtroDias, msg } from './_http.js'
 import { tokenDashValido } from './_dash_token.js'
 // Edge function — serve os dados de UM cliente para o LINK PÚBLICO (somente
 // leitura) do dashboard. NÃO exige login: valida um token HMAC (`cliente|canal`)
@@ -24,24 +24,24 @@ function toCSV(rows) {
 export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!SUPABASE_URL || !SERVICE_KEY) return jsonErr('Servidor não configurado.', 500)
+  if (!SUPABASE_URL || !SERVICE_KEY) return jsonErr(msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), 500)
 
   // ── Parâmetros + validação do token ─────────────────────────────────────────
   const url = new URL(req.url)
   const cliente = (url.searchParams.get('cliente') || '').trim()
   const canal = url.searchParams.get('canal')
   const token = (url.searchParams.get('t') || '').trim().toLowerCase()
-  if (!cliente || !token) return jsonErr('Link incompleto.', 400)
-  if (!['meta', 'google'].includes(canal)) return jsonErr('canal inválido (use meta|google).', 400)
+  if (!cliente || !token) return jsonErr(msg(req, { pt: 'Link incompleto.', en: 'Incomplete link.' }), 400)
+  if (!['meta', 'google'].includes(canal)) return jsonErr(msg(req, { pt: 'canal inválido (use meta|google).', en: 'Invalid canal (use meta|google).' }), 400)
 
   // Permanente (botão 🔗 Link) ou do portal do cliente (24 h), ver api/_dash_token.js.
-  if (!(await tokenDashValido(cliente, canal, token))) return jsonErr('Link inválido ou expirado.', 403)
+  if (!(await tokenDashValido(cliente, canal, token))) return jsonErr(msg(req, { pt: 'Link inválido ou expirado.', en: 'This link is invalid or has expired.' }), 403)
 
   // `dados=status` devolve o snapshot de status ATUAL das entidades (canal
   // meta_status) em vez das linhas de insights. Mesmo token, mesmo cliente —
   // só existe para o canal Meta.
   const wantStatus = url.searchParams.get('dados') === 'status'
-  if (wantStatus && canal !== 'meta') return jsonErr('status só existe no canal meta.', 400)
+  if (wantStatus && canal !== 'meta') return jsonErr(msg(req, { pt: 'status só existe no canal meta.', en: 'status is only available for the meta channel.' }), 400)
   const channel = wantStatus ? 'meta_status' : canal
   // row_key desempata o dia: as páginas são lidas em paralelo e o Range só é
   // estável com uma ordem total.
@@ -60,7 +60,7 @@ export default async function handler(req) {
     )
     rows = lidas.map(row => row.data)
   } catch (e) {
-    return jsonErr('Erro ao consultar os dados.', 500)
+    return jsonErr(msg(req, { pt: 'Erro ao consultar os dados.', en: 'Could not load the data.' }), 500)
   }
 
   return new Response(toCSV(rows), {

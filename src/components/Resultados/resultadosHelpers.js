@@ -97,5 +97,3 @@ export function getWeekRanges(year, month) {
   ]
 }
 
-// O PDF (src/utils/exportPDF.js) ainda é só em português: as semanas vão com o rótulo em pt.
-export const semanasPdf = (ranges) => ranges.map((w, i) => ({ ...w, label: `Semana ${i + 1}` }))

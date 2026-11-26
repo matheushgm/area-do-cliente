@@ -1,4 +1,4 @@
-import { bearer, getUser, json } from './_http.js'
+import { bearer, getUser, json, msg } from './_http.js'
 // Preenchimento automático dos Resultados do Funil com os dados reais de mídia.
 //
 // Lê APENAS (dash_insights, alimentado de hora em hora pelo sync Meta/Google) e
@@ -121,10 +121,10 @@ async function authorize(req) {
 
 // ── Núcleo ───────────────────────────────────────────────────────────────────
 export default async function handler(req) {
-  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: 'Servidor não configurado.' }, 500)
+  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
 
   const auth = await authorize(req)
-  if (!auth.ok) return json({ error: 'Não autorizado.' }, 401)
+  if (!auth.ok) return json({ error: msg(req, { pt: 'Não autorizado.', en: 'Unauthorized.' }) }, 401)
 
   // Parâmetros aceitos tanto por query (cron/GET) quanto por body (botão/POST).
   const url = new URL(req.url)
@@ -143,7 +143,7 @@ export default async function handler(req) {
   // Alvos: mês pedido (manual) ou os do cron.
   let targets
   if (yearParam && monthParam) {
-    if (monthParam < 1 || monthParam > 12) return json({ error: 'month inválido (1-12).' }, 400)
+    if (monthParam < 1 || monthParam > 12) return json({ error: msg(req, { pt: 'month inválido (1-12).', en: 'Invalid month (1-12).' }) }, 400)
     targets = closedWeeks(yearParam, monthParam, today).map(week => ({ year: yearParam, month: monthParam, week }))
     // No preenchimento manual do mês corrente, inclui também a semana em curso
     // (até hoje, dia parcial) — é o que dá a sensação de acompanhamento diário.
@@ -154,7 +154,7 @@ export default async function handler(req) {
   }
 
   if (!targets.length) {
-    return json({ ok: true, ranAt: new Date().toISOString(), targets: [], updated: [], skipped: [], note: 'Nenhuma semana fechada para preencher.' })
+    return json({ ok: true, ranAt: new Date().toISOString(), targets: [], updated: [], skipped: [], note: msg(req, { pt: 'Nenhuma semana fechada para preencher.', en: 'No closed week to fill in.' }) })
   }
 
   // Resolve o intervalo de dias de cada alvo e a janela total da consulta.
@@ -195,7 +195,7 @@ export default async function handler(req) {
     if (!projectIds.length) {
       return json({
         ok: true, ranAt: new Date().toISOString(), updated: [],
-        skipped: [{ projectId, reason: 'nenhuma conta vinculada com veiculação no período' }],
+        skipped: [{ projectId, reason: msg(req, { pt: 'nenhuma conta vinculada com veiculação no período', en: 'no linked account ran ads in this period' }) }],
       })
     }
     const cellOf = (pid, dateKey) => {
@@ -220,7 +220,7 @@ export default async function handler(req) {
       const current = currentByProject[pid] || {}
       const modelo  = current.modelo
       if (modelo !== 'b2b' && modelo !== 'b2c') {
-        skipped.push({ projectId: pid, reason: 'modelo do funil não escolhido' })
+        skipped.push({ projectId: pid, reason: msg(req, { pt: 'modelo do funil não escolhido', en: 'funnel model not chosen' }) })
         continue
       }
 
@@ -289,7 +289,7 @@ export default async function handler(req) {
       }
 
       if (!semanas.length) {
-        skipped.push({ projectId: pid, reason: 'sem investimento no período' })
+        skipped.push({ projectId: pid, reason: msg(req, { pt: 'sem investimento no período', en: 'no spend in this period' }) })
         continue
       }
 
@@ -320,6 +320,6 @@ export default async function handler(req) {
       data: projectId ? (mergedByProject[projectId] ?? null) : undefined,
     })
   } catch (e) {
-    return json({ error: 'Falha ao preencher os resultados.', detail: String(e?.message || e) }, 500)
+    return json({ error: msg(req, { pt: 'Falha ao preencher os resultados.', en: 'Could not fill in the results.' }), detail: String(e?.message || e) }, 500)
   }
 }

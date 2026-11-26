@@ -20,6 +20,7 @@ export default {
   trocarTipo: 'Trocar o tipo',
   prazoContato: 'Prazo e contato',
   faltou: 'Faltou alguma coisa. Os campos em vermelho mostram o quê.',
+  prepararEnvio: 'Não consegui preparar o envio.',
   revisarPedido: 'Revisar pedido',
   voltarEditar: 'Voltar e editar',
   confereTitulo: 'Confere se está tudo certo',

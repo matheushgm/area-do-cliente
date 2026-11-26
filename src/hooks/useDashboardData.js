@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { SHEETS, parseCSV } from '../lib/dashboardData'
 import { lerDash } from '../lib/dashCache'
+import { t } from '../i18n'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hook de dados do Dashboard de Tráfego (modelo consolidado).
@@ -117,7 +118,7 @@ export function useDashboardData({ source = 'sheets', projectId = null, dias = n
       let accRes, accountNames = null
       if (source === 'api' && projectId) {
         accRes = await accQuery
-        if (accRes.error) throw new Error('Contas: ' + accRes.error.message)
+        if (accRes.error) throw new Error(t('dados.erroContas', { msg: accRes.error.message }))
         accountNames = (accRes.data || []).filter(r => r.project_id === projectId).map(r => r.account_name)
       }
       const [sheets, accRes2, projRes, cplRes, sqRes, namesRes] = await Promise.all([

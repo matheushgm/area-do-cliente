@@ -1,4 +1,4 @@
-import { bearer, getUser } from './_http.js'
+import { bearer, getUser, msg } from './_http.js'
 // Serverless Function (Node) — sincronização incremental ClickUp → VertaTask.
 // GET/POST /api/tarefas-sync   (Authorization: Bearer <CRON_SECRET> ou JWT do usuário)
 //   ?since=<ISO>     opcional: força o ponto de partida (padrão: último início - 15 min)
@@ -58,16 +58,16 @@ async function autorizar(req) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido.' })
+  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) })
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SERVICE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
   const TOKEN = envClean('CLICKUP_API_TOKEN')
   const TEAM = envClean('CLICKUP_TEAM_ID') || '9009170774'
   const spaces = (envClean('CLICKUP_SYNC_SPACE_IDS') || '').split(',').map((s) => s.trim()).filter(Boolean)
-  if (!SUPABASE_URL || !SERVICE_KEY || !TOKEN) return res.status(500).json({ error: 'Servidor não configurado.' })
+  if (!SUPABASE_URL || !SERVICE_KEY || !TOKEN) return res.status(500).json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) })
 
   const auth = await autorizar(req)
-  if (!auth.ok) return res.status(401).json({ error: 'Não autorizado.' })
+  if (!auth.ok) return res.status(401).json({ error: msg(req, { pt: 'Não autorizado.', en: 'Unauthorized.' }) })
 
   const sb = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
   const { data: travou, error: errTrava } = await sb.rpc('tarefas_sync_travar', { p_id: 'clickup', p_ttl_s: TRAVA_TTL_S })

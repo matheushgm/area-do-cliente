@@ -1,4 +1,4 @@
-import { NO_STORE, jsonCors, preflight, sb } from './_http.js'
+import { NO_STORE, jsonCors, preflight, sb, msg } from './_http.js'
 import { calcularTriagem, limparRespostas, telefoneE164, triagemDoCargo, validarRespostas } from '../src/lib/triagemVaga.js'
 // Edge Function pública: FORMULÁRIO DA VAGA (/vaga/:cargo), primeira etapa da Contratação.
 // Sem login. A regra (perguntas, pontos, cortes) mora em src/lib/triagemVaga.js; aqui só
@@ -36,12 +36,12 @@ async function candidatoPorContato(cargo, email, telefone) {
 
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return preflight()
-  if (!process.env.SUPABASE_URL) return json({ error: 'Servidor não configurado.' }, 500)
+  if (!process.env.SUPABASE_URL) return json({ error: msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }) }, 500)
 
   if (req.method === 'GET') {
     const q = new URL(req.url).searchParams
     const triagem = triagemDoCargo(q.get('cargo'))
-    if (!triagem) return json({ error: 'Esta vaga não existe ou já foi encerrada.' }, 404)
+    if (!triagem) return json({ error: msg(req, { pt: 'Esta vaga não existe ou já foi encerrada.', en: 'This job opening does not exist or is closed.' }) }, 404)
     const cand = await candidatoPorRef(triagem.cargo, q.get('ref'))
     return json({
       vaga: triagem.vaga,
@@ -52,19 +52,19 @@ export default async function handler(req) {
 
   if (req.method === 'POST') {
     let body
-    try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
+    try { body = await req.json() } catch { return json({ error: msg(req, { pt: 'JSON inválido.', en: 'Invalid JSON.' }) }, 400) }
     const triagem = triagemDoCargo(body?.cargo)
-    if (!triagem) return json({ error: 'Esta vaga não existe ou já foi encerrada.' }, 404)
+    if (!triagem) return json({ error: msg(req, { pt: 'Esta vaga não existe ou já foi encerrada.', en: 'This job opening does not exist or is closed.' }) }, 404)
     // Campo escondido: robô preenche, gente não vê. Finge que deu certo.
     if (body?.site) return json({ success: true }, 200)
 
     const r = limparRespostas(triagem, body?.respostas)
     const erros = validarRespostas(triagem, r)
-    if (Object.keys(erros).length) return json({ error: 'Faltam respostas no formulário.', erros }, 400)
+    if (Object.keys(erros).length) return json({ error: msg(req, { pt: 'Faltam respostas no formulário.', en: 'Some answers are missing from the form.' }), erros }, 400)
 
     const desde = new Date(Date.now() - 3600 * 1000).toISOString()
     const { data: recentes } = await sb(`/contratacao_candidatos?cargo=eq.${encodeURIComponent(triagem.cargo)}&triagem->>respondido_em=gte.${encodeURIComponent(desde)}&select=id`)
-    if (Array.isArray(recentes) && recentes.length >= 40) return json({ error: 'Muitas respostas em pouco tempo. Tente de novo daqui a pouco.' }, 429)
+    if (Array.isArray(recentes) && recentes.length >= 40) return json({ error: msg(req, { pt: 'Muitas respostas em pouco tempo. Tente de novo daqui a pouco.', en: 'Too many submissions in a short time. Please try again shortly.' }) }, 429)
 
     const res = calcularTriagem(triagem, r)
     const agora = new Date().toISOString()
@@ -94,7 +94,7 @@ export default async function handler(req) {
       // Respondeu de novo: guarda a anterior junto.
       if (cand.triagem?.respondido_em) patch.triagem = { ...dados, anteriores: [...(cand.triagem.anteriores || []), { ...cand.triagem, anteriores: undefined }].slice(-5) }
       const { ok } = await sb(`/contratacao_candidatos?id=eq.${cand.id}`, { method: 'PATCH', body: JSON.stringify(patch), prefer: 'return=minimal' })
-      if (!ok) return json({ error: 'Não consegui registrar agora. Tente de novo.' }, 500)
+      if (!ok) return json({ error: msg(req, { pt: 'Não consegui registrar agora. Tente de novo.', en: 'Couldn\'t submit right now. Please try again.' }) }, 500)
       return json({ success: true }, 200)
     }
 
@@ -114,9 +114,9 @@ export default async function handler(req) {
         created_by: null,
       }),
     })
-    if (!ok) return json({ error: 'Não consegui registrar agora. Tente de novo.' }, 500)
+    if (!ok) return json({ error: msg(req, { pt: 'Não consegui registrar agora. Tente de novo.', en: 'Couldn\'t submit right now. Please try again.' }) }, 500)
     return json({ success: true }, 200)
   }
 
-  return json({ error: 'Método não permitido.' }, 405)
+  return json({ error: msg(req, { pt: 'Método não permitido.', en: 'Method not allowed.' }) }, 405)
 }

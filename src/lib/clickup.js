@@ -2,6 +2,7 @@
 // Faz a chamada de forma fail-soft: o cadastro do cliente nunca é
 // bloqueado por falha do ClickUp.
 import { apiFetch } from './api'
+import { t } from '../i18n'
 
 /**
  * Cria pasta + lista de onboarding no ClickUp para o cliente recém-criado.
@@ -35,7 +36,7 @@ export async function createClickUpClientFolder({ companyName, startDateISO, ass
       tasksFound:   data.tasksFound,
     }
   } catch (e) {
-    return { ok: false, error: e?.message || 'Erro inesperado.' }
+    return { ok: false, error: e?.message || t('comum.erroInesperado') }
   }
 }
 
@@ -48,6 +49,6 @@ export async function listClickUpMembers() {
     const data = await apiFetch('/api/clickup', { body: { action: 'list_workspace_members' } })
     return { ok: true, members: data.members || [] }
   } catch (e) {
-    return { ok: false, error: e?.message || 'Erro inesperado.', members: [] }
+    return { ok: false, error: e?.message || t('comum.erroInesperado'), members: [] }
   }
 }

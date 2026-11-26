@@ -46,6 +46,26 @@ ANTHROPIC_API_KEY=sk-ant-...    # lida apenas pelo servidor (api/anthropic.js)
 - `SUPABASE_URL` e `SUPABASE_ANON_KEY` são expostas ao browser via `define` no `vite.config.js`
 - `SUPABASE_SERVICE_ROLE_KEY` e `ANTHROPIC_API_KEY` ficam exclusivamente no servidor — nunca usar prefixo `VITE_`
 
+## Regra: todo texto de tela nasce em português e inglês
+
+Vale para tela, componente, toast, modal, PDF, mensagem de erro e função `/api` novos, **e para todo texto
+que você mexer numa tela já existente**: não deixe português cravado no JSX. Como fazer está em "Idioma (i18n)",
+mais abaixo; o resumo:
+
+- Texto vai no dicionário `src/i18n/locales/pt/<namespace>.js` **e** em `locales/en/<namespace>.js`, na mesma
+  mudança. Na tela, `const { t, locale } = useI18n()` e `t('<namespace>.<chave>')`. Tela nova = namespace novo.
+  No viewer do Dashboard de Tráfego o mecanismo é outro (`tt()` + `public/dash-teste/vendor/i18n/`, ver "Idioma").
+  No viewer do Dashboard de Tráfego é outro mecanismo (`tt()` + `public/dash-teste/vendor/i18n/`, ver "Idioma").
+- Data, número e moeda pelo `locale` do hook ou por `fmtCurrency`/`fmtNum`/`fmtDate`, nunca `'pt-BR'` cravado.
+- Valor gravado no banco, comparado ou enviado ao ClickUp **não se traduz**: guarde o valor em português e
+  traduza só o rótulo (`rotulo*` de `src/lib/constants.js` e de `src/lib/tarefas.js`).
+- Função `/api` nova: mensagem para a pessoa com `msg(req, { pt, en })` de `api/_http.js`. Rota pública nova vai
+  dentro de `<PaginaPublica>` em `publicRoutes.jsx`. Saída de IA: `instrucaoDeIdioma()` só se nada lê rótulos dela por regex.
+- Antes de terminar: `node scripts/i18n_inventario.mjs <arquivos alterados>` deve voltar 0 (ou só falsos positivos), e
+  a tela tem que ser conferida nos dois idiomas (PT | EN no menu do avatar). Arquivo novo entra em `docs/i18n-checklist.md`.
+- Exceções: o Chat (vai ser removido) e o que ainda está pendente no checklist (onda 7).
+  Se mexer num desses, traduza o trecho que tocou.
+
 ## Arquitetura
 
 ### Roteamento — `src/routes/`
@@ -843,7 +863,14 @@ textos em português restam por arquivo; ao traduzir um arquivo, marque no check
   traduz também os rótulos (telas que só exibem o texto). Ligado no Roteiros Express (com rótulos) e nos
   wireframes de LP.
 - Código que vai para o viewer do Dashboard (`public/dash-teste/vendor/`) não importa `src/i18n`: lê
-  `localStorage.rl_lang` (ex.: `src/lib/playbookTextos.js`). O `site-plataforma/index.html` tem mini-i18n próprio.
+  `localStorage.rl_lang` (ex.: `src/lib/playbookTextos.js`, `dashboardData.js`, `dashCache.js`). O
+  `site-plataforma/index.html` tem mini-i18n próprio.
+- **Viewer do Dashboard de Tráfego** (`public/dash-teste/viewer.html`, `anuncio.html`): mini-i18n
+  `vendor/viewerI18n.js`, dicionários `vendor/i18n/<ns>.js` (`export default { pt, en }`, um por trecho do viewer:
+  `v1`…`v4`, `anuncio`). No viewer a função é `tt('v2.chave')` (`t`, `tr` e `tx` são variáveis locais lá),
+  `localeAtual()`/`idiomaAtual()` para formatar; HTML fixo com `data-i18n`. A troca no app chega pelo evento
+  `storage` → `idioma-mudou` → redesenha. Todo `fetch` a `/api/*` do viewer leva `X-Idioma` sozinho (embrulho no
+  topo do módulo). Texto novo no viewer entra no dicionário do trecho onde está.
 - Páginas públicas (sem login): `?lang=en|pt` no link (fica salvo) → escolha salva no navegador → idioma do navegador →
   português, por `aplicarIdiomaPublico()` chamado em `<PaginaPublica>` (`src/components/Publico/`), que envolve toda rota
   de `publicRoutes.jsx` (menos login e reset) e põe o seletor PT | EN (`SeletorIdioma`); `canto="topo"` onde o rodapé é

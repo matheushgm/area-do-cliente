@@ -1,4 +1,4 @@
-import { getUser, jsonErr } from './_http.js'
+import { getUser, jsonErr, msg } from './_http.js'
 // Edge function: mídia paga (Meta) do Dashboard Comercial, ferramenta interna em
 // public/ferramentas/dashboard-comercial/. Porta do api/meta.js do repo
 // eduardomouras/dashboard-comercial-verta, com login obrigatório (lá o endpoint era
@@ -31,16 +31,16 @@ const erro = (status, error, extra = {}) => new Response(JSON.stringify({ ok: fa
 })
 
 export default async function handler(req) {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) return jsonErr('Servidor não configurado.', 500)
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) return jsonErr(msg(req, { pt: 'Servidor não configurado.', en: 'Server not configured.' }), 500)
   const token = process.env.META_TOKEN || process.env.META_ACCESS_TOKEN
-  if (!token) return erro(500, 'META_TOKEN não configurado no servidor.')
+  if (!token) return erro(500, msg(req, { pt: 'META_TOKEN não configurado no servidor.', en: 'META_TOKEN is not configured on the server.' }))
 
   const auth = await getUser(req)
-  if (!auth.ok) return erro(401, auth.message + ' Entre na Área do Cliente e recarregue.')
+  if (!auth.ok) return erro(401, auth.message + msg(req, { pt: ' Entre na Área do Cliente e recarregue.', en: ' Sign in to the Client Area and reload.' }))
 
   const q = new URL(req.url).searchParams
   const since = q.get('since'), until = q.get('until')
-  if (!isDate(since) || !isDate(until)) return erro(400, 'Parâmetros since/until devem ser YYYY-MM-DD.')
+  if (!isDate(since) || !isDate(until)) return erro(400, msg(req, { pt: 'Parâmetros since/until devem ser YYYY-MM-DD.', en: 'since/until must be YYYY-MM-DD.' }))
 
   const base = `${API}/${ACCOUNT}/insights`
     + `?level=campaign&limit=200`
@@ -59,13 +59,13 @@ export default async function handler(req) {
         const e = j.error
         const expirado = e.code === 190
         return erro(expirado ? 401 : 502, expirado
-          ? 'Token do Meta expirou ou foi revogado. Atualize META_TOKEN na Vercel.'
-          : ('Meta: ' + (e.message || 'erro desconhecido')), { code: e.code || null })
+          ? msg(req, { pt: 'Token do Meta expirou ou foi revogado. Atualize META_TOKEN na Vercel.', en: 'The Meta token expired or was revoked. Update META_TOKEN in Vercel.' })
+          : ('Meta: ' + (e.message || msg(req, { pt: 'erro desconhecido', en: 'unknown error' }))), { code: e.code || null })
       }
       for (const c of j.data || []) {
         campaigns.push({
           id: c.campaign_id,
-          name: c.campaign_name || '(sem nome)',
+          name: c.campaign_name || msg(req, { pt: '(sem nome)', en: '(no name)' }),
           spend: parseFloat(c.spend) || 0,
           leads: sumBy(c.actions, isLead),
           mqls: sumBy(c.conversions, isMql),
@@ -75,6 +75,6 @@ export default async function handler(req) {
     }
     return ok({ ok: true, account: ACCOUNT_NAME, since, until, fetchedAt: new Date().toISOString(), campaigns })
   } catch (err) {
-    return erro(502, 'Falha ao contatar o Meta: ' + (err.message || err))
+    return erro(502, msg(req, { pt: 'Falha ao contatar o Meta: ', en: 'Could not reach Meta: ' }) + (err.message || err))
   }
 }

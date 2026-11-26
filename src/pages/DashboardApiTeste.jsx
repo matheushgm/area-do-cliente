@@ -1,5 +1,6 @@
 import { useLocation, useOutletContext } from 'react-router-dom'
 import { Menu } from 'lucide-react'
+import { useI18n } from '../i18n'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Dashboard de Tráfego — alimentado pelas APIs de Meta + Google. A tela em si
@@ -10,6 +11,7 @@ import { Menu } from 'lucide-react'
 export default function DashboardApiTeste() {
   const { openSidebar } = useOutletContext()
   const { search } = useLocation()
+  const { t } = useI18n()
 
   // `?cliente=&canal=` abre o viewer já na conta certa — é o que o botão de
   // compartilhar de ProjectTrafficDashboard monta. Antes a query morria no
@@ -23,18 +25,18 @@ export default function DashboardApiTeste() {
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
           <button
             onClick={openSidebar}
-            aria-label="Abrir menu de navegação"
+            aria-label={t('dados.abrirMenu')}
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-bold text-rl-text text-sm">Dashboard</span>
+          <span className="font-bold text-rl-text text-sm">{t('dados.dashboard')}</span>
         </div>
 
         {/* Viewer embutido */}
         <iframe
           src={viewerSrc}
-          title="Dashboard de Tráfego"
+          title={t('dados.tituloViewer')}
           style={{ flex: 1, width: '100%', border: 0, minHeight: 'calc(100vh - 42px)' }}
         />
       </div>
