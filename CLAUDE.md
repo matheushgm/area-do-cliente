@@ -624,7 +624,10 @@ linhas de cada conta), que importa a cópia `public/dash-teste/vendor/dashCache.
   temporário a cada página (2,8 s e 6,8 MB por página de 5 dias de Meta). A 146 põe o gatilho
   `trg_dash_insights_pula_igual` (UPDATE com `data`, `day` e `account` iguais não grava nada) e o índice
   `(channel, day, row_key)`, e as fatias pedem `order=day.asc,row_key.asc`. **Leitura fatiada por dia ordena por
-  `day,row_key`**, senão volta a ordenar em disco. OFFSET no snapshot `meta_status` (7,7 mil linhas) custa 13 ms,
+  `day,row_key`**, senão volta a ordenar em disco. **Leitura por conta ordena por `account,day,row_key`**
+  (snapshot: `account,row_key`): o Postgres 17 lê `account=in.(...)` já na ordem do índice `(channel, account, day)`
+  e só ordena o `row_key` de cada dia em memória (26/11/2026, 3 contas e 62 dias de Meta: 2 s e 12 MB em disco
+  por página com `row_key` sozinho, 16 ms assim). OFFSET no snapshot `meta_status` (7,7 mil linhas) custa 13 ms,
   tudo do cache: não é gargalo, e ler por cursor deixava a tela 3x mais lenta (páginas em série).
   Medido na rodada de 26/11 15:17 UTC (contando as linhas pelo `xmin`): Meta caiu de 5.421 linhas regravadas para 423
   e Google de 447 para 48. O `google_keywords` regravava as 96 mil linhas inteiras 3 vezes por dia (às 6, 12 e 18 h)

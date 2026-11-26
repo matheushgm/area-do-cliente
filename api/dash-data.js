@@ -105,12 +105,17 @@ export default async function handler(req) {
   // `ondas` = páginas ao mesmo tempo: as fatias já rodam 8 em paralelo, então
   // cada uma lê de 2 em 2 para não abrir 64 conexões de uma vez.
   //
-  // `porDia`: as fatias pedem day + row_key, que o índice (channel, day, row_key) da
-  // migration 146 devolve já na ordem. Só com row_key o Postgres lia a fatia inteira e
-  // ordenava o jsonb em arquivo temporário (work_mem de 2 MB) a CADA página: medido em
-  // 26/11/2026, 5 dias de Meta = 2,8 s por página, 6,8 MB em disco.
-  const readAll = async (qs, label, ondas = 8, porDia = false) => {
-    const order = porDia ? 'day.asc,row_key.asc' : 'row_key.asc'
+  // `order` precisa sair pronto de um índice, senão o Postgres lê o recorte inteiro e
+  // ordena o jsonb em arquivo temporário a CADA página (work_mem de ~3,5 MB):
+  // - fatias por dia: day + row_key, índice (channel, day, row_key) da migration 146
+  //   (medido em 26/11/2026: 5 dias de Meta = 2,8 s por página, 6,8 MB em disco);
+  // - por conta: account + day + row_key, índice (channel, account, day). O Postgres 17
+  //   lê `account=in.(...)` já na ordem do índice e só ordena o row_key dentro de cada
+  //   dia, em memória. Com row_key sozinho, 3 contas e 62 dias de Meta: 2 s e 12 MB em
+  //   disco por página; assim, 16 ms (medido em 26/11/2026);
+  // - snapshot por conta: account + row_key, índice (channel, account, row_key);
+  // - snapshot sem conta: row_key, a chave primária (channel, row_key).
+  const readAll = async (qs, label, ondas = 8, order = 'row_key.asc') => {
     const rows = await lerPaginado(`${base}${qs}&select=data&order=${order}`, headers,
       { ondas, max: MAX_ROWS, rotulo: label })
     return rows.map(row => row.data)
@@ -132,7 +137,10 @@ export default async function handler(req) {
     // casos vale ler direto, sem fatiar.
     const snapshot = channel === 'meta_status' || channel === 'saldo' || channel === 'google_keywords'
     if (snapshot || account) {
-      rows = await readAll(snapshot ? '' : janela, channel)
+      const order = !account ? 'row_key.asc'
+        : snapshot ? 'account.asc,row_key.asc'
+          : 'account.asc,day.asc,row_key.asc'
+      rows = await readAll(snapshot ? '' : janela, channel, 8, order)
     } else {
       const [minDia, maxDia] = await Promise.all([edgeDay('asc'), edgeDay('desc')])
       // Começa no mais recente entre o início da janela pedida e o primeiro dia
@@ -154,7 +162,7 @@ export default async function handler(req) {
         rows = []
         for (let i = 0; i < fatias.length; i += CONCURRENCY) {
           const lote = fatias.slice(i, i + CONCURRENCY)
-          const res = await Promise.all(lote.map((qs, j) => readAll(qs, `${channel} fatia ${i + j}`, 2, true)))
+          const res = await Promise.all(lote.map((qs, j) => readAll(qs, `${channel} fatia ${i + j}`, 2, 'day.asc,row_key.asc')))
           for (const parte of res) for (const row of parte) rows.push(row)
           if (rows.length > MAX_ROWS) break
         }
