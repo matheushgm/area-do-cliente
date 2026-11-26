@@ -1,6 +1,7 @@
 // Portal do cliente / parceiro (/portal/:projectId) — helpers do front.
 // A lista de módulos e permissões é compartilhada com api/portal.js.
 import { apiFetch } from './api'
+import { idiomaAtual } from '../i18n'
 
 export { PORTAL_MODULES, PERMISSION_LEVELS, PERMISSION_LABELS, moduleLevels, centralNivel } from './portalModules.js'
 
@@ -43,6 +44,7 @@ async function portalFetch(path, { body, token } = {}) {
   const res = await fetch(path, {
     method: body !== undefined ? 'POST' : 'GET',
     headers: {
+      'X-Idioma': idiomaAtual(),
       ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },

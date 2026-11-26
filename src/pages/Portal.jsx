@@ -19,6 +19,15 @@ import PortalCentral from '../components/Portal/PortalCentral'
 import PortalSolicitacoes from '../components/Portal/PortalSolicitacoes'
 import PortalInicio from '../components/Portal/PortalInicio'
 import { usePortalCentral, usePortalPedidos } from '../hooks/usePortalDados'
+import { useI18n } from '../i18n'
+
+// Nome do módulo na tela: o `label` de portalModules.js fica em pt (a API importa).
+// Módulo sem chave no dicionário mostra o `label` do arquivo.
+const rotuloModulo = (t, m) => {
+  const chave = `compartilhamento.modulos.${m.id}`
+  const v = t(chave)
+  return v === chave ? m.label : v
+}
 
 const ICONS = {
   inicio: Home, dashboard: LineChart, solicitacoes: ListTodo,
@@ -44,14 +53,15 @@ const SUBTITULOS = {
 }
 
 function Shell({ children }) {
+  const { t } = useI18n()
   return (
     <div className="fx min-h-screen bg-gradient-dark flex items-center justify-center px-4 relative overflow-hidden">
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-rl-purple/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-rl-blue/10 rounded-full blur-3xl pointer-events-none" />
       <div className="relative z-10 w-full max-w-md animate-slide-up">
         <div className="text-center mb-8">
-          <img src="/verta/logo-vertical.png" alt="Verta, aceleradora de receitas" className="h-24 w-auto mx-auto mb-3 object-contain" />
-          <p className="text-rl-muted text-sm">Portal do cliente</p>
+          <img src="/verta/logo-vertical.png" alt={t('portal.logoAlt')} className="h-24 w-auto mx-auto mb-3 object-contain" />
+          <p className="text-rl-muted text-sm">{t('portal.subtitulo')}</p>
         </div>
         <div className="glass-card p-8">{children}</div>
       </div>
@@ -60,6 +70,7 @@ function Shell({ children }) {
 }
 
 function LoginScreen({ projectId, onLogged }) {
+  const { t } = useI18n()
   const [password, setPassword] = useState('')
   const [show, setShow]         = useState(false)
   const [loading, setLoading]   = useState(false)
@@ -75,9 +86,9 @@ function LoginScreen({ projectId, onLogged }) {
       onLogged(res.token)
     } catch (err) {
       setError(err.status === 429
-        ? 'Muitas tentativas. Aguarde alguns minutos e tente de novo.'
-        : err.status === 404 ? 'Este portal não está disponível.'
-        : 'Senha incorreta.')
+        ? t('portal.erroMuitasTentativas')
+        : err.status === 404 ? t('portal.erroIndisponivel')
+        : t('portal.erroSenha'))
     } finally {
       setLoading(false)
     }
@@ -90,13 +101,13 @@ function LoginScreen({ projectId, onLogged }) {
           <Lock className="w-5 h-5 text-rl-purple" />
         </div>
         <div>
-          <h1 className="text-lg font-semibold text-rl-text">Acesso restrito</h1>
-          <p className="text-xs text-rl-muted">Digite a senha que você recebeu para entrar.</p>
+          <h1 className="text-lg font-semibold text-rl-text">{t('portal.acessoRestrito')}</h1>
+          <p className="text-xs text-rl-muted">{t('portal.digiteSenha')}</p>
         </div>
       </div>
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="label-field">Senha</label>
+          <label className="label-field">{t('portal.senha')}</label>
           <div className="relative">
             <input
               type={show ? 'text' : 'password'}
@@ -106,7 +117,7 @@ function LoginScreen({ projectId, onLogged }) {
               autoFocus
               autoComplete="current-password"
             />
-            <button type="button" onClick={() => setShow((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-rl-muted hover:text-rl-text" aria-label={show ? 'Ocultar senha' : 'Mostrar senha'}>
+            <button type="button" onClick={() => setShow((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-rl-muted hover:text-rl-text" aria-label={show ? t('portal.ocultarSenha') : t('portal.mostrarSenha')}>
               {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
@@ -115,7 +126,7 @@ function LoginScreen({ projectId, onLogged }) {
           <p className="flex items-center gap-2 text-sm text-red-400"><AlertTriangle className="w-4 h-4 shrink-0" />{error}</p>
         )}
         <button type="submit" disabled={loading || !password} className="btn-primary w-full flex items-center justify-center gap-2">
-          {loading && <Loader2 className="w-4 h-4 animate-spin" />} Entrar
+          {loading && <Loader2 className="w-4 h-4 animate-spin" />} {t('portal.entrar')}
         </button>
       </form>
     </Shell>
@@ -123,6 +134,7 @@ function LoginScreen({ projectId, onLogged }) {
 }
 
 function NavItem({ m, active, onPick, badge }) {
+  const { t } = useI18n()
   const Icon = ICONS[m.id] || ClipboardList
   const isActive = m.id === active
   return (
@@ -134,7 +146,7 @@ function NavItem({ m, active, onPick, badge }) {
       }`}
     >
       <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-rl-cyan'}`} />
-      <span className="truncate flex-1 text-left">{m.label}</span>
+      <span className="truncate flex-1 text-left">{rotuloModulo(t, m)}</span>
       {badge > 0 && <span className={`text-[11px] font-bold tabular-nums px-1.5 min-w-[20px] h-5 rounded-full inline-flex items-center justify-center ${isActive ? 'bg-white/25 text-white' : 'bg-amber-500 text-white'}`}>{badge}</span>}
     </button>
   )
@@ -158,6 +170,7 @@ function NavList({ modules, active, onPick, badges = {} }) {
 
 export default function Portal() {
   const { projectId } = useParams()
+  const { t } = useI18n()
   const [token, setToken]     = useState(() => getPortalSession(projectId))
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(!!token)
@@ -206,8 +219,8 @@ export default function Portal() {
   useEffect(() => { window.scrollTo({ top: 0 }) }, [active])
 
   useEffect(() => {
-    document.title = data?.company ? `${data.company} · Portal` : 'Portal do cliente'
-  }, [data])
+    document.title = data?.company ? t('portal.tituloAbaEmpresa', { empresa: data.company }) : t('portal.tituloAba')
+  }, [data, t])
 
   function logout() {
     setPortalSession(projectId, null)
@@ -220,7 +233,7 @@ export default function Portal() {
     return (
       <Shell>
         <div className="flex items-center justify-center gap-2 text-sm text-rl-muted py-6">
-          <Loader2 className="w-4 h-4 animate-spin" /> Carregando…
+          <Loader2 className="w-4 h-4 animate-spin" /> {t('portal.carregando')}
         </div>
       </Shell>
     )
@@ -229,8 +242,8 @@ export default function Portal() {
   if (error || !data) {
     return (
       <Shell>
-        <p className="flex items-center gap-2 text-sm text-red-400"><AlertTriangle className="w-4 h-4 shrink-0" />{error || 'Não foi possível carregar.'}</p>
-        <button onClick={logout} className="btn-secondary w-full mt-4 text-sm">Voltar</button>
+        <p className="flex items-center gap-2 text-sm text-red-400"><AlertTriangle className="w-4 h-4 shrink-0" />{error || t('portal.erroCarregar')}</p>
+        <button onClick={logout} className="btn-secondary w-full mt-4 text-sm">{t('portal.voltar')}</button>
       </Shell>
     )
   }
@@ -241,15 +254,15 @@ export default function Portal() {
     <div className="fx min-h-screen bg-rl-bg text-rl-text">
       <header className="sticky top-0 z-40 bg-rl-card/90 backdrop-blur border-b border-rl-border">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-3">
-          <button onClick={() => setMenuOpen(true)} className="lg:hidden p-2 -ml-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface" aria-label="Abrir menu">
+          <button onClick={() => setMenuOpen(true)} className="lg:hidden p-2 -ml-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface" aria-label={t('portal.abrirMenu')}>
             <Menu className="w-5 h-5" />
           </button>
           <img src="/verta/logo-azul.png" alt="Verta" className="h-7 w-auto object-contain" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-rl-text truncate">{data.company}</p>
-            <p className="text-[11px] text-rl-muted truncate">Portal · {data.label}</p>
+            <p className="text-[11px] text-rl-muted truncate">{t('portal.portalDe', { rotulo: data.label })}</p>
           </div>
-          <button onClick={logout} className="p-2 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10" title="Sair">
+          <button onClick={logout} className="p-2 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10" title={t('portal.sair')}>
             <LogOut className="w-4 h-4" />
           </button>
         </div>
@@ -265,8 +278,8 @@ export default function Portal() {
             <div className="absolute inset-0 bg-black/60" onClick={() => setMenuOpen(false)} />
             <aside className="relative z-10 flex flex-col w-72 max-w-[85vw] h-full bg-rl-card border-r border-rl-border overflow-y-auto animate-slide-up">
               <div className="flex items-center justify-between px-4 py-3 border-b border-rl-border">
-                <span className="text-sm font-semibold text-rl-text">Módulos</span>
-                <button onClick={() => setMenuOpen(false)} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface" aria-label="Fechar menu"><X className="w-4 h-4" /></button>
+                <span className="text-sm font-semibold text-rl-text">{t('portal.modulos')}</span>
+                <button onClick={() => setMenuOpen(false)} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface" aria-label={t('portal.fecharMenu')}><X className="w-4 h-4" /></button>
               </div>
               <div className="p-2"><NavList modules={modules} active={active} onPick={(id) => { setActive(id); setMenuOpen(false) }} badges={badges} /></div>
             </aside>
@@ -275,12 +288,12 @@ export default function Portal() {
 
         <main className="flex-1 min-w-0">
           {!current ? (
-            <div className="glass-card p-8 text-center text-sm text-rl-muted">Nenhum módulo liberado para esta chave.</div>
+            <div className="glass-card p-8 text-center text-sm text-rl-muted">{t('portal.nenhumModulo')}</div>
           ) : ['inicio', 'dashboard', 'debriefing', 'solicitacoes'].includes(current.id) ? (
             <div className="space-y-4">
               {current.id !== 'inicio' && (
                 <div className="px-1">
-                  <h2 className="text-lg font-bold text-rl-text">{current.label}</h2>
+                  <h2 className="text-lg font-bold text-rl-text">{rotuloModulo(t, current)}</h2>
                   {SUBTITULOS[current.id] && <p className="text-sm text-rl-muted">{SUBTITULOS[current.id]}</p>}
                 </div>
               )}
@@ -299,7 +312,7 @@ export default function Portal() {
               {current.id === 'solicitacoes' && <PortalSolicitacoes projectId={projectId} token={token} pedidosEstado={pedidos} />}
             </div>
           ) : (
-            <PortalModule key={current.id} moduleId={current.id} label={current.label} data={data.modules?.[current.id]} project={data.project} projectId={projectId} token={token} level={data.permissions?.[current.id]} />
+            <PortalModule key={current.id} moduleId={current.id} label={rotuloModulo(t, current)} data={data.modules?.[current.id]} project={data.project} projectId={projectId} token={token} level={data.permissions?.[current.id]} />
           )}
         </main>
       </div>

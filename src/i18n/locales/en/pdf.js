@@ -53,4 +53,9 @@ export default {
     secao: 'Products & Services',
     cliente: 'Client',
   },
+  doc: {
+    geradoEm: 'Generated on {data}',
+    salvarPdf: '🖨️ Save as PDF',
+    permitaPopups: 'Allow pop-ups to export the PDF.',
+  },
 }

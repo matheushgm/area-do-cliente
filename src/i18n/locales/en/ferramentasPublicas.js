@@ -1,0 +1,75 @@
+export default {
+  salvando: 'Saving...',
+  salvo: 'Saved',
+  erroSalvar: 'Error saving',
+  carregando: 'Loading...',
+  linkInvalido: 'Invalid link',
+  linkExpirado: 'Invalid or expired link.',
+  erroCarregar: 'Error loading.',
+  erroCarregarForm: 'We couldn’t load the form. Please try again.',
+  comoFunciona: 'How it works',
+  comoPreencher: 'How to fill it in',
+  salvoAuto: 'Your data is saved automatically as you fill it in.',
+  copyright: 'Revenue Lab © {ano}',
+  baixarRespostas: 'Download my answers (PDF)',
+  continuarEditando: 'Keep editing',
+  tudoPronto: 'All set?',
+  enviarRevenueLab: 'Send to Revenue Lab',
+  baixarCopia: 'Download PDF copy',
+  preenchidosAntes: 'You filled in ',
+  preenchidos: '{feitos} of {total} steps',
+
+  oferta: {
+    eyebrow: 'Killer Offer Builder',
+    enviado: 'Offer sent successfully! 🎉',
+    enviadoTexto: 'The Revenue Lab team will review what you built and turn it into the final versions of your offer. You can download a PDF copy of your answers.',
+    video: 'Watch before you start: how to build your Killer Offer',
+    instrucao: 'This is the step-by-step to build your business’s irresistible offer ($100M Offers method). Move one step at a time — each screen has examples to guide you. Your answers are saved automatically; you can stop and come back later through the same link.',
+    finalDepois: '. Review anything you want in the trail above and, when you’re ready, send it to Revenue Lab — our team will polish it and produce the final versions of your offer.',
+  },
+
+  mecanismo: {
+    eyebrow: 'Unique Mechanism Builder',
+    enviado: 'Mechanism sent successfully! 🎉',
+    enviadoTexto: 'The Revenue Lab team will review what you built and polish the final pitch. You can download a PDF copy of your answers.',
+    video: 'Watch before you start: how to build your Unique Mechanism',
+    instrucao: 'This is the step-by-step to uncover the “why THIS will work for me” that sets you apart from every competitor. Move one step at a time; each screen has examples to guide you. Your answers are saved automatically: you can stop and come back later through the same link.',
+    finalDepois: '. Review anything you want in the trail above and, when you’re ready, send it to Revenue Lab: our team will polish it and produce the final version.',
+  },
+
+  matriz: {
+    eyebrow: 'Objection matrix',
+    instrucao: 'List the main objections that come up in your sales. For each one, describe how to anticipate it, the likely cause and the best answer. Your data is saved automatically.',
+    removerLinha: 'Remove row',
+    adicionar: 'Add objection',
+    colunas: {
+      tipo: { label: 'Objection', placeholder: 'E.g. "It’s too expensive"' },
+      antecipar: { label: 'How to anticipate it', placeholder: 'E.g. show the ROI before the price' },
+      causa: { label: 'Likely cause', placeholder: 'E.g. didn’t see the value' },
+      resposta: { label: 'Answer to the objection', placeholder: 'E.g. "What does NOT solving it cost you?"' },
+    },
+  },
+
+  precificacao: {
+    eyebrow: 'Pricing',
+    instrucao: 'Add each product or service with its costs, taxes and the profit margin you actually want to earn. The tool calculates the ideal selling price instantly. Your data is saved automatically as you fill it in.',
+    abas: { servicos: 'Services', produtos: 'Products', saas: 'SaaS' },
+    contagem: {
+      servicos: { one: '{count} service priced', other: '{count} services priced' },
+      produtos: { one: '{count} product priced', other: '{count} products priced' },
+      saas: { one: '{count} SaaS priced', other: '{count} SaaS priced' },
+    },
+    novo: { servicos: 'New service', produtos: 'New product', saas: 'New SaaS' },
+    vazio: { servicos: 'No services priced yet.', produtos: 'No products priced yet.', saas: 'No SaaS priced yet.' },
+    vazioTexto: 'Add the first item to see the recommended selling price considering costs, taxes and the desired margin.',
+    vazioTextoSaas: 'Add the first plan to calculate the monthly fee, setup and LTV considering costs, taxes and the desired margin.',
+    primeiro: { servicos: 'Add first service', produtos: 'Add first product', saas: 'Add first SaaS' },
+  },
+
+  webinar: {
+    eyebrow: 'Webinar builder',
+    instrucaoAntes: 'Click ',
+    instrucaoBotao: '“New webinar”',
+    instrucaoDepois: ' to start from scratch. Then fill in the steps in order: Opening, Story, Content and Booking Offer. You don’t have to finish in one go; you can come back to this link whenever you like. Everything is saved automatically and shows up in your account with us.',
+  },
+}

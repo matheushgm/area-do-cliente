@@ -87,11 +87,12 @@ export function localeAtual() {
   return IDIOMAS.find((i) => i.id === atual)?.locale || 'pt-BR'
 }
 
-export function definirIdioma(id) {
+// `salvar: false` troca só nesta visita (idioma deduzido do navegador, sem a pessoa escolher).
+export function definirIdioma(id, { salvar = true } = {}) {
   const novo = valido(id) || PADRAO
   if (novo === atual) return
   atual = novo
-  try { localStorage.setItem(STORAGE_KEY, novo) } catch { /* noop */ }
+  if (salvar) { try { localStorage.setItem(STORAGE_KEY, novo) } catch { /* noop */ } }
   aplicarNoDocumento(novo)
   window.dispatchEvent(new Event(EVENTO))
   avisar()
@@ -142,4 +143,18 @@ export function useI18n() {
   const tt = useCallback((chave, vars) => traduzir(lang, chave, vars), [lang])
   const locale = IDIOMAS.find((i) => i.id === lang)?.locale || 'pt-BR'
   return { lang, locale, t: tt, setLang: definirIdioma }
+}
+
+// Páginas públicas (sem login, links enviados ao cliente): `?lang=en|pt` no link vence e fica salvo;
+// sem ele vale a escolha salva neste navegador; sem escolha, o idioma do navegador (só nesta visita);
+// senão português. Chamado uma vez ao montar a página, antes do primeiro desenho.
+export function aplicarIdiomaPublico(search = typeof window !== 'undefined' ? window.location.search : '') {
+  const daUrl = valido(new URLSearchParams(search).get('lang'))
+  if (daUrl) return definirIdioma(daUrl)
+  if (lerSalvo()) return
+  const nav = typeof navigator !== 'undefined' ? (navigator.languages || [navigator.language]) : []
+  for (const l of nav) {
+    const id = valido(String(l || '').slice(0, 2).toLowerCase())
+    if (id) return definirIdioma(id, { salvar: false })
+  }
 }

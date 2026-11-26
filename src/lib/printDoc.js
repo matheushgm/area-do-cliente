@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { escapeHtml } from './utils'
+import { t, localeAtual } from '../i18n'
 
 export const PRINT_BASE_CSS = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -36,7 +37,7 @@ export const PAGE_CSS = `
 `
 
 export function todayLong() {
-  return new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  return new Date().toLocaleDateString(localeAtual(), { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
 // Cabeçalho padrão: marca · título · subtítulo · "Gerado em".
@@ -48,7 +49,7 @@ export function docHeader({ logo = 'Revenue Lab', title, subtitle = '', date = t
       <div class="doc-title">${escapeHtml(title)}</div>
       ${subtitle ? `<div class="doc-subtitle">${escapeHtml(subtitle)}</div>` : ''}
     </div>
-    <div class="doc-date">Gerado em ${escapeHtml(date)}</div>
+    <div class="doc-date">${escapeHtml(t('pdf.doc.geradoEm', { data: date }))}</div>
   </div>`
 }
 
@@ -62,7 +63,7 @@ export function markdownToHtml(md) {
 
 export function openPrintWindow(html, { width = 1000, height = 800 } = {}) {
   const win = window.open('', '_blank', `width=${width},height=${height}`)
-  if (!win) { alert('Permita pop-ups para exportar o PDF.'); return false }
+  if (!win) { alert(t('pdf.doc.permitaPopups')); return false }
   win.document.write(html)
   win.document.close()
   return true
@@ -72,7 +73,7 @@ export function openPrintWindow(html, { width = 1000, height = 800 } = {}) {
 // links extras (fontes). O botão de imprimir some na impressão.
 export function printDocument({ title, css = '', body, head = '', width = 1000, height = 800 }) {
   const html = `<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="${localeAtual()}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -82,7 +83,7 @@ export function printDocument({ title, css = '', body, head = '', width = 1000, 
 </head>
 <body>
 ${body}
-  <button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button>
+  <button class="print-btn" onclick="window.print()">${escapeHtml(t('pdf.doc.salvarPdf'))}</button>
 </body>
 </html>`
   return openPrintWindow(html, { width, height })

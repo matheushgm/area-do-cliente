@@ -9,11 +9,13 @@ import {
   Clapperboard, ArrowLeft, ArrowRight, Loader2, CheckCircle2, Wand2, Lock,
   Package, Users, Sparkles, AlertTriangle, PenLine, Send,
 } from 'lucide-react'
+import { useI18n } from '../i18n'
 
 const CONTACT_STEP = ALL_QS.length // índice 10
 
 export default function RoteirosExpressPublico() {
   const { token } = useParams()
+  const { t } = useI18n()
   const tokenOk = token === PUBLIC_TOKEN
 
   const [answers, setAnswers] = useState(EMPTY_ANSWERS)
@@ -71,7 +73,7 @@ export default function RoteirosExpressPublico() {
   // ── Finalizar → salva + gera os 2 roteiros ──────────────────────────────────
   async function finish() {
     if (!contactValid) {
-      setError('Preencha nome, e-mail válido, telefone e empresa.')
+      setError(t('roteirosPublico.erroContato'))
       return
     }
     setStatus('generating')
@@ -93,7 +95,7 @@ export default function RoteirosExpressPublico() {
       setStatus('result')
       postRoteiro('save-scripts', { id, scripts: sc }).catch(() => {})
     } catch (e) {
-      setError(e.message || 'Não foi possível gerar agora.')
+      setError(e.message || t('roteirosPublico.erroGerar'))
       setStatus('error')
     }
   }
@@ -113,7 +115,7 @@ export default function RoteirosExpressPublico() {
       setRefiningIdx(null); setRefineNote(''); setRefineStream('')
       postRoteiro('save-scripts', { id: respId, scripts: updated }).catch(() => {})
     } catch (e) {
-      setError(e.message || 'Não foi possível refinar.')
+      setError(e.message || t('roteirosPublico.erroRefinar'))
     } finally {
       setBusy(false)
     }
@@ -133,8 +135,8 @@ export default function RoteirosExpressPublico() {
       <Shell>
         <div className="glass-card p-8 text-center max-w-md w-full">
           <AlertTriangle className="w-10 h-10 text-rl-gold mx-auto mb-3" />
-          <h1 className="text-lg font-bold text-rl-text mb-1">Link inválido</h1>
-          <p className="text-sm text-rl-muted">Confira o endereço com quem te enviou o convite.</p>
+          <h1 className="text-lg font-bold text-rl-text mb-1">{t('roteirosPublico.linkInvalido')}</h1>
+          <p className="text-sm text-rl-muted">{t('roteirosPublico.linkInvalidoTexto')}</p>
         </div>
       </Shell>
     )
@@ -148,11 +150,11 @@ export default function RoteirosExpressPublico() {
           <div className="glass-card p-6 sm:p-8">
             <div className="flex items-center gap-2 text-rl-purple mb-4">
               <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm font-bold">Criando seus 2 roteiros de vídeo...</span>
+              <span className="text-sm font-bold">{t('roteirosPublico.gerando')}</span>
             </div>
             {streamingText
               ? <MarkdownBlock content={streamingText} />
-              : <p className="text-sm text-rl-muted">Analisando seu público e montando os ganchos. Isso leva alguns segundos.</p>}
+              : <p className="text-sm text-rl-muted">{t('roteirosPublico.gerandoTexto')}</p>}
           </div>
         </div>
       </Shell>
@@ -165,11 +167,11 @@ export default function RoteirosExpressPublico() {
       <Shell>
         <div className="glass-card p-8 text-center max-w-md w-full">
           <AlertTriangle className="w-10 h-10 text-red-400 mx-auto mb-3" />
-          <h1 className="text-lg font-bold text-rl-text mb-1">Tivemos um problema</h1>
+          <h1 className="text-lg font-bold text-rl-text mb-1">{t('roteirosPublico.problema')}</h1>
           <p className="text-sm text-rl-muted mb-1">{error}</p>
-          <p className="text-xs text-rl-muted mb-5">Suas respostas foram salvas. É só tentar de novo.</p>
+          <p className="text-xs text-rl-muted mb-5">{t('roteirosPublico.respostasSalvas')}</p>
           <button onClick={finish} className="btn-primary inline-flex items-center gap-2 text-sm px-5 py-2.5">
-            <Sparkles className="w-4 h-4" /> Tentar novamente
+            <Sparkles className="w-4 h-4" /> {t('roteirosPublico.tentarNovamente')}
           </button>
         </div>
       </Shell>
@@ -185,11 +187,11 @@ export default function RoteirosExpressPublico() {
             <div className="w-14 h-14 rounded-full bg-rl-green/15 flex items-center justify-center mx-auto mb-3">
               <CheckCircle2 className="w-8 h-8 text-rl-green" />
             </div>
-            <h1 className="text-2xl font-bold text-rl-text">Seus roteiros estão prontos! 🎉</h1>
+            <h1 className="text-2xl font-bold text-rl-text">{t('roteirosPublico.prontos')}</h1>
             <p className="text-sm text-rl-muted mt-1">
               {scripts.length
-                ? 'Use nos seus anúncios. Você pode refinar cada roteiro uma vez.'
-                : 'Recebemos suas respostas. Nosso time vai cuidar do resto.'}
+                ? t('roteirosPublico.prontosTexto')
+                : t('roteirosPublico.semRoteiros')}
             </p>
           </div>
 
@@ -207,15 +209,15 @@ export default function RoteirosExpressPublico() {
               <div key={idx} className="glass-card p-5 space-y-4">
                 <div className="flex items-center justify-between gap-2">
                   <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full text-rl-purple bg-rl-purple/10 border border-rl-purple/30">
-                    <Clapperboard className="w-3 h-3" /> ROTEIRO {idx + 1}
+                    <Clapperboard className="w-3 h-3" /> {t('roteirosPublico.roteiro', { n: idx + 1 })}
                   </span>
                   {script.refineUsed ? (
                     <span className="inline-flex items-center gap-1 text-[10px] font-medium text-rl-green">
-                      <CheckCircle2 className="w-3 h-3" /> Refinado
+                      <CheckCircle2 className="w-3 h-3" /> {t('roteirosPublico.refinado')}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-[10px] text-rl-muted">
-                      <Wand2 className="w-3 h-3" /> 1 refinamento disponível
+                      <Wand2 className="w-3 h-3" /> {t('roteirosPublico.refinoDisponivel')}
                     </span>
                   )}
                 </div>
@@ -226,34 +228,34 @@ export default function RoteirosExpressPublico() {
                   isRefiningThis ? (
                     <div className="rounded-xl border border-rl-purple/30 bg-rl-purple/5 p-3 space-y-2">
                       <label className="text-[11px] font-bold text-rl-text flex items-center gap-1.5">
-                        <PenLine className="w-3.5 h-3.5 text-rl-purple" /> O que você quer ajustar?
+                        <PenLine className="w-3.5 h-3.5 text-rl-purple" /> {t('roteirosPublico.oQueAjustar')}
                       </label>
                       <textarea autoFocus value={refineNote} onChange={(e) => setRefineNote(e.target.value)}
-                        rows={3} placeholder="Ex.: deixe o gancho mais forte e fale do preço promocional."
+                        rows={3} placeholder={t('roteirosPublico.ajustePlaceholder')}
                         className="input-field w-full text-sm resize-none" />
-                      <p className="text-[10px] text-rl-muted">Você tem apenas <strong>1 refinamento</strong> neste roteiro.</p>
+                      <p className="text-[10px] text-rl-muted">{t('roteirosPublico.umRefinoAntes')}<strong>{t('roteirosPublico.umRefino')}</strong>{t('roteirosPublico.umRefinoDepois')}</p>
                       <div className="flex items-center gap-2">
                         <button onClick={() => applyRefine(idx)} disabled={!refineNote.trim()}
                           className="btn-primary flex items-center gap-1.5 text-xs px-3 py-1.5 disabled:opacity-50">
-                          <Send className="w-3.5 h-3.5" /> Aplicar
+                          <Send className="w-3.5 h-3.5" /> {t('roteirosPublico.aplicar')}
                         </button>
                         <button onClick={() => { setRefiningIdx(null); setRefineNote('') }}
                           className="text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all">
-                          Cancelar
+                          {t('roteirosPublico.cancelar')}
                         </button>
                       </div>
                     </div>
                   ) : (
                     <button onClick={() => { setRefiningIdx(idx); setRefineNote(''); setRefineStream('') }}
                       className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all">
-                      <Wand2 className="w-3.5 h-3.5" /> Refinar este roteiro
+                      <Wand2 className="w-3.5 h-3.5" /> {t('roteirosPublico.refinar')}
                     </button>
                   )
                 )}
 
                 {script.refineUsed && (
                   <div className="flex items-center gap-1.5 text-[11px] text-rl-muted">
-                    <Lock className="w-3 h-3" /> Refinamento já utilizado.
+                    <Lock className="w-3 h-3" /> {t('roteirosPublico.refinoUsado')}
                   </div>
                 )}
               </div>
@@ -272,12 +274,12 @@ export default function RoteirosExpressPublico() {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-rl-purple">
-              {section === 'produto' && <><Package className="w-3.5 h-3.5" /> Sobre o produto</>}
-              {section === 'cliente' && <><Users className="w-3.5 h-3.5" /> Sobre o cliente</>}
-              {isContact && <><Sparkles className="w-3.5 h-3.5" /> Quase lá</>}
+              {section === 'produto' && <><Package className="w-3.5 h-3.5" /> {t('roteirosPublico.sobreProduto')}</>}
+              {section === 'cliente' && <><Users className="w-3.5 h-3.5" /> {t('roteirosPublico.sobreCliente')}</>}
+              {isContact && <><Sparkles className="w-3.5 h-3.5" /> {t('roteirosPublico.quaseLa')}</>}
             </span>
             <span className="text-[11px] font-semibold text-rl-muted tabular-nums">
-              {isContact ? `${total} de ${total}` : `${current + 1} de ${total}`}
+              {t('roteirosPublico.passo', { atual: isContact ? total : current + 1, total })}
             </span>
           </div>
           <div className="h-1.5 rounded-full bg-rl-surface overflow-hidden">
@@ -289,26 +291,26 @@ export default function RoteirosExpressPublico() {
         <div key={current} className="glass-card p-6 sm:p-8 animate-slide-up">
           {!isContact ? (
             <>
-              <label className="block text-xl sm:text-2xl font-bold text-rl-text leading-snug">{q.label}</label>
-              {q.hint && <p className="text-sm text-rl-muted mt-2">{q.hint}</p>}
+              <label className="block text-xl sm:text-2xl font-bold text-rl-text leading-snug">{t(`roteiros.perguntas.${q.id}.label`)}</label>
+              {q.hint && <p className="text-sm text-rl-muted mt-2">{t(`roteiros.perguntas.${q.id}.hint`)}</p>}
               <textarea ref={inputRef} value={currentValue}
                 onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
-                onKeyDown={handleKeyDown} rows={3} placeholder={q.ph}
+                onKeyDown={handleKeyDown} rows={3} placeholder={t(`roteiros.perguntas.${q.id}.ph`)}
                 className="input-field w-full text-base mt-5 resize-none" />
             </>
           ) : (
             <>
-              <label className="block text-xl sm:text-2xl font-bold text-rl-text leading-snug">Para onde enviamos seus roteiros?</label>
-              <p className="text-sm text-rl-muted mt-2">Preencha para receber os 2 roteiros na próxima tela.</p>
+              <label className="block text-xl sm:text-2xl font-bold text-rl-text leading-snug">{t('roteirosPublico.contatoTitulo')}</label>
+              <p className="text-sm text-rl-muted mt-2">{t('roteirosPublico.contatoTexto')}</p>
               <div className="space-y-3 mt-5">
                 <input ref={inputRef} value={nome} onChange={(e) => setNome(e.target.value)} onKeyDown={handleKeyDown}
-                  placeholder="Seu nome completo" className="input-field w-full text-base" />
+                  placeholder={t('roteirosPublico.nome')} className="input-field w-full text-base" />
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={handleKeyDown}
-                  placeholder="Seu melhor e-mail" className="input-field w-full text-base" />
+                  placeholder={t('roteirosPublico.email')} className="input-field w-full text-base" />
                 <input type="tel" value={telefone} onChange={(e) => setTelefone(e.target.value)} onKeyDown={handleKeyDown}
-                  placeholder="Telefone / WhatsApp" className="input-field w-full text-base" />
+                  placeholder={t('roteirosPublico.telefone')} className="input-field w-full text-base" />
                 <input value={empresa} onChange={(e) => setEmpresa(e.target.value)} onKeyDown={handleKeyDown}
-                  placeholder="Nome da empresa" className="input-field w-full text-base" />
+                  placeholder={t('roteirosPublico.empresa')} className="input-field w-full text-base" />
               </div>
               <input type="text" tabIndex={-1} autoComplete="off" value={website}
                 onChange={(e) => setWebsite(e.target.value)} className="hidden" aria-hidden="true" />
@@ -325,25 +327,25 @@ export default function RoteirosExpressPublico() {
           <div className="flex items-center justify-between gap-3 mt-6">
             <button onClick={back} disabled={current === 0}
               className="flex items-center gap-1.5 text-sm px-3 py-2.5 rounded-xl text-rl-muted hover:text-rl-text disabled:opacity-0 disabled:pointer-events-none transition-all">
-              <ArrowLeft className="w-4 h-4" /> Voltar
+              <ArrowLeft className="w-4 h-4" /> {t('roteirosPublico.voltar')}
             </button>
 
             {!isContact ? (
               <button onClick={next} disabled={!canAdvance}
                 className="btn-primary flex items-center gap-2 text-sm px-6 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed">
-                Continuar <ArrowRight className="w-4 h-4" />
+                {t('roteirosPublico.continuar')} <ArrowRight className="w-4 h-4" />
               </button>
             ) : (
               <button onClick={finish} disabled={!contactValid}
                 className="btn-primary flex items-center gap-2 text-sm px-6 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed">
-                <Sparkles className="w-4 h-4" /> Gerar meus roteiros
+                <Sparkles className="w-4 h-4" /> {t('roteirosPublico.gerar')}
               </button>
             )}
           </div>
         </div>
 
         <p className="text-center text-[11px] text-rl-muted mt-5">
-          Ao finalizar, a IA cria 2 roteiros na hora. Dica: aperte Enter para avançar.
+          {t('roteirosPublico.rodape')}
         </p>
       </div>
     </Shell>
@@ -352,13 +354,14 @@ export default function RoteirosExpressPublico() {
 
 // ─── Casca pública (logo + fundo) ─────────────────────────────────────────────
 function Shell({ children }) {
+  const { t } = useI18n()
   return (
     <div className="min-h-screen bg-gradient-dark flex flex-col items-center justify-center px-4 py-10">
       <div className="flex items-center gap-2.5 mb-8">
         <img src="/verta/logo-azul.png" alt="Verta" className="h-7 w-auto object-contain" />
         <div className="flex items-center gap-1.5 text-rl-muted">
           <Clapperboard className="w-4 h-4 text-rl-purple" />
-          <span className="text-sm font-semibold text-rl-text">Roteiros Express</span>
+          <span className="text-sm font-semibold text-rl-text">{t('roteirosPublico.marca')}</span>
         </div>
       </div>
       {children}

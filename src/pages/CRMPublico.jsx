@@ -6,9 +6,12 @@ import {
   KanbanSquare, Plus, X, Check, Trash2, Edit2,
   Phone, Mail, ChevronDown, Loader2,
 } from 'lucide-react'
+import { useI18n, t } from '../i18n'
 
 // ─── Constants (duplicated from CRMModule — standalone page, no shared import) ─
 
+// `name` das etapas padrão é gravado em crm_data (dado, em português); o rótulo da
+// categoria é traduzido na leitura (getter, mesmas chaves do CRMModule interno).
 const CATEGORIES = [
   { id: 'lead_novo',    label: 'Lead Novo',        color: '#2563EB', bgClass: 'bg-blue-100',   textClass: 'text-blue-700',   borderClass: 'border-blue-200'   },
   { id: 'conectado',    label: 'Lead Conectado',   color: '#0891B2', bgClass: 'bg-cyan-100',   textClass: 'text-cyan-700',   borderClass: 'border-cyan-200'   },
@@ -16,8 +19,6 @@ const CATEGORIES = [
   { id: 'oportunidade', label: 'Oportunidade',     color: '#B45309', bgClass: 'bg-amber-100',  textClass: 'text-amber-700',  borderClass: 'border-amber-200'  },
   { id: 'venda',        label: 'Venda',            color: '#16A34A', bgClass: 'bg-green-100',  textClass: 'text-green-700',  borderClass: 'border-green-200'  },
 ]
-
-const CAT_MAP = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]))
 
 const DEFAULT_STAGES = CATEGORIES.map((c, i) => ({
   id: crypto.randomUUID(),
@@ -27,6 +28,9 @@ const DEFAULT_STAGES = CATEGORIES.map((c, i) => ({
   order: i,
 }))
 
+for (const c of CATEGORIES) Object.defineProperty(c, 'label', { get: () => t(`crm.categorias.${c.id}`), enumerable: true })
+const CAT_MAP = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]))
+
 function initCRM(existing) {
   if (existing?.stages?.length) return existing
   return { stages: DEFAULT_STAGES, contacts: [] }
@@ -35,6 +39,7 @@ function initCRM(existing) {
 // ─── Contact Card ─────────────────────────────────────────────────────────────
 
 function ContactCard({ contact, onDelete, onDragStart }) {
+  const { t } = useI18n()
   return (
     <div
       draggable
@@ -45,6 +50,7 @@ function ContactCard({ contact, onDelete, onDragStart }) {
         <p className="text-sm font-semibold text-gray-800 leading-tight">{contact.nome}</p>
         <button
           onClick={() => onDelete(contact.id)}
+          title={t('crm.removerContato')}
           className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-gray-400 hover:text-red-500 transition-all shrink-0"
         >
           <X className="w-3 h-3" />
@@ -70,6 +76,7 @@ function ContactCard({ contact, onDelete, onDragStart }) {
 // ─── Add Contact Form ─────────────────────────────────────────────────────────
 
 function AddContactForm({ onAdd, onCancel }) {
+  const { t } = useI18n()
   const [form, setForm] = useState({ nome: '', email: '', telefone: '', valor: '' })
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
@@ -90,13 +97,13 @@ function AddContactForm({ onAdd, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-3 space-y-2 shadow-sm">
-      <input autoFocus value={form.nome} onChange={(e) => set('nome', e.target.value)} placeholder="Nome *" className={inputClass} required />
-      <input value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="Email" type="email" className={inputClass} />
-      <input value={form.telefone} onChange={(e) => set('telefone', e.target.value)} placeholder="Telefone" className={inputClass} />
-      <input value={form.valor} onChange={(e) => set('valor', e.target.value)} placeholder="Valor (R$)" className={inputClass} />
+      <input autoFocus value={form.nome} onChange={(e) => set('nome', e.target.value)} placeholder={t('crm.form.nome')} className={inputClass} required />
+      <input value={form.email} onChange={(e) => set('email', e.target.value)} placeholder={t('crm.form.email')} type="email" className={inputClass} />
+      <input value={form.telefone} onChange={(e) => set('telefone', e.target.value)} placeholder={t('crm.form.telefone')} className={inputClass} />
+      <input value={form.valor} onChange={(e) => set('valor', e.target.value)} placeholder={t('crm.form.valor')} className={inputClass} />
       <div className="flex gap-2">
         <button type="submit" className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-xs py-1.5 rounded-lg flex items-center justify-center gap-1 transition-colors">
-          <Check className="w-3 h-3" /> Adicionar
+          <Check className="w-3 h-3" /> {t('comum.adicionar')}
         </button>
         <button type="button" onClick={onCancel} className="px-3 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
           <X className="w-3 h-3" />
@@ -109,6 +116,7 @@ function AddContactForm({ onAdd, onCancel }) {
 // ─── Stage Modal ──────────────────────────────────────────────────────────────
 
 function StageModal({ initial, onSave, onClose }) {
+  const { t } = useI18n()
   const [name,     setName]     = useState(initial?.name     || '')
   const [category, setCategory] = useState(initial?.category || 'lead_novo')
 
@@ -123,16 +131,16 @@ function StageModal({ initial, onSave, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-bold text-gray-800">{initial ? 'Editar etapa' : 'Nova etapa'}</h3>
+          <h3 className="font-bold text-gray-800">{initial ? t('crm.etapa.editar') : t('crm.etapa.nova')}</h3>
           <button type="button" onClick={onClose}><X className="w-4 h-4 text-gray-400" /></button>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Nome da etapa</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t('crm.etapa.nome')}</label>
           <input autoFocus value={name} onChange={(e) => setName(e.target.value)}
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-purple-400" required />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Categoria</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t('crm.etapa.categoria')}</label>
           <div className="relative">
             <select value={category} onChange={(e) => setCategory(e.target.value)}
               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm appearance-none pr-8 outline-none focus:border-purple-400">
@@ -146,8 +154,8 @@ function StageModal({ initial, onSave, onClose }) {
           </div>
         </div>
         <div className="flex gap-2">
-          <button type="submit" className="flex-1 bg-purple-600 text-white rounded-xl py-2 text-sm font-semibold hover:bg-purple-700 transition-colors">Salvar</button>
-          <button type="button" onClick={onClose} className="px-4 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">Cancelar</button>
+          <button type="submit" className="flex-1 bg-purple-600 text-white rounded-xl py-2 text-sm font-semibold hover:bg-purple-700 transition-colors">{t('comum.salvar')}</button>
+          <button type="button" onClick={onClose} className="px-4 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">{t('comum.cancelar')}</button>
         </div>
       </form>
     </div>
@@ -157,6 +165,7 @@ function StageModal({ initial, onSave, onClose }) {
 // ─── Kanban Column ────────────────────────────────────────────────────────────
 
 function KanbanColumn({ stage, contacts, draggingId, onDragStart, onDrop, onAddContact, onDeleteContact, onEditStage, onDeleteStage }) {
+  const { t } = useI18n()
   const [adding, setAdding] = useState(false)
   const [over,   setOver]   = useState(false)
   const cat = CAT_MAP[stage.category] || CATEGORIES[0]
@@ -179,10 +188,10 @@ function KanbanColumn({ stage, contacts, draggingId, onDragStart, onDrop, onAddC
             <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-white border border-gray-200 text-gray-500 shrink-0">{contacts.length}</span>
           </div>
           <div className="flex gap-1 shrink-0">
-            <button onClick={() => onEditStage(stage)} className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors">
+            <button onClick={() => onEditStage(stage)} title={t('crm.etapa.editar')} className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors">
               <Edit2 className="w-3 h-3" />
             </button>
-            <button onClick={() => onDeleteStage(stage.id)} className="p-1 rounded text-gray-400 hover:text-red-500 transition-colors">
+            <button onClick={() => onDeleteStage(stage.id)} title={t('crm.etapa.excluir')} className="p-1 rounded text-gray-400 hover:text-red-500 transition-colors">
               <Trash2 className="w-3 h-3" />
             </button>
           </div>
@@ -209,7 +218,7 @@ function KanbanColumn({ stage, contacts, draggingId, onDragStart, onDrop, onAddC
             onClick={() => setAdding(true)}
             className="w-full text-[11px] text-gray-400 hover:text-gray-700 border border-dashed border-gray-300 hover:border-purple-400 rounded-xl py-2 transition-all flex items-center justify-center gap-1"
           >
-            <Plus className="w-3 h-3" /> Novo contato
+            <Plus className="w-3 h-3" /> {t('crm.novoContato')}
           </button>
         )}
       </div>
@@ -221,6 +230,7 @@ function KanbanColumn({ stage, contacts, draggingId, onDragStart, onDrop, onAddC
 
 export default function CRMPublico() {
   const { token } = useParams()
+  const { t } = useI18n()
   const [companyName, setCompanyName] = useState('')
   const [projectId,   setProjectId]   = useState(null)
   const [crm,         setCRM]         = useState(null)
@@ -264,7 +274,7 @@ export default function CRMPublico() {
   }
 
   function handleDeleteStage(stageId) {
-    if (!window.confirm('Excluir esta etapa? Os contatos dela também serão removidos.')) return
+    if (!window.confirm(t('crm.etapa.confirmarExcluir'))) return
     save({ stages: crm.stages.filter((s) => s.id !== stageId), contacts: crm.contacts.filter((c) => c.stageId !== stageId) })
   }
 
@@ -302,7 +312,7 @@ export default function CRMPublico() {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3">
         <KanbanSquare className="w-12 h-12 text-gray-300" />
-        <p className="text-gray-500 font-medium">CRM não encontrado.</p>
+        <p className="text-gray-500 font-medium">{t('crmPublico.naoEncontrado')}</p>
       </div>
     )
   }
@@ -354,7 +364,7 @@ export default function CRMPublico() {
                 onClick={() => setStageModal('new')}
                 className="flex items-center gap-2 px-4 py-3 rounded-2xl border-2 border-dashed border-gray-300 text-gray-400 hover:border-purple-400 hover:text-purple-600 transition-all text-sm whitespace-nowrap"
               >
-                <Plus className="w-4 h-4" /> Nova etapa
+                <Plus className="w-4 h-4" /> {t('crm.etapa.nova')}
               </button>
             </div>
           </div>

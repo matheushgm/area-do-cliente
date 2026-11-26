@@ -1,0 +1,70 @@
+export default {
+  carregando: 'Loading form...',
+  erroCarregar: 'Error loading the form.',
+  linkInvalido: 'Invalid link',
+  cabecalho: 'Briefing Form',
+  comoPreencher: 'How to fill it in',
+  comoPreencherTexto: 'Fill in the information below in as much detail as possible. The more complete your answers, the better the strategies developed for your business. Everything is saved automatically as you type.',
+  abaProduto: 'Product / Service',
+  abaPersonas: 'Personas',
+  editarResposta: 'Edit answer',
+  perguntaDe: 'Question {n} of {total}',
+  concluidoPct: '{pct}% complete',
+  respondaParaAvancar: 'Answer this question to continue.',
+  avancar: 'Next →',
+  concluirProduto: 'Finish Product / Service',
+  concluirPersonas: 'Finish Personas',
+  produtoConcluido: 'Product / Service complete!',
+  personasConcluidas: 'Personas complete!',
+  podeEditar: 'You can edit any answer by clicking the pencil icon above.',
+  nomePersona: 'Name of this Persona',
+  nomePersonaPlaceholder: 'E.g. Digital Entrepreneur, Marketing Manager...',
+  respostaPersonaPlaceholder: 'Type your answer (one per line for multiple)...',
+  rodape: 'Everything is saved automatically as you fill it in.',
+  persona: {
+    resultado: {
+      label: 'What result does your customer notice after using your product or service?',
+      hint: 'Describe what your customer’s life is like once they actually use your product / service.',
+    },
+    acoes: {
+      label: 'What does your customer need to DO to achieve that result?',
+      hint: 'Describe the customer’s actions, behaviors and responsibilities in the process.',
+    },
+    tempo: {
+      label: 'How long does it take the customer to achieve the result?',
+      hint: 'Time to the first visible result and to the real transformation.',
+    },
+    objecoes: {
+      label: 'What are the main objections your customer uses for not buying?',
+      hint: 'The most common justifications and excuses they give.',
+    },
+    sonhos: {
+      label: 'What are your customer’s dreams that your company can make come true?',
+      hint: 'The emotional and life outcome they want.',
+    },
+    erros: {
+      label: 'What mistakes does your customer make that keep them from the result they want?',
+      hint: 'Mistakes made before or while using your product.',
+    },
+    medos: {
+      label: 'What are your customer’s biggest fears?',
+      hint: 'Personal and professional fears that could come true.',
+    },
+    sinais: {
+      label: 'What signs does the customer notice that tell them they have a problem to solve?',
+      hint: 'What makes them start looking for a solution.',
+    },
+    habitos: {
+      label: 'What are your ideal customer’s habits?',
+      hint: 'Consumption habits, behavior, routine — at work and outside it.',
+    },
+  },
+  pdf: {
+    aviso: 'This PDF is a backup copy of your answers. The information was also saved automatically in the system.',
+    produto: 'Product',
+    persona: 'Persona',
+    nenhumaResposta: 'No questions answered.',
+    tituloProduto: 'Product / Service — {empresa}',
+    tituloPersonas: 'Personas — {empresa}',
+  },
+}

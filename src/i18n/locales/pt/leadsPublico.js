@@ -1,0 +1,25 @@
+// Leads de um Banco de dados compartilhados com o cliente (página pública /leads/:token,
+// src/pages/BancoDadosPublico.jsx). Nomes de campos e valores são dados do cliente.
+export default {
+  erroAbrir: 'Não consegui abrir este link.',
+  semConexao: 'Sem conexão. Tente de novo.',
+  periodo: {
+    todos: 'Todos',
+    hoje: 'Hoje',
+    d7: '7 dias',
+    d30: '30 dias',
+  },
+  recebidoEm: 'Recebido em',
+  leads: { one: 'lead', other: 'leads' },
+  leadsNoFiltro: { one: 'lead no filtro', other: 'leads no filtro' },
+  buscaPlaceholder: 'Buscar por nome, e-mail, telefone…',
+  textoCompleto: 'Texto completo',
+  textoCompletoDica: 'Mostrar o texto inteiro em cada célula',
+  larguraPadrao: 'Largura padrão',
+  larguraPadraoDica: 'Voltar todas as colunas à largura padrão',
+  atualizar: 'Atualizar',
+  nenhumNoFiltro: 'Nenhum lead com esse filtro.',
+  nenhumAinda: 'Nenhum lead ainda. Eles aparecem aqui assim que chegam.',
+  rodape: 'Arraste a borda de uma coluna para mudar a largura · clique num lead para ver tudo · atualizado às {hora}',
+  lead: 'Lead',
+}

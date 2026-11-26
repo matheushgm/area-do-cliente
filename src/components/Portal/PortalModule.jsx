@@ -2,7 +2,7 @@
 // Recebem o payload já filtrado por api/portal.js (nunca o projeto inteiro).
 import { useState } from 'react'
 import { ExternalLink, FileText, Loader2, Star } from 'lucide-react'
-import { BUSINESS_LABELS, MATURITY_LABELS } from '../../lib/constants'
+import { rotuloNegocio, rotuloMaturidade, rotuloSegmento, rotuloServico } from '../../lib/constants'
 import { fmtCurrency } from '../../lib/utils'
 import { portalFileUrl } from '../../lib/portal'
 import MarkdownView from '../Editor/MarkdownView'
@@ -12,7 +12,7 @@ import { CriativosTool } from '../../pages/CriativosPublico'
 import { QUESTIONS as PERSONA_QUESTIONS } from '../../pages/PersonaCreator'
 import { QUESTIONS as PRODUTO_QUESTIONS } from '../ProdutoServicoModule'
 import { TEMPLATE_SECTIONS, ACTION_AREAS } from '../MeetingMinutesModule'
-import { getQuestionsFor, PILLARS_BY_ID } from '../Kickoff/KickoffQuestions'
+import { getQuestionsFor, PILLARS_BY_ID, STAGES, NEXT_STEPS } from '../Kickoff/KickoffQuestions'
 import KickoffRadar from '../Kickoff/KickoffRadar'
 import KickoffPillarBars from '../Kickoff/KickoffPillarBars'
 import { STATUS_BY_ID, RESULTADO_BY_ID, APROVACAO_BY_ID } from '../Debriefing/debriefingData'
@@ -22,9 +22,12 @@ import { hydrateOferta, DRIVER_BY_ID } from '../OfertaWizard/ofertaShared'
 import { getPeriodLabel } from '../CampaignPlanner/campaignHelpers'
 import PortalResultados from './PortalResultados'
 import { Section, Field, Empty, Pill, Chips, Md, PreText, Details, ExtLink, fmtDate, fmtDateTime, fmtBytes } from './PortalUI'
+import { rotuloOpcaoNps } from '../../lib/npsOpcoes'
+import { useI18n, localeAtual } from '../../i18n'
 
 // ─── Arquivo privado (URL assinada sob demanda) ──────────────────────────────
-function FileButton({ projectId, token, bucket, path, label = 'Abrir' }) {
+function FileButton({ projectId, token, bucket, path, label }) {
+  const { t } = useI18n()
   const [busy, setBusy] = useState(false)
   if (!path) return null
   async function open() {
@@ -36,36 +39,37 @@ function FileButton({ projectId, token, bucket, path, label = 'Abrir' }) {
   }
   return (
     <button onClick={open} disabled={busy} className="btn-secondary inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5">
-      {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />} {label}
+      {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />} {label || t('portal.abrir')}
     </button>
   )
 }
 
 // ─── Dados do Cliente ────────────────────────────────────────────────────────
 function Dados({ data }) {
+  const { t } = useI18n()
   if (!data) return <Empty />
   const people = (data.other_people || []).filter((p) => p?.name)
   return (
     <div className="space-y-4">
-      <Section title="Empresa">
+      <Section title={t('portal.dados.empresa')}>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <Field label="Empresa" value={data.company_name} />
-          <Field label="Tipo de negócio" value={BUSINESS_LABELS[data.business_type] || data.business_type} />
-          <Field label="Segmento" value={data.segmento} />
-          <Field label="Responsável" value={data.responsible_name} />
-          <Field label="Cargo" value={data.responsible_role} />
-          <Field label="Maturidade digital" value={MATURITY_LABELS[data.digital_maturity] || data.digital_maturity} />
-          <Field label="Time de vendas" value={data.has_sales_team === true ? 'Sim' : data.has_sales_team === false ? 'Não' : null} />
-          <Field label="Cliente desde" value={fmtDate(data.created_at)} />
-          <Field label="Dashboard" value={data.dashboard_url ? <ExtLink href={data.dashboard_url}>Abrir dashboard</ExtLink> : null} />
+          <Field label={t('portal.dados.empresa')} value={data.company_name} />
+          <Field label={t('portal.dados.tipoNegocio')} value={rotuloNegocio(data.business_type)} />
+          <Field label={t('portal.dados.segmento')} value={rotuloSegmento(data.segmento)} />
+          <Field label={t('portal.dados.responsavel')} value={data.responsible_name} />
+          <Field label={t('portal.dados.cargo')} value={data.responsible_role} />
+          <Field label={t('portal.dados.maturidade')} value={rotuloMaturidade(data.digital_maturity)} />
+          <Field label={t('portal.dados.timeVendas')} value={data.has_sales_team === true ? t('portal.dados.sim') : data.has_sales_team === false ? t('portal.dados.nao') : null} />
+          <Field label={t('portal.dados.clienteDesde')} value={fmtDate(data.created_at)} />
+          <Field label={t('portal.dados.dashboard')} value={data.dashboard_url ? <ExtLink href={data.dashboard_url}>{t('portal.dados.abrirDashboard')}</ExtLink> : null} />
         </div>
       </Section>
-      {(data.services || []).length > 0 && <Section title="Serviços contratados"><Chips items={data.services} /></Section>}
-      {(data.competitors || []).length > 0 && <Section title="Concorrentes"><Chips items={data.competitors} /></Section>}
+      {(data.services || []).length > 0 && <Section title={t('portal.dados.servicos')}><Chips items={data.services.map(rotuloServico)} /></Section>}
+      {(data.competitors || []).length > 0 && <Section title={t('portal.dados.concorrentes')}><Chips items={data.competitors} /></Section>}
       {people.length > 0 && (
-        <Section title="Outras pessoas envolvidas">
+        <Section title={t('portal.dados.outrasPessoas')}>
           <div className="grid sm:grid-cols-2 gap-2">
-            {people.map((p, i) => <Field key={i} label={p.role || 'Contato'} value={p.name} />)}
+            {people.map((p, i) => <Field key={i} label={p.role || t('portal.dados.contato')} value={p.name} />)}
           </div>
         </Section>
       )}
@@ -75,8 +79,13 @@ function Dados({ data }) {
 
 // ─── Kickoff ─────────────────────────────────────────────────────────────────
 function Kickoff({ data }) {
-  if (!data?.completedAt) return <Empty text="Kickoff ainda não concluído." />
+  const { t } = useI18n()
+  if (!data?.completedAt) return <Empty text={t('portal.kickoff.vazio')} />
   const questions = getQuestionsFor(data.businessType)
+  // Estágio e próximos passos são gravados em pt; na tela vêm do id no idioma atual.
+  const stage = STAGES.find((s) => s.id === data.stageId)
+  const passosIdioma = (data.weaknesses || []).map((w) => NEXT_STEPS[w]?.[data.businessType]).filter(Boolean)
+  const nextSteps = passosIdioma.length === (data.nextSteps || []).length ? passosIdioma : (data.nextSteps || [])
   const color = data.stageColor || '#7C3AED'
   return (
     <div className="space-y-4">
@@ -84,27 +93,27 @@ function Kickoff({ data }) {
         <div className="flex items-start gap-4 flex-wrap">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black text-white shrink-0" style={{ background: color }}>{Math.round(data.totalScore ?? 0)}</div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold">Diagnóstico inicial · {({ b2b: 'B2B', b2c: 'B2C', hibrido: 'Híbrido' })[data.businessType] || ''}</p>
-            <h3 className="text-lg font-bold text-rl-text">{data.stageLabel}</h3>
-            {data.stageDesc && <p className="text-sm text-rl-muted mt-1">{data.stageDesc}</p>}
-            <p className="text-[11px] text-rl-muted mt-2">Concluído em {fmtDate(data.completedAt)}</p>
+            <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold">{t('portal.kickoff.diagnostico', { tipo: ({ b2b: 'B2B', b2c: 'B2C', hibrido: t('portal.kickoff.hibrido') })[data.businessType] || '' })}</p>
+            <h3 className="text-lg font-bold text-rl-text">{stage?.label || data.stageLabel}</h3>
+            {(stage?.desc || data.stageDesc) && <p className="text-sm text-rl-muted mt-1">{stage?.desc || data.stageDesc}</p>}
+            <p className="text-[11px] text-rl-muted mt-2">{t('portal.kickoff.concluidoEm', { data: fmtDate(data.completedAt) })}</p>
           </div>
         </div>
       </Section>
       <div className="grid lg:grid-cols-2 gap-4">
-        <Section title="Radar dos pilares"><div className="flex justify-center"><KickoffRadar pillarScores={data.scores || {}} width={380} height={380} fillColor={color} /></div></Section>
-        <Section title="Score por pilar"><KickoffPillarBars pillarScores={data.scores || {}} questions={questions} answers={data.answers || {}} /></Section>
+        <Section title={t('portal.kickoff.radar')}><div className="flex justify-center"><KickoffRadar pillarScores={data.scores || {}} width={380} height={380} fillColor={color} /></div></Section>
+        <Section title={t('portal.kickoff.scorePilar')}><KickoffPillarBars pillarScores={data.scores || {}} questions={questions} answers={data.answers || {}} /></Section>
       </div>
-      {(data.nextSteps || []).length > 0 && (
-        <Section title="Próximos passos recomendados">
+      {nextSteps.length > 0 && (
+        <Section title={t('portal.kickoff.proximosPassos')}>
           <ol className="space-y-3">
-            {data.nextSteps.map((step, i) => {
+            {nextSteps.map((step, i) => {
               const pillar = data.weaknesses?.[i] ? PILLARS_BY_ID[data.weaknesses[i]] : null
               return (
                 <li key={i} className="flex items-start gap-3">
                   <div className="w-6 h-6 rounded-full bg-rl-purple/10 border border-rl-purple/30 text-rl-purple text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</div>
                   <div>
-                    {pillar && <p className="text-[10px] uppercase tracking-wide text-rl-muted font-semibold mb-0.5">Pilar: {pillar.label}</p>}
+                    {pillar && <p className="text-[10px] uppercase tracking-wide text-rl-muted font-semibold mb-0.5">{t('portal.kickoff.pilar', { nome: pillar.label })}</p>}
                     <p className="text-sm text-rl-text leading-snug">{step}</p>
                   </div>
                 </li>
@@ -113,24 +122,25 @@ function Kickoff({ data }) {
           </ol>
         </Section>
       )}
-      {data.aiAnalysis && <Section title="Análise"><Md content={data.aiAnalysis} /></Section>}
+      {data.aiAnalysis && <Section title={t('portal.kickoff.analise')}><Md content={data.aiAnalysis} /></Section>}
     </div>
   )
 }
 
 // ─── Produtos / Serviços ─────────────────────────────────────────────────────
 function Produtos({ data }) {
+  const { t } = useI18n()
   const list = data || []
-  if (!list.length) return <Empty text="Nenhum produto ou serviço cadastrado." />
+  if (!list.length) return <Empty text={t('portal.produtos.vazio')} />
   return (
     <div className="space-y-4">
       {list.map((p) => {
         const answered = PRODUTO_QUESTIONS.filter((q) => p.answers?.[q.id])
         return (
-          <Section key={p.id} title={p.nome || 'Sem nome'} right={<Pill>{p.tipo === 'servico' ? 'Serviço' : 'Produto'}</Pill>}>
+          <Section key={p.id} title={p.nome || t('portal.produtos.semNome')} right={<Pill>{p.tipo === 'servico' ? t('portal.produtos.servico') : t('portal.produtos.produto')}</Pill>}>
             {p.summary && <div className="mb-4"><Md content={p.summary} /></div>}
             {answered.length > 0 && (
-              <Details title="Respostas do formulário" meta={`${answered.length} perguntas`}>
+              <Details title={t('portal.produtos.respostas')} meta={t('portal.nPerguntas', { count: answered.length })}>
                 <div className="space-y-3 mt-2">
                   {answered.map((q) => (
                     <div key={q.id}>
@@ -150,8 +160,9 @@ function Produtos({ data }) {
 
 // ─── Personas ────────────────────────────────────────────────────────────────
 function Personas({ data }) {
+  const { t } = useI18n()
   const list = data || []
-  if (!list.length) return <Empty text="Nenhuma persona publicada." />
+  if (!list.length) return <Empty text={t('portal.personas.vazio')} />
   return (
     <div className="space-y-4">
       {list.map((p) => {
@@ -160,11 +171,11 @@ function Personas({ data }) {
           return Array.isArray(v) ? v.some(Boolean) : !!v
         })
         return (
-          <Section key={p.id} title={p.name || 'Persona'}>
-            {p.generatedProfile ? <PreText text={p.generatedProfile} /> : <p className="text-sm text-rl-muted">Perfil ainda não gerado.</p>}
+          <Section key={p.id} title={p.name || t('portal.personas.persona')}>
+            {p.generatedProfile ? <PreText text={p.generatedProfile} /> : <p className="text-sm text-rl-muted">{t('portal.personas.semPerfil')}</p>}
             {answered.length > 0 && (
               <div className="mt-4">
-                <Details title="Respostas do briefing" meta={`${answered.length} perguntas`} defaultOpen={!p.generatedProfile}>
+                <Details title={t('portal.personas.respostas')} meta={t('portal.nPerguntas', { count: answered.length })} defaultOpen={!p.generatedProfile}>
                   <div className="space-y-3 mt-2">
                     {answered.map((q) => {
                       const v = p.answers[q.id]
@@ -189,38 +200,39 @@ function Personas({ data }) {
 
 // ─── Oferta Matadora ─────────────────────────────────────────────────────────
 function Oferta({ data }) {
+  const { t } = useI18n()
   const list = data || []
-  if (!list.length) return <Empty text="Nenhuma oferta publicada." />
+  if (!list.length) return <Empty text={t('portal.oferta.vazio')} />
   return (
     <div className="space-y-4">
       {list.map((raw, idx) => {
         const o = hydrateOferta(raw)
         const bonus = (o.bonus || []).filter(Boolean)
         return (
-          <Section key={o.id || idx} title={o.nome || `Oferta ${idx + 1}`} subtitle={o.createdAt ? `Criada em ${fmtDate(o.createdAt)}` : null} right={raw.principal ? <Pill>Principal</Pill> : null}>
+          <Section key={o.id || idx} title={o.nome || t('portal.oferta.oferta', { n: idx + 1 })} subtitle={o.createdAt ? t('portal.oferta.criadaEm', { data: fmtDate(o.createdAt) }) : null} right={raw.principal ? <Pill>{t('portal.oferta.principal')}</Pill> : null}>
             <div className="grid sm:grid-cols-2 gap-3 mb-4">
-              <Field label="Dor atual" value={o.dorAtual} />
-              <Field label="Resultado dos sonhos" value={o.resultadoSonho} />
-              <Field label="Núcleo da oferta" value={o.nucleo} />
-              <Field label="Preço" value={o.preco} />
-              <Field label="Garantia" value={o.garantia} />
-              <Field label="Urgência" value={o.urgencia} />
-              <Field label="Escassez" value={o.escassez} />
+              <Field label={t('portal.oferta.dorAtual')} value={o.dorAtual} />
+              <Field label={t('portal.oferta.resultadoSonho')} value={o.resultadoSonho} />
+              <Field label={t('portal.oferta.nucleo')} value={o.nucleo} />
+              <Field label={t('portal.oferta.preco')} value={o.preco} />
+              <Field label={t('portal.oferta.garantia')} value={o.garantia} />
+              <Field label={t('portal.oferta.urgencia')} value={o.urgencia} />
+              <Field label={t('portal.oferta.escassez')} value={o.escassez} />
             </div>
             {(o.problemas || []).length > 0 && (
               <div className="mb-4">
-                <p className="text-[11px] font-semibold text-rl-muted mb-1.5">Problemas que a oferta resolve</p>
+                <p className="text-[11px] font-semibold text-rl-muted mb-1.5">{t('portal.oferta.problemas')}</p>
                 <ul className="space-y-1">{o.problemas.map((p, i) => <li key={p.id || i} className="text-sm text-rl-text flex gap-2"><span className="text-rl-purple">•</span><span>{p.texto}{DRIVER_BY_ID?.[p.driver]?.label ? <span className="text-rl-muted"> · {DRIVER_BY_ID[p.driver].label}</span> : null}</span></li>)}</ul>
               </div>
             )}
             {(o.itensStack || []).length > 0 && (
               <div className="mb-4">
-                <p className="text-[11px] font-semibold text-rl-muted mb-1.5">Stack de valor</p>
+                <p className="text-[11px] font-semibold text-rl-muted mb-1.5">{t('portal.oferta.stack')}</p>
                 <ul className="space-y-1">{o.itensStack.map((it, i) => <li key={it.id || i} className="text-sm text-rl-text flex justify-between gap-3"><span>{it.nome}</span>{it.valor && <span className="text-rl-muted tabular-nums">{it.valor}</span>}</li>)}</ul>
               </div>
             )}
-            {bonus.length > 0 && <div className="mb-4"><p className="text-[11px] font-semibold text-rl-muted mb-1.5">Bônus</p><Chips items={bonus} /></div>}
-            {o.generatedOffer && <Details title="Oferta gerada" defaultOpen={idx === 0}><div className="mt-2"><Md content={o.generatedOffer} /></div></Details>}
+            {bonus.length > 0 && <div className="mb-4"><p className="text-[11px] font-semibold text-rl-muted mb-1.5">{t('portal.oferta.bonus')}</p><Chips items={bonus} /></div>}
+            {o.generatedOffer && <Details title={t('portal.oferta.gerada')} defaultOpen={idx === 0}><div className="mt-2"><Md content={o.generatedOffer} /></div></Details>}
           </Section>
         )
       })}
@@ -230,49 +242,51 @@ function Oferta({ data }) {
 
 // ─── ROI ─────────────────────────────────────────────────────────────────────
 function RoiBlock({ calc, result }) {
+  const { t } = useI18n()
   if (!calc && !result) return null
   const r = result || {}
   const money = (v) => (v || v === 0 ? fmtCurrency(v) : null)
-  const int = (v) => (v || v === 0 ? Math.ceil(v).toLocaleString('pt-BR') : null)
+  const int = (v) => (v || v === 0 ? Math.ceil(v).toLocaleString(localeAtual()) : null)
   return (
     <>
       {calc && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-          <Field label="Orçamento de mídia / mês" value={money(calc.media_orcamento ?? calc.mediaOrcamento)} />
-          <Field label="Custo de marketing / mês" value={money(calc.custo_marketing ?? calc.custoMarketing)} />
-          <Field label="Ticket médio" value={money(calc.ticket_medio ?? calc.ticketMedio)} />
-          <Field label="Compras por cliente" value={calc.qtd_compras ?? calc.qtdCompras} />
-          <Field label="Margem bruta" value={(calc.margem_bruta ?? calc.margemBruta) != null ? `${calc.margem_bruta ?? calc.margemBruta}%` : null} />
-          <Field label="ROI desejado" value={(calc.roi_desejado ?? calc.roiDesejado) != null ? `${calc.roi_desejado ?? calc.roiDesejado}x` : null} />
+          <Field label={t('portal.roi.orcamentoMidia')} value={money(calc.media_orcamento ?? calc.mediaOrcamento)} />
+          <Field label={t('portal.roi.custoMarketing')} value={money(calc.custo_marketing ?? calc.custoMarketing)} />
+          <Field label={t('portal.roi.ticketMedio')} value={money(calc.ticket_medio ?? calc.ticketMedio)} />
+          <Field label={t('portal.roi.comprasCliente')} value={calc.qtd_compras ?? calc.qtdCompras} />
+          <Field label={t('portal.roi.margemBruta')} value={(calc.margem_bruta ?? calc.margemBruta) != null ? `${calc.margem_bruta ?? calc.margemBruta}%` : null} />
+          <Field label={t('portal.roi.roiDesejado')} value={(calc.roi_desejado ?? calc.roiDesejado) != null ? `${calc.roi_desejado ?? calc.roiDesejado}x` : null} />
         </div>
       )}
       {result && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Field label="Leads necessários" value={int(r.leadsNecessarios)} />
-          <Field label="MQLs necessários" value={int(r.mqlsNecessarios)} />
-          <Field label="SQLs necessários" value={int(r.sqlsNecessarios)} />
-          <Field label="Vendas necessárias" value={int(r.vendasNecessarias)} />
-          <Field label="Custo por lead" value={money(r.custoPorLead)} />
-          <Field label="Custo por MQL" value={money(r.custoPorMQL)} />
-          <Field label="Custo por SQL" value={money(r.custoPorSQL)} />
-          <Field label="CAC" value={money(r.cac)} />
-          <Field label="Investimento total" value={money(r.totalInvestimento)} />
-          <Field label="Faturamento" value={money(r.faturamento)} />
-          <Field label="Lucro bruto" value={money(r.lucroBruto)} />
-          <Field label="Lucro líquido" value={money(r.lucroLiquido)} />
+          <Field label={t('portal.roi.leads')} value={int(r.leadsNecessarios)} />
+          <Field label={t('portal.roi.mqls')} value={int(r.mqlsNecessarios)} />
+          <Field label={t('portal.roi.sqls')} value={int(r.sqlsNecessarios)} />
+          <Field label={t('portal.roi.vendas')} value={int(r.vendasNecessarias)} />
+          <Field label={t('portal.roi.custoLead')} value={money(r.custoPorLead)} />
+          <Field label={t('portal.roi.custoMql')} value={money(r.custoPorMQL)} />
+          <Field label={t('portal.roi.custoSql')} value={money(r.custoPorSQL)} />
+          <Field label={t('portal.roi.cac')} value={money(r.cac)} />
+          <Field label={t('portal.roi.investimento')} value={money(r.totalInvestimento)} />
+          <Field label={t('portal.roi.faturamento')} value={money(r.faturamento)} />
+          <Field label={t('portal.roi.lucroBruto')} value={money(r.lucroBruto)} />
+          <Field label={t('portal.roi.lucroLiquido')} value={money(r.lucroLiquido)} />
         </div>
       )}
     </>
   )
 }
 function Roi({ data }) {
-  if (!data || (!data.calc && !data.result && !(data.cenarios || []).length)) return <Empty text="Calculadora de ROI ainda não preenchida." />
+  const { t } = useI18n()
+  if (!data || (!data.calc && !data.result && !(data.cenarios || []).length)) return <Empty text={t('portal.roi.vazio')} />
   const cenarios = (data.cenarios || []).filter((c) => c?.calc || c?.result)
   return (
     <div className="space-y-4">
-      {(data.calc || data.result) && <Section title="Cenário principal"><RoiBlock calc={data.calc} result={data.result} /></Section>}
+      {(data.calc || data.result) && <Section title={t('portal.roi.cenarioPrincipal')}><RoiBlock calc={data.calc} result={data.result} /></Section>}
       {cenarios.slice(data.calc ? 1 : 0).map((c) => (
-        <Section key={c.id} title={c.nome || 'Cenário'}><RoiBlock calc={c.calc} result={c.result} /></Section>
+        <Section key={c.id} title={c.nome || t('portal.roi.cenario')}><RoiBlock calc={c.calc} result={c.result} /></Section>
       ))}
     </div>
   )
@@ -280,11 +294,12 @@ function Roi({ data }) {
 
 // ─── Campanhas ───────────────────────────────────────────────────────────────
 function Campanhas({ data }) {
-  if (!data) return <Empty text="Nenhum planejamento de verba publicado ainda." />
+  const { t } = useI18n()
+  if (!data) return <Empty text={t('portal.campanhas.vazio')} />
   const period = getPeriodLabel(data.startDate, data.endDate)
   return (
     <div className="space-y-4">
-      <Section title={data.name || 'Planejamento de verba'} subtitle={period} />
+      <Section title={data.name || t('portal.campanhas.titulo')} subtitle={period} />
       <CampanhasView plan={data} />
     </div>
   )
@@ -292,8 +307,9 @@ function Campanhas({ data }) {
 
 // ─── Central de anúncios ─────────────────────────────────────────────────────
 function Debriefing({ data, projectId, token }) {
+  const { t } = useI18n()
   const ads = data?.ads || []
-  if (!ads.length) return <Empty text="Nenhum anúncio cadastrado." />
+  if (!ads.length) return <Empty text={t('portal.anuncios.vazio')} />
   const sorted = [...ads].sort((a, b) => String(b.createdAt || b.addedAt || '').localeCompare(String(a.createdAt || a.addedAt || '')))
   return (
     <div className="space-y-3">
@@ -305,7 +321,7 @@ function Debriefing({ data, projectId, token }) {
           <Section key={ad.id}>
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-rl-text">{ad.nome || 'Anúncio sem nome'}</p>
+                <p className="text-sm font-semibold text-rl-text">{ad.nome || t('portal.anuncios.semNome')}</p>
                 <p className="text-[11px] text-rl-muted mt-0.5">
                   {ad.tipo && <span className="capitalize">{ad.tipo}</span>}
                   {ad.createdAt && <> · {fmtDate(ad.createdAt)}</>}
@@ -319,9 +335,9 @@ function Debriefing({ data, projectId, token }) {
               </div>
             </div>
             {ad.observacao && <p className="text-sm text-rl-muted mt-2">{ad.observacao}</p>}
-            {ad.copy && <div className="mt-3"><Details title="Copy"><MarkdownView content={ad.copy} /></Details></div>}
+            {ad.copy && <div className="mt-3"><Details title={t('portal.anuncios.copy')}><MarkdownView content={ad.copy} /></Details></div>}
             <div className="flex flex-wrap gap-2 mt-3">
-              {ad.url && <ExtLink href={ad.url} className="btn-secondary inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 !no-underline"><ExternalLink className="w-3.5 h-3.5" /> Ver peça</ExtLink>}
+              {ad.url && <ExtLink href={ad.url} className="btn-secondary inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 !no-underline"><ExternalLink className="w-3.5 h-3.5" /> {t('portal.anuncios.verPeca')}</ExtLink>}
               {arquivosDoAd(ad).map((a, i, lista) => (
                 <FileButton
                   key={a.path}
@@ -329,7 +345,7 @@ function Debriefing({ data, projectId, token }) {
                   token={token}
                   bucket="attachments"
                   path={a.path}
-                  label={lista.length > 1 ? (a.formato === 'card' ? `Card ${i + 1}` : FORMATOS[a.formato]?.label || a.name) : (a.name || 'Anexo')}
+                  label={lista.length > 1 ? (a.formato === 'card' ? t('portal.card', { n: i + 1 }) : FORMATOS[a.formato]?.label || a.name) : (a.name || t('portal.anexo'))}
                 />
               ))}
             </div>
@@ -342,8 +358,9 @@ function Debriefing({ data, projectId, token }) {
 
 // ─── Central de Landing Pages ────────────────────────────────────────────────
 function LPCentral({ data }) {
+  const { t } = useI18n()
   const lps = data?.lps || []
-  if (!lps.length) return <Empty text="Nenhuma landing page cadastrada." />
+  if (!lps.length) return <Empty text={t('portal.lps.vazio')} />
   return (
     <div className="space-y-3">
       {lps.map((lp) => {
@@ -353,7 +370,7 @@ function LPCentral({ data }) {
           <Section key={lp.id}>
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-rl-text">{lp.nome || 'Landing page'}</p>
+                <p className="text-sm font-semibold text-rl-text">{lp.nome || t('portal.lps.lp')}</p>
                 {lp.url && <ExtLink href={lp.url} className="text-xs" />}
                 {lp.createdAt && <p className="text-[11px] text-rl-muted mt-0.5">{fmtDate(lp.createdAt)}</p>}
               </div>
@@ -372,12 +389,13 @@ function LPCentral({ data }) {
 
 // ─── Landing pages geradas (IA) ──────────────────────────────────────────────
 function LandingPages({ data }) {
+  const { t } = useI18n()
   const list = data || []
-  if (!list.length) return <Empty text="Nenhuma landing page gerada." />
+  if (!list.length) return <Empty text={t('portal.lps.vazioGeradas')} />
   return (
     <div className="space-y-3">
       {list.map((lp, i) => (
-        <Details key={lp.id} title={lp.name || `Landing page ${i + 1}`} meta={[lp.personaName, lp.productName, lp.createdAt && fmtDate(lp.createdAt)].filter(Boolean).join(' · ')} defaultOpen={i === 0}>
+        <Details key={lp.id} title={lp.name || t('portal.lps.lpN', { n: i + 1 })} meta={[lp.personaName, lp.productName, lp.createdAt && fmtDate(lp.createdAt)].filter(Boolean).join(' · ')} defaultOpen={i === 0}>
           <div className="mt-2"><Md content={lp.content} /></div>
         </Details>
       ))}
@@ -386,19 +404,20 @@ function LandingPages({ data }) {
 }
 
 // ─── Google Ads ──────────────────────────────────────────────────────────────
-const GADS_TYPES = { marca: 'Marca / Brand', generico: 'Genérico', concorrentes: 'Concorrentes', problema: 'Problema / Dor' }
 function GoogleAds({ data }) {
+  const { t } = useI18n()
+  const tipoGads = (id) => (['marca', 'generico', 'concorrentes', 'problema'].includes(id) ? t(`portal.googleAds.tipos.${id}`) : id)
   const list = data || []
-  if (!list.length) return <Empty text="Nenhuma campanha de Google Ads gerada." />
+  if (!list.length) return <Empty text={t('portal.googleAds.vazio')} />
   return (
     <div className="space-y-3">
       {list.map((g, i) => (
-        <Details key={g.id} title={`Geração ${list.length - i}`} meta={[g.createdAt && fmtDateTime(g.createdAt), (g.campaignTypes || []).map((t) => GADS_TYPES[t] || t).join(', ')].filter(Boolean).join(' · ')} defaultOpen={i === 0}>
+        <Details key={g.id} title={t('portal.googleAds.geracao', { n: list.length - i })} meta={[g.createdAt && fmtDateTime(g.createdAt), (g.campaignTypes || []).map(tipoGads).join(', ')].filter(Boolean).join(' · ')} defaultOpen={i === 0}>
           {(g.keywordGroups || []).length > 0 && (
             <div className="mt-2 space-y-3">
               {g.keywordGroups.map((grp, i) => (
                 <div key={grp.id || i}>
-                  <p className="text-[11px] font-semibold text-rl-muted mb-1">{grp.name || 'Grupo'}</p>
+                  <p className="text-[11px] font-semibold text-rl-muted mb-1">{grp.name || t('portal.googleAds.grupo')}</p>
                   <Chips items={(grp.keywords || []).map((k) => k.keyword).filter(Boolean)} />
                 </div>
               ))}
@@ -412,25 +431,22 @@ function GoogleAds({ data }) {
 }
 
 // ─── Lab. Meta Ads ───────────────────────────────────────────────────────────
-const AUD = { remarketing: 'Remarketing', lookalike: 'Lookalike', interesses: 'Interesses' }
 function MetaLab({ data }) {
-  if (!data?.budget) return <Empty text="Protocolo de testes ainda não configurado." />
-  const phases = [
-    ['Fase 01 · Teste de criativos', 'Dias 1 a 7', 'Até 11 criativos concorrendo; seguem os 3 melhores por CPL ou CTR.'],
-    ['Fase 02 · Teste de públicos', 'Dias 8 a 14', 'Cinco públicos (lookalike, interesses, quentes, regionais, demográficos); seguem os 3 melhores.'],
-    ['Fase 03 · Teste de ganchos', 'Dias 15 a 21', 'Ganchos diferentes com o criativo e o público campeões.'],
-  ]
+  const { t } = useI18n()
+  if (!data?.budget) return <Empty text={t('portal.metaLab.vazio')} />
+  const phases = [0, 1, 2].map((i) => [t(`portal.metaLab.fases.${i}.titulo`), t(`portal.metaLab.fases.${i}.dias`), t(`portal.metaLab.fases.${i}.desc`)])
+  const publico = ['remarketing', 'lookalike', 'interesses'].includes(data.audienceType) ? t(`portal.metaLab.publicos.${data.audienceType}`) : data.audienceType
   return (
     <div className="space-y-4">
-      <Section title="Lab. Meta Ads">
+      <Section title={t('portal.metaLab.titulo')}>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Orçamento diário" value={fmtCurrency(data.budget)} />
-          <Field label="Tipo de público" value={AUD[data.audienceType] || data.audienceType} />
+          <Field label={t('portal.metaLab.orcamento')} value={fmtCurrency(data.budget)} />
+          <Field label={t('portal.metaLab.tipoPublico')} value={publico} />
         </div>
       </Section>
       <div className="grid md:grid-cols-3 gap-3">
-        {phases.map(([t, d, desc]) => (
-          <Section key={t}><p className="text-sm font-semibold text-rl-text">{t}</p><p className="text-[11px] text-rl-muted">{d}</p><p className="text-sm text-rl-text mt-2">{desc}</p></Section>
+        {phases.map(([titulo, d, desc]) => (
+          <Section key={titulo}><p className="text-sm font-semibold text-rl-text">{titulo}</p><p className="text-[11px] text-rl-muted">{d}</p><p className="text-sm text-rl-text mt-2">{desc}</p></Section>
         ))}
       </div>
     </div>
@@ -438,39 +454,40 @@ function MetaLab({ data }) {
 }
 
 // ─── Estratégia ──────────────────────────────────────────────────────────────
-const SWOT = [['forcas', 'Forças', 'text-rl-green'], ['fraquezas', 'Fraquezas', 'text-red-400'], ['oportunidades', 'Oportunidades', 'text-rl-blue'], ['ameacas', 'Ameaças', 'text-rl-gold']]
-const NIVEL = { baixo: 'Baixo', medio: 'Médio', alto: 'Alto' }
+const SWOT = [['forcas', 'text-rl-green'], ['fraquezas', 'text-red-400'], ['oportunidades', 'text-rl-blue'], ['ameacas', 'text-rl-gold']]
 function Estrategia({ data }) {
-  if (!data) return <Empty text="Estratégia ainda não publicada." />
+  const { t } = useI18n()
+  const nivel = (n) => (['baixo', 'medio', 'alto'].includes(n) ? t(`portal.estrategia.niveis.${n}`) : n)
+  if (!data) return <Empty text={t('portal.estrategia.vazio')} />
   const problemas = data.problemas || []
   const swot = data.swot || {}
   const showSwot = !swot.oculto && SWOT.some(([k]) => swot[k])
   const concorrentes = data.concorrentes || []
   const riscos = data.riscos || []
   const funis = data.funis || []
-  if (!problemas.length && !showSwot && !concorrentes.length && !riscos.length && !funis.length) return <Empty text="Estratégia ainda não publicada." />
+  if (!problemas.length && !showSwot && !concorrentes.length && !riscos.length && !funis.length) return <Empty text={t('portal.estrategia.vazio')} />
   return (
     <div className="space-y-4">
-      {problemas.length > 0 && <Section title="Problemas identificados"><ol className="space-y-1.5">{problemas.map((p, i) => <li key={i} className="text-sm text-rl-text flex gap-2"><span className="text-rl-purple font-semibold">{i + 1}.</span><span>{p}</span></li>)}</ol></Section>}
+      {problemas.length > 0 && <Section title={t('portal.estrategia.problemas')}><ol className="space-y-1.5">{problemas.map((p, i) => <li key={i} className="text-sm text-rl-text flex gap-2"><span className="text-rl-purple font-semibold">{i + 1}.</span><span>{p}</span></li>)}</ol></Section>}
       {showSwot && (
-        <Section title="Análise SWOT">
+        <Section title={t('portal.estrategia.swot')}>
           <div className="grid sm:grid-cols-2 gap-3">
-            {SWOT.map(([k, label, cls]) => swot[k] ? <div key={k} className="rounded-xl bg-rl-surface p-3"><p className={`text-[11px] font-semibold ${cls} mb-1`}>{label}</p><PreText text={swot[k]} /></div> : null)}
+            {SWOT.map(([k, cls]) => swot[k] ? <div key={k} className="rounded-xl bg-rl-surface p-3"><p className={`text-[11px] font-semibold ${cls} mb-1`}>{t(`portal.estrategia.${k}`)}</p><PreText text={swot[k]} /></div> : null)}
           </div>
         </Section>
       )}
       {concorrentes.length > 0 && (
-        <Section title="Concorrentes">
+        <Section title={t('portal.estrategia.concorrentes')}>
           <div className="space-y-3">
             {concorrentes.map((c, i) => (
               <div key={c.id || i} className="rounded-xl bg-rl-surface p-3">
-                <p className="text-sm font-semibold text-rl-text">{c.nome || `Concorrente ${i + 1}`}</p>
+                <p className="text-sm font-semibold text-rl-text">{c.nome || t('portal.estrategia.concorrente', { n: i + 1 })}</p>
                 {c.grandePromessa && <p className="text-sm text-rl-text mt-1">{c.grandePromessa}</p>}
                 <div className="flex flex-wrap gap-3 mt-1.5 text-xs">
-                  {c.linkSite && <ExtLink href={c.linkSite}>Site</ExtLink>}
+                  {c.linkSite && <ExtLink href={c.linkSite}>{t('portal.estrategia.site')}</ExtLink>}
                   {c.linkInstagram && <ExtLink href={c.linkInstagram}>Instagram</ExtLink>}
-                  {c.linkBiblioteca && <ExtLink href={c.linkBiblioteca}>Anúncios no Meta</ExtLink>}
-                  {c.linkBibliotecaGoogle && <ExtLink href={c.linkBibliotecaGoogle}>Anúncios no Google</ExtLink>}
+                  {c.linkBiblioteca && <ExtLink href={c.linkBiblioteca}>{t('portal.estrategia.bibliotecaMeta')}</ExtLink>}
+                  {c.linkBibliotecaGoogle && <ExtLink href={c.linkBibliotecaGoogle}>{t('portal.estrategia.bibliotecaGoogle')}</ExtLink>}
                 </div>
                 {c.metaAds && <div className="mt-2"><PreText text={c.metaAds} /></div>}
               </div>
@@ -479,18 +496,18 @@ function Estrategia({ data }) {
         </Section>
       )}
       {riscos.length > 0 && (
-        <Section title="Riscos">
+        <Section title={t('portal.estrategia.riscos')}>
           <div className="space-y-2">
             {riscos.map((r, i) => (
               <div key={r.id || i} className="rounded-xl bg-rl-surface p-3 flex items-start justify-between gap-3">
-                <div className="min-w-0"><p className="text-sm font-medium text-rl-text">{r.problema}</p>{r.riscoGerado && <p className="text-sm text-rl-muted mt-0.5">{r.riscoGerado}</p>}{r.impacto && <p className="text-xs text-rl-muted mt-0.5">Impacto: {r.impacto}</p>}</div>
-                {r.nivel && <Pill>{NIVEL[r.nivel] || r.nivel}</Pill>}
+                <div className="min-w-0"><p className="text-sm font-medium text-rl-text">{r.problema}</p>{r.riscoGerado && <p className="text-sm text-rl-muted mt-0.5">{r.riscoGerado}</p>}{r.impacto && <p className="text-xs text-rl-muted mt-0.5">{t('portal.estrategia.impacto', { texto: r.impacto })}</p>}</div>
+                {r.nivel && <Pill>{nivel(r.nivel)}</Pill>}
               </div>
             ))}
           </div>
         </Section>
       )}
-      {funis.length > 0 && <Section title="Funis"><Chips items={funis} /></Section>}
+      {funis.length > 0 && <Section title={t('portal.estrategia.funis')}><Chips items={funis} /></Section>}
     </div>
   )
 }
@@ -504,9 +521,10 @@ function npsScore(resps) {
   return Math.round(((prom - det) / scored.length) * 100)
 }
 function Nps({ data }) {
+  const { t } = useI18n()
   const marcos = data || []
   const withResp = marcos.filter((m) => (m.respostas || []).length)
-  if (!withResp.length) return <Empty text="Nenhuma resposta de NPS ainda." />
+  if (!withResp.length) return <Empty text={t('portal.nps.vazio')} />
   return (
     <div className="space-y-4">
       {withResp.map((m) => {
@@ -517,14 +535,14 @@ function Nps({ data }) {
               {m.respostas.map((r) => (
                 <div key={r.id} className="rounded-xl bg-rl-surface p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-medium text-rl-text">{r.name || 'Anônimo'}</p>
+                    <p className="text-sm font-medium text-rl-text">{r.name || t('portal.nps.anonimo')}</p>
                     <span className="inline-flex items-center gap-1 text-sm font-bold text-rl-text"><Star className="w-3.5 h-3.5 text-rl-gold" />{r.score}</span>
                   </div>
                   {r.q2 && <p className="text-sm text-rl-text mt-1">{r.q2}</p>}
                   <div className="flex flex-wrap gap-1.5 mt-2">
-                    {r.q3 && <Pill>Comunicação: {r.q3}</Pill>}
-                    {r.q4 && <Pill>Resultados: {r.q4}</Pill>}
-                    {r.q5 && <Pill>Transparência: {r.q5}</Pill>}
+                    {r.q3 && <Pill>{t('portal.nps.comunicacao', { valor: rotuloOpcaoNps(r.q3) })}</Pill>}
+                    {r.q4 && <Pill>{t('portal.nps.resultados', { valor: rotuloOpcaoNps(r.q4) })}</Pill>}
+                    {r.q5 && <Pill>{t('portal.nps.transparencia', { valor: rotuloOpcaoNps(r.q5) })}</Pill>}
                   </div>
                   {r.q6 && <p className="text-xs text-rl-muted mt-2">{r.q6}</p>}
                   {r.submittedAt && <p className="text-[10px] text-rl-muted mt-1">{fmtDateTime(r.submittedAt)}</p>}
@@ -540,15 +558,16 @@ function Nps({ data }) {
 
 // ─── Atas ────────────────────────────────────────────────────────────────────
 function Atas({ data }) {
+  const { t } = useI18n()
   const list = data || []
-  if (!list.length) return <Empty text="Nenhuma ata publicada." />
+  if (!list.length) return <Empty text={t('portal.atas.vazio')} />
   return (
     <div className="space-y-3">
       {list.map((a, i) => {
         const tpl = a.template || {}
         const actions = a.next_actions || []
         return (
-          <Details key={a.id} title={a.title || 'Ata de reunião'} meta={[a.meeting_date && fmtDate(a.meeting_date), (a.attendees || []).length ? `${a.attendees.length} participantes` : null].filter(Boolean).join(' · ')} defaultOpen={i === 0}>
+          <Details key={a.id} title={a.title || t('portal.atas.ata')} meta={[a.meeting_date && fmtDate(a.meeting_date), (a.attendees || []).length ? t('portal.atas.participantes', { count: a.attendees.length }) : null].filter(Boolean).join(' · ')} defaultOpen={i === 0}>
             <div className="space-y-4 mt-2">
               {(a.attendees || []).length > 0 && <Chips items={a.attendees} />}
               {TEMPLATE_SECTIONS.filter((s) => tpl[s.id]).map((s) => (
@@ -556,7 +575,7 @@ function Atas({ data }) {
               ))}
               {actions.length > 0 && (
                 <div>
-                  <p className="text-[11px] font-semibold text-rl-muted mb-1.5">Próximas ações</p>
+                  <p className="text-[11px] font-semibold text-rl-muted mb-1.5">{t('portal.atas.proximasAcoes')}</p>
                   <ul className="space-y-1.5">
                     {actions.map((ac, i) => {
                       const area = ACTION_AREAS.find((x) => x.value === ac.area)
@@ -570,8 +589,8 @@ function Atas({ data }) {
                   </ul>
                 </div>
               )}
-              {a.notes && <div><p className="text-[11px] font-semibold text-rl-muted mb-1">Observações</p><PreText text={a.notes} /></div>}
-              {a.recording_url && <ExtLink href={a.recording_url} className="text-xs">Gravação da reunião</ExtLink>}
+              {a.notes && <div><p className="text-[11px] font-semibold text-rl-muted mb-1">{t('portal.atas.observacoes')}</p><PreText text={a.notes} /></div>}
+              {a.recording_url && <ExtLink href={a.recording_url} className="text-xs">{t('portal.atas.gravacao')}</ExtLink>}
             </div>
           </Details>
         )
@@ -582,12 +601,13 @@ function Atas({ data }) {
 
 // ─── Links ───────────────────────────────────────────────────────────────────
 function Links({ data }) {
+  const { t } = useI18n()
   const l = data || {}
   const fixed = [['Instagram', l.instagram], ['Website', l.website], ['Google Drive', l.googleDrive]].filter(([, u]) => u)
   const outros = (l.outros || []).filter((o) => o?.url)
-  if (!fixed.length && !outros.length) return <Empty text="Nenhum link cadastrado." />
+  if (!fixed.length && !outros.length) return <Empty text={t('portal.links.vazio')} />
   return (
-    <Section title="Links importantes">
+    <Section title={t('portal.links.titulo')}>
       <div className="grid sm:grid-cols-2 gap-2">
         {[...fixed, ...outros.map((o) => [o.label || o.url, o.url])].map(([label, url], i) => (
           <a key={i} href={/^https?:\/\//i.test(url) ? url : `https://${url}`} target="_blank" rel="noreferrer" className="rounded-xl bg-rl-surface p-3 hover:bg-rl-bg transition-colors flex items-center gap-3">
@@ -602,10 +622,11 @@ function Links({ data }) {
 
 // ─── Anexos ──────────────────────────────────────────────────────────────────
 function Anexos({ data, projectId, token }) {
+  const { t } = useI18n()
   const list = data || []
-  if (!list.length) return <Empty text="Nenhum anexo publicado." />
+  if (!list.length) return <Empty text={t('portal.anexos.vazio')} />
   return (
-    <Section title="Anexos">
+    <Section title={t('portal.anexos.titulo')}>
       <div className="divide-y divide-rl-border/60">
         {list.map((a) => (
           <div key={a.id} className="py-2.5 flex items-center gap-3">
@@ -640,11 +661,12 @@ const RENDERERS = {
 }
 
 export default function PortalModule({ moduleId, label, data, projectId, token, level }) {
+  const { t } = useI18n()
   const R = RENDERERS[moduleId]
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-bold text-rl-text px-1">{label}</h2>
-      {R ? <R data={data} projectId={projectId} token={token} level={level} /> : <Empty text="Módulo indisponível no portal." />}
+      {R ? <R data={data} projectId={projectId} token={token} level={level} /> : <Empty text={t('portal.moduloIndisponivel')} />}
     </div>
   )
 }

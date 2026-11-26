@@ -6,6 +6,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { Loader2, CheckCircle2, AlertCircle, Send, Check, MapPin } from 'lucide-react'
 import { CAMPOS_CONTATO, triagemDoCargo, validarRespostas } from '../lib/triagemVaga'
+import { useI18n, idiomaAtual } from '../i18n'
+
+// Título, local, introdução e perguntas da vaga (triagemVaga.js) são conteúdo do time e ficam como
+// estão; a interface fixa, os rótulos de contato e as mensagens de validação se traduzem.
+// validarRespostas (página e servidor) devolve texto em pt: traduzido aqui pela mensagem.
+const ERROS = [
+  [/^Preencha este campo\.$/, 'preencha'],
+  [/^E-mail inválido\.$/, 'email'],
+  [/^Informe o WhatsApp com DDD\.$/, 'telefone'],
+  [/^Informe nome e sobrenome\.$/, 'nome'],
+  [/^Escolha pelo menos uma\.$/, 'escolhaUma'],
+  [/^Responda esta pergunta\.$/, 'responda'],
+  [/^Escreva um pouco mais \(mínimo de (\d+) caracteres\)\.$/, 'minimo', (m) => ({ min: m[1] })],
+]
 
 const lerLS = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null') } catch { return null } }
 const gravarLS = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)) } catch { /* modo privado */ } }
@@ -50,7 +64,12 @@ function Opcoes({ p, valor, onChange, erro }) {
   )
 }
 
-function Campo({ id, rotulo, ajuda, obrigatorio, erro, children }) {
+function Campo({ id, rotulo, ajuda, obrigatorio, erro: erroPt, children }) {
+  const { t, lang } = useI18n()
+  let erro = erroPt
+  if (erroPt && lang !== 'pt') {
+    for (const [re, k, vars] of ERROS) { const m = re.exec(erroPt); if (m) { erro = t(`vaga.erros.${k}`, vars?.(m)); break } }
+  }
   return (
     <div id={`campo-${id}`} className="space-y-2 scroll-mt-6">
       <label htmlFor={id} className="block text-sm font-semibold text-[#0B0B14]">
@@ -76,18 +95,20 @@ export default function VagaPublica() {
   const [enviado, setEnviado] = useState(false)
   const [erroGeral, setErroGeral] = useState('')
   const [site, setSite] = useState('')
+  const { t } = useI18n()
+  const msg = (x) => (x && typeof x === 'object' ? t(x.chave) : x)
 
   useEffect(() => {
-    document.title = triagem ? `${triagem.titulo} · Verta` : 'Vaga · Verta'
+    document.title = triagem ? `${triagem.titulo} · Verta` : t('vaga.tituloPagina')
     if (!triagem) return
-    fetch(`/api/vaga-publica?cargo=${encodeURIComponent(cargo)}${ref ? `&ref=${encodeURIComponent(ref)}` : ''}`)
+    fetch(`/api/vaga-publica?cargo=${encodeURIComponent(cargo)}${ref ? `&ref=${encodeURIComponent(ref)}` : ''}`, { headers: { 'X-Idioma': idiomaAtual() } })
       .then((x) => x.json())
       .then((d) => {
         setInfo(d)
         if (d?.nome) setR((atual) => (atual.nome ? atual : { ...atual, nome: d.nome }))
       })
       .catch(() => setInfo({}))
-  }, [cargo, ref, triagem])
+  }, [cargo, ref, triagem]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { if (!enviado) gravarLS(chave, r) }, [r, chave, enviado])
 
@@ -117,20 +138,20 @@ export default function VagaPublica() {
     try {
       const res = await fetch('/api/vaga-publica', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Idioma': idiomaAtual() },
         body: JSON.stringify({ cargo, ref: ref || undefined, respostas, site }),
       })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) {
         if (d.erros) setErros(d.erros)
-        setErroGeral(d.error || 'Não consegui enviar agora. Tente de novo.')
+        setErroGeral(d.error || { chave: 'vaga.naoEnviou' })
       } else {
         setEnviado(true)
         gravarLS(chave, null)
         window.scrollTo({ top: 0, behavior: 'smooth' })
       }
     } catch {
-      setErroGeral('Sem conexão. Confira a internet e tente de novo.')
+      setErroGeral({ chave: 'vaga.semConexao' })
     }
     setEnviando(false)
   }
@@ -142,18 +163,18 @@ export default function VagaPublica() {
       <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:py-10">
         <header className="flex items-center gap-2.5 mb-6">
           <img src="/vertatask-simbolo.png" alt="" className="w-7 h-7" />
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2A25F0]">Processo seletivo Verta</p>
-          {triagem && !enviado && <p className="ml-auto text-xs font-semibold text-[#767C8E] tabular-nums">{respondidas[0]} de {respondidas[1]}</p>}
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2A25F0]">{t('vaga.marca')}</p>
+          {triagem && !enviado && <p className="ml-auto text-xs font-semibold text-[#767C8E] tabular-nums">{t('vaga.progresso', { ok: respondidas[0], total: respondidas[1] })}</p>}
         </header>
 
         {!triagem ? (
-          <div className="bg-white border border-[#E4E7F0] rounded-2xl p-8 text-center"><AlertCircle className="w-9 h-9 mx-auto text-[#E2564B] mb-2" /><p className="text-sm">Esta vaga não existe ou já foi encerrada.</p></div>
+          <div className="bg-white border border-[#E4E7F0] rounded-2xl p-8 text-center"><AlertCircle className="w-9 h-9 mx-auto text-[#E2564B] mb-2" /><p className="text-sm">{t('vaga.naoExiste')}</p></div>
         ) : enviado ? (
           <div className="bg-white border border-[#E4E7F0] rounded-2xl p-8 text-center shadow-sm">
             <CheckCircle2 className="w-11 h-11 mx-auto text-[#1F8A5B] mb-3" />
-            <h1 className="text-xl font-bold" style={tituloFonte}>Respostas enviadas</h1>
+            <h1 className="text-xl font-bold" style={tituloFonte}>{t('vaga.enviadoTitulo')}</h1>
             <p className="mt-2 text-sm text-[#5A6072] max-w-md mx-auto">
-              Obrigado{r.nome ? `, ${r.nome.trim().split(/\s+/)[0]}` : ''}. Agora é só avisar no WhatsApp que você respondeu. Se o seu perfil seguir para a próxima etapa, a gente marca uma conversa.
+              {r.nome ? t('vaga.enviadoTextoNome', { nome: r.nome.trim().split(/\s+/)[0] }) : t('vaga.enviadoTexto')}
             </p>
           </div>
         ) : !info ? (
@@ -164,13 +185,13 @@ export default function VagaPublica() {
               <h1 className="text-2xl sm:text-[28px] font-extrabold tracking-tight leading-tight" style={tituloFonte}>{triagem.titulo}</h1>
               <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-[#2A25F0]"><MapPin className="w-4 h-4" /> {triagem.local}</p>
               <p className="mt-3 text-sm text-[#5A6072] leading-relaxed">{triagem.intro}</p>
-              {info.respondido && <p className="mt-3 text-xs rounded-lg bg-[#FFF6E5] border border-[#F2D49B] text-[#7A5410] px-3 py-2">Você já respondeu este formulário. Se enviar de novo, ficam valendo as respostas novas.</p>}
+              {info.respondido && <p className="mt-3 text-xs rounded-lg bg-[#FFF6E5] border border-[#F2D49B] text-[#7A5410] px-3 py-2">{t('vaga.jaRespondeu')}</p>}
             </section>
 
             <section className="bg-white border border-[#E4E7F0] rounded-2xl p-5 sm:p-7 shadow-sm space-y-5">
-              <h2 className="text-base font-bold" style={tituloFonte}>Seus dados</h2>
+              <h2 className="text-base font-bold" style={tituloFonte}>{t('vaga.seusDados')}</h2>
               {CAMPOS_CONTATO.map((c) => (
-                <Campo key={c.k} id={c.k} rotulo={c.rotulo} ajuda={c.ajuda} obrigatorio={c.obrigatorio} erro={erros[c.k]}>
+                <Campo key={c.k} id={c.k} rotulo={t(`vaga.campos.${c.k}`) === `vaga.campos.${c.k}` ? c.rotulo : t(`vaga.campos.${c.k}`)} ajuda={c.ajuda === 'Opcional' ? t('vaga.campos.opcional') : c.ajuda} obrigatorio={c.obrigatorio} erro={erros[c.k]}>
                   <input id={c.k} className={`${inputCls(erros[c.k])} h-11`}
                     type={c.tipo === 'email' ? 'email' : c.tipo === 'telefone' ? 'tel' : 'text'}
                     inputMode={c.tipo === 'telefone' ? 'tel' : c.tipo === 'email' ? 'email' : undefined}
@@ -183,9 +204,9 @@ export default function VagaPublica() {
             </section>
 
             <section className="bg-white border border-[#E4E7F0] rounded-2xl p-5 sm:p-7 shadow-sm space-y-6">
-              <h2 className="text-base font-bold" style={tituloFonte}>Sua experiência</h2>
+              <h2 className="text-base font-bold" style={tituloFonte}>{t('vaga.suaExperiencia')}</h2>
               {triagem.perguntas.map((p) => (
-                <Campo key={p.k} id={p.k} rotulo={p.rotulo} ajuda={p.ajuda || (p.tipo === 'multi' ? 'Pode marcar mais de uma.' : null)} obrigatorio={p.obrigatorio} erro={erros[p.k]}>
+                <Campo key={p.k} id={p.k} rotulo={p.rotulo} ajuda={p.ajuda || (p.tipo === 'multi' ? t('vaga.maisDeUma') : null)} obrigatorio={p.obrigatorio} erro={erros[p.k]}>
                   {p.tipo === 'opcao' || p.tipo === 'multi' ? (
                     <Opcoes p={p} valor={r[p.k]} erro={erros[p.k]} onChange={(v) => set(p.k, v)} />
                   ) : p.tipo === 'textarea' ? (
@@ -209,12 +230,12 @@ export default function VagaPublica() {
                 className="absolute -left-[9999px] w-px h-px opacity-0" />
             </section>
 
-            {erroGeral && <p className="text-sm text-[#E2564B] flex items-center gap-1.5"><AlertCircle className="w-4 h-4" /> {erroGeral}</p>}
+            {erroGeral && <p className="text-sm text-[#E2564B] flex items-center gap-1.5"><AlertCircle className="w-4 h-4" /> {msg(erroGeral)}</p>}
             <button type="submit" disabled={enviando}
               className="w-full h-12 rounded-xl bg-[#2A25F0] text-white text-sm font-bold inline-flex items-center justify-center gap-2 hover:bg-[#1F1BC4] disabled:opacity-60 transition">
-              {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Enviar respostas
+              {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} {t('vaga.enviar')}
             </button>
-            <p className="text-[11px] text-center text-[#9AA0B2]">Seus dados são usados só neste processo seletivo da Verta.</p>
+            <p className="text-[11px] text-center text-[#9AA0B2]">{t('vaga.privacidade')}</p>
           </form>
         )}
       </div>

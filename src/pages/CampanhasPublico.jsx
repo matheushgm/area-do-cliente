@@ -7,6 +7,7 @@ import {
   fmtBRL, STAGE_KEYS, STAGE_META,
   getDaysBetween, getPeriodLabel, formatCampaignPeriod,
 } from '../components/CampaignPlanner/campaignHelpers'
+import { useI18n, idiomaAtual, t as tFora } from '../i18n'
 
 // Mesmo imposto aplicado pelo CampaignPlanner interno ao canal Meta Ads.
 // Precisa bater com o valor de CampaignPlanner.jsx / ChannelRow.jsx, senão o
@@ -69,6 +70,7 @@ function deriveChannels(channels, budgetDisponivel, daysLeft) {
 
 export default function CampanhasPublico() {
   const { token } = useParams()
+  const { t, lang } = useI18n()
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
   const [company, setCompany] = useState('')
@@ -77,9 +79,9 @@ export default function CampanhasPublico() {
   useEffect(() => {
     async function load() {
       try {
-        const res  = await fetch(`/api/campanhas-public?token=${encodeURIComponent(token)}`)
+        const res  = await fetch(`/api/campanhas-public?token=${encodeURIComponent(token)}`, { headers: { 'X-Idioma': idiomaAtual() } })
         const body = await res.json()
-        if (!res.ok) throw new Error(body.error || 'Erro ao carregar.')
+        if (!res.ok) throw new Error(body.error || tFora('campanhasPublico.erroCarregar'))
         setCompany(body.companyName || '')
         setPlan(body.plan || null)
       } catch (e) {
@@ -97,7 +99,8 @@ export default function CampanhasPublico() {
   )
   const periodLabel = useMemo(
     () => getPeriodLabel(plan?.startDate, plan?.endDate),
-    [plan?.startDate, plan?.endDate]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `lang`: o rótulo sai no idioma atual
+    [plan?.startDate, plan?.endDate, lang]
   )
 
   if (loading) {
@@ -105,7 +108,7 @@ export default function CampanhasPublico() {
       <div className="min-h-screen bg-rl-bg flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 text-rl-green animate-spin" />
-          <p className="text-rl-muted text-sm">Carregando...</p>
+          <p className="text-rl-muted text-sm">{t('comum.carregando')}</p>
         </div>
       </div>
     )
@@ -116,7 +119,7 @@ export default function CampanhasPublico() {
       <div className="min-h-screen bg-rl-bg flex items-center justify-center p-6">
         <div className="glass-card p-8 max-w-md w-full text-center space-y-4">
           <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
-          <h2 className="text-lg font-bold text-rl-text">Link inválido</h2>
+          <h2 className="text-lg font-bold text-rl-text">{t('campanhasPublico.linkInvalido')}</h2>
           <p className="text-sm text-rl-muted">{error}</p>
         </div>
       </div>
@@ -135,7 +138,7 @@ export default function CampanhasPublico() {
             </div>
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold">
-                Planejamento de Verba
+                {t('campanhasPublico.cabecalho')}
               </p>
               <h1 className="text-base font-black text-rl-text leading-tight truncate">{company}</h1>
             </div>
@@ -146,7 +149,7 @@ export default function CampanhasPublico() {
                 {periodLabel}
               </span>
               <p className="text-[10px] text-rl-muted mt-1">
-                {daysLeft} {daysLeft === 1 ? 'dia' : 'dias'}
+                {t('comum.dias', { count: daysLeft })}
               </p>
             </div>
           )}
@@ -158,7 +161,7 @@ export default function CampanhasPublico() {
 
         <div className="pt-2 pb-8 text-center">
           <p className="text-xs text-rl-muted">
-            Esta é uma visualização somente leitura do planejamento de verba.
+            {t('campanhasPublico.somenteLeitura')}
           </p>
           <p className="text-xs text-rl-muted/60 mt-1">Revenue Lab © {new Date().getFullYear()}</p>
         </div>
@@ -169,6 +172,7 @@ export default function CampanhasPublico() {
 
 // ─── Corpo reutilizável (também usado pelo portal /portal/:projectId) ────────
 export function CampanhasView({ plan }) {
+  const { t } = useI18n()
   const accounts = plan?.accounts || []
   const daysLeft = getDaysBetween(plan?.startDate, plan?.endDate)
   if (!plan || accounts.length === 0) {
@@ -176,10 +180,10 @@ export function CampanhasView({ plan }) {
       <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-12 px-6 text-center space-y-2">
         <Megaphone className="w-8 h-8 text-rl-muted/40 mx-auto" />
         <p className="text-sm font-semibold text-rl-text">
-          Nenhum planejamento de verba publicado ainda.
+          {t('campanhasPublico.vazio')}
         </p>
         <p className="text-xs text-rl-muted">
-          Assim que o time montar a distribuição do orçamento, ela aparece aqui.
+          {t('campanhasPublico.vazioTexto')}
         </p>
       </div>
     )
@@ -200,27 +204,29 @@ export function CampanhasView({ plan }) {
 
 // ─── Conta ───────────────────────────────────────────────────────────────────
 function AccountSection({ account, daysLeft, showName }) {
+  const { t, lang } = useI18n()
   const disponivel = Math.max(0, (account.orcamentoTotal || 0) - (account.valorJaUsado || 0))
   const derived    = useMemo(
     () => deriveChannels(account.channels || [], disponivel, daysLeft),
-    [account.channels, disponivel, daysLeft]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `lang`: o período da campanha sai no idioma atual
+    [account.channels, disponivel, daysLeft, lang]
   )
 
   return (
     <div className="space-y-4">
       {showName && (
         <h2 className="text-sm font-black text-rl-text uppercase tracking-wider">
-          {account.name || 'Conta Principal'}
+          {account.name || t('campanhasPublico.contaPrincipal')}
         </h2>
       )}
 
       {/* Resumo do orçamento */}
       <div className="glass-card p-5">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <BudgetCell label="Orçamento total" value={account.orcamentoTotal} />
-          <BudgetCell label="Já utilizado" value={account.valorJaUsado} />
+          <BudgetCell label={t('campanhasPublico.orcamentoTotal')} value={account.orcamentoTotal} />
+          <BudgetCell label={t('campanhasPublico.jaUtilizado')} value={account.valorJaUsado} />
           <BudgetCell
-            label="Disponível para investir"
+            label={t('campanhasPublico.disponivel')}
             value={disponivel}
             highlight
             hint={`${fmtBRL(account.orcamentoTotal)} − ${fmtBRL(account.valorJaUsado)}`}
@@ -231,7 +237,7 @@ function AccountSection({ account, daysLeft, showName }) {
       {/* Canais */}
       {derived.length === 0 ? (
         <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-8 px-6 text-center">
-          <p className="text-sm text-rl-muted">Nenhum canal distribuído nesta conta.</p>
+          <p className="text-sm text-rl-muted">{t('campanhasPublico.semCanal')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -259,6 +265,7 @@ function BudgetCell({ label, value, highlight, hint }) {
 const visibleStages = (stages) => stages.filter((st) => st.percentage > 0 || st.campaigns.length > 0)
 
 function ChannelCard({ channel }) {
+  const { t } = useI18n()
   const adAccounts = channel.adAccounts || []
   const stages     = visibleStages(channel.stages)
 
@@ -276,19 +283,19 @@ function ChannelCard({ channel }) {
         <div className="flex items-center gap-4 shrink-0">
           {channel.isMeta && (
             <div className="text-right hidden sm:block">
-              <p className="text-[10px] text-rl-muted leading-tight">Bruto</p>
+              <p className="text-[10px] text-rl-muted leading-tight">{t('campanhasPublico.bruto')}</p>
               <p className="text-xs font-semibold text-rl-muted line-through">
                 {fmtBRL(channel.monthlyBruto)}
               </p>
             </div>
           )}
           <div className="text-right">
-            <p className="text-[10px] text-rl-muted leading-tight">No período</p>
+            <p className="text-[10px] text-rl-muted leading-tight">{t('campanhasPublico.noPeriodo')}</p>
             <p className="text-sm font-bold text-rl-text">{fmtBRL(channel.monthly)}</p>
-            {channel.isMeta && <p className="text-[10px] text-rl-gold">−13% impostos</p>}
+            {channel.isMeta && <p className="text-[10px] text-rl-gold">{t('campanhasPublico.impostos')}</p>}
           </div>
           <div className="text-right hidden sm:block">
-            <p className="text-[10px] text-rl-muted leading-tight">Diário</p>
+            <p className="text-[10px] text-rl-muted leading-tight">{t('campanhasPublico.diario')}</p>
             <p className="text-sm font-bold text-rl-text">{fmtBRL(channel.daily)}</p>
           </div>
         </div>
@@ -300,7 +307,7 @@ function ChannelCard({ channel }) {
           adAccounts.map((ac) => <AdAccountBlock key={ac.id} account={ac} />)
         ) : stages.length === 0 ? (
           <p className="text-xs text-rl-muted text-center py-2">
-            Distribuição do funil ainda não definida para este canal.
+            {t('campanhasPublico.semFunilCanal')}
           </p>
         ) : (
           stages.map((st) => <StageBlock key={st.key} stage={st} />)
@@ -312,6 +319,7 @@ function ChannelCard({ channel }) {
 
 // ─── Conta de anúncio dentro do canal ────────────────────────────────────────
 function AdAccountBlock({ account }) {
+  const { t } = useI18n()
   const stages = visibleStages(account.stages)
 
   return (
@@ -320,19 +328,19 @@ function AdAccountBlock({ account }) {
         <div className="flex items-center gap-2 min-w-0">
           <Building2 className="w-3.5 h-3.5 text-rl-muted shrink-0" />
           <p className="text-xs font-bold text-rl-text truncate">
-            {account.name || 'Conta de anúncio'}
+            {account.name || t('campanhasPublico.contaAnuncio')}
           </p>
           <span className="text-[10px] font-semibold text-rl-muted shrink-0">
-            {account.percentage}% do canal
+            {t('campanhasPublico.pctCanal', { pct: account.percentage })}
           </span>
         </div>
         <div className="flex items-center gap-4 shrink-0 text-right">
           <div>
-            <p className="text-[10px] text-rl-muted leading-tight">No período</p>
+            <p className="text-[10px] text-rl-muted leading-tight">{t('campanhasPublico.noPeriodo')}</p>
             <p className="text-xs font-bold text-rl-text">{fmtBRL(account.monthly)}</p>
           </div>
           <div className="hidden sm:block">
-            <p className="text-[10px] text-rl-muted leading-tight">Diário</p>
+            <p className="text-[10px] text-rl-muted leading-tight">{t('campanhasPublico.diario')}</p>
             <p className="text-xs font-bold text-rl-text">{fmtBRL(account.daily)}</p>
           </div>
         </div>
@@ -341,7 +349,7 @@ function AdAccountBlock({ account }) {
       <div className="px-3 pb-3 pt-1 space-y-2 border-t border-rl-border/60">
         {stages.length === 0 ? (
           <p className="text-xs text-rl-muted text-center py-2">
-            Distribuição do funil ainda não definida para esta conta.
+            {t('campanhasPublico.semFunilConta')}
           </p>
         ) : (
           stages.map((st) => <StageBlock key={st.key} stage={st} />)
@@ -353,6 +361,7 @@ function AdAccountBlock({ account }) {
 
 // ─── Etapa do funil ──────────────────────────────────────────────────────────
 function StageBlock({ stage }) {
+  const { t } = useI18n()
   const meta = STAGE_META[stage.key]
 
   return (
@@ -366,11 +375,11 @@ function StageBlock({ stage }) {
         </div>
         <div className="flex items-center gap-4 shrink-0 text-right">
           <div>
-            <p className="text-[10px] text-rl-muted leading-tight">No período</p>
+            <p className="text-[10px] text-rl-muted leading-tight">{t('campanhasPublico.noPeriodo')}</p>
             <p className="text-xs font-bold text-rl-text">{fmtBRL(stage.monthly)}</p>
           </div>
           <div className="hidden sm:block">
-            <p className="text-[10px] text-rl-muted leading-tight">Diário</p>
+            <p className="text-[10px] text-rl-muted leading-tight">{t('campanhasPublico.diario')}</p>
             <p className="text-xs font-bold text-rl-text">{fmtBRL(stage.daily)}</p>
           </div>
         </div>
@@ -382,20 +391,20 @@ function StageBlock({ stage }) {
             <div key={c.id} className="flex items-center justify-between gap-3 px-3 py-2">
               <div className="min-w-0">
                 <p className="text-xs font-medium text-rl-text truncate">
-                  {c.name || 'Campanha sem nome'}
+                  {c.name || t('campanhasPublico.semNome')}
                 </p>
                 <p className="text-[10px] text-rl-muted mt-0.5">
-                  {c.percentage}% da etapa
+                  {t('campanhasPublico.pctEtapa', { pct: c.percentage })}
                   {c.period && <span className="ml-2 text-rl-muted/70">{c.period}</span>}
                 </p>
               </div>
               <div className="flex items-center gap-4 shrink-0 text-right">
                 <div>
-                  <p className="text-[10px] text-rl-muted leading-tight">No período</p>
+                  <p className="text-[10px] text-rl-muted leading-tight">{t('campanhasPublico.noPeriodo')}</p>
                   <p className="text-xs font-bold text-rl-text">{fmtBRL(c.monthly)}</p>
                 </div>
                 <div className="hidden sm:block">
-                  <p className="text-[10px] text-rl-muted leading-tight">Diário</p>
+                  <p className="text-[10px] text-rl-muted leading-tight">{t('campanhasPublico.diario')}</p>
                   <p className="text-xs font-bold text-rl-text">{fmtBRL(c.daily)}</p>
                 </div>
               </div>

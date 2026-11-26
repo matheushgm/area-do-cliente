@@ -21,15 +21,29 @@ import MarkdownView from '../components/Editor/MarkdownView'
 import MarkdownEditor from '../components/Editor/MarkdownEditor'
 import { apiFetch } from '../lib/api'
 import { separarCopy } from '../lib/copyParaCliente'
+import { FUNIS, rotuloFunil } from '../lib/funis'
+import { NIVEIS_CONSCIENCIA, rotuloNivel } from '../lib/niveisConsciencia'
+import { useI18n, idiomaAtual, localeAtual, t as tSolto } from '../i18n'
 
 const API = '/api/copy-aprovacao'
+
+// A leva grava o rótulo do funil/nível em português (é o que a API devolve). Na tela,
+// se o rótulo é de um funil/nível do catálogo, mostra a tradução; senão, como veio.
+function rotuloFunilDaLeva(label) {
+  const f = label && FUNIS.find((x) => x.label === label)
+  return f ? rotuloFunil(f.id) : label
+}
+function rotuloNivelDaLeva(label) {
+  const n = label && NIVEIS_CONSCIENCIA.find((x) => x.label === label)
+  return n ? rotuloNivel(n.id) : label
+}
 
 // Revisão interna vai autenticada; o cliente, sem login.
 async function lerLeva(token, interno) {
   if (interno) return apiFetch(`${API}?token=${encodeURIComponent(token)}&etapa=interna`)
-  const res  = await fetch(`${API}?token=${encodeURIComponent(token)}`)
+  const res  = await fetch(`${API}?token=${encodeURIComponent(token)}`, { headers: { 'X-Idioma': idiomaAtual() } })
   const body = await res.json()
-  if (!res.ok) throw new Error(body.error || 'Erro ao carregar.')
+  if (!res.ok) throw new Error(body.error || tSolto('aprovacaoCopy.erroCarregar'))
   return body
 }
 
@@ -37,11 +51,11 @@ async function enviarDecisao(payload, interno) {
   if (interno) return apiFetch(API, { body: { ...payload, etapa: 'interna' } })
   const res = await fetch(API, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Idioma': idiomaAtual() },
     body: JSON.stringify(payload),
   })
   const body = await res.json()
-  if (!res.ok) throw new Error(body.error || 'Erro ao enviar.')
+  if (!res.ok) throw new Error(body.error || tSolto('aprovacaoCopy.erroEnviar'))
   return body
 }
 
@@ -49,11 +63,9 @@ function fmtDateTime(iso) {
   if (!iso) return ''
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mi = String(d.getMinutes()).padStart(2, '0')
-  return `${dd}/${mm}/${d.getFullYear()} às ${hh}:${mi}`
+  const data = d.toLocaleDateString(localeAtual(), { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const hora = d.toLocaleTimeString(localeAtual(), { hour: '2-digit', minute: '2-digit' })
+  return tSolto('aprovacaoCopy.dataHora', { data, hora })
 }
 
 // Os geradores de PDF puxam react-dom/server + react-markdown; carregados só no
@@ -65,6 +77,7 @@ async function exportarPDF(fn) {
 
 export default function AprovacaoCopyPublico({ modo = 'cliente' }) {
   const interno = modo === 'interno'
+  const { t } = useI18n()
   const { token } = useParams()
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
@@ -98,7 +111,7 @@ export default function AprovacaoCopyPublico({ modo = 'cliente' }) {
       <div className="min-h-screen bg-rl-bg flex items-center justify-center p-6">
         <div className="glass-card p-8 max-w-md w-full text-center space-y-4">
           <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
-          <h2 className="text-lg font-bold text-rl-text">Link inválido</h2>
+          <h2 className="text-lg font-bold text-rl-text">{t('aprovacaoCopy.linkInvalido')}</h2>
           <p className="text-sm text-rl-muted">{error}</p>
         </div>
       </div>
@@ -112,6 +125,8 @@ export default function AprovacaoCopyPublico({ modo = 'cliente' }) {
   const TipoIcon   = isVideo ? Video : ImageIcon
   const liberados  = interno ? itens.filter((it) => it.aprovacao.status === 'aprovado').length : 0
   const linkCliente = `${window.location.origin}/aprovacao-copy/${token}`
+  const funilLabel = rotuloFunilDaLeva(leva.funilLabel)
+  const nivelLabel = rotuloNivelDaLeva(leva.nivelLabel)
 
   // Aprova tudo que está pendente, um de cada vez (cada decisão é uma escrita
   // no mesmo registro — em paralelo uma sobrescreveria a outra).
@@ -143,7 +158,7 @@ export default function AprovacaoCopyPublico({ modo = 'cliente' }) {
         content:      itens.map((it) => it.conteudo || '').join('\n\n---\n\n'),
         type:         leva.tipo,
         quantity:     itens.length,
-        adTypeLabels: [leva.funilLabel, leva.nivelLabel].filter(Boolean),
+        adTypeLabels: [funilLabel, nivelLabel].filter(Boolean),
         createdAt:    leva.enviadoEm,
       },
     }))
@@ -160,7 +175,7 @@ export default function AprovacaoCopyPublico({ modo = 'cliente' }) {
             </div>
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold">
-                {interno ? 'Revisão interna' : 'Aprovação'} de {isVideo ? 'roteiros' : 'copies'} · {leva.companyName}
+                {t(`aprovacaoCopy.titulo.${interno ? 'interno' : 'cliente'}.${isVideo ? 'video' : 'estatico'}`)} · {leva.companyName}
               </p>
               <h1 className="text-base font-black text-rl-text leading-tight truncate">
                 {leva.nome}
@@ -170,7 +185,7 @@ export default function AprovacaoCopyPublico({ modo = 'cliente' }) {
           {pendentes.length > 0 && (
             <span className="inline-flex items-center gap-1.5 bg-rl-gold/10 border border-rl-gold/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-rl-gold shrink-0">
               <Clock className="w-3 h-3" />
-              {pendentes.length} pendente{pendentes.length !== 1 ? 's' : ''}
+              {t('aprovacaoCopy.pendentes', { count: pendentes.length })}
             </span>
           )}
         </div>
@@ -181,14 +196,13 @@ export default function AprovacaoCopyPublico({ modo = 'cliente' }) {
         {interno && (
           <div className="rounded-xl border border-rl-purple/30 bg-rl-purple/5 px-5 py-4 space-y-3">
             <p className="text-sm text-rl-text">
-              Revise antes do cliente. O que você aprovar aqui é liberado no link dele; o que você
-              reprovar volta pra Central com o motivo e não chega ao cliente.
+              {t('aprovacaoCopy.instrucaoInterna')}
             </p>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-semibold text-rl-subtle">
                 {liberados > 0
-                  ? `${liberados} ${liberados === 1 ? 'texto liberado' : 'textos liberados'} pro cliente`
-                  : 'Nenhum texto liberado ainda: o link do cliente está vazio.'}
+                  ? t('aprovacaoCopy.liberados', { count: liberados })
+                  : t('aprovacaoCopy.nenhumLiberado')}
               </span>
               {liberados > 0 && (
                 <button
@@ -196,7 +210,7 @@ export default function AprovacaoCopyPublico({ modo = 'cliente' }) {
                   className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-rl-purple text-white hover:bg-rl-purple/90 transition-all"
                 >
                   {linkCopiado ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
-                  {linkCopiado ? 'Link copiado!' : 'Copiar link do cliente'}
+                  {linkCopiado ? t('aprovacaoCopy.linkCopiado') : t('aprovacaoCopy.copiarLinkCliente')}
                 </button>
               )}
             </div>
@@ -207,18 +221,18 @@ export default function AprovacaoCopyPublico({ modo = 'cliente' }) {
         <div className="glass-card px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
           <div className="text-[11px] text-rl-muted flex items-center gap-3 flex-wrap">
             <span className="inline-flex items-center gap-1.5 font-semibold text-rl-subtle">
-              <TipoIcon className="w-3.5 h-3.5" /> {isVideo ? 'Roteiros de vídeo' : 'Copies de anúncio'}
+              <TipoIcon className="w-3.5 h-3.5" /> {isVideo ? t('aprovacaoCopy.roteirosVideo') : t('aprovacaoCopy.copiesAnuncio')}
             </span>
-            <span>{itens.length} no total</span>
-            {leva.funilLabel && <span>· {leva.funilLabel}</span>}
-            {leva.enviadoEm && <span>· enviada em {fmtDateTime(leva.enviadoEm)}</span>}
+            <span>{t('aprovacaoCopy.noTotal', { count: itens.length })}</span>
+            {funilLabel && <span>· {funilLabel}</span>}
+            {leva.enviadoEm && <span>· {t('aprovacaoCopy.enviadaEm', { quando: fmtDateTime(leva.enviadoEm) })}</span>}
           </div>
           <button
             onClick={exportarLeva}
             disabled={itens.length === 0}
             className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border border-rl-border text-rl-subtle hover:text-rl-text hover:bg-rl-surface transition-all disabled:opacity-50"
           >
-            <FileDown className="w-3.5 h-3.5" /> Exportar PDF
+            <FileDown className="w-3.5 h-3.5" /> {t('aprovacaoCopy.exportarPdf')}
           </button>
           {pendentes.length > 1 && (
             <button
@@ -227,7 +241,7 @@ export default function AprovacaoCopyPublico({ modo = 'cliente' }) {
               className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 transition-all disabled:opacity-50"
             >
               {bulk ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-              Aprovar todos
+              {t('aprovacaoCopy.aprovarTodos')}
             </button>
           )}
         </div>
@@ -237,24 +251,24 @@ export default function AprovacaoCopyPublico({ modo = 'cliente' }) {
             <Sparkles className="w-8 h-8 text-rl-muted/40 mx-auto" />
             <p className="text-sm font-semibold text-rl-text">
               {leva.emRevisao
-                ? 'Os textos desta leva ainda estão sendo revisados pela equipe.'
-                : 'Nada pra aprovar nesta leva.'}
+                ? t('aprovacaoCopy.emRevisao')
+                : t('aprovacaoCopy.vazio')}
             </p>
             {leva.emRevisao && (
-              <p className="text-xs text-rl-muted">Assim que forem liberados, eles aparecem aqui neste mesmo link.</p>
+              <p className="text-xs text-rl-muted">{t('aprovacaoCopy.emRevisaoDica')}</p>
             )}
           </div>
         )}
         {itens.length > 0 && leva.emRevisao && (
           <p className="-mt-4 text-xs text-rl-muted">
-            Outros textos desta leva ainda estão com a equipe e aparecem aqui quando forem liberados.
+            {t('aprovacaoCopy.outrosEmRevisao')}
           </p>
         )}
 
         {pendentes.length > 0 && (
           <section className="space-y-4">
             <h2 className="text-sm font-black text-rl-text uppercase tracking-wide">
-              {interno ? 'Aguardando revisão' : 'Aguardando sua aprovação'}
+              {interno ? t('aprovacaoCopy.aguardandoRevisao') : t('aprovacaoCopy.aguardandoSua')}
             </h2>
             {pendentes.map((it, i) => (
               <CopyCard key={it.id} item={it} index={i} token={token} onDecided={load} tipo={leva.tipo} companyName={leva.companyName} interno={interno} />
@@ -265,7 +279,7 @@ export default function AprovacaoCopyPublico({ modo = 'cliente' }) {
         {decididos.length > 0 && (
           <section className="space-y-4">
             <h2 className="text-sm font-black text-rl-muted uppercase tracking-wide">
-              {interno ? 'Já revisados' : 'Já avaliados'}
+              {interno ? t('aprovacaoCopy.jaRevisados') : t('aprovacaoCopy.jaAvaliados')}
             </h2>
             {decididos.map((it, i) => (
               <CopyCard key={it.id} item={it} index={i} token={token} decided tipo={leva.tipo} companyName={leva.companyName} interno={interno} />
@@ -279,6 +293,7 @@ export default function AprovacaoCopyPublico({ modo = 'cliente' }) {
 
 // ─── Card de uma copy ─────────────────────────────────────────────────────────
 function CopyCard({ item, index, token, onDecided, decided = false, tipo, companyName, interno = false }) {
+  const { t } = useI18n()
   const [mode,       setMode]       = useState(null) // null | 'reprovando' | 'editando'
   const [motivo,     setMotivo]     = useState('')
   const [sugestao,   setSugestao]   = useState('')
@@ -321,9 +336,10 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
 
   // Na revisão do time basta o motivo; do cliente pedimos também como deveria estar.
   const canReprovar = motivo.trim().length > 0 && (interno || sugestao.trim().length > 0)
-  const rotuloAprovado = interno ? 'Liberado pro cliente' : 'Aprovado'
-  const rotuloReprovado = interno ? 'Reprovado na revisão' : 'Reprovado'
-  const quem = interno && item.aprovacao.por?.nome ? ` por ${item.aprovacao.por.nome}` : ''
+  const rotuloAprovado = interno ? t('aprovacaoCopy.liberadoCliente') : t('aprovacaoCopy.aprovado')
+  const rotuloAprovadoEditado = interno ? t('aprovacaoCopy.liberadoClienteAlteracoes') : t('aprovacaoCopy.aprovadoAlteracoes')
+  const rotuloReprovado = interno ? t('aprovacaoCopy.reprovadoRevisao') : t('aprovacaoCopy.reprovado')
+  const quem = interno && item.aprovacao.por?.nome ? ` ${t('aprovacaoCopy.por', { nome: item.aprovacao.por.nome })}` : ''
   // Na revisão, depois de liberado: o que o cliente já respondeu.
   const respostaCliente = interno && st === 'aprovado' ? item.cliente?.status : null
   const textoMudou  = texto.trim().length > 0 && texto.trim() !== (item.conteudo || '').trim()
@@ -336,7 +352,7 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
       <div className="px-5 py-4 flex items-start justify-between gap-3 border-b border-rl-border/60">
         <div className="min-w-0">
           <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold">
-            Criativo {index + 1}
+            {t('aprovacaoCopy.criativoN', { n: index + 1 })}
           </p>
           <p className="text-sm font-bold text-rl-text leading-snug mt-0.5">{item.titulo}</p>
         </div>
@@ -344,14 +360,14 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
           <button
             onClick={copiar}
             className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg text-rl-muted hover:text-rl-purple transition-all"
-            title="Copiar o texto"
+            title={t('aprovacaoCopy.copiarTexto')}
           >
             {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
           </button>
           <button
             onClick={exportar}
             className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg text-rl-muted hover:text-rl-purple transition-all"
-            title="Exportar este criativo em PDF"
+            title={t('aprovacaoCopy.exportarEste')}
           >
             <FileDown className="w-3 h-3" />
           </button>
@@ -359,7 +375,7 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
             st === 'aprovado' ? (
               <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300">
                 {editado ? <Pencil className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                {editado ? `${rotuloAprovado} com alterações` : rotuloAprovado}
+                {editado ? rotuloAprovadoEditado : rotuloAprovado}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-300">
@@ -374,20 +390,20 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
       {mode === 'editando' ? (
         <div className="px-5 py-4 space-y-2">
           <label className="text-xs font-bold text-rl-text uppercase tracking-wide block">
-            Ajuste o texto como ele deve ficar
+            {t('aprovacaoCopy.ajusteTexto')}
           </label>
           <MarkdownEditor value={texto} onChange={setTexto} minHeight={240} autoFocus />
           <p className="text-[11px] text-rl-muted">
             {interno
-              ? 'O cliente recebe o texto já com o seu ajuste. O original fica guardado na leva.'
-              : 'O texto que você aprovar aqui é o que vai pra produção. O original fica guardado pra equipe comparar.'}
+              ? t('aprovacaoCopy.ajusteDicaInterno')
+              : t('aprovacaoCopy.ajusteDicaCliente')}
           </p>
         </div>
       ) : interno && cabecalho ? (
         <div className="px-5 py-4 space-y-3">
           <div className="rounded-xl bg-rl-surface/60 border border-dashed border-rl-border px-4 py-3">
             <p className="text-[10px] uppercase tracking-wider font-bold text-rl-muted mb-1.5">
-              Só o time vê. O cliente recebe a partir do Gancho.
+              {t('aprovacaoCopy.soOTimeVe')}
             </p>
             <MarkdownView content={cabecalho} />
           </div>
@@ -403,7 +419,7 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
       {interno && decided && editado && item.conteudoAntesDaRevisao && (
         <details className="px-5 pb-4 group">
           <summary className="text-[11px] font-semibold text-rl-muted cursor-pointer hover:text-rl-text">
-            Ver texto antes da revisão
+            {t('aprovacaoCopy.verAntesRevisao')}
           </summary>
           <div className="mt-2 rounded-xl bg-rl-surface/60 border border-rl-border px-4 py-3">
             <MarkdownView content={item.conteudoAntesDaRevisao} />
@@ -415,7 +431,7 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
       {!interno && decided && editado && item.conteudoOriginal && (
         <details className="px-5 pb-4 group">
           <summary className="text-[11px] font-semibold text-rl-muted cursor-pointer hover:text-rl-text">
-            Ver texto original (antes da sua edição)
+            {t('aprovacaoCopy.verOriginal')}
           </summary>
           <div className="mt-2 rounded-xl bg-rl-surface/60 border border-rl-border px-4 py-3">
             <MarkdownView content={item.conteudoOriginal} />
@@ -428,14 +444,14 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
         <div className="px-5 pb-4 space-y-2">
           <div className="rounded-xl bg-red-500/10 border border-red-500/30 px-3 py-2.5">
             <p className="text-[10px] uppercase tracking-wider font-bold text-red-500">
-              Motivo da reprovação
+              {t('aprovacaoCopy.motivoReprovacao')}
             </p>
             <p className="text-sm text-rl-text mt-1 whitespace-pre-wrap">{item.aprovacao.motivo}</p>
           </div>
           {item.aprovacao.sugestao && (
             <div className="rounded-xl bg-rl-surface/60 border border-rl-border px-3 py-2.5">
               <p className="text-[10px] uppercase tracking-wider font-bold text-rl-muted">
-                Como deveria estar
+                {t('aprovacaoCopy.comoDeveria')}
               </p>
               <p className="text-sm text-rl-text mt-1 whitespace-pre-wrap">{item.aprovacao.sugestao}</p>
             </div>
@@ -444,11 +460,11 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
       )}
       {decided && item.aprovacao.decididoEm && (
         <p className="px-5 pb-4 text-[10px] text-rl-muted">
-          {st === 'aprovado' ? (editado ? `${rotuloAprovado} com alterações` : rotuloAprovado) : rotuloReprovado}
-          {quem} em {fmtDateTime(item.aprovacao.decididoEm)}
-          {respostaCliente === 'pendente' && ' · aguardando o cliente'}
-          {respostaCliente === 'aprovado' && ' · o cliente aprovou'}
-          {respostaCliente === 'reprovado' && ' · o cliente reprovou'}
+          {st === 'aprovado' ? (editado ? rotuloAprovadoEditado : rotuloAprovado) : rotuloReprovado}
+          {quem} {t('aprovacaoCopy.em', { quando: fmtDateTime(item.aprovacao.decididoEm) })}
+          {respostaCliente === 'pendente' && ` · ${t('aprovacaoCopy.aguardandoCliente')}`}
+          {respostaCliente === 'aprovado' && ` · ${t('aprovacaoCopy.clienteAprovou')}`}
+          {respostaCliente === 'reprovado' && ` · ${t('aprovacaoCopy.clienteReprovou')}`}
         </p>
       )}
 
@@ -463,24 +479,24 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
                 className="flex-1 min-w-[150px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all disabled:opacity-50"
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                {interno ? 'Aprovar e liberar' : 'Aprovar texto'}
+                {interno ? t('aprovacaoCopy.aprovarLiberar') : t('aprovacaoCopy.aprovarTexto')}
               </button>
               <button
                 onClick={() => { setTexto(item.conteudo || ''); setMode('editando'); setError('') }}
                 disabled={submitting}
                 className="flex-1 min-w-[150px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-rl-purple/40 text-rl-purple text-sm font-bold hover:bg-rl-purple/10 transition-all disabled:opacity-50"
                 title={interno
-                  ? 'Ajuste o texto e libere já corrigido pro cliente'
-                  : 'Faça um ajuste pequeno você mesmo e aprove, sem precisar devolver pra equipe'}
+                  ? t('aprovacaoCopy.editarLiberarDica')
+                  : t('aprovacaoCopy.editarAprovarDica')}
               >
-                <Pencil className="w-4 h-4" /> {interno ? 'Editar e liberar' : 'Editar e aprovar'}
+                <Pencil className="w-4 h-4" /> {interno ? t('aprovacaoCopy.editarLiberar') : t('aprovacaoCopy.editarAprovar')}
               </button>
               <button
                 onClick={() => setMode('reprovando')}
                 disabled={submitting}
                 className="flex-1 min-w-[150px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-300 text-red-600 text-sm font-bold hover:bg-red-50 transition-all disabled:opacity-50"
               >
-                <XCircle className="w-4 h-4" /> Reprovar
+                <XCircle className="w-4 h-4" /> {t('aprovacaoCopy.reprovar')}
               </button>
             </div>
           )}
@@ -493,16 +509,16 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
                   disabled={submitting}
                   className="text-xs px-4 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
                 >
-                  Cancelar
+                  {t('comum.cancelar')}
                 </button>
                 <button
                   onClick={() => decide('aprovado', { comAlteracoes: true })}
                   disabled={submitting || !textoMudou}
-                  title={!textoMudou ? 'Altere alguma coisa no texto pra aprovar com alterações' : undefined}
+                  title={!textoMudou ? t('aprovacaoCopy.altereAlgo') : undefined}
                   className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                  {interno ? 'Liberar com alterações' : 'Aprovar com alterações'}
+                  {interno ? t('aprovacaoCopy.liberarAlteracoes') : t('aprovacaoCopy.aprovarAlteracoes')}
                 </button>
               </div>
             </div>
@@ -511,26 +527,26 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
             <div className="space-y-3 rounded-xl border border-red-500/30 bg-red-500/5 p-4">
               <div>
                 <label className="text-xs font-bold text-rl-text uppercase tracking-wide mb-1 block">
-                  Por que está reprovado? <span className="text-red-500">*</span>
+                  {t('aprovacaoCopy.porQue')} <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={motivo}
                   onChange={(e) => setMotivo(e.target.value)}
                   rows={3}
-                  placeholder="Ex: a promessa está forte demais e o prazo prometido não é o que a gente entrega..."
+                  placeholder={t('aprovacaoCopy.porQuePlaceholder')}
                   className="input-field w-full resize-none"
                 />
               </div>
               <div>
                 <label className="text-xs font-bold text-rl-text uppercase tracking-wide mb-1 block">
-                  Como o texto deveria estar pra ser aprovado?{' '}
-                  {interno ? <span className="text-rl-muted normal-case font-normal">(opcional)</span> : <span className="text-red-500">*</span>}
+                  {t('aprovacaoCopy.comoTexto')}{' '}
+                  {interno ? <span className="text-rl-muted normal-case font-normal">({t('aprovacaoCopy.opcional')})</span> : <span className="text-red-500">*</span>}
                 </label>
                 <textarea
                   value={sugestao}
                   onChange={(e) => setSugestao(e.target.value)}
                   rows={3}
-                  placeholder="Ex: falar em 30 dias em vez de 7, e trocar o CTA por agendar diagnóstico..."
+                  placeholder={t('aprovacaoCopy.comoPlaceholder')}
                   className="input-field w-full resize-none"
                 />
               </div>
@@ -541,7 +557,7 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
                   disabled={submitting}
                   className="text-xs px-4 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
                 >
-                  Cancelar
+                  {t('comum.cancelar')}
                 </button>
                 <button
                   onClick={() => decide('reprovado')}
@@ -549,7 +565,7 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
                   className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                  Enviar reprovação
+                  {t('aprovacaoCopy.enviarReprovacao')}
                 </button>
               </div>
             </div>

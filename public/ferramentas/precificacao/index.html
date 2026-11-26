@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Soluções Verta</title>
-<meta name="description" content="Serviços de marketing, comercial e tecnologia para acelerar a receita da sua empresa.">
+<title data-i18n="meta.titulo">Soluções Verta</title>
+<meta name="description" content="Serviços de marketing, comercial e tecnologia para acelerar a receita da sua empresa." data-i18n-attr="content:meta.descricao">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB2aWV3Qm94PSIwIDAgMTQ1OSAxNDc0IiB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHhtbDpzcGFjZT0icHJlc2VydmUiIHhtbG5zOnNlcmlmPSJodHRwOi8vd3d3LnNlcmlmLmNvbS8iIHN0eWxlPSJmaWxsLXJ1bGU6ZXZlbm9kZDtjbGlwLXJ1bGU6ZXZlbm9kZDtzdHJva2UtbGluZWpvaW46cm91bmQ7c3Ryb2tlLW1pdGVybGltaXQ6MjsiPjxnIHRyYW5zZm9ybT0ibWF0cml4KDEsMCwwLDEsNjQyOS43NCwtNzAyNC4yMikiPjxnIHRyYW5zZm9ybT0ibWF0cml4KDI2LjA5NTUsMCwwLDI2LjA5NTUsLTQ5NzEuNDYsNzY1NS44OSkiPjxwYXRoIGQ9Ik0tNDEuOTA3LDguMDY4TC0yNy45MzEsMTYuMTM4TC0yNy45MzEsMzIuMjc3TC00MS45MDcsMjQuMjA4TC01NS44ODIsMzIuMjc3TC01NS44ODIsMTYuMTM4TC00MS45MDcsOC4wNjhaTS00MS45MDcsOC4wNjhMLTU1Ljg4MiwtMC4wMDNMLTQxLjkwNywtOC4wNzNMLTQxLjkwNywtMjQuMjA2TC0yNy45MzEsLTE2LjE0MkwtMjcuOTMxLC0wLjAwM0wtNDEuOTA3LDguMDY4Wk0wLDE2LjEyOUwtMTMuOTYsMjQuMTkzTC0xMy45NjYsMjQuMTkzTC0xMy45NjYsMjQuMTg3TC0yNy45MzEsMTYuMTI5TC0yNy45MzEsMC4wMDFMLTEzLjk2NiwtOC4wNjRMLTEzLjk2Niw4LjA2NUwwLDE2LjEyOVoiIHN0eWxlPSJmaWxsOnVybCgjX0xpbmVhcjEpOyIvPjwvZz48L2c+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJfTGluZWFyMSIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjAiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIiBncmFkaWVudFRyYW5zZm9ybT0ibWF0cml4KC00OS43MTM5LDMxLjg4NzQsLTMxLjg4NzQsLTQ5LjcxMzksLTYuMTY4NTYsMC4zNjk2MjQpIj48c3RvcCBvZmZzZXQ9IjAiIHN0eWxlPSJzdG9wLWNvbG9yOnJnYigxMDgsMjE5LDI1NSk7c3RvcC1vcGFjaXR5OjEiLz48c3RvcCBvZmZzZXQ9IjAuNSIgc3R5bGU9InN0b3AtY29sb3I6cmdiKDM0LDAsMjU0KTtzdG9wLW9wYWNpdHk6MSIvPjxzdG9wIG9mZnNldD0iMSIgc3R5bGU9InN0b3AtY29sb3I6cmdiKDIsMSwxMzkpO3N0b3Atb3BhY2l0eToxIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PC9zdmc+IA==">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -161,6 +161,7 @@ p{text-wrap:pretty}
 .scope .out .ic{color:var(--ink-30)}
 .scope li.is-new{font-weight:500}
 .scope li.is-new::after{content:"novo";align-self:flex-start;margin-left:auto;font-size:.6rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--blue);background:var(--blue-100);border-radius:100vw;padding:.1rem .45rem;flex:none}
+html[lang="en-US"] .scope li.is-new::after{content:"new"}
 @media (max-width:30em){.scope{grid-template-columns:1fr}}
 
 /* qty + addons */
@@ -377,13 +378,13 @@ p{text-wrap:pretty}
 
 <header class="nav" id="nav">
   <div class="nav__bar">
-    <a class="nav__logo" href="#topo" aria-label="Verta, início"><img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB2aWV3Qm94PSIwIDAgMTY4OSA0NzIiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgeG1sOnNwYWNlPSJwcmVzZXJ2ZSIgeG1sbnM6c2VyaWY9Imh0dHA6Ly93d3cuc2VyaWYuY29tLyIgc3R5bGU9ImZpbGwtcnVsZTpldmVub2RkO2NsaXAtcnVsZTpldmVub2RkO3N0cm9rZS1saW5lam9pbjpyb3VuZDtzdHJva2UtbWl0ZXJsaW1pdDoyOyI+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMSwwLDAsMSw3MTYyLjQ4LC01OTc3LjA1KSI+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMi42NTE2NywwLDAsMi42NTE2NywtNzQxOS40NCw1NzAwLjM4KSI+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMy4xNTIyMywwLDAsMy4xNTIyMywzNjcuMzk0LDE4MC42MjgpIj48cGF0aCBkPSJNMCwyMi44TDEwLjE5OSwtNS4wNEwxNi4wMiwtNS4wNEwzLjEyLDI3Ljg0TC0zLjI0LDI3Ljg0TC0xNi4xNCwtNS4wNEwtMTAuMjYsLTUuMDRMMCwyMi44WiIgc3R5bGU9ImZpbGwtcnVsZTpub256ZXJvOyIvPjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgzLjE1MjIzLDAsMCwzLjE1MjIzLDQ5My4xNjMsMjQxLjA1NykiPjxwYXRoIGQ9Ik0wLC0xNS41NEMtMC45MiwtMTcuMDQgLTIuMTcsLTE4LjE4IC0zLjc1LC0xOC45NkMtNS4zMywtMTkuNzQgLTcuMDgsLTIwLjEzIC05LC0yMC4xM0MtMTEuNzYsLTIwLjEzIC0xNC4xMSwtMTkuMjUgLTE2LjA1LC0xNy40OUMtMTcuOTksLTE1LjcyOSAtMTkuMTAxLC0xMy4yOSAtMTkuMzgsLTEwLjE3TDEuMzgxLC0xMC4xN0MxLjM4MSwtMTIuMjQ5IDAuOTIsLTE0LjA0IDAsLTE1LjU0TTYuODQxLC01LjczTC0xOS40MzksLTUuNzNDLTE5LjI0LC0yLjQ5IC0xOC4xMywwLjA0IC0xNi4xMDksMS44NkMtMTQuMDksMy42ODEgLTExLjY0LDQuNTkgLTguNzYsNC41OUMtNi40LDQuNTkgLTQuNDMxLDQuMDQxIC0yLjg1LDIuOTRDLTEuMjcsMS44NCAtMC4xNiwwLjM3IDAuNDgsLTEuNDdMNi4zNiwtMS40N0M1LjQ4LDEuNjkgMy43MjEsNC4yNiAxLjA4LDYuMjRDLTEuNTYsOC4yMiAtNC44NCw5LjIxIC04Ljc2LDkuMjFDLTExLjg4LDkuMjEgLTE0LjY3LDguNTExIC0xNy4xMyw3LjExQy0xOS41OSw1LjcxIC0yMS41MiwzLjcyIC0yMi45MiwxLjE0Qy0yNC4zMiwtMS40NCAtMjUuMDIsLTQuNDMgLTI1LjAyLC03LjgzQy0yNS4wMiwtMTEuMjI5IC0yNC4zNCwtMTQuMjEgLTIyLjk3OSwtMTYuNzdDLTIxLjYyLC0xOS4zMyAtMTkuNzEsLTIxLjMgLTE3LjI1LC0yMi42OEMtMTQuNzksLTI0LjA2IC0xMS45NiwtMjQuNzUgLTguNzYsLTI0Ljc1Qy01LjY0LC0yNC43NSAtMi44OCwtMjQuMDY5IC0wLjQ3OSwtMjIuNzFDMS45MiwtMjEuMzUgMy43NywtMTkuNDc5IDUuMDcsLTE3LjFDNi4zNywtMTQuNzIgNy4wMiwtMTIuMDMgNy4wMiwtOS4wM0M3LjAyLC03Ljk4OSA2Ljk2LC02Ljg5IDYuODQxLC01LjczIiBzdHlsZT0iZmlsbC1ydWxlOm5vbnplcm87Ii8+PC9nPjxnIHRyYW5zZm9ybT0ibWF0cml4KDMuMTUyMjMsMCwwLDMuMTUyMjMsNTUzLjk2OSwyNjMuNDY5KSI+PHBhdGggZD0iTTYuNTEsLTI2LjI4TDUuMDY5LC0yNi4yOEMtMS4wNTEsLTI2LjI4IC00LjExLC0yMi45NiAtNC4xMSwtMTYuMzJMLTQuMTEsMS41NkwtOS41NywxLjU2TC05LjU3LC0zMS4zMkwtNC4xMSwtMzEuMzJMLTQuMTEsLTI1Ljk4Qy0zLjE1LC0yNy44NiAtMS43OCwtMjkuMzE5IDAsLTMwLjM2QzEuNzc5LC0zMS40IDMuOTQ5LC0zMS45MiA2LjUxLC0zMS45Mkw5LjUwOSwtMzEuOTJMOS41MDksLTM5LjZMMTQuOTY5LC0zOS42TDE0Ljk2OSwtMzEuOTJMMjMuNTQ5LC0zMS45MkwyMy41NDksLTI2LjI2NEwxNC45NjksLTI2LjI2NEwxNC45NjksLTcuNDRDMTQuOTY5LC01Ljg0IDE1LjMwOCwtNC43MSAxNS45ODksLTQuMDQ5QzE2LjY2OCwtMy4zOSAxNy44NDksLTMuMDYgMTkuNTI5LC0zLjA2TDIzLjU0OSwtMy4wNkwyMy41NDksMS41NkwxOC42MjksMS41NkMxNS41ODgsMS41NiAxMy4zMDksMC44NjEgMTEuNzg4LC0wLjU0QzEwLjI2OCwtMS45MzkgOS41MDksLTQuMjM5IDkuNTA5LC03LjQ0TDkuNTA5LC0yNi4yNjRMNi41MSwtMjYuMjhaIi8+PC9nPjxnIHRyYW5zZm9ybT0ibWF0cml4KDMuMTUyMjMsMCwwLDMuMTUyMjMsNzExLjQxOCwyMzcuMTc5KSI+PHBhdGggZD0iTTAsLTEzLjA4Qy0xLC0xNC45MTkgLTIuMzUxLC0xNi4zMyAtNC4wNSwtMTcuMzFDLTUuNzUxLC0xOC4yODkgLTcuNjIsLTE4Ljc4IC05LjY2LC0xOC43OEMtMTEuNywtMTguNzggLTEzLjU2LC0xOC4zIC0xNS4yNCwtMTcuMzRDLTE2LjkyLC0xNi4zOCAtMTguMjYxLC0xNC45NzkgLTE5LjI2LC0xMy4xNEMtMjAuMjYsLTExLjMgLTIwLjc2LC05LjE0IC0yMC43NiwtNi42NkMtMjAuNzYsLTQuMTQgLTIwLjI2LC0xLjk1IC0xOS4yNiwtMC4wOUMtMTguMjYxLDEuNzcgLTE2LjkyLDMuMTkxIC0xNS4yNCw0LjE3Qy0xMy41Niw1LjE1IC0xMS43LDUuNjQgLTkuNjYsNS42NEMtNy42Miw1LjY0IC01Ljc1MSw1LjE1IC00LjA1LDQuMTdDLTIuMzUxLDMuMTkxIC0xLDEuNzcgMCwtMC4wOUMwLjk5OSwtMS45NSAxLjUsLTQuMTIgMS41LC02LjZDMS41LC05LjA4IDAuOTk5LC0xMS4yNCAwLC0xMy4wOE0tMjQuMywtMTUuNTFDLTIyLjk0LC0xOC4wNSAtMjEuMDcsLTIwLjAxOSAtMTguNjg5LC0yMS40MkMtMTYuMzExLC0yMi44MiAtMTMuNjYsLTIzLjUyIC0xMC43NCwtMjMuNTJDLTcuODYsLTIzLjUyIC01LjM2LC0yMi44OTkgLTMuMjQsLTIxLjY2Qy0xLjEyLC0yMC40MiAwLjQ1OSwtMTguODYgMS41LC0xNi45OEwxLjUsLTIyLjk4TDcuMDIxLC0yMi45OEw3LjAyMSw5LjlMMS41LDkuOUwxLjUsMy43OEMwLjQyLDUuNyAtMS4xOSw3LjI5IC0zLjMzLDguNTVDLTUuNDcxLDkuODEgLTcuOTYsMTAuNDQgLTEwLjgsMTAuNDRDLTEzLjcyMSwxMC40NCAtMTYuMzYsOS43MiAtMTguNzIsOC4yOEMtMjEuMDgsNi44NCAtMjIuOTQsNC44MiAtMjQuMywyLjIyQy0yNS42NiwtMC4zOCAtMjYuMzQsLTMuMzM5IC0yNi4zNCwtNi42NkMtMjYuMzQsLTEwLjAyIC0yNS42NiwtMTIuOTY5IC0yNC4zLC0xNS41MSIgc3R5bGU9ImZpbGwtcnVsZTpub256ZXJvOyIvPjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgzLjE1MjIzLDAsMCwzLjE1MjIzLDE4NC45NDYsMjU2Ljg0MikiPjxwYXRoIGQ9Ik0tMTMuOTY2LC0xNi4xMjhMMCwtOC4wNjRMMCw4LjA2NEwtMTMuOTY2LDBMLTI3LjkzMSw4LjA2NEwtMjcuOTMxLC04LjA2NEwtMTMuOTY2LC0xNi4xMjhaTS0xMy45NjYsLTE2LjEyOEwtMjcuOTMxLC0yNC4xOTNMLTEzLjk2NiwtMzIuMjU3TC0xMy45NjYsLTQ4LjM3OUwwLC00MC4zMjFMMCwtMjQuMTkzTC0xMy45NjYsLTE2LjEyOFpNMCwtOC4wNjRMMCwtMjQuMTkyTDEzLjk2NSwtMzIuMjU3TDEzLjk2NSwtMTYuMTI4TDI3LjkzMSwtOC4wNjRMMTMuOTcxLDBMMTMuOTY1LDBMMTMuOTY1LC0wLjAwNkwwLC04LjA2NFoiLz48L2c+PC9nPjwvZz48L3N2Zz4g" alt="Verta"></a>
-    <nav class="nav__links" aria-label="Frentes">
-      <a href="#demanda" data-spy="demanda">Geração de Demanda</a>
-      <a href="#conversao" data-spy="conversao">Conversão de Vendas</a>
-      <a href="#tecnologia" data-spy="tecnologia">Tecnologia</a>
+    <a class="nav__logo" href="#topo" aria-label="Verta, início" data-i18n-attr="aria-label:nav.inicio"><img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB2aWV3Qm94PSIwIDAgMTY4OSA0NzIiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgeG1sOnNwYWNlPSJwcmVzZXJ2ZSIgeG1sbnM6c2VyaWY9Imh0dHA6Ly93d3cuc2VyaWYuY29tLyIgc3R5bGU9ImZpbGwtcnVsZTpldmVub2RkO2NsaXAtcnVsZTpldmVub2RkO3N0cm9rZS1saW5lam9pbjpyb3VuZDtzdHJva2UtbWl0ZXJsaW1pdDoyOyI+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMSwwLDAsMSw3MTYyLjQ4LC01OTc3LjA1KSI+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMi42NTE2NywwLDAsMi42NTE2NywtNzQxOS40NCw1NzAwLjM4KSI+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMy4xNTIyMywwLDAsMy4xNTIyMywzNjcuMzk0LDE4MC42MjgpIj48cGF0aCBkPSJNMCwyMi44TDEwLjE5OSwtNS4wNEwxNi4wMiwtNS4wNEwzLjEyLDI3Ljg0TC0zLjI0LDI3Ljg0TC0xNi4xNCwtNS4wNEwtMTAuMjYsLTUuMDRMMCwyMi44WiIgc3R5bGU9ImZpbGwtcnVsZTpub256ZXJvOyIvPjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgzLjE1MjIzLDAsMCwzLjE1MjIzLDQ5My4xNjMsMjQxLjA1NykiPjxwYXRoIGQ9Ik0wLC0xNS41NEMtMC45MiwtMTcuMDQgLTIuMTcsLTE4LjE4IC0zLjc1LC0xOC45NkMtNS4zMywtMTkuNzQgLTcuMDgsLTIwLjEzIC05LC0yMC4xM0MtMTEuNzYsLTIwLjEzIC0xNC4xMSwtMTkuMjUgLTE2LjA1LC0xNy40OUMtMTcuOTksLTE1LjcyOSAtMTkuMTAxLC0xMy4yOSAtMTkuMzgsLTEwLjE3TDEuMzgxLC0xMC4xN0MxLjM4MSwtMTIuMjQ5IDAuOTIsLTE0LjA0IDAsLTE1LjU0TTYuODQxLC01LjczTC0xOS40MzksLTUuNzNDLTE5LjI0LC0yLjQ5IC0xOC4xMywwLjA0IC0xNi4xMDksMS44NkMtMTQuMDksMy42ODEgLTExLjY0LDQuNTkgLTguNzYsNC41OUMtNi40LDQuNTkgLTQuNDMxLDQuMDQxIC0yLjg1LDIuOTRDLTEuMjcsMS44NCAtMC4xNiwwLjM3IDAuNDgsLTEuNDdMNi4zNiwtMS40N0M1LjQ4LDEuNjkgMy43MjEsNC4yNiAxLjA4LDYuMjRDLTEuNTYsOC4yMiAtNC44NCw5LjIxIC04Ljc2LDkuMjFDLTExLjg4LDkuMjEgLTE0LjY3LDguNTExIC0xNy4xMyw3LjExQy0xOS41OSw1LjcxIC0yMS41MiwzLjcyIC0yMi45MiwxLjE0Qy0yNC4zMiwtMS40NCAtMjUuMDIsLTQuNDMgLTI1LjAyLC03LjgzQy0yNS4wMiwtMTEuMjI5IC0yNC4zNCwtMTQuMjEgLTIyLjk3OSwtMTYuNzdDLTIxLjYyLC0xOS4zMyAtMTkuNzEsLTIxLjMgLTE3LjI1LC0yMi42OEMtMTQuNzksLTI0LjA2IC0xMS45NiwtMjQuNzUgLTguNzYsLTI0Ljc1Qy01LjY0LC0yNC43NSAtMi44OCwtMjQuMDY5IC0wLjQ3OSwtMjIuNzFDMS45MiwtMjEuMzUgMy43NywtMTkuNDc5IDUuMDcsLTE3LjFDNi4zNywtMTQuNzIgNy4wMiwtMTIuMDMgNy4wMiwtOS4wM0M3LjAyLC03Ljk4OSA2Ljk2LC02Ljg5IDYuODQxLC01LjczIiBzdHlsZT0iZmlsbC1ydWxlOm5vbnplcm87Ii8+PC9nPjxnIHRyYW5zZm9ybT0ibWF0cml4KDMuMTUyMjMsMCwwLDMuMTUyMjMsNTUzLjk2OSwyNjMuNDY5KSI+PHBhdGggZD0iTTYuNTEsLTI2LjI4TDUuMDY5LC0yNi4yOEMtMS4wNTEsLTI2LjI4IC00LjExLC0yMi45NiAtNC4xMSwtMTYuMzJMLTQuMTEsMS41NkwtOS41NywxLjU2TC05LjU3LC0zMS4zMkwtNC4xMSwtMzEuMzJMLTQuMTEsLTI1Ljk4Qy0zLjE1LC0yNy44NiAtMS43OCwtMjkuMzE5IDAsLTMwLjM2QzEuNzc5LC0zMS40IDMuOTQ5LC0zMS45MiA2LjUxLC0zMS45Mkw5LjUwOSwtMzEuOTJMOS41MDksLTM5LjZMMTQuOTY5LC0zOS42TDE0Ljk2OSwtMzEuOTJMMjMuNTQ5LC0zMS45MkwyMy41NDksLTI2LjI2NEwxNC45NjksLTI2LjI2NEwxNC45NjksLTcuNDRDMTQuOTY5LC01Ljg0IDE1LjMwOCwtNC43MSAxNS45ODksLTQuMDQ5QzE2LjY2OCwtMy4zOSAxNy44NDksLTMuMDYgMTkuNTI5LC0zLjA2TDIzLjU0OSwtMy4wNkwyMy41NDksMS41NkwxOC42MjksMS41NkMxNS41ODgsMS41NiAxMy4zMDksMC44NjEgMTEuNzg4LC0wLjU0QzEwLjI2OCwtMS45MzkgOS41MDksLTQuMjM5IDkuNTA5LC03LjQ0TDkuNTA5LC0yNi4yNjRMNi41MSwtMjYuMjhaIi8+PC9nPjxnIHRyYW5zZm9ybT0ibWF0cml4KDMuMTUyMjMsMCwwLDMuMTUyMjMsNzExLjQxOCwyMzcuMTc5KSI+PHBhdGggZD0iTTAsLTEzLjA4Qy0xLC0xNC45MTkgLTIuMzUxLC0xNi4zMyAtNC4wNSwtMTcuMzFDLTUuNzUxLC0xOC4yODkgLTcuNjIsLTE4Ljc4IC05LjY2LC0xOC43OEMtMTEuNywtMTguNzggLTEzLjU2LC0xOC4zIC0xNS4yNCwtMTcuMzRDLTE2LjkyLC0xNi4zOCAtMTguMjYxLC0xNC45NzkgLTE5LjI2LC0xMy4xNEMtMjAuMjYsLTExLjMgLTIwLjc2LC05LjE0IC0yMC43NiwtNi42NkMtMjAuNzYsLTQuMTQgLTIwLjI2LC0xLjk1IC0xOS4yNiwtMC4wOUMtMTguMjYxLDEuNzcgLTE2LjkyLDMuMTkxIC0xNS4yNCw0LjE3Qy0xMy41Niw1LjE1IC0xMS43LDUuNjQgLTkuNjYsNS42NEMtNy42Miw1LjY0IC01Ljc1MSw1LjE1IC00LjA1LDQuMTdDLTIuMzUxLDMuMTkxIC0xLDEuNzcgMCwtMC4wOUMwLjk5OSwtMS45NSAxLjUsLTQuMTIgMS41LC02LjZDMS41LC05LjA4IDAuOTk5LC0xMS4yNCAwLC0xMy4wOE0tMjQuMywtMTUuNTFDLTIyLjk0LC0xOC4wNSAtMjEuMDcsLTIwLjAxOSAtMTguNjg5LC0yMS40MkMtMTYuMzExLC0yMi44MiAtMTMuNjYsLTIzLjUyIC0xMC43NCwtMjMuNTJDLTcuODYsLTIzLjUyIC01LjM2LC0yMi44OTkgLTMuMjQsLTIxLjY2Qy0xLjEyLC0yMC40MiAwLjQ1OSwtMTguODYgMS41LC0xNi45OEwxLjUsLTIyLjk4TDcuMDIxLC0yMi45OEw3LjAyMSw5LjlMMS41LDkuOUwxLjUsMy43OEMwLjQyLDUuNyAtMS4xOSw3LjI5IC0zLjMzLDguNTVDLTUuNDcxLDkuODEgLTcuOTYsMTAuNDQgLTEwLjgsMTAuNDRDLTEzLjcyMSwxMC40NCAtMTYuMzYsOS43MiAtMTguNzIsOC4yOEMtMjEuMDgsNi44NCAtMjIuOTQsNC44MiAtMjQuMywyLjIyQy0yNS42NiwtMC4zOCAtMjYuMzQsLTMuMzM5IC0yNi4zNCwtNi42NkMtMjYuMzQsLTEwLjAyIC0yNS42NiwtMTIuOTY5IC0yNC4zLC0xNS41MSIgc3R5bGU9ImZpbGwtcnVsZTpub256ZXJvOyIvPjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgzLjE1MjIzLDAsMCwzLjE1MjIzLDE4NC45NDYsMjU2Ljg0MikiPjxwYXRoIGQ9Ik0tMTMuOTY2LC0xNi4xMjhMMCwtOC4wNjRMMCw4LjA2NEwtMTMuOTY2LDBMLTI3LjkzMSw4LjA2NEwtMjcuOTMxLC04LjA2NEwtMTMuOTY2LC0xNi4xMjhaTS0xMy45NjYsLTE2LjEyOEwtMjcuOTMxLC0yNC4xOTNMLTEzLjk2NiwtMzIuMjU3TC0xMy45NjYsLTQ4LjM3OUwwLC00MC4zMjFMMCwtMjQuMTkzTC0xMy45NjYsLTE2LjEyOFpNMCwtOC4wNjRMMCwtMjQuMTkyTDEzLjk2NSwtMzIuMjU3TDEzLjk2NSwtMTYuMTI4TDI3LjkzMSwtOC4wNjRMMTMuOTcxLDBMMTMuOTY1LDBMMTMuOTY1LC0wLjAwNkwwLC04LjA2NFoiLz48L2c+PC9nPjwvZz48L3N2Zz4g" alt="Verta"></a>
+    <nav class="nav__links" aria-label="Frentes" data-i18n-attr="aria-label:nav.frentes">
+      <a href="#demanda" data-spy="demanda" data-i18n="nav.demanda">Geração de Demanda</a>
+      <a href="#conversao" data-spy="conversao" data-i18n="nav.conversao">Conversão de Vendas</a>
+      <a href="#tecnologia" data-spy="tecnologia" data-i18n="nav.tecnologia">Tecnologia</a>
     </nav>
-    <a class="btn btn--sm" href="#" data-contato>Agendar conversa</a>
+    <a class="btn btn--sm" href="#" data-contato data-i18n="nav.agendar">Agendar conversa</a>
   </div>
 </header>
 
@@ -391,13 +392,13 @@ p{text-wrap:pretty}
   <section class="hero">
     <canvas data-halftone aria-hidden="true"></canvas>
     <div class="container">
-      <h1 data-hero>Soluções para a sua empresa gerar mais demanda e vender mais.</h1>
-      <p class="lead" data-hero>Serviços de marketing, comercial e tecnologia para acelerar a receita da sua empresa.</p>
+      <h1 data-hero data-i18n="hero.titulo">Soluções para a sua empresa gerar mais demanda e vender mais.</h1>
+      <p class="lead" data-hero data-i18n="hero.lead">Serviços de marketing, comercial e tecnologia para acelerar a receita da sua empresa.</p>
       <div class="hero__chips" data-hero id="heroChips"></div>
       <div class="hero__how" data-hero>
-        <span><i>1</i>Escolha o serviço e o plano</span>
-        <span><i>2</i>Adicione à proposta</span>
-        <span><i>3</i>Veja o valor único e o mensal</span>
+        <span data-i18n="hero.how1"><i>1</i>Escolha o serviço e o plano</span>
+        <span data-i18n="hero.how2"><i>2</i>Adicione à proposta</span>
+        <span data-i18n="hero.how3"><i>3</i>Veja o valor único e o mensal</span>
       </div>
     </div>
   </section>
@@ -407,19 +408,19 @@ p{text-wrap:pretty}
   <section class="container close">
     <div class="close__in" data-reveal>
       <div>
-        <h2>Monte a operação que a sua empresa precisa hoje.</h2>
-        <p>Comece pelo que destrava mais resultado agora e amplie conforme a operação crescer. A Verta acompanha cada frente de perto.</p>
+        <h2 data-i18n="close.titulo">Monte a operação que a sua empresa precisa hoje.</h2>
+        <p data-i18n="close.texto">Comece pelo que destrava mais resultado agora e amplie conforme a operação crescer. A Verta acompanha cada frente de perto.</p>
       </div>
       <div class="close__acts">
-        <button class="btn btn--white" data-open-sum>Ver minha proposta <svg class="ic"><use href="#i-arrow"/></svg></button>
-        <a class="btn btn--ghost" href="#" data-contato>Agendar conversa</a>
+        <button class="btn btn--white" data-open-sum data-i18n="close.ver">Ver minha proposta <svg class="ic"><use href="#i-arrow"/></svg></button>
+        <a class="btn btn--ghost" href="#" data-contato data-i18n="nav.agendar">Agendar conversa</a>
       </div>
     </div>
   </section>
 
   <footer class="container foot">
     <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB2aWV3Qm94PSIwIDAgMjMxMSA0NzMiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgeG1sOnNwYWNlPSJwcmVzZXJ2ZSIgeG1sbnM6c2VyaWY9Imh0dHA6Ly93d3cuc2VyaWYuY29tLyIgc3R5bGU9ImZpbGwtcnVsZTpldmVub2RkO2NsaXAtcnVsZTpldmVub2RkO3N0cm9rZS1saW5lam9pbjpyb3VuZDtzdHJva2UtbWl0ZXJsaW1pdDoyOyI+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMSwwLDAsMSw5MzAxLjc2LC0zODQwLjI1KSI+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMi42NTE2NywwLDAsMi42NTE2NywtOTU1OC41NSwzNTYzLjc1KSI+PGc+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMy4xNTIyMywwLDAsMy4xNTIyMywzNjcuMzk0LDE4MC42MjgpIj48cGF0aCBkPSJNMCwyMi44TDEwLjE5OSwtNS4wNEwxNi4wMiwtNS4wNEwzLjEyLDI3Ljg0TC0zLjI0LDI3Ljg0TC0xNi4xNCwtNS4wNEwtMTAuMjYsLTUuMDRMMCwyMi44WiIgc3R5bGU9ImZpbGwtcnVsZTpub256ZXJvOyIvPjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgzLjE1MjIzLDAsMCwzLjE1MjIzLDQ5My4xNjMsMjQxLjA1NykiPjxwYXRoIGQ9Ik0wLC0xNS41NEMtMC45MiwtMTcuMDQgLTIuMTcsLTE4LjE4IC0zLjc1LC0xOC45NkMtNS4zMywtMTkuNzQgLTcuMDgsLTIwLjEzIC05LC0yMC4xM0MtMTEuNzYsLTIwLjEzIC0xNC4xMSwtMTkuMjUgLTE2LjA1LC0xNy40OUMtMTcuOTksLTE1LjcyOSAtMTkuMTAxLC0xMy4yOSAtMTkuMzgsLTEwLjE3TDEuMzgxLC0xMC4xN0MxLjM4MSwtMTIuMjQ5IDAuOTIsLTE0LjA0IDAsLTE1LjU0TTYuODQxLC01LjczTC0xOS40MzksLTUuNzNDLTE5LjI0LC0yLjQ5IC0xOC4xMywwLjA0IC0xNi4xMDksMS44NkMtMTQuMDksMy42ODEgLTExLjY0LDQuNTkgLTguNzYsNC41OUMtNi40LDQuNTkgLTQuNDMxLDQuMDQxIC0yLjg1LDIuOTRDLTEuMjcsMS44NCAtMC4xNiwwLjM3IDAuNDgsLTEuNDdMNi4zNiwtMS40N0M1LjQ4LDEuNjkgMy43MjEsNC4yNiAxLjA4LDYuMjRDLTEuNTYsOC4yMiAtNC44NCw5LjIxIC04Ljc2LDkuMjFDLTExLjg4LDkuMjEgLTE0LjY3LDguNTExIC0xNy4xMyw3LjExQy0xOS41OSw1LjcxIC0yMS41MiwzLjcyIC0yMi45MiwxLjE0Qy0yNC4zMiwtMS40NCAtMjUuMDIsLTQuNDMgLTI1LjAyLC03LjgzQy0yNS4wMiwtMTEuMjI5IC0yNC4zNCwtMTQuMjEgLTIyLjk3OSwtMTYuNzdDLTIxLjYyLC0xOS4zMyAtMTkuNzEsLTIxLjMgLTE3LjI1LC0yMi42OEMtMTQuNzksLTI0LjA2IC0xMS45NiwtMjQuNzUgLTguNzYsLTI0Ljc1Qy01LjY0LC0yNC43NSAtMi44OCwtMjQuMDY5IC0wLjQ3OSwtMjIuNzFDMS45MiwtMjEuMzUgMy43NywtMTkuNDc5IDUuMDcsLTE3LjFDNi4zNywtMTQuNzIgNy4wMiwtMTIuMDMgNy4wMiwtOS4wM0M3LjAyLC03Ljk4OSA2Ljk2LC02Ljg5IDYuODQxLC01LjczIiBzdHlsZT0iZmlsbC1ydWxlOm5vbnplcm87Ii8+PC9nPjxnIHRyYW5zZm9ybT0ibWF0cml4KDMuMTUyMjMsMCwwLDMuMTUyMjMsNTUzLjk2OSwyNjMuNDY5KSI+PHBhdGggZD0iTTYuNTEsLTI2LjI4TDUuMDY5LC0yNi4yOEMtMS4wNTEsLTI2LjI4IC00LjExLC0yMi45NiAtNC4xMSwtMTYuMzJMLTQuMTEsMS41NkwtOS41NywxLjU2TC05LjU3LC0zMS4zMkwtNC4xMSwtMzEuMzJMLTQuMTEsLTI1Ljk4Qy0zLjE1LC0yNy44NiAtMS43OCwtMjkuMzE5IDAsLTMwLjM2QzEuNzc5LC0zMS40IDMuOTQ5LC0zMS45MiA2LjUxLC0zMS45Mkw5LjUwOSwtMzEuOTJMOS41MDksLTM5LjZMMTQuOTY5LC0zOS42TDE0Ljk2OSwtMzEuOTJMMjMuNTQ5LC0zMS45MkwyMy41NDksLTI2LjI2NEwxNC45NjksLTI2LjI2NEwxNC45NjksLTcuNDRDMTQuOTY5LC01Ljg0IDE1LjMwOCwtNC43MSAxNS45ODksLTQuMDQ5QzE2LjY2OCwtMy4zOSAxNy44NDksLTMuMDYgMTkuNTI5LC0zLjA2TDIzLjU0OSwtMy4wNkwyMy41NDksMS41NkwxOC42MjksMS41NkMxNS41ODgsMS41NiAxMy4zMDksMC44NjEgMTEuNzg4LC0wLjU0QzEwLjI2OCwtMS45MzkgOS41MDksLTQuMjM5IDkuNTA5LC03LjQ0TDkuNTA5LC0yNi4yNjRMNi41MSwtMjYuMjhaIi8+PC9nPjxnIHRyYW5zZm9ybT0ibWF0cml4KDMuMTUyMjMsMCwwLDMuMTUyMjMsNzExLjQxOCwyMzcuMTc5KSI+PHBhdGggZD0iTTAsLTEzLjA4Qy0xLC0xNC45MTkgLTIuMzUxLC0xNi4zMyAtNC4wNSwtMTcuMzFDLTUuNzUxLC0xOC4yODkgLTcuNjIsLTE4Ljc4IC05LjY2LC0xOC43OEMtMTEuNywtMTguNzggLTEzLjU2LC0xOC4zIC0xNS4yNCwtMTcuMzRDLTE2LjkyLC0xNi4zOCAtMTguMjYxLC0xNC45NzkgLTE5LjI2LC0xMy4xNEMtMjAuMjYsLTExLjMgLTIwLjc2LC05LjE0IC0yMC43NiwtNi42NkMtMjAuNzYsLTQuMTQgLTIwLjI2LC0xLjk1IC0xOS4yNiwtMC4wOUMtMTguMjYxLDEuNzcgLTE2LjkyLDMuMTkxIC0xNS4yNCw0LjE3Qy0xMy41Niw1LjE1IC0xMS43LDUuNjQgLTkuNjYsNS42NEMtNy42Miw1LjY0IC01Ljc1MSw1LjE1IC00LjA1LDQuMTdDLTIuMzUxLDMuMTkxIC0xLDEuNzcgMCwtMC4wOUMwLjk5OSwtMS45NSAxLjUsLTQuMTIgMS41LC02LjZDMS41LC05LjA4IDAuOTk5LC0xMS4yNCAwLC0xMy4wOE0tMjQuMywtMTUuNTFDLTIyLjk0LC0xOC4wNSAtMjEuMDcsLTIwLjAxOSAtMTguNjg5LC0yMS40MkMtMTYuMzExLC0yMi44MiAtMTMuNjYsLTIzLjUyIC0xMC43NCwtMjMuNTJDLTcuODYsLTIzLjUyIC01LjM2LC0yMi44OTkgLTMuMjQsLTIxLjY2Qy0xLjEyLC0yMC40MiAwLjQ1OSwtMTguODYgMS41LC0xNi45OEwxLjUsLTIyLjk4TDcuMDIxLC0yMi45OEw3LjAyMSw5LjlMMS41LDkuOUwxLjUsMy43OEMwLjQyLDUuNyAtMS4xOSw3LjI5IC0zLjMzLDguNTVDLTUuNDcxLDkuODEgLTcuOTYsMTAuNDQgLTEwLjgsMTAuNDRDLTEzLjcyMSwxMC40NCAtMTYuMzYsOS43MiAtMTguNzIsOC4yOEMtMjEuMDgsNi44NCAtMjIuOTQsNC44MiAtMjQuMywyLjIyQy0yNS42NiwtMC4zOCAtMjYuMzQsLTMuMzM5IC0yNi4zNCwtNi42NkMtMjYuMzQsLTEwLjAyIC0yNS42NiwtMTIuOTY5IC0yNC4zLC0xNS41MSIgc3R5bGU9ImZpbGwtcnVsZTpub256ZXJvOyIvPjwvZz48L2c+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMy4xNTIyMywwLDAsMy4xNTIyMyw5Ni45MDA2LDEwNC4zMzkpIj48dGV4dCB4PSIyMTYuMzFweCIgeT0iNDMuMTg3cHgiIHN0eWxlPSJmb250LWZhbWlseTonSW50ZXItUmVndWxhcicsICdJbnRlcicsIHNhbnMtc2VyaWY7Zm9udC1zaXplOjguMDY1cHg7Ij5BQzx0c3BhbiB4PSIyMjcuNzM0cHggMjMyLjYxM3B4IDIzNy4yNTNweCAyNDIuMTMzcHggMjQ3LjY5cHggMjUzLjMycHggMjU5LjI5MnB4IDI2NS42MDlweCAyNzEuMTY3cHggIiB5PSI0My4xODdweCA0My4xODdweCA0My4xODdweCA0My4xODdweCA0My4xODdweCA0My4xODdweCA0My4xODdweCA0My4xODdweCA0My4xODdweCAiPkVMRVJBRE9SQTwvdHNwYW4+PC90ZXh0PjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgzLjE1MjIzLDAsMCwzLjE1MjIzLDk2LjkwMDYsMTA0LjMzOSkiPjx0ZXh0IHg9IjIxNi4zMXB4IiB5PSI1Mi44NjVweCIgc3R5bGU9ImZvbnQtZmFtaWx5OidJbnRlci1SZWd1bGFyJywgJ0ludGVyJywgc2Fucy1zZXJpZjtmb250LXNpemU6OC4wNjVweDsiPkQ8dHNwYW4geD0iMjIyLjI3OXB4ICIgeT0iNTIuODY1cHggIj5FPC90c3Bhbj4gUjx0c3BhbiB4PSIyMzQuNzMycHggMjM5LjU5NnB4IDI0NS42MjRweCAyNTAuNTAxcHggMjUyLjc1MnB4IDI1Ny40MXB4IDI2Mi45NjhweCAiIHk9IjUyLjg2NXB4IDUyLjg2NXB4IDUyLjg2NXB4IDUyLjg2NXB4IDUyLjg2NXB4IDUyLjg2NXB4IDUyLjg2NXB4ICI+RUNFSVRBUzwvdHNwYW4+PC90ZXh0PjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgzLjE1MjIzLDAsMCwzLjE1MjIzLDE4NC45NDYsMjU2Ljg0MikiPjxwYXRoIGQ9Ik0wLC04LjA2NEwwLDguMDY0TC0xMy45NjYsMEwtMjcuOTMxLDguMDY0TC0yNy45MzEsLTguMDY0TC0xMy45NjYsLTE2LjEyOEwwLC04LjA2NFoiIHN0eWxlPSJmaWxsOnJnYigzNCwwLDI1NCk7ZmlsbC1ydWxlOm5vbnplcm87Ii8+PC9nPjxnIHRyYW5zZm9ybT0ibWF0cml4KDMuMTUyMjMsMCwwLDMuMTUyMjMsMjcyLjk5MywxODAuNTgpIj48cGF0aCBkPSJNLTQxLjkwNyw4LjA2OEwtMjcuOTMxLDE2LjEzOEwtMjcuOTMxLDMyLjI3N0wtNDEuOTA3LDI0LjIwOEwtNTUuODgyLDMyLjI3N0wtNTUuODgyLDE2LjEzOEwtNDEuOTA3LDguMDY4Wk0tNDEuOTA3LDguMDY4TC01NS44ODIsLTAuMDAzTC00MS45MDcsLTguMDczTC00MS45MDcsLTI0LjIwNkwtMjcuOTMxLC0xNi4xNDJMLTI3LjkzMSwtMC4wMDNMLTQxLjkwNyw4LjA2OFpNMCwxNi4xMjlMLTEzLjk2LDI0LjE5M0wtMTMuOTY2LDI0LjE5M0wtMTMuOTY2LDI0LjE4N0wtMjcuOTMxLDE2LjEyOUwtMjcuOTMxLDAuMDAxTC0xMy45NjYsLTguMDY0TC0xMy45NjYsOC4wNjVMMCwxNi4xMjlaIiBzdHlsZT0iZmlsbDp1cmwoI19MaW5lYXIxKTsiLz48L2c+PC9nPjwvZz48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9Il9MaW5lYXIxIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiIGdyYWRpZW50VHJhbnNmb3JtPSJtYXRyaXgoLTQ5LjcxMzksMzEuODg3NCwtMzEuODg3NCwtNDkuNzEzOSwtNi4xNjg1NiwwLjM2OTYyNCkiPjxzdG9wIG9mZnNldD0iMCIgc3R5bGU9InN0b3AtY29sb3I6cmdiKDEwOCwyMTksMjU1KTtzdG9wLW9wYWNpdHk6MSIvPjxzdG9wIG9mZnNldD0iMC41IiBzdHlsZT0ic3RvcC1jb2xvcjpyZ2IoMzQsMCwyNTQpO3N0b3Atb3BhY2l0eToxIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdHlsZT0ic3RvcC1jb2xvcjpyZ2IoMiwxLDEzOSk7c3RvcC1vcGFjaXR5OjEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48L3N2Zz4g" alt="Verta · Aceleradora de Receitas">
-    <span>Valores de referência em reais. Condições finais na proposta formal.</span>
+    <span data-i18n="foot.texto">Valores de referência em reais. Condições finais na proposta formal.</span>
   </footer>
 </main>
 
@@ -430,9 +431,9 @@ p{text-wrap:pretty}
       <div class="sum" id="sum"></div>
     </div></div>
     <div class="bar__row">
-      <div class="bar__count"><span>Sua proposta</span><b id="count">0</b></div>
-      <div class="tot"><small>Valor único</small><div class="tot__v"><span data-odo="unico"></span></div></div>
-      <div class="tot"><small>Valor mensal</small><div class="tot__v"><span data-odo="mensal"></span><em>/mês</em></div></div>
+      <div class="bar__count"><span data-i18n="bar.proposta">Sua proposta</span><b id="count">0</b></div>
+      <div class="tot"><small data-i18n="bar.unico">Valor único</small><div class="tot__v"><span data-odo="unico"></span></div></div>
+      <div class="tot"><small data-i18n="bar.mensal">Valor mensal</small><div class="tot__v"><span data-odo="mensal"></span><em data-i18n="bar.porMes">/mês</em></div></div>
       <button class="btn bar__btn" id="toggleSum" aria-expanded="false">Ver proposta <svg class="ic"><use href="#i-chev"/></svg></button>
     </div>
   </div>
@@ -440,6 +441,462 @@ p{text-wrap:pretty}
 <div class="toast" id="toast" role="status"></div>
 <div class="print" id="print"></div>
 
+<script>
+/* ═══ Idiomas (pt/en) ═══
+Mesmo mecanismo de public/ferramentas/site-plataforma/index.html. O HTML e o CATALOGO
+abaixo ficam em português (sem JS, ou em pt, nada muda). Elemento com data-i18n="chave …"
+tem os seus nós de texto diretos (em ordem; "-" pula um) trocados pelo texto do idioma;
+data-i18n-attr="atributo:chave;…" faz o mesmo com atributos. O texto montado pelo script
+da página usa __siteI18n.t (interface) e __siteI18n.L (textos do CATALOGO: a chave é o
+próprio texto em português, então a lógica que compara textos continua em pt). O idioma vem
+de localStorage.rl_lang (o mesmo do app, que o grava ao trocar) e acompanha a troca ao vivo
+pelo evento storage; a página redesenha no evento "site-lang". Texto novo: chave nos dois
+dicionários (UI) ou o texto em pt → en em CATALOGO_EN. */
+(function () {
+var DIC = {
+pt: {
+"meta.titulo": "Soluções Verta",
+"meta.descricao": "Serviços de marketing, comercial e tecnologia para acelerar a receita da sua empresa.",
+"nav.inicio": "Verta, início",
+"nav.frentes": "Frentes",
+"nav.demanda": "Geração de Demanda",
+"nav.conversao": "Conversão de Vendas",
+"nav.tecnologia": "Tecnologia",
+"nav.agendar": "Agendar conversa",
+"hero.titulo": "Soluções para a sua empresa gerar mais demanda e vender mais.",
+"hero.lead": "Serviços de marketing, comercial e tecnologia para acelerar a receita da sua empresa.",
+"hero.how1": "Escolha o serviço e o plano",
+"hero.how2": "Adicione à proposta",
+"hero.how3": "Veja o valor único e o mensal",
+"close.titulo": "Monte a operação que a sua empresa precisa hoje.",
+"close.texto": "Comece pelo que destrava mais resultado agora e amplie conforme a operação crescer. A Verta acompanha cada frente de perto.",
+"close.ver": "Ver minha proposta",
+"foot.texto": "Valores de referência em reais. Condições finais na proposta formal.",
+"bar.proposta": "Sua proposta",
+"bar.unico": "Valor único",
+"bar.mensal": "Valor mensal",
+"bar.porMes": "/mês",
+"bar.ver": "Ver proposta",
+"bar.fechar": "Fechar",
+"cat.servicos1": "{n} serviço",
+"cat.servicosN": "{n} serviços",
+"cat.nestaFrente": "nesta frente",
+"card.naProposta": "Na proposta",
+"card.diminuir": "Diminuir",
+"card.aumentar": "Aumentar",
+"card.adicionais": "Adicionais",
+"card.selecionado1": "{n} selecionado",
+"card.selecionadoN": "{n} selecionados",
+"card.remover": "Remover {nome}",
+"card.adicionar": "Adicionar {nome}",
+"card.add": "Adicionar à proposta",
+"card.rm": "Remover da proposta",
+"preco.consulta": "Sob consulta",
+"preco.porMes": "/mês",
+"preco.unico": "único",
+"preco.valorUnico": "valor único",
+"escopo.inclui": "O que está incluso",
+"escopo.naoInclui": "O que não está incluso",
+"escopo.apresentado": "Escopo apresentado na conversa",
+"escopo.nenhuma": "Nenhuma exclusão neste plano",
+"plano.publicacoes": "{n} publicações",
+"plano.usuario": "usuário",
+"plano.usuarios": "usuários",
+"plano.pagina": "página",
+"plano.paginas": "páginas",
+"plano.plano": "Plano {nome}",
+"plano.padrao": "Padrão",
+"resumo.primeiroMes": "Investimento no primeiro mês (único + mensal)",
+"resumo.fine": "Valores de referência. Verbas de mídia, tokens de IA e custos de terceiros indicados nos serviços não estão inclusos. Condições finais na proposta formal.",
+"resumo.cliente": "Nome do cliente no PDF",
+"resumo.clientePh": "Opcional, aparece na capa",
+"resumo.link": "Copiar link da proposta",
+"resumo.pdf": "Gerar PDF da proposta",
+"resumo.limpar": "Limpar",
+"resumo.vazio": "Nenhum serviço adicionado ainda. Escolha um plano e clique em \"Adicionar à proposta\".",
+"toast.adicionado": "{nome} adicionado à proposta",
+"toast.removido": "{nome} removido",
+"toast.link": "Link copiado",
+"toast.linkFalhou": "Copie o endereço da barra do navegador",
+"toast.semServico": "Adicione ao menos um serviço",
+"pdf.rodape": "Verta · Proposta de serviços",
+"pdf.rodapePara": "Verta · Proposta de serviços para {nome}",
+"pdf.proposta": "Proposta de serviços",
+"pdf.solucoes": "Soluções Verta",
+"pdf.preparada": "Preparada para",
+"pdf.data": "Data",
+"pdf.servicos": "Serviços",
+"pdf.escopo": "Escopo",
+"pdf.escopoTitulo": "O que cada serviço entrega",
+"pdf.escopoTexto": "Os entregáveis de cada plano escolhido: o que está incluso, o que fica de fora e os adicionais contratados.",
+"pdf.investimento": "Investimento",
+"pdf.investTitulo": "Resumo do investimento",
+"pdf.selecionados1": "{n} serviço selecionado, com o plano e os valores de cada um.",
+"pdf.selecionadosN": "{n} serviços selecionados, com o plano e os valores de cada um.",
+"pdf.mensalRec": "Mensal recorrente",
+"pdf.primeiroMes": "Investimento no primeiro mês",
+"pdf.fine1": "Valores de referência. Verbas de mídia, tokens de IA e custos de terceiros indicados nos serviços não estão inclusos.",
+"pdf.fineConsulta": " Serviços sob consulta não entram no total.",
+"pdf.fine2": " Condições finais na proposta formal.",
+"pdf.colServico": "Serviço",
+"pdf.colPlano": "Plano",
+"pdf.colMensal": "Mensal",
+"pdf.colUnico": "Único",
+"pdf.total": "Total",
+"pdf.cases": "Conhecer nossos cases →",
+"pdf.adicionais": "Adicionais contratados",
+"pdf.arquivo": "Proposta Verta"
+},
+en: {
+"meta.titulo": "Verta Solutions",
+"meta.descricao": "Marketing, sales and technology services to accelerate your company’s revenue.",
+"nav.inicio": "Verta, home",
+"nav.frentes": "Areas",
+"nav.demanda": "Demand Generation",
+"nav.conversao": "Sales Conversion",
+"nav.tecnologia": "Technology",
+"nav.agendar": "Book a call",
+"hero.titulo": "Solutions for your company to generate more demand and sell more.",
+"hero.lead": "Marketing, sales and technology services to accelerate your company’s revenue.",
+"hero.how1": "Choose the service and the plan",
+"hero.how2": "Add it to the proposal",
+"hero.how3": "See the one-time and monthly fees",
+"close.titulo": "Build the operation your company needs today.",
+"close.texto": "Start with what unlocks the most results now and expand as the operation grows. Verta stays close to every area.",
+"close.ver": "See my proposal",
+"foot.texto": "Reference prices in Brazilian reais. Final terms in the formal proposal.",
+"bar.proposta": "Your proposal",
+"bar.unico": "One-time fee",
+"bar.mensal": "Monthly fee",
+"bar.porMes": "/mo",
+"bar.ver": "See proposal",
+"bar.fechar": "Close",
+"cat.servicos1": "{n} service",
+"cat.servicosN": "{n} services",
+"cat.nestaFrente": "in this area",
+"card.naProposta": "In the proposal",
+"card.diminuir": "Decrease",
+"card.aumentar": "Increase",
+"card.adicionais": "Add-ons",
+"card.selecionado1": "{n} selected",
+"card.selecionadoN": "{n} selected",
+"card.remover": "Remove {nome}",
+"card.adicionar": "Add {nome}",
+"card.add": "Add to proposal",
+"card.rm": "Remove from proposal",
+"preco.consulta": "On request",
+"preco.porMes": "/mo",
+"preco.unico": "one-time",
+"preco.valorUnico": "one-time fee",
+"escopo.inclui": "What’s included",
+"escopo.naoInclui": "What’s not included",
+"escopo.apresentado": "Scope presented on the call",
+"escopo.nenhuma": "No exclusions in this plan",
+"plano.publicacoes": "{n} posts",
+"plano.usuario": "user",
+"plano.usuarios": "users",
+"plano.pagina": "page",
+"plano.paginas": "pages",
+"plano.plano": "{nome} plan",
+"plano.padrao": "Standard",
+"resumo.primeiroMes": "First-month investment (one-time + monthly)",
+"resumo.fine": "Reference prices. Media budgets, AI tokens and third-party costs noted in the services are not included. Final terms in the formal proposal.",
+"resumo.cliente": "Client name on the PDF",
+"resumo.clientePh": "Optional, shown on the cover",
+"resumo.link": "Copy proposal link",
+"resumo.pdf": "Generate proposal PDF",
+"resumo.limpar": "Clear",
+"resumo.vazio": "No services added yet. Choose a plan and click \"Add to proposal\".",
+"toast.adicionado": "{nome} added to the proposal",
+"toast.removido": "{nome} removed",
+"toast.link": "Link copied",
+"toast.linkFalhou": "Copy the address from the browser bar",
+"toast.semServico": "Add at least one service",
+"pdf.rodape": "Verta · Services proposal",
+"pdf.rodapePara": "Verta · Services proposal for {nome}",
+"pdf.proposta": "Services proposal",
+"pdf.solucoes": "Verta Solutions",
+"pdf.preparada": "Prepared for",
+"pdf.data": "Date",
+"pdf.servicos": "Services",
+"pdf.escopo": "Scope",
+"pdf.escopoTitulo": "What each service delivers",
+"pdf.escopoTexto": "The deliverables of each chosen plan: what’s included, what’s left out and the add-ons contracted.",
+"pdf.investimento": "Investment",
+"pdf.investTitulo": "Investment summary",
+"pdf.selecionados1": "{n} service selected, with its plan and prices.",
+"pdf.selecionadosN": "{n} services selected, with each one’s plan and prices.",
+"pdf.mensalRec": "Recurring monthly",
+"pdf.primeiroMes": "First-month investment",
+"pdf.fine1": "Reference prices. Media budgets, AI tokens and third-party costs noted in the services are not included.",
+"pdf.fineConsulta": " Services on request are not included in the total.",
+"pdf.fine2": " Final terms in the formal proposal.",
+"pdf.colServico": "Service",
+"pdf.colPlano": "Plan",
+"pdf.colMensal": "Monthly",
+"pdf.colUnico": "One-time",
+"pdf.total": "Total",
+"pdf.cases": "See our case studies →",
+"pdf.adicionais": "Add-ons contracted",
+"pdf.arquivo": "Verta Proposal"
+}
+};
+var CATALOGO_EN = {
+"Geração de Demanda": "Demand Generation",
+"Atrair as pessoas certas e transformar atenção em oportunidades.": "Attract the right people and turn attention into opportunities.",
+"Mídia, conteúdo e páginas trabalhando juntos para gerar um fluxo previsível de oportunidades qualificadas.": "Media, content and pages working together to generate a predictable flow of qualified opportunities.",
+"Gestão de mídia paga": "Paid media management",
+"Um sistema previsível de aquisição de clientes, com retorno mensurável sobre o investimento.": "A predictable customer acquisition system, with a measurable return on investment.",
+"Plano": "Plan",
+"Essencial": "Essential",
+"1 plataforma": "1 platform",
+"Até 1 plataforma de mídia": "Up to 1 media platform",
+"Até 3 campanhas ativas": "Up to 3 active campaigns",
+"Até R$ 3 mil em mídia": "Up to R$ 3k in media",
+"Escala": "Scale",
+"Até 3 plataformas": "Up to 3 platforms",
+"Até 3 plataformas de mídia": "Up to 3 media platforms",
+"Até 5 campanhas ativas": "Up to 5 active campaigns",
+"R$ 3 mil a R$ 15 mil em mídia": "R$ 3k to R$ 15k in media",
+"Excelência": "Excellence",
+"Qualquer plataforma": "Any platform",
+"Qualquer plataforma de mídia": "Any media platform",
+"Até 10 campanhas ativas": "Up to 10 active campaigns",
+"R$ 15 mil a R$ 30 mil em mídia": "R$ 15k to R$ 30k in media",
+"Criação, gestão e otimização contínua das campanhas (Google, Meta, LinkedIn ou TikTok Ads)": "Campaign creation, management and ongoing optimization (Google, Meta, LinkedIn or TikTok Ads)",
+"Relatório semanal no grupo de WhatsApp": "Weekly report in the WhatsApp group",
+"Dashboard de gerenciamento das campanhas": "Campaign management dashboard",
+"1 reunião mensal de apresentação de resultados": "1 monthly results meeting",
+"Verba de mídia, paga direto às plataformas (mínimo de R$ 1.200/mês)": "Media budget, paid directly to the platforms (minimum of R$ 1,200/month)",
+"Produção de criativos (disponível no serviço de Criativos)": "Creative production (available in the Creatives service)",
+"Assessoria de Marketing": "Marketing Advisory",
+"Governança do marketing: prioridades claras, execução organizada e decisões orientadas por resultado.": "Marketing governance: clear priorities, organized execution and results-driven decisions.",
+"Reunião mensal": "Monthly meeting",
+"Até 2 serviços acompanhados": "Up to 2 services overseen",
+"Gestão do projeto: prazos, demandas e atividades": "Project management: deadlines, requests and tasks",
+"Atendimento no WhatsApp": "Support on WhatsApp",
+"Reunião de Growth mensal: resultados e estratégia do próximo mês": "Monthly Growth meeting: results and next month’s strategy",
+"Análises profundas do processo comercial": "In-depth analysis of the sales process",
+"Reuniões semanais": "Weekly meetings",
+"Novas estratégias fora do escopo mensal": "New strategies outside the monthly scope",
+"Growth": "Growth",
+"Reunião quinzenal": "Biweekly meeting",
+"Até 4 serviços acompanhados": "Up to 4 services overseen",
+"Acompanhamento do funil: lead, lead qualificado, oportunidade, venda, ticket e CAC": "Funnel tracking: lead, qualified lead, opportunity, sale, ticket and CAC",
+"Aplicação de protocolos de crescimento": "Growth protocols applied",
+"Reunião de Growth quinzenal: sprint, testes e indicadores": "Biweekly Growth meeting: sprint, tests and KPIs",
+"Treinamento direto da equipe de pré-vendas e SDRs": "Direct training of the pre-sales team and SDRs",
+"Estratégico": "Strategic",
+"Reunião semanal": "Weekly meeting",
+"Serviços acompanhados sem limite": "Unlimited services overseen",
+"Reunião de Growth semanal: mentoria, revisão do pitch comercial e análise do funil de ponta a ponta": "Weekly Growth meeting: mentoring, sales pitch review and end-to-end funnel analysis",
+"Atuar como gerente de marketing completo da empresa": "Acting as the company’s full marketing manager",
+"Criação de Landing Page": "Landing Page Creation",
+"Páginas de alta conversão que transformam visitantes em oportunidades de negócio.": "High-converting pages that turn visitors into business opportunities.",
+"Quantidade de páginas": "Number of pages",
+"Valores por página": "Prices per page",
+"De 6 a 8 dobras": "6 to 8 sections",
+"Entrega em 12 dias úteis": "Delivered in 12 business days",
+"Estratégia e copywriting focados em conversão": "Conversion-focused strategy and copywriting",
+"Design para mobile e desktop": "Mobile and desktop design",
+"Implementação técnica, domínio e performance": "Technical implementation, domain and performance",
+"Integrações com GTM, CRM e ferramentas de API aberta": "Integrations with GTM, CRM and open-API tools",
+"Testes de qualidade e de disparo": "Quality and firing tests",
+"Mensal: testes A/B, ajustes simples e manutenção de hospedagem": "Monthly: A/B tests, simple tweaks and hosting maintenance",
+"Website institucional (é uma página de conversão)": "Corporate website (this is a conversion page)",
+"Alterações que exijam mais de 2 horas (viram uma nova construção)": "Changes that take more than 2 hours (they become a new build)",
+"Cada rodada de refação acrescenta, em média, 2 dias úteis ao prazo.": "Each revision round adds, on average, 2 business days to the timeline.",
+"Criação de criativos": "Creative production",
+"Ideias, ofertas e mensagens transformadas em criativos prontos para anunciar, com velocidade.": "Ideas, offers and messages turned into ready-to-run ad creatives, fast.",
+"Avulso": "Pay-per-piece",
+"Sob demanda": "On demand",
+"Peças cobradas por unidade": "Pieces billed per unit",
+"6 por mês": "6 per month",
+"4 artes estáticas + 2 vídeos por mês": "4 static designs + 2 videos per month",
+"Indicado para até R$ 3 mil em mídia": "Recommended for up to R$ 3k in media",
+"10 por mês": "10 per month",
+"6 artes estáticas + 4 vídeos por mês": "6 static designs + 4 videos per month",
+"Indicado para R$ 3 mil a R$ 15 mil em mídia": "Recommended for R$ 3k to R$ 15k in media",
+"14 por mês": "14 per month",
+"8 artes estáticas + 6 vídeos por mês": "8 static designs + 6 videos per month",
+"Indicado para R$ 15 mil a R$ 30 mil em mídia": "Recommended for R$ 15k to R$ 30k in media",
+"Artes estáticas para Feed e Stories": "Static designs for Feed and Stories",
+"Edições de vídeo de até 1min20 (cortes, B-roll e lettering)": "Video edits up to 1:20 (cuts, B-roll and lettering)",
+"Adaptação dos criativos aos formatos necessários": "Creatives adapted to the required formats",
+"Gravação ou captação de imagens e vídeos": "Shooting or capturing photos and videos",
+"Motion graphics, 3D e animações complexas": "Motion graphics, 3D and complex animations",
+"Criativo estático avulso": "Single static creative",
+"Por peça": "Per piece",
+"Edição de vídeo avulsa": "Single video edit",
+"Até 1min20, por vídeo": "Up to 1:20, per video",
+"A quantidade do plano é a capacidade máxima de produção no mês. A priorização segue a estratégia das campanhas.": "The plan quantity is the maximum production capacity for the month. Priorities follow the campaign strategy.",
+"Gestão de redes sociais": "Social media management",
+"O conhecimento da empresa transformado em presença digital consistente, que gera demanda orgânica.": "The company’s expertise turned into a consistent digital presence that generates organic demand.",
+"Modalidade": "Format",
+"Essencial (Smart)": "Essential (Smart)",
+"Estratégia e copy, sem design": "Strategy and copy, no design",
+"Criação de artes e carrosséis": "Designs and carousels",
+"Edição de vídeos": "Video editing",
+"Escala (Full Content)": "Scale (Full Content)",
+"Com artes e edição de vídeo": "With designs and video editing",
+"Edição de vídeos (reels)": "Video editing (reels)",
+"Publicações por mês": "Posts per month",
+"6 artes + 2 reels": "6 designs + 2 reels",
+"8 artes + 4 reels": "8 designs + 4 reels",
+"10 artes + 6 reels": "10 designs + 6 reels",
+"Plano estratégico: posicionamento, linguagem, pilares de conteúdo e análise de concorrentes": "Strategic plan: positioning, tone of voice, content pillars and competitor analysis",
+"Calendário editorial, legendas e hashtags": "Editorial calendar, captions and hashtags",
+"Programação dos posts no Instagram e outras redes": "Post scheduling on Instagram and other networks",
+"Stories": "Stories",
+"Relatório e reunião mensal de resultados": "Monthly results report and meeting",
+"Captação de imagens ou vídeos": "Capturing photos or videos",
+"Verba de mídia para distribuir os conteúdos": "Media budget to distribute the content",
+"Recomendamos reservar de R$ 250 a R$ 500 por mês em mídia paga para distribuir os conteúdos.": "We recommend setting aside R$ 250 to R$ 500 a month in paid media to distribute the content.",
+"Conversão de Vendas": "Sales Conversion",
+"Transformar oportunidades em clientes com método, não com improviso.": "Turn opportunities into customers with a method, not improvisation.",
+"Processo, capacitação e acompanhamento para que o time comercial converta mais e dependa menos de talento individual.": "Process, training and follow-up so the sales team converts more and depends less on individual talent.",
+"Fundação em Vendas": "Sales Foundation",
+"Uma base comercial para a equipe saber como vender e conduzir cada etapa do processo.": "A sales foundation so the team knows how to sell and run each stage of the process.",
+"Implantação + desenvolvimento contínuo": "Setup + ongoing development",
+"Modelo de playbook comercial com processos": "Sales playbook template with processes",
+"1 workshop comercial com a equipe: roleplay e protocolo de reunião": "1 sales workshop with the team: roleplay and meeting protocol",
+"Formação EAD de pré-vendedores": "Online training for pre-sales reps",
+"Formação EAD de vendedores": "Online training for sales reps",
+"Guia para apresentação comercial": "Sales presentation guide",
+"Tutoria comercial semanal ao vivo, em grupo": "Weekly live group sales coaching",
+"Playbook personalizado (entregamos um modelo para a empresa adaptar)": "Custom playbook (we deliver a template for the company to adapt)",
+"Tutoria individual (o formato é em grupo)": "One-on-one coaching (the format is in groups)",
+"Assessoria Comercial": "Sales Advisory",
+"Acompanhamento próximo da operação comercial para o time vender com mais consistência.": "Close follow-up of the sales operation so the team sells more consistently.",
+"Para até 3 vendedores": "For up to 3 sales reps",
+"Assessoria comercial para até 3 vendedores": "Sales advisory for up to 3 sales reps",
+"Vendedor adicional": "Additional sales rep",
+"Por vendedor, acima de 3": "Per sales rep, above 3",
+"Treinamento Comercial": "Sales Training",
+"Intensivo de treinamento para acelerar a performance do time comercial.": "Intensive training to speed up the sales team’s performance.",
+"Escopo e investimento definidos conforme o tamanho e o momento do time.": "Scope and investment defined by the team’s size and stage.",
+"Tecnologia": "Technology",
+"A operação comercial conectada, organizada e automatizada.": "The sales operation connected, organized and automated.",
+"CRM, central de atendimento, inteligência artificial e automações para nenhuma oportunidade ficar para trás.": "CRM, customer service hub, artificial intelligence and automations so no opportunity gets left behind.",
+"Plataforma de CRM": "CRM Platform",
+"Toda a operação comercial centralizada: oportunidades, atividades e indicadores em um só lugar.": "The whole sales operation in one place: opportunities, activities and KPIs.",
+"Plano NectarCRM": "NectarCRM plan",
+"Pro": "Pro",
+"R$ 100 por usuário/mês": "R$ 100 per user/month",
+"Enterprise": "Enterprise",
+"R$ 180 por usuário/mês": "R$ 180 per user/month",
+"Usuários": "Users",
+"Cobrança por usuário": "Billed per user",
+"Implantação e onboarding inclusos no valor único": "Setup and onboarding included in the one-time fee",
+"NectarCRM com os recursos do plano escolhido": "NectarCRM with the features of the chosen plan",
+"Setup, configuração e integrações": "Setup, configuration and integrations",
+"Treinamento gerencial": "Management training",
+"Treinamento operacional": "Operational training",
+"Custo de disparos da API oficial do WhatsApp (cobrado pela Meta)": "Official WhatsApp API messaging costs (billed by Meta)",
+"Nectar for WhatsApp": "Nectar for WhatsApp",
+"Extensão para o Google Chrome": "Google Chrome extension",
+"Leadboard": "Leadboard",
+"Módulo de pré-vendas para leads e MQLs": "Pre-sales module for leads and MQLs",
+"NChat Omnichannel": "NChat Omnichannel",
+"WhatsApp, Instagram e webchat": "WhatsApp, Instagram and webchat",
+"Número extra no NChat (API não oficial)": "Extra number on NChat (unofficial API)",
+"Por número conectado": "Per connected number",
+"Comparar recursos dos planos": "Compare plan features",
+"Verta Chat": "Verta Chat",
+"Central de conversas, pipeline e automações em uma única plataforma omnichannel.": "Conversation hub, pipeline and automations in a single omnichannel platform.",
+"Conversas": "Conversations",
+"Organizar o atendimento": "Organize customer service",
+"2 usuários": "2 users",
+"2 canais": "2 channels",
+"1.000 contatos": "1,000 contacts",
+"Plataforma e central de conversas": "Platform and conversation hub",
+"Implantação assistida": "Assisted setup",
+"Pipeline de vendas": "Sales pipeline",
+"Automações": "Automations",
+"Marketing": "Marketing",
+"Pipeline de pós-venda": "After-sales pipeline",
+"Vendas": "Sales",
+"Controlar e automatizar": "Control and automate",
+"3 usuários": "3 users",
+"2.000 contatos": "2,000 contacts",
+"Completo": "Complete",
+"Integrar a jornada": "Integrate the journey",
+"5 usuários": "5 users",
+"3 canais": "3 channels",
+"5.000 contatos": "5,000 contacts",
+"Módulo de marketing": "Marketing module",
+"Tokens de IA (variáveis conforme o uso)": "AI tokens (vary with usage)",
+"Usuário adicional": "Additional user",
+"Canal adicional": "Additional channel",
+"Projeto adicional": "Additional project",
+"+1.000 contatos": "+1,000 contacts",
+"+1.000 envios de e-mail marketing": "+1,000 marketing emails",
+"Adicionais sujeitos à compatibilidade com o plano.": "Add-ons subject to plan compatibility.",
+"Agente de I.A": "AI Agent",
+"Atendimento comercial com IA que responde, acompanha e conduz os leads pelo WhatsApp.": "AI-powered sales support that answers, follows up and guides leads on WhatsApp.",
+"2 WhatsApps": "2 WhatsApp numbers",
+"Até 5 mil contatos": "Up to 5,000 contacts",
+"Agente de IA que responde e conduz os leads no WhatsApp": "AI agent that answers and guides leads on WhatsApp",
+"Follow-ups até o próximo passo da venda": "Follow-ups up to the next step of the sale",
+"Acompanhamento das conversas pela equipe Verta": "Conversations monitored by the Verta team",
+"Treinamento e otimização contínua da IA": "Ongoing AI training and optimization",
+"Tokens de IA (variáveis conforme o volume de conversas)": "AI tokens (vary with conversation volume)",
+"Usuário extra": "Extra user",
+"Acima de 2": "Above 2",
+"WhatsApp extra": "Extra WhatsApp",
+"Pacote extra de contatos": "Extra contacts pack",
+"Acima de 5 mil": "Above 5,000",
+"Não entregamos uma IA para você descobrir sozinho como fazê-la vender: acompanhamos as conversas e melhoramos a abordagem continuamente.": "We don’t hand you an AI and leave you to figure out how to make it sell: we monitor the conversations and keep improving the approach.",
+"Automações de Rede Social": "Social Media Automations",
+"Automações no Instagram com ManyChat para responder e engajar quem interage com a marca.": "Instagram automations with ManyChat to reply to and engage people who interact with the brand.",
+"Implantação das automações no ManyChat": "ManyChat automation setup",
+"Gestão mensal das automações": "Monthly automation management"
+};
+var LOCALES = { pt: "pt-BR", en: "en-US" };
+var atual = "pt";
+function valido(v) { return Object.prototype.hasOwnProperty.call(DIC, v) ? v : "pt"; }
+function salvo() { try { return valido(localStorage.getItem("rl_lang")); } catch (e) { return "pt"; } }
+function t(k, vars) {
+var v = DIC[atual][k];
+if (v == null) v = DIC.pt[k];
+if (v == null) return k;
+return vars ? v.replace(/\{(\w+)\}/g, function (m, n) { return n in vars ? vars[n] : m; }) : v;
+}
+function L(s) {
+if (atual === "pt" || s == null) return s;
+var v = CATALOGO_EN[s];
+return v == null ? s : v;
+}
+function aplicar(lang) {
+atual = lang;
+document.documentElement.lang = LOCALES[lang];
+document.querySelectorAll("[data-i18n]").forEach(function (el) {
+var nos = [].filter.call(el.childNodes, function (n) { return n.nodeType === 3 && n.nodeValue.trim(); });
+el.getAttribute("data-i18n").split(" ").forEach(function (k, i) {
+var n = nos[i];
+if (!n || k === "-") return;
+var m = /^(\s*)[\s\S]*?(\s*)$/.exec(n.nodeValue);
+n.nodeValue = m[1] + t(k) + m[2];
+});
+});
+document.querySelectorAll("[data-i18n-attr]").forEach(function (el) {
+el.getAttribute("data-i18n-attr").split(";").forEach(function (par) {
+var i = par.indexOf(":");
+el.setAttribute(par.slice(0, i), t(par.slice(i + 1)));
+});
+});
+document.dispatchEvent(new CustomEvent("site-lang", { detail: lang }));
+}
+window.__siteI18n = { t: t, L: L, lang: function () { return atual; }, locale: function () { return LOCALES[atual]; } };
+var inicial = salvo();
+if (inicial !== "pt") aplicar(inicial);
+addEventListener("storage", function (e) {
+if (e.key !== "rl_lang") return;
+var l = valido(e.newValue);
+if (l !== atual) aplicar(l);
+});
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
@@ -689,7 +1146,10 @@ function iconSVG(name) {
   const hasGsap = typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined";
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-  const money = (n) => "R$ " + new Intl.NumberFormat("pt-BR", { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(n);
+  // idioma (script "Idiomas" acima): T = texto da interface, L = texto do CATALOGO. Moeda sempre em reais.
+  const I18N = window.__siteI18n || { t: (k) => k, L: (x) => x, locale: () => "pt-BR" };
+  const T = (k, v) => I18N.t(k, v), L = (x) => I18N.L(x);
+  const money = (n) => "R$ " + new Intl.NumberFormat(I18N.locale(), { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(n);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
   const SERV = {};
@@ -726,9 +1186,9 @@ function iconSVG(name) {
   function planLabel(s, st = state[s.id]) {
     const parts = s.seletores.map((sel) => {
       const op = sel.opcoes[st.o[sel.id]];
-      return sel.id === "vol" ? `${op.nome} publicações` : op.nome;
+      return sel.id === "vol" ? T("plano.publicacoes", { n: op.nome }) : L(op.nome);
     });
-    if (s.qtd) parts.push(`${st.q} ${s.qtd.label.toLowerCase().includes("usuário") ? (st.q > 1 ? "usuários" : "usuário") : (st.q > 1 ? "páginas" : "página")}`);
+    if (s.qtd) parts.push(`${st.q} ${s.qtd.label.toLowerCase().includes("usuário") ? T(st.q > 1 ? "plano.usuarios" : "plano.usuario") : T(st.q > 1 ? "plano.paginas" : "plano.pagina")}`);
     return parts.join(" · ");
   }
   function scopeLists(s, st = state[s.id]) {
@@ -750,54 +1210,57 @@ function iconSVG(name) {
 
   /* ── render ── */
   const root = $("#catalogo");
+  function renderCatalogo() {
   root.innerHTML = CATALOGO.map((c, ci) => `
     <section class="cat" id="${c.id}">
       <div class="container">
         <div class="cat__head" data-reveal>
           <div>
-            <div class="eyebrow">0${ci + 1} · ${esc(c.titulo)}</div>
-            <h2>${esc(c.frase)}</h2>
-            <p class="lead">${esc(c.desc)}</p>
+            <div class="eyebrow">0${ci + 1} · ${esc(L(c.titulo))}</div>
+            <h2>${esc(L(c.frase))}</h2>
+            <p class="lead">${esc(L(c.desc))}</p>
           </div>
-          <div class="cat__count"><b>${c.servicos.length} serviços</b>nesta frente</div>
+          <div class="cat__count"><b>${T(c.servicos.length > 1 ? "cat.servicosN" : "cat.servicos1", { n: c.servicos.length })}</b>${T("cat.nestaFrente")}</div>
         </div>
         <div class="grid">${c.servicos.map(cardHTML).join("")}</div>
       </div>
     </section>`).join("");
 
-  $("#heroChips").innerHTML = CATALOGO.map((c) => `<a class="hero__chip" href="#${c.id}"><b>${c.servicos.length}</b>${esc(c.titulo)}</a>`).join("");
+  $("#heroChips").innerHTML = CATALOGO.map((c) => `<a class="hero__chip" href="#${c.id}"><b>${c.servicos.length}</b>${esc(L(c.titulo))}</a>`).join("");
+  }
+  renderCatalogo();
 
   function cardHTML(s) {
     const st = state[s.id];
     return `<article class="card" data-id="${s.id}" data-reveal>
-      <div class="card__flag"><svg class="ic"><use href="#i-check"/></svg>Na proposta</div>
+      <div class="card__flag"><svg class="ic"><use href="#i-check"/></svg>${T("card.naProposta")}</div>
       <div class="card__top">
         ${iconSVG(s.icon)}
-        <div><h3>${esc(s.nome)}</h3><p>${esc(s.resumo)}</p></div>
+        <div><h3>${esc(L(s.nome))}</h3><p>${esc(L(s.resumo))}</p></div>
         <div class="price" data-price></div>
       </div>
       ${s.seletores.map((sel) => `
         <div class="sel">
-          <div class="sel__label"><span>${esc(sel.label)}</span></div>
-          <div class="seg ${sel.opcoes.length === 1 ? "seg--1" : ""}" role="group" aria-label="${esc(sel.label)}">
-            ${sel.opcoes.map((op, i) => `<button type="button" data-sel="${sel.id}" data-i="${i}" aria-pressed="${st.o[sel.id] === i}"><b>${esc(op.nome)}</b>${op.nota ? `<span>${esc(op.nota)}</span>` : ""}</button>`).join("")}
+          <div class="sel__label"><span>${esc(L(sel.label))}</span></div>
+          <div class="seg ${sel.opcoes.length === 1 ? "seg--1" : ""}" role="group" aria-label="${esc(L(sel.label))}">
+            ${sel.opcoes.map((op, i) => `<button type="button" data-sel="${sel.id}" data-i="${i}" aria-pressed="${st.o[sel.id] === i}"><b>${esc(L(op.nome))}</b>${op.nota ? `<span>${esc(L(op.nota))}</span>` : ""}</button>`).join("")}
           </div>
         </div>`).join("")}
-      ${s.qtd ? `<div class="qty"><div class="qty__txt">${esc(s.qtd.label)}<small>${esc(s.qtd.nota)}</small></div>
-        <div class="step"><button type="button" data-q="-1" aria-label="Diminuir">−</button><output data-qv>${st.q}</output><button type="button" data-q="1" aria-label="Aumentar">+</button></div></div>` : ""}
+      ${s.qtd ? `<div class="qty"><div class="qty__txt">${esc(L(s.qtd.label))}<small>${esc(L(s.qtd.nota))}</small></div>
+        <div class="step"><button type="button" data-q="-1" aria-label="${T("card.diminuir")}">−</button><output data-qv>${st.q}</output><button type="button" data-q="1" aria-label="${T("card.aumentar")}">+</button></div></div>` : ""}
       <div class="chips" data-chips></div>
       <div class="scope" data-scope></div>
       ${(s.addons || []).length ? `<details class="addons"${s.id === "criativos" ? "" : ""}>
-        <summary>Adicionais <em data-addsum></em><svg class="ic"><use href="#i-down"/></svg></summary>
+        <summary>${T("card.adicionais")} <em data-addsum></em><svg class="ic"><use href="#i-down"/></svg></summary>
         ${s.addons.map((ad) => `<div class="addon">
-          <div class="addon__txt">${esc(ad.nome)}<small>${ad.nota ? esc(ad.nota) + " · " : ""}${money(ad.mensal || ad.unico)}${ad.mensal ? "/mês" : " único"}</small></div>
-          <div class="step"><button type="button" data-ad="${ad.id}" data-d="-1" aria-label="Remover ${esc(ad.nome)}">−</button><output data-adv="${ad.id}">0</output><button type="button" data-ad="${ad.id}" data-d="1" aria-label="Adicionar ${esc(ad.nome)}">+</button></div>
+          <div class="addon__txt">${esc(L(ad.nome))}<small>${ad.nota ? esc(L(ad.nota)) + " · " : ""}${money(ad.mensal || ad.unico)}${ad.mensal ? T("preco.porMes") : " " + T("preco.unico")}</small></div>
+          <div class="step"><button type="button" data-ad="${ad.id}" data-d="-1" aria-label="${esc(T("card.remover", { nome: L(ad.nome) }))}">−</button><output data-adv="${ad.id}">0</output><button type="button" data-ad="${ad.id}" data-d="1" aria-label="${esc(T("card.adicionar", { nome: L(ad.nome) }))}">+</button></div>
         </div>`).join("")}
       </details>` : ""}
-      ${s.nota ? `<p class="card__note"><svg class="ic"><use href="#i-info"/></svg>${esc(s.nota)}</p>` : ""}
+      ${s.nota ? `<p class="card__note"><svg class="ic"><use href="#i-info"/></svg>${esc(L(s.nota))}</p>` : ""}
       <div class="card__foot">
-        ${s.link ? `<a href="${s.link.url}" target="_blank" rel="noopener">${esc(s.link.txt)}</a>` : "<span></span>"}
-        <button type="button" class="btn add" data-add><svg class="ic"><use href="#i-plus"/></svg><span>Adicionar à proposta</span></button>
+        ${s.link ? `<a href="${s.link.url}" target="_blank" rel="noopener">${esc(L(s.link.txt))}</a>` : "<span></span>"}
+        <button type="button" class="btn add" data-add><svg class="ic"><use href="#i-plus"/></svg><span>${T("card.add")}</span></button>
       </div>
     </article>`;
   }
@@ -805,7 +1268,7 @@ function iconSVG(name) {
   function renderCard(s, flash) {
     const el = $(`.card[data-id="${s.id}"]`), st = state[s.id], v = calc(s), sc = scopeLists(s);
     el.classList.toggle("is-on", st.on);
-    $("[data-add] span", el).textContent = st.on ? "Remover da proposta" : "Adicionar à proposta";
+    $("[data-add] span", el).textContent = st.on ? T("card.rm") : T("card.add");
     $$("[data-sel]", el).forEach((b) => b.setAttribute("aria-pressed", st.o[b.dataset.sel] === +b.dataset.i));
     if (s.qtd) {
       $("[data-qv]", el).textContent = st.q;
@@ -819,21 +1282,21 @@ function iconSVG(name) {
       $(`[data-ad="${ad.id}"][data-d="1"]`, el).disabled = n >= ad.max;
     });
     const addCount = Object.values(st.a).reduce((x, y) => x + y, 0), addsum = $("[data-addsum]", el);
-    if (addsum) addsum.textContent = addCount ? `${addCount} selecionado${addCount > 1 ? "s" : ""}` : "";
+    if (addsum) addsum.textContent = addCount ? T(addCount > 1 ? "card.selecionadoN" : "card.selecionado1", { n: addCount }) : "";
 
     const pr = $("[data-price]", el);
-    if (v.consulta) pr.innerHTML = `<div class="price__main" style="font-size:1.35rem">Sob consulta</div>`;
+    if (v.consulta) pr.innerHTML = `<div class="price__main" style="font-size:1.35rem">${T("preco.consulta")}</div>`;
     else {
-      const main = v.mensal ? `${money(v.mensal)}<small>/mês</small>` : `${money(v.unico)}<small>único</small>`;
-      const sub = v.mensal && v.unico ? `<div class="price__sub">+ <b>${money(v.unico)}</b> valor único</div>` : "";
+      const main = v.mensal ? `${money(v.mensal)}<small>${T("preco.porMes")}</small>` : `${money(v.unico)}<small>${T("preco.unico")}</small>`;
+      const sub = v.mensal && v.unico ? `<div class="price__sub">+ <b>${money(v.unico)}</b> ${T("preco.valorUnico")}</div>` : "";
       pr.innerHTML = `<div class="price__main">${main}</div>${sub}`;
     }
     if (flash && !reduced) { pr.classList.remove("flash"); void pr.offsetWidth; pr.classList.add("flash"); }
 
-    $("[data-chips]", el).innerHTML = sc.chips.map((c) => `<span class="chip">${esc(c)}</span>`).join("");
+    $("[data-chips]", el).innerHTML = sc.chips.map((c) => `<span class="chip">${esc(L(c))}</span>`).join("");
     $("[data-scope]", el).innerHTML = `
-      <div class="in"><h4>O que está incluso</h4><ul>${sc.inc.length ? sc.inc.map((t) => `<li class="${sc.novos.has(t) ? "is-new" : ""}"><svg class="ic"><use href="#i-check"/></svg>${esc(t)}</li>`).join("") : `<li><svg class="ic"><use href="#i-info"/></svg>Escopo apresentado na conversa</li>`}</ul></div>
-      <div class="out"><h4>O que não está incluso</h4><ul>${sc.out.length ? sc.out.map((t) => `<li><svg class="ic"><use href="#i-x"/></svg>${esc(t)}</li>`).join("") : `<li><svg class="ic"><use href="#i-check"/></svg>Nenhuma exclusão neste plano</li>`}</ul></div>`;
+      <div class="in"><h4>${T("escopo.inclui")}</h4><ul>${sc.inc.length ? sc.inc.map((t) => `<li class="${sc.novos.has(t) ? "is-new" : ""}"><svg class="ic"><use href="#i-check"/></svg>${esc(L(t))}</li>`).join("") : `<li><svg class="ic"><use href="#i-info"/></svg>${T("escopo.apresentado")}</li>`}</ul></div>
+      <div class="out"><h4>${T("escopo.naoInclui")}</h4><ul>${sc.out.length ? sc.out.map((t) => `<li><svg class="ic"><use href="#i-x"/></svg>${esc(L(t))}</li>`).join("") : `<li><svg class="ic"><use href="#i-check"/></svg>${T("escopo.nenhuma")}</li>`}</ul></div>`;
   }
 
   /* ── totais + odômetro ── */
@@ -891,25 +1354,25 @@ function iconSVG(name) {
     const list = selected();
     const lines = list.map((s) => {
       const v = calc(s), st = state[s.id];
-      const adds = (s.addons || []).filter((ad) => st.a[ad.id]).map((ad) => `${st.a[ad.id]}× ${ad.nome}`).join(", ");
+      const adds = (s.addons || []).filter((ad) => st.a[ad.id]).map((ad) => `${st.a[ad.id]}× ${L(ad.nome)}`).join(", ");
       const det = [planLabel(s), adds].filter(Boolean).join(" · ");
       return `<div class="sum__line">
-        <div><b>${esc(s.nome)}</b><small>${esc(det || s.cat.titulo)}</small></div>
-        <div class="sum__vals">${v.consulta ? "<span>Sob consulta</span>" : `${v.mensal ? `<span>${money(v.mensal)}/mês</span>` : ""}${v.unico ? `<span class="u">${money(v.unico)} único</span>` : ""}`}</div>
-        <button class="sum__rm" data-rm="${s.id}" aria-label="Remover ${esc(s.nome)}"><svg class="ic"><use href="#i-x"/></svg></button>
+        <div><b>${esc(L(s.nome))}</b><small>${esc(det || L(s.cat.titulo))}</small></div>
+        <div class="sum__vals">${v.consulta ? `<span>${T("preco.consulta")}</span>` : `${v.mensal ? `<span>${money(v.mensal)}${T("preco.porMes")}</span>` : ""}${v.unico ? `<span class="u">${money(v.unico)} ${T("preco.unico")}</span>` : ""}`}</div>
+        <button class="sum__rm" data-rm="${s.id}" aria-label="${esc(T("card.remover", { nome: L(s.nome) }))}"><svg class="ic"><use href="#i-x"/></svg></button>
       </div>`;
     }).join("");
     $("#sum").innerHTML = list.length ? `${lines}
-      <div class="sum__first"><span>Investimento no primeiro mês (único + mensal)</span><b>${money(t.u + t.m)}</b></div>
-      <p class="sum__fine">Valores de referência. Verbas de mídia, tokens de IA e custos de terceiros indicados nos serviços não estão inclusos. Condições finais na proposta formal.</p>
-      <label class="sum__client">Nome do cliente no PDF<input id="pdfCliente" type="text" value="${esc(cliente)}" placeholder="Opcional, aparece na capa" autocomplete="off" spellcheck="false"></label>
+      <div class="sum__first"><span>${T("resumo.primeiroMes")}</span><b>${money(t.u + t.m)}</b></div>
+      <p class="sum__fine">${T("resumo.fine")}</p>
+      <label class="sum__client">${T("resumo.cliente")}<input id="pdfCliente" type="text" value="${esc(cliente)}" placeholder="${esc(T("resumo.clientePh"))}" autocomplete="off" spellcheck="false"></label>
       <div class="sum__acts">
-        <a class="btn btn--white btn--sm" href="${CONTATO_URL}" target="_blank" rel="noopener">Agendar conversa</a>
-        <button class="btn btn--ghost btn--sm" data-act="link">Copiar link da proposta</button>
-        <button class="btn btn--ghost btn--sm" data-act="pdf">Gerar PDF da proposta</button>
-        <button class="btn btn--ghost btn--sm" data-act="clear">Limpar</button>
+        <a class="btn btn--white btn--sm" href="${CONTATO_URL}" target="_blank" rel="noopener">${T("nav.agendar")}</a>
+        <button class="btn btn--ghost btn--sm" data-act="link">${T("resumo.link")}</button>
+        <button class="btn btn--ghost btn--sm" data-act="pdf">${T("resumo.pdf")}</button>
+        <button class="btn btn--ghost btn--sm" data-act="clear">${T("resumo.limpar")}</button>
       </div>`
-      : `<p class="sum__empty">Nenhum serviço adicionado ainda. Escolha um plano e clique em "Adicionar à proposta".</p>`;
+      : `<p class="sum__empty">${esc(T("resumo.vazio"))}</p>`;
   }
 
   /* ── eventos ── */
@@ -929,7 +1392,7 @@ function iconSVG(name) {
       st.on = !st.on;
       renderCard(s); renderTotals();
       if (st.on && !reduced && hasGsap) gsap.fromTo(card, { scale: .985 }, { scale: 1, duration: .6, ease: "expo.out" });
-      toast(st.on ? `${s.nome} adicionado à proposta` : `${s.nome} removido`);
+      toast(st.on ? T("toast.adicionado", { nome: L(s.nome) }) : T("toast.removido", { nome: L(s.nome) }));
     }
   });
 
@@ -937,7 +1400,7 @@ function iconSVG(name) {
   function setOpen(open) {
     bar.classList.toggle("is-open", open);
     toggleBtn.setAttribute("aria-expanded", open);
-    toggleBtn.firstChild.textContent = open ? "Fechar " : "Ver proposta ";
+    toggleBtn.firstChild.textContent = (open ? T("bar.fechar") : T("bar.ver")) + " ";
   }
   toggleBtn.addEventListener("click", () => setOpen(!bar.classList.contains("is-open")));
   $$("[data-open-sum]").forEach((b) => b.addEventListener("click", () => setOpen(true)));
@@ -946,7 +1409,7 @@ function iconSVG(name) {
     if ((b = e.target.closest("[data-rm]"))) { state[b.dataset.rm].on = false; renderCard(SERV[b.dataset.rm]); renderTotals(); }
     if ((b = e.target.closest("[data-act]"))) {
       if (b.dataset.act === "clear") { Object.values(SERV).forEach((s) => { state[s.id].on = false; state[s.id].a = {}; renderCard(s); }); renderTotals(); }
-      if (b.dataset.act === "link") { saveHash(); navigator.clipboard?.writeText(location.href).then(() => toast("Link copiado"), () => toast("Copie o endereço da barra do navegador")); }
+      if (b.dataset.act === "link") { saveHash(); navigator.clipboard?.writeText(location.href).then(() => toast(T("toast.link")), () => toast(T("toast.linkFalhou"))); }
       if (b.dataset.act === "pdf") gerarPdf();
     }
   });
@@ -984,7 +1447,7 @@ function iconSVG(name) {
   /* ── PDF da proposta (design system Verta) ──
      Os entregáveis saem de scopeLists(), a mesma função que monta o "O que está
      incluso / não incluso" de cada cartão: o PDF descreve exatamente o plano escolhido. */
-  const brl = (n) => "R$ " + new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  const brl = (n) => "R$ " + new Intl.NumberFormat(I18N.locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
   const IC = {
     ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
     no: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
@@ -992,13 +1455,13 @@ function iconSVG(name) {
   };
   const n2 = (i) => String(i + 1).padStart(2, "0");
   function valorTxt(v) {
-    if (v.consulta) return { main: "Sob consulta", sub: "" };
-    if (v.mensal) return { main: `${brl(v.mensal)}<em>/mês</em>`, sub: v.unico ? `+ ${brl(v.unico)} valor único` : "" };
-    return { main: `${brl(v.unico)}`, sub: "valor único" };
+    if (v.consulta) return { main: T("preco.consulta"), sub: "" };
+    if (v.mensal) return { main: `${brl(v.mensal)}<em>${T("preco.porMes")}</em>`, sub: v.unico ? `+ ${brl(v.unico)} ${T("preco.valorUnico")}` : "" };
+    return { main: `${brl(v.unico)}`, sub: T("preco.valorUnico") };
   }
   function addsDe(s, st = state[s.id]) {
     return (s.addons || []).filter((ad) => st.a[ad.id]).map((ad) => ({
-      ad, n: st.a[ad.id], valor: `${brl((ad.mensal || ad.unico) * st.a[ad.id])}${ad.mensal ? "/mês" : " único"}`,
+      ad, n: st.a[ad.id], valor: `${brl((ad.mensal || ad.unico) * st.a[ad.id])}${ad.mensal ? T("preco.porMes") : " " + T("preco.unico")}`,
     }));
   }
 
@@ -1006,22 +1469,22 @@ function iconSVG(name) {
     const t = totals(), list = selected(), nome = cliente.trim();
     const ink = $(".nav__logo img").src, mark = $('link[rel="icon"]').href;
     const branco = "data:image/svg+xml;base64," + btoa(atob(ink.split(",")[1]).replace("<svg ", '<svg fill="#ffffff" '));
-    const hoje = new Date().toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
+    const hoje = new Date().toLocaleDateString(I18N.locale(), { day: "numeric", month: "long", year: "numeric" });
     const consulta = list.some((s) => calc(s).consulta);
 
     // rodapé das páginas internas com o nome do cliente
     let pg = $("#pdfPage");
     if (!pg) { pg = document.createElement("style"); pg.id = "pdfPage"; document.head.appendChild(pg); }
-    const rod = ("Verta · Proposta de serviços" + (nome ? " para " + nome : "")).replace(/["\\]/g, "\\$&");
+    const rod = (nome ? T("pdf.rodapePara", { nome }) : T("pdf.rodape")).replace(/["\\]/g, "\\$&");
     pg.textContent = `@media print{@page{@bottom-left{content:"${rod}"}}}`;
 
     const linhas = list.map((s, i) => {
-      const v = calc(s), adds = addsDe(s).map((x) => `${x.n}× ${x.ad.nome}`).join(", ");
+      const v = calc(s), adds = addsDe(s).map((x) => `${x.n}× ${L(x.ad.nome)}`).join(", ");
       return `<tr>
         <td class="i">${n2(i)}</td>
-        <td><b>${esc(s.nome)}</b><small>${esc(s.cat.titulo)}</small></td>
-        <td>${esc(planLabel(s) || "Padrão")}${adds ? `<small>+ ${esc(adds)}</small>` : ""}</td>
-        <td class="n">${v.consulta ? "Sob consulta" : v.mensal ? brl(v.mensal) : "-"}</td>
+        <td><b>${esc(L(s.nome))}</b><small>${esc(L(s.cat.titulo))}</small></td>
+        <td>${esc(planLabel(s) || T("plano.padrao"))}${adds ? `<small>+ ${esc(adds)}</small>` : ""}</td>
+        <td class="n">${v.consulta ? T("preco.consulta") : v.mensal ? brl(v.mensal) : "-"}</td>
         <td class="n">${v.unico ? brl(v.unico) : "-"}</td></tr>`;
     }).join("");
 
@@ -1030,48 +1493,48 @@ function iconSVG(name) {
         <img class="pd-mark" src="${mark}" alt="">
         <img class="pd-logo" src="${branco}" alt="Verta">
         <div class="pd-capa__body">
-          <div class="pd-eye">${nome ? "Proposta de serviços" : "Soluções Verta"}</div>
-          <h1>${esc(nome || "Proposta de serviços")}</h1>
-          <p class="pd-capa__lead">Serviços de marketing, comercial e tecnologia para acelerar a receita da sua empresa.</p>
+          <div class="pd-eye">${nome ? T("pdf.proposta") : T("pdf.solucoes")}</div>
+          <h1>${esc(nome || T("pdf.proposta"))}</h1>
+          <p class="pd-capa__lead">${T("hero.lead")}</p>
           <div class="pd-meta">
-            ${nome ? `<div><small>Preparada para</small><b>${esc(nome)}</b></div>` : ""}
-            <div><small>Data</small><b>${hoje}</b></div>
-            <div><small>Serviços</small><b>${list.length} ${list.length > 1 ? "serviços" : "serviço"}</b></div>
+            ${nome ? `<div><small>${T("pdf.preparada")}</small><b>${esc(nome)}</b></div>` : ""}
+            <div><small>${T("pdf.data")}</small><b>${hoje}</b></div>
+            <div><small>${T("pdf.servicos")}</small><b>${T(list.length > 1 ? "cat.servicosN" : "cat.servicos1", { n: list.length })}</b></div>
           </div>
         </div>
       </section>
 
       <section class="pd-sec">
         <div class="pd-head">
-          <div class="pd-eye">Escopo</div>
-          <h2><span>01</span>O que cada serviço entrega</h2>
-          <p>Os entregáveis de cada plano escolhido: o que está incluso, o que fica de fora e os adicionais contratados.</p>
+          <div class="pd-eye">${T("pdf.escopo")}</div>
+          <h2><span>01</span>${T("pdf.escopoTitulo")}</h2>
+          <p>${T("pdf.escopoTexto")}</p>
         </div>
         ${list.map(printDetail).join("")}
       </section>
 
       <section class="pd-sec">
         <div class="pd-head">
-          <div class="pd-eye">Investimento</div>
-          <h2><span>02</span>Resumo do investimento</h2>
-          <p>${list.length} ${list.length > 1 ? "serviços selecionados" : "serviço selecionado"}, com o plano e os valores de cada um.</p>
+          <div class="pd-eye">${T("pdf.investimento")}</div>
+          <h2><span>02</span>${T("pdf.investTitulo")}</h2>
+          <p>${T(list.length > 1 ? "pdf.selecionadosN" : "pdf.selecionados1", { n: list.length })}</p>
         </div>
         <div class="pd-total">
-          <div><small>Mensal recorrente</small><b>${brl(t.m)}</b><em>/mês</em></div>
-          <div><small>Valor único</small><b>${brl(t.u)}</b></div>
-          <div class="is-main"><small>Investimento no primeiro mês</small><b>${brl(t.m + t.u)}</b></div>
+          <div><small>${T("pdf.mensalRec")}</small><b>${brl(t.m)}</b><em>${T("preco.porMes")}</em></div>
+          <div><small>${T("bar.unico")}</small><b>${brl(t.u)}</b></div>
+          <div class="is-main"><small>${T("pdf.primeiroMes")}</small><b>${brl(t.m + t.u)}</b></div>
         </div>
-        <p class="pd-fine">Valores de referência. Verbas de mídia, tokens de IA e custos de terceiros indicados nos serviços não estão inclusos.${consulta ? " Serviços sob consulta não entram no total." : ""} Condições finais na proposta formal.</p>
+        <p class="pd-fine">${T("pdf.fine1")}${consulta ? T("pdf.fineConsulta") : ""}${T("pdf.fine2")}</p>
         <table class="pd-tab">
-          <thead><tr><th></th><th>Serviço</th><th>Plano</th><th class="n">Mensal</th><th class="n">Único</th></tr></thead>
+          <thead><tr><th></th><th>${T("pdf.colServico")}</th><th>${T("pdf.colPlano")}</th><th class="n">${T("pdf.colMensal")}</th><th class="n">${T("pdf.colUnico")}</th></tr></thead>
           <tbody>${linhas}
-            <tr class="tot"><td></td><td colspan="2">Total</td><td class="n">${brl(t.m)}</td><td class="n">${t.u ? brl(t.u) : "-"}</td></tr></tbody>
+            <tr class="tot"><td></td><td colspan="2">${T("pdf.total")}</td><td class="n">${brl(t.m)}</td><td class="n">${t.u ? brl(t.u) : "-"}</td></tr></tbody>
         </table>
       </section>
 
       <section class="pd-dark pd-fim">
         <img class="pd-fim__logo" src="${branco}" alt="Verta">
-        <a class="pd-fim__cta" href="${CASES_URL}">Conhecer nossos cases →</a>
+        <a class="pd-fim__cta" href="${CASES_URL}">${T("pdf.cases")}</a>
       </section>
     </div>`;
   }
@@ -1080,33 +1543,33 @@ function iconSVG(name) {
     const st = state[s.id], v = calc(s), sc = scopeLists(s), val = valorTxt(v), adds = addsDe(s);
     const sel0 = s.seletores[0], op0 = sel0 ? sel0.opcoes[st.o[sel0.id]] : null;
     const tags = planLabel(s).split(" · ").filter(Boolean);
-    if (tags.length && sel0 && sel0.id === "plano") tags[0] = "Plano " + tags[0];
+    if (tags.length && sel0 && sel0.id === "plano") tags[0] = T("plano.plano", { nome: tags[0] });
     return `<article class="pd-svc">
       <div class="pd-svc__top">
         <div class="pd-svc__id">
           <div class="pd-svc__num">${n2(i)}</div>
           <div>
-            <div class="pd-svc__cat">${esc(s.cat.titulo)}</div>
-            <h3>${esc(s.nome)}</h3>
-            ${tags.length ? `<div class="pd-plan">${tags.map((x) => `<span class="pd-tag">${esc(x)}</span>`).join("")}${op0 && op0.nota ? `<span>${esc(op0.nota)}</span>` : ""}${s.qtd && s.qtd.nota ? `<span>${esc(s.qtd.nota)}</span>` : ""}</div>` : ""}
+            <div class="pd-svc__cat">${esc(L(s.cat.titulo))}</div>
+            <h3>${esc(L(s.nome))}</h3>
+            ${tags.length ? `<div class="pd-plan">${tags.map((x) => `<span class="pd-tag">${esc(x)}</span>`).join("")}${op0 && op0.nota ? `<span>${esc(L(op0.nota))}</span>` : ""}${s.qtd && s.qtd.nota ? `<span>${esc(L(s.qtd.nota))}</span>` : ""}</div>` : ""}
           </div>
         </div>
         <div class="pd-price"><b>${val.main}</b>${val.sub ? `<small>${val.sub}</small>` : ""}</div>
       </div>
-      <p class="pd-svc__res">${esc(s.resumo)}</p>
-      ${sc.chips.length ? `<div class="pd-chips">${sc.chips.map((c) => `<span>${esc(c)}</span>`).join("")}</div>` : ""}
+      <p class="pd-svc__res">${esc(L(s.resumo))}</p>
+      ${sc.chips.length ? `<div class="pd-chips">${sc.chips.map((c) => `<span>${esc(L(c))}</span>`).join("")}</div>` : ""}
       <div class="pd-cols">
-        <div class="in"><h4>O que está incluso</h4><ul>${(sc.inc.length ? sc.inc : ["Escopo apresentado na conversa"]).map((x) => `<li>${IC.ok}<span>${esc(x)}</span></li>`).join("")}</ul></div>
-        <div class="out"><h4>O que não está incluso</h4><ul>${sc.out.length ? sc.out.map((x) => `<li>${IC.no}<span>${esc(x)}</span></li>`).join("") : `<li>${IC.ok}<span>Nenhuma exclusão neste plano</span></li>`}</ul></div>
+        <div class="in"><h4>${T("escopo.inclui")}</h4><ul>${(sc.inc.length ? sc.inc.map(L) : [T("escopo.apresentado")]).map((x) => `<li>${IC.ok}<span>${esc(x)}</span></li>`).join("")}</ul></div>
+        <div class="out"><h4>${T("escopo.naoInclui")}</h4><ul>${sc.out.length ? sc.out.map((x) => `<li>${IC.no}<span>${esc(L(x))}</span></li>`).join("") : `<li>${IC.ok}<span>${T("escopo.nenhuma")}</span></li>`}</ul></div>
       </div>
-      ${adds.length ? `<div class="pd-adds"><h4>Adicionais contratados</h4><ul>${adds.map((x) => `<li><div>${x.n}× ${esc(x.ad.nome)}${x.ad.nota ? ` <span>· ${esc(x.ad.nota)}</span>` : ""}</div><b>${x.valor}</b></li>`).join("")}</ul></div>` : ""}
-      ${s.nota ? `<p class="pd-note">${IC.info}<span>${esc(s.nota)}</span></p>` : ""}
-      ${s.link ? `<a class="pd-link" href="${esc(s.link.url)}">${esc(s.link.txt)} ↗</a>` : ""}
+      ${adds.length ? `<div class="pd-adds"><h4>${T("pdf.adicionais")}</h4><ul>${adds.map((x) => `<li><div>${x.n}× ${esc(L(x.ad.nome))}${x.ad.nota ? ` <span>· ${esc(L(x.ad.nota))}</span>` : ""}</div><b>${x.valor}</b></li>`).join("")}</ul></div>` : ""}
+      ${s.nota ? `<p class="pd-note">${IC.info}<span>${esc(L(s.nota))}</span></p>` : ""}
+      ${s.link ? `<a class="pd-link" href="${esc(s.link.url)}">${esc(L(s.link.txt))} ↗</a>` : ""}
     </article>`;
   }
 
   async function gerarPdf() {
-    if (!selected().length) { toast("Adicione ao menos um serviço"); return; }
+    if (!selected().length) { toast(T("toast.semServico")); return; }
     buildPrint();
     // fontes do design system e logos carregados antes de abrir a impressão
     const espera = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -1118,7 +1581,7 @@ function iconSVG(name) {
     } catch (e) { /* segue com a fonte de reserva */ }
     await Promise.all($$("#print img").map((img) => (img.complete ? 0 : new Promise((r) => { img.onload = img.onerror = r; }))));
     // nome do arquivo sugerido pelo navegador ao salvar o PDF
-    const nome = cliente.trim(), titulo = `Proposta Verta${nome ? " - " + nome : ""} - ${new Date().toLocaleDateString("pt-BR").replace(/\//g, "-")}`;
+    const nome = cliente.trim(), titulo = `${T("pdf.arquivo")}${nome ? " - " + nome : ""} - ${new Date().toLocaleDateString(I18N.locale()).replace(/\//g, "-")}`;
     const docs = [document];
     try { if (parent !== window && parent.document) docs.push(parent.document); } catch (e) { /* iframe de outra origem */ }
     const antes = docs.map((d) => d.title);
@@ -1130,6 +1593,17 @@ function iconSVG(name) {
   loadHash();
   Object.values(SERV).forEach((s) => renderCard(s));
   renderTotals();
+  setOpen(false);
+
+  /* ── troca de idioma ao vivo (evento do script "Idiomas"): redesenha o que o script montou ── */
+  document.addEventListener("site-lang", () => {
+    const abertos = new Set($$("details.addons[open]").map((d) => d.closest(".card").dataset.id));
+    renderCatalogo();
+    $$(".card").forEach((el) => { if (abertos.has(el.dataset.id)) $("details.addons", el)?.setAttribute("open", ""); });
+    Object.values(SERV).forEach((s) => renderCard(s));
+    renderTotals();
+    setOpen(bar.classList.contains("is-open"));
+  });
 
   /* ── Lenis, nav, scroll-spy ── */
   let lenis = null;

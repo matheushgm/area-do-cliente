@@ -14,23 +14,26 @@ import MecanismoWizardShell from '../components/MecanismoUnico/MecanismoWizardSh
 import { StepPitchPreview } from '../components/MecanismoUnico/WizardSteps'
 import { exportMecanismoUnicoPDF } from '../lib/mecanismoUnicoPDF'
 import VideoGuide from '../components/VideoGuide'
+import { useI18n, idiomaAtual, t as tSolto } from '../i18n'
 
 // ─── Badge de autosave (mesmo espírito do OfertaMatadoraPublico) ────────────
 function SaveBadge({ status }) {
+  const { t } = useI18n()
   if (status === 'saving') return (
-    <span className="flex items-center gap-1.5 text-xs text-rl-muted"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Salvando...</span>
+    <span className="flex items-center gap-1.5 text-xs text-rl-muted"><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('ferramentasPublicas.salvando')}</span>
   )
   if (status === 'saved') return (
-    <span className="flex items-center gap-1.5 text-xs text-green-400"><Cloud className="w-3.5 h-3.5" /> Salvo</span>
+    <span className="flex items-center gap-1.5 text-xs text-green-400"><Cloud className="w-3.5 h-3.5" /> {t('ferramentasPublicas.salvo')}</span>
   )
   if (status === 'error') return (
-    <span className="flex items-center gap-1.5 text-xs text-rl-red"><CloudOff className="w-3.5 h-3.5" /> Erro ao salvar</span>
+    <span className="flex items-center gap-1.5 text-xs text-rl-red"><CloudOff className="w-3.5 h-3.5" /> {t('ferramentasPublicas.erroSalvar')}</span>
   )
   return null
 }
 
 export default function MecanismoUnicoPublico() {
   const { token } = useParams()
+  const { t } = useI18n()
   const [state, setState] = useState('loading')   // loading | ready | invalid
   const [errorMsg, setErrorMsg] = useState(null)
   const [companyName, setCompanyName] = useState('')
@@ -45,11 +48,11 @@ export default function MecanismoUnicoPublico() {
     let alive = true
     ;(async () => {
       try {
-        const res = await fetch(`/api/client-form?token=${encodeURIComponent(token)}`)
+        const res = await fetch(`/api/client-form?token=${encodeURIComponent(token)}`, { headers: { 'X-Idioma': idiomaAtual() } })
         const body = await res.json()
         if (!alive) return
         if (!res.ok) {
-          setErrorMsg(body?.error || 'Link inválido ou expirado.')
+          setErrorMsg(body?.error || tSolto('ferramentasPublicas.linkExpirado'))
           setState('invalid')
           return
         }
@@ -60,7 +63,7 @@ export default function MecanismoUnicoPublico() {
         setState('ready')
       } catch {
         if (!alive) return
-        setErrorMsg('Não foi possível carregar o formulário. Tente novamente.')
+        setErrorMsg(tSolto('ferramentasPublicas.erroCarregarForm'))
         setState('invalid')
       }
     })()
@@ -73,7 +76,7 @@ export default function MecanismoUnicoPublico() {
     try {
       const res = await fetch('/api/client-form', {
         method:  'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Idioma': idiomaAtual() },
         body:    JSON.stringify({ token, module: 'mecanismo', data: { mecanismoUnico: payload } }),
       })
       setSaveStatus(res.ok ? 'saved' : 'error')
@@ -129,7 +132,7 @@ export default function MecanismoUnicoPublico() {
     <div className="min-h-screen bg-rl-dark flex items-center justify-center px-6">
       <div className="glass-card p-8 max-w-md text-center space-y-3">
         <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
-        <h2 className="text-lg font-bold text-rl-text">Link inválido</h2>
+        <h2 className="text-lg font-bold text-rl-text">{t('ferramentasPublicas.linkInvalido')}</h2>
         <p className="text-sm text-rl-muted">{errorMsg}</p>
       </div>
     </div>
@@ -146,7 +149,7 @@ export default function MecanismoUnicoPublico() {
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
             <p className="text-xs text-rl-muted font-medium uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-rl-purple" /> Construtor de Mecanismo Único
+              <Sparkles className="w-3.5 h-3.5 text-rl-purple" /> {t('ferramentasPublicas.mecanismo.eyebrow')}
             </p>
             <h1 className="text-lg font-bold text-rl-text">{companyName}</h1>
           </div>
@@ -159,20 +162,19 @@ export default function MecanismoUnicoPublico() {
           /* ── Tela de agradecimento ── */
           <div className="glass-card p-10 text-center space-y-4">
             <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto" />
-            <h2 className="text-xl font-bold text-rl-text">Mecanismo enviado com sucesso! 🎉</h2>
+            <h2 className="text-xl font-bold text-rl-text">{t('ferramentasPublicas.mecanismo.enviado')}</h2>
             <p className="text-sm text-rl-muted max-w-md mx-auto leading-relaxed">
-              O time da Revenue Lab vai revisar o que você construiu e lapidar o pitch final.
-              Você pode baixar uma cópia em PDF das suas respostas.
+              {t('ferramentasPublicas.mecanismo.enviadoTexto')}
             </p>
             <div className="flex items-center justify-center gap-3 pt-2">
               <button
                 onClick={() => exportMecanismoUnicoPDF({ project: { companyName }, mecanismoUnico: data })}
                 className="btn-secondary flex items-center gap-2 text-sm"
               >
-                <FileDown className="w-4 h-4" /> Baixar minhas respostas (PDF)
+                <FileDown className="w-4 h-4" /> {t('ferramentasPublicas.baixarRespostas')}
               </button>
               <button onClick={() => setSubmitted(false)} className="text-sm text-rl-muted hover:text-rl-text px-3 py-2">
-                Continuar editando
+                {t('ferramentasPublicas.continuarEditando')}
               </button>
             </div>
           </div>
@@ -181,18 +183,15 @@ export default function MecanismoUnicoPublico() {
             {/* Vídeo guia — aberto por padrão: é pré-requisito pra preencher bem */}
             <VideoGuide
               videoId="DIftYYJlf_g"
-              label="Assista antes de começar: como construir seu Mecanismo Único"
+              label={t('ferramentasPublicas.mecanismo.video')}
               defaultOpen
             />
 
             {/* Instrução */}
             <div className="glass-card p-5 border-l-4 border-rl-purple">
-              <p className="text-sm text-rl-text font-medium mb-1">Como funciona</p>
+              <p className="text-sm text-rl-text font-medium mb-1">{t('ferramentasPublicas.comoFunciona')}</p>
               <p className="text-sm text-rl-muted leading-relaxed">
-                Este é o passo-a-passo para descobrir o &ldquo;por que ISSO vai funcionar pra
-                mim&rdquo; que separa você de todos os concorrentes. Avance um passo por vez,
-                cada tela tem exemplos pra te guiar. As respostas são salvas automaticamente:
-                você pode parar e voltar depois pelo mesmo link.
+                {t('ferramentasPublicas.mecanismo.instrucao')}
               </p>
             </div>
 
@@ -203,25 +202,25 @@ export default function MecanismoUnicoPublico() {
               finalContent={
                 <div className="space-y-4">
                   <p className="text-sm text-rl-muted">
-                    Você preencheu <b className="text-rl-text">{filledCount} de {totalSteps} passos</b>.
-                    Revise o que quiser na trilha acima e, quando estiver pronto, envie para a
-                    Revenue Lab: nosso time vai lapidar e gerar a versão final.
+                    {t('ferramentasPublicas.preenchidosAntes')}
+                    <b className="text-rl-text">{t('ferramentasPublicas.preenchidos', { feitos: filledCount, total: totalSteps })}</b>
+                    {t('ferramentasPublicas.mecanismo.finalDepois')}
                   </p>
                   <StepPitchPreview data={data} />
                   <div className="glass-card p-5 border border-rl-purple/20 text-center space-y-3">
                     <Send className="w-8 h-8 text-rl-purple mx-auto" />
-                    <p className="text-sm text-rl-text font-semibold">Tudo pronto?</p>
+                    <p className="text-sm text-rl-text font-semibold">{t('ferramentasPublicas.tudoPronto')}</p>
                     <button
                       onClick={submit}
                       className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-semibold text-sm bg-rl-purple text-white hover:opacity-90 transition-opacity"
                     >
-                      <Send className="w-4 h-4" /> Enviar para a Revenue Lab
+                      <Send className="w-4 h-4" /> {t('ferramentasPublicas.enviarRevenueLab')}
                     </button>
                     <button
                       onClick={() => exportMecanismoUnicoPDF({ project: { companyName }, mecanismoUnico: data })}
                       className="text-xs text-rl-muted hover:text-rl-text"
                     >
-                      Baixar cópia em PDF
+                      {t('ferramentasPublicas.baixarCopia')}
                     </button>
                   </div>
                 </div>

@@ -4,14 +4,16 @@ import {
   Loader2, AlertTriangle, Check, X, Edit2, Plus,
   CalendarDays,
 } from 'lucide-react'
-import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, weekdayShort, MONTH_NAMES } from '../components/Resultados/resultadosHelpers'
+import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, weekdayShort, nomeMes, diaMes } from '../components/Resultados/resultadosHelpers'
 import VendasPorUnidade from '../components/Resultados/VendasPorUnidade'
 import { getUnidades } from '../lib/constants'
 import useResultadosSave from '../hooks/useResultadosSave'
 import SaveBar, { SaveStatus, SaveButton } from '../components/Resultados/SaveBar'
+import { useI18n, idiomaAtual } from '../i18n'
 
 // ─── Day Form ──────────────────────────────────────────────────────────────────
 function DayForm({ initial = {}, onSave, onCancel }) {
+  const { t } = useI18n()
   const [form, setForm] = useState({
     investido:   initial.investido   != null ? String(initial.investido).replace('.', ',')   : '',
     leads:       initial.leads       || '',
@@ -32,22 +34,22 @@ function DayForm({ initial = {}, onSave, onCancel }) {
     <div className="space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div>
-          <label className="label-field">Investido</label>
+          <label className="label-field">{t('formB2c.investido')}</label>
           <input className="input-field" placeholder="R$ 0,00" value={form.investido}
             onChange={e => set('investido', e.target.value)} />
         </div>
         <div>
-          <label className="label-field">Leads</label>
+          <label className="label-field">{t('formB2c.leads')}</label>
           <input className="input-field" type="number" min="0" placeholder="0" value={form.leads}
             onChange={e => set('leads', e.target.value)} />
         </div>
         <div>
-          <label className="label-field">Vendas (qtd)</label>
+          <label className="label-field">{t('formB2c.vendasQtd')}</label>
           <input className="input-field" type="number" min="0" placeholder="0" value={form.vendas}
             onChange={e => set('vendas', e.target.value)} />
         </div>
         <div>
-          <label className="label-field">Vendas (R$)</label>
+          <label className="label-field">{t('formB2c.vendasValor')}</label>
           <input className="input-field" placeholder="R$ 0,00" value={form.valorVendas}
             onChange={e => set('valorVendas', e.target.value)} />
         </div>
@@ -56,12 +58,12 @@ function DayForm({ initial = {}, onSave, onCancel }) {
         <div className="flex gap-3 text-xs flex-wrap">
           {cpl !== null && (
             <span className="bg-rl-cyan/10 border border-rl-cyan/20 text-rl-cyan px-2 py-1 rounded-lg">
-              CPL: {fmtMoney(cpl)}
+              {t('formB2c.cpl')}: {fmtMoney(cpl)}
             </span>
           )}
           {cac !== null && (
             <span className="bg-rl-gold/10 border border-rl-gold/20 text-rl-gold px-2 py-1 rounded-lg">
-              CAC: {fmtMoney(cac)}
+              {t('formB2c.cac')}: {fmtMoney(cac)}
             </span>
           )}
           {roas !== null && (
@@ -70,7 +72,7 @@ function DayForm({ initial = {}, onSave, onCancel }) {
               roas >= 1.5 ? 'bg-rl-gold/10   border-rl-gold/20   text-rl-gold'   :
                             'bg-rl-purple/10 border-rl-purple/20 text-rl-purple'
             }`}>
-              ROAS: {roas.toFixed(2)}x
+              {t('formB2c.roas')}: {roas.toFixed(2)}x
             </span>
           )}
         </div>
@@ -78,9 +80,9 @@ function DayForm({ initial = {}, onSave, onCancel }) {
       <div className="flex gap-2">
         <button onClick={() => onSave(form)}
           className="btn-primary flex-1 flex items-center justify-center gap-1.5 text-sm">
-          <Check size={13} /> Salvar
+          <Check size={13} /> {t('formB2c.salvar')}
         </button>
-        <button onClick={onCancel} className="btn-secondary flex items-center gap-1 text-sm">
+        <button onClick={onCancel} className="btn-secondary flex items-center gap-1 text-sm" aria-label={t('formB2c.cancelar')} title={t('formB2c.cancelar')}>
           <X size={13} />
         </button>
       </div>
@@ -90,6 +92,7 @@ function DayForm({ initial = {}, onSave, onCancel }) {
 
 // ─── Week Form ─────────────────────────────────────────────────────────────────
 function WeekForm({ initial = {}, onSave, onCancel }) {
+  const { t } = useI18n()
   const [form, setForm] = useState({
     investido:   initial.investido   != null ? String(initial.investido).replace('.', ',')   : '',
     leads:       initial.leads       || '',
@@ -110,22 +113,22 @@ function WeekForm({ initial = {}, onSave, onCancel }) {
     <div className="space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div>
-          <label className="label-field">Investido</label>
+          <label className="label-field">{t('formB2c.investido')}</label>
           <input className="input-field" placeholder="R$ 0,00" value={form.investido}
             onChange={e => set('investido', e.target.value)} />
         </div>
         <div>
-          <label className="label-field">Leads</label>
+          <label className="label-field">{t('formB2c.leads')}</label>
           <input className="input-field" type="number" min="0" placeholder="0" value={form.leads}
             onChange={e => set('leads', e.target.value)} />
         </div>
         <div>
-          <label className="label-field">Vendas (qtd)</label>
+          <label className="label-field">{t('formB2c.vendasQtd')}</label>
           <input className="input-field" type="number" min="0" placeholder="0" value={form.vendas}
             onChange={e => set('vendas', e.target.value)} />
         </div>
         <div>
-          <label className="label-field">Vendas (R$)</label>
+          <label className="label-field">{t('formB2c.vendasValor')}</label>
           <input className="input-field" placeholder="R$ 0,00" value={form.valorVendas}
             onChange={e => set('valorVendas', e.target.value)} />
         </div>
@@ -134,12 +137,12 @@ function WeekForm({ initial = {}, onSave, onCancel }) {
         <div className="flex gap-3 text-xs flex-wrap">
           {cpl !== null && (
             <span className="bg-rl-cyan/10 border border-rl-cyan/20 text-rl-cyan px-2 py-1 rounded-lg">
-              CPL: {fmtMoney(cpl)}
+              {t('formB2c.cpl')}: {fmtMoney(cpl)}
             </span>
           )}
           {cac !== null && (
             <span className="bg-rl-gold/10 border border-rl-gold/20 text-rl-gold px-2 py-1 rounded-lg">
-              CAC: {fmtMoney(cac)}
+              {t('formB2c.cac')}: {fmtMoney(cac)}
             </span>
           )}
           {roas !== null && (
@@ -148,7 +151,7 @@ function WeekForm({ initial = {}, onSave, onCancel }) {
               roas >= 1.5 ? 'bg-rl-gold/10   border-rl-gold/20   text-rl-gold'   :
                             'bg-rl-purple/10 border-rl-purple/20 text-rl-purple'
             }`}>
-              ROAS: {roas.toFixed(2)}x
+              {t('formB2c.roas')}: {roas.toFixed(2)}x
             </span>
           )}
         </div>
@@ -156,9 +159,9 @@ function WeekForm({ initial = {}, onSave, onCancel }) {
       <div className="flex gap-2">
         <button onClick={() => onSave(form)}
           className="btn-primary flex-1 flex items-center justify-center gap-1.5 text-sm">
-          <Check size={13} /> Salvar
+          <Check size={13} /> {t('formB2c.salvar')}
         </button>
-        <button onClick={onCancel} className="btn-secondary flex items-center gap-1 text-sm">
+        <button onClick={onCancel} className="btn-secondary flex items-center gap-1 text-sm" aria-label={t('formB2c.cancelar')} title={t('formB2c.cancelar')}>
           <X size={13} />
         </button>
       </div>
@@ -168,6 +171,7 @@ function WeekForm({ initial = {}, onSave, onCancel }) {
 
 // ─── Month Nav ─────────────────────────────────────────────────────────────────
 function MonthNav({ year, month, setYear, setMonth }) {
+  const { t } = useI18n()
   const prev = () => {
     if (month === 0) { setYear(y => y - 1); setMonth(11) }
     else setMonth(m => m - 1)
@@ -178,13 +182,13 @@ function MonthNav({ year, month, setYear, setMonth }) {
   }
   return (
     <div className="flex items-center gap-3">
-      <button onClick={prev} className="p-2 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-colors">
+      <button onClick={prev} aria-label={t('formB2c.mesAnterior')} className="p-2 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-colors">
         ‹
       </button>
       <span className="text-sm font-semibold text-rl-text min-w-[130px] text-center">
-        {MONTH_NAMES[month]} {year}
+        {nomeMes(month)} {year}
       </span>
-      <button onClick={next} className="p-2 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-colors">
+      <button onClick={next} aria-label={t('formB2c.proximoMes')} className="p-2 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-colors">
         ›
       </button>
     </div>
@@ -195,6 +199,7 @@ function MonthNav({ year, month, setYear, setMonth }) {
 export default function B2CClientForm() {
   const { token } = useParams()
   const navigate  = useNavigate()
+  const { t, locale } = useI18n()
   const today     = new Date()
 
   const [loading, setLoading]   = useState(true)
@@ -213,9 +218,9 @@ export default function B2CClientForm() {
   useEffect(() => {
     async function load() {
       try {
-        const res  = await fetch(`/api/b2c-results?token=${encodeURIComponent(token)}`)
+        const res  = await fetch(`/api/b2c-results?token=${encodeURIComponent(token)}`, { headers: { 'X-Idioma': idiomaAtual() } })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Erro ao carregar.')
+        if (!res.ok) throw new Error(data.error || t('formB2c.erroCarregar'))
         // O link pode ter sido gerado antes de o gestor trocar o modelo do
         // funil (Trocar Modelo). Se o projeto hoje é B2B, o preenchimento
         // aqui ficaria salvo na chave `b2c`, invisível na Área do Cliente —
@@ -401,7 +406,7 @@ export default function B2CClientForm() {
       <div className="min-h-screen bg-rl-dark flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 text-rl-purple animate-spin" />
-          <p className="text-rl-muted text-sm">Carregando...</p>
+          <p className="text-rl-muted text-sm">{t('formB2c.carregando')}</p>
         </div>
       </div>
     )
@@ -412,7 +417,7 @@ export default function B2CClientForm() {
       <div className="min-h-screen bg-rl-dark flex items-center justify-center p-6">
         <div className="glass-card p-8 max-w-md w-full text-center space-y-4">
           <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
-          <h2 className="text-lg font-bold text-rl-text">Link inválido</h2>
+          <h2 className="text-lg font-bold text-rl-text">{t('formB2c.linkInvalido')}</h2>
           <p className="text-sm text-rl-muted">{error}</p>
         </div>
       </div>
@@ -425,7 +430,7 @@ export default function B2CClientForm() {
       <div className="border-b border-rl-border bg-rl-surface/50 backdrop-blur-sm sticky top-0 z-10">
         <div className={`${unidades ? 'max-w-6xl' : 'max-w-3xl'} mx-auto px-6 py-4 flex items-center justify-between`}>
           <div>
-            <p className="text-xs text-rl-muted font-medium uppercase tracking-wider">Resultados B2C</p>
+            <p className="text-xs text-rl-muted font-medium uppercase tracking-wider">{t('formB2c.cabecalho')}</p>
             <h1 className="text-lg font-bold text-rl-text">{companyName}</h1>
           </div>
           <div className="flex items-center gap-3">
@@ -440,19 +445,19 @@ export default function B2CClientForm() {
         {/* Instrução */}
         <div className="glass-card p-5 border-l-4 border-rl-green/50">
           <p className="text-sm text-rl-text font-medium mb-1 flex items-center gap-2">
-            <CalendarDays className="w-4 h-4 text-rl-green" /> Como preencher
+            <CalendarDays className="w-4 h-4 text-rl-green" /> {t('formB2c.comoPreencher')}
           </p>
           <p className="text-sm text-rl-muted leading-relaxed">
-            Preencha os dados de investimento, leads e vendas. Você pode optar por registrar diariamente ou semanalmente. Os dados são salvos automaticamente, mas toque em Salvar antes de sair da página para garantir.
+            {t('formB2c.instrucao')}
           </p>
         </div>
 
         {/* Mode toggle */}
         <div className="flex items-center gap-2 bg-rl-surface border border-rl-border rounded-xl p-1 w-fit">
           {[
-            { id: 'diario',  label: 'Diário' },
-            { id: 'semanal', label: 'Semanal' },
-            ...(unidades ? [{ id: 'unidades', label: 'Por unidade' }] : []),
+            { id: 'diario',  label: t('formB2c.modos.diario') },
+            { id: 'semanal', label: t('formB2c.modos.semanal') },
+            ...(unidades ? [{ id: 'unidades', label: t('formB2c.modos.unidades') }] : []),
           ].map(opt => (
             <button
               key={opt.id}
@@ -474,13 +479,13 @@ export default function B2CClientForm() {
         {totals.investido > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {[
-              { label: 'Investido', value: fmtMoney(totals.investido),          color: 'rl-gold'  },
-              { label: 'Leads',     value: totals.leads.toLocaleString('pt-BR'), color: 'rl-blue'  },
-              { label: 'Vendas',    value: fmtMoney(totals.valorVendas),         color: 'rl-green' },
-              { label: 'CPL',       value: fmtMoney(cpl),                        color: 'rl-cyan'  },
-              { label: 'ROAS',      value: roas > 0 ? roas.toFixed(2) + 'x' : '—', color: roas >= 3 ? 'rl-green' : roas >= 1.5 ? 'rl-gold' : 'rl-purple' },
+              { id: 'investido', label: t('formB2c.investido'), value: fmtMoney(totals.investido),          color: 'rl-gold'  },
+              { id: 'leads',     label: t('formB2c.leads'),     value: totals.leads.toLocaleString(locale),  color: 'rl-blue'  },
+              { id: 'vendas',    label: t('formB2c.vendas'),    value: fmtMoney(totals.valorVendas),         color: 'rl-green' },
+              { id: 'cpl',       label: t('formB2c.cpl'),       value: fmtMoney(cpl),                        color: 'rl-cyan'  },
+              { id: 'roas',      label: t('formB2c.roas'),      value: roas > 0 ? roas.toFixed(2) + 'x' : '—', color: roas >= 3 ? 'rl-green' : roas >= 1.5 ? 'rl-gold' : 'rl-purple' },
             ].map(c => (
-              <div key={c.label} className={`glass-card p-4 text-center border border-${c.color}/20`}>
+              <div key={c.id} className={`glass-card p-4 text-center border border-${c.color}/20`}>
                 <p className="text-[10px] text-rl-muted uppercase tracking-wide mb-1">{c.label}</p>
                 <p className={`text-sm font-bold text-${c.color}`}>{c.value}</p>
               </div>
@@ -495,12 +500,12 @@ export default function B2CClientForm() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-rl-border">
-                    <th className="text-left px-4 py-3 text-rl-muted font-medium text-xs uppercase tracking-wide">Dia</th>
-                    <th className="text-right px-4 py-3 text-rl-muted font-medium text-xs uppercase tracking-wide">Investido</th>
-                    <th className="text-right px-4 py-3 text-rl-muted font-medium text-xs uppercase tracking-wide">Leads</th>
-                    <th className="text-right px-4 py-3 text-rl-muted font-medium text-xs uppercase tracking-wide">Vendas</th>
-                    <th className="text-right px-4 py-3 text-rl-muted font-medium text-xs uppercase tracking-wide">CPL</th>
-                    <th className="text-right px-4 py-3 text-rl-muted font-medium text-xs uppercase tracking-wide">ROAS</th>
+                    <th className="text-left px-4 py-3 text-rl-muted font-medium text-xs uppercase tracking-wide">{t('formB2c.dia')}</th>
+                    <th className="text-right px-4 py-3 text-rl-muted font-medium text-xs uppercase tracking-wide">{t('formB2c.investido')}</th>
+                    <th className="text-right px-4 py-3 text-rl-muted font-medium text-xs uppercase tracking-wide">{t('formB2c.leads')}</th>
+                    <th className="text-right px-4 py-3 text-rl-muted font-medium text-xs uppercase tracking-wide">{t('formB2c.vendas')}</th>
+                    <th className="text-right px-4 py-3 text-rl-muted font-medium text-xs uppercase tracking-wide">{t('formB2c.cpl')}</th>
+                    <th className="text-right px-4 py-3 text-rl-muted font-medium text-xs uppercase tracking-wide">{t('formB2c.roas')}</th>
                     <th className="w-10 px-4 py-3" />
                   </tr>
                 </thead>
@@ -516,7 +521,7 @@ export default function B2CClientForm() {
                       return (
                         <tr key={day} className="border-b border-rl-border bg-rl-surface/40">
                           <td className="px-4 py-3 font-medium text-rl-text text-xs whitespace-nowrap">
-                            {day}/{month + 1}
+                            {diaMes(day, month)}
                             <span className="ml-1.5 text-rl-muted font-normal capitalize">{weekdayShort(year, month, day)}</span>
                           </td>
                           <td colSpan={5} className="px-4 py-3">
@@ -536,7 +541,7 @@ export default function B2CClientForm() {
                         key={day}
                         className={`border-b border-rl-border/30 hover:bg-rl-surface/20 transition-colors ${!d ? 'opacity-50' : ''}`}
                       >
-                        <td className="px-4 py-2.5 font-medium text-rl-text text-xs whitespace-nowrap">{day}/{month + 1}<span className="ml-1.5 text-rl-muted font-normal capitalize">{weekdayShort(year, month, day)}</span></td>
+                        <td className="px-4 py-2.5 font-medium text-rl-text text-xs whitespace-nowrap">{diaMes(day, month)}<span className="ml-1.5 text-rl-muted font-normal capitalize">{weekdayShort(year, month, day)}</span></td>
                         <td className="px-4 py-2.5 text-right text-xs text-rl-text">{d ? fmtMoney(d.investido) : '—'}</td>
                         <td className="px-4 py-2.5 text-right text-xs text-rl-blue font-medium">{d ? d.leads : '—'}</td>
                         <td className="px-4 py-2.5 text-right text-xs text-rl-green font-medium">{d ? fmtMoney(d.valorVendas) : '—'}</td>
@@ -549,7 +554,7 @@ export default function B2CClientForm() {
                           ) : '—'}
                         </td>
                         <td className="px-4 py-2.5">
-                          <button onClick={() => setEditing(day)} className="text-rl-muted hover:text-rl-text p-1 rounded">
+                          <button onClick={() => setEditing(day)} aria-label={d ? t('formB2c.editar') : t('formB2c.preencher')} title={d ? t('formB2c.editar') : t('formB2c.preencher')} className="text-rl-muted hover:text-rl-text p-1 rounded">
                             {d ? <Edit2 size={12} /> : <Plus size={12} />}
                           </button>
                         </td>
@@ -592,12 +597,14 @@ export default function B2CClientForm() {
                     <div>
                       <p className="text-sm font-semibold text-rl-text">{week.label}</p>
                       <p className="text-xs text-rl-muted">
-                        {MONTH_NAMES[month].slice(0, 3)} {week.start}–{week.end}
+                        {nomeMes(month).slice(0, 3)} {week.start}–{week.end}
                       </p>
                     </div>
                     {!isEdit && (
                       <button
                         onClick={() => setEditingWeek(idx)}
+                        aria-label={w ? t('formB2c.editar') : t('formB2c.preencher')}
+                        title={w ? t('formB2c.editar') : t('formB2c.preencher')}
                         className="text-rl-muted hover:text-rl-text p-1.5 rounded-lg hover:bg-rl-surface"
                       >
                         {w ? <Edit2 size={14} /> : <Plus size={14} />}
@@ -614,22 +621,22 @@ export default function B2CClientForm() {
                   ) : w ? (
                     <div className="grid grid-cols-3 gap-2">
                       <div className="bg-rl-gold/5 border border-rl-gold/20 rounded-xl p-3 text-center">
-                        <p className="text-[10px] text-rl-muted uppercase tracking-wide mb-1">Investido</p>
+                        <p className="text-[10px] text-rl-muted uppercase tracking-wide mb-1">{t('formB2c.investido')}</p>
                         <p className="text-sm font-bold text-rl-gold">{fmtMoney(w.investido)}</p>
                       </div>
                       <div className="bg-rl-blue/5 border border-rl-blue/20 rounded-xl p-3 text-center">
-                        <p className="text-[10px] text-rl-muted uppercase tracking-wide mb-1">Leads</p>
+                        <p className="text-[10px] text-rl-muted uppercase tracking-wide mb-1">{t('formB2c.leads')}</p>
                         <p className="text-sm font-bold text-rl-blue">{w.leads}</p>
                       </div>
                       <div className="bg-rl-green/5 border border-rl-green/20 rounded-xl p-3 text-center">
-                        <p className="text-[10px] text-rl-muted uppercase tracking-wide mb-1">Vendas</p>
+                        <p className="text-[10px] text-rl-muted uppercase tracking-wide mb-1">{t('formB2c.vendas')}</p>
                         <p className="text-sm font-bold text-rl-green">{fmtMoney(w.valorVendas)}</p>
                       </div>
                       {(wCpl > 0 || wRoas > 0) && (
                         <div className="col-span-3 flex gap-2">
                           {wCpl > 0 && (
                             <span className="text-xs bg-rl-cyan/10 border border-rl-cyan/20 text-rl-cyan px-3 py-1 rounded-lg">
-                              CPL: {fmtMoney(wCpl)}
+                              {t('formB2c.cpl')}: {fmtMoney(wCpl)}
                             </span>
                           )}
                           {wRoas > 0 && (
@@ -638,14 +645,14 @@ export default function B2CClientForm() {
                               wRoas >= 1.5 ? 'bg-rl-gold/10   border-rl-gold/20   text-rl-gold'   :
                                              'bg-rl-purple/10 border-rl-purple/20 text-rl-purple'
                             }`}>
-                              ROAS: {wRoas.toFixed(2)}x
+                              {t('formB2c.roas')}: {wRoas.toFixed(2)}x
                             </span>
                           )}
                         </div>
                       )}
                     </div>
                   ) : (
-                    <p className="text-xs text-rl-muted text-center py-4">Sem dados para esta semana</p>
+                    <p className="text-xs text-rl-muted text-center py-4">{t('formB2c.semDados')}</p>
                   )}
                 </div>
               )
@@ -655,7 +662,7 @@ export default function B2CClientForm() {
 
         {/* Footer */}
         <div className="pt-4 pb-8 text-center">
-          <p className="text-xs text-rl-muted">Os dados são salvos automaticamente. Toque em Salvar antes de sair da página.</p>
+          <p className="text-xs text-rl-muted">{t('formB2c.rodape')}</p>
           <p className="text-xs text-rl-muted/50 mt-1">Revenue Lab © {new Date().getFullYear()}</p>
         </div>
       </div>

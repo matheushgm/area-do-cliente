@@ -11,34 +11,35 @@ import {
   Maximize2, X, ZoomIn, ZoomOut, History, Folder, FolderOpen, ChevronDown,
 } from 'lucide-react'
 import { agruparPorPasta } from '../components/Debriefing/debriefingData'
+import { useI18n, idiomaAtual, localeAtual, t as tSolto } from '../i18n'
 
+// Rótulo = chave em `aprovacao.tipos.*`, traduzida no render.
 const TIPO_META = {
-  video:     { label: 'Vídeo',     Icon: Video },
-  imagem:    { label: 'Imagem',    Icon: ImageIcon },
-  carrossel: { label: 'Carrossel', Icon: Layers },
+  video:     { label: 'video',     Icon: Video },
+  imagem:    { label: 'imagem',    Icon: ImageIcon },
+  carrossel: { label: 'carrossel', Icon: Layers },
 }
+
+const OPCOES_DATA = { day: '2-digit', month: '2-digit', year: 'numeric' }
 
 function fmtDate(iso) {
   if (!iso) return ''
-  // Datas yyyy-mm-dd são "de calendário" — reordenar direto evita o recuo de
+  // Datas yyyy-mm-dd são "de calendário" — montar a data local evita o recuo de
   // um dia que new Date() causa ao interpretar como meia-noite UTC (BRT = -3).
   const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (m) return `${m[3]}/${m[2]}/${m[1]}`
-  const d = new Date(iso)
+  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+  return d.toLocaleDateString(localeAtual(), OPCOES_DATA)
 }
 
-// Timestamp ISO completo → "dd/mm/yyyy às HH:MM" no fuso de quem está vendo.
+// Timestamp ISO completo → "dd/mm/yyyy às HH:MM" no fuso e no idioma de quem está vendo.
 function fmtDateTime(iso) {
   if (!iso) return ''
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mi = String(d.getMinutes()).padStart(2, '0')
-  return `${dd}/${mm}/${d.getFullYear()} às ${hh}:${mi}`
+  const data = d.toLocaleDateString(localeAtual(), OPCOES_DATA)
+  const hora = d.toLocaleTimeString(localeAtual(), { hour: '2-digit', minute: '2-digit' })
+  return tSolto('aprovacao.dataHora', { data, hora })
 }
 
 // Monta URL/headers conforme a origem do acesso:
@@ -50,7 +51,7 @@ function authQuery(auth) {
     : `token=${encodeURIComponent(auth.token)}`
 }
 function authHeaders(auth) {
-  return auth.portal ? { Authorization: `Bearer ${auth.portal}` } : {}
+  return { 'X-Idioma': idiomaAtual(), ...(auth.portal ? { Authorization: `Bearer ${auth.portal}` } : {}) }
 }
 function authBody(auth) {
   return auth.portal ? { projectId: auth.projectId } : { token: auth.token }
@@ -65,6 +66,7 @@ export default function AprovacaoAnunciosPublico() {
 // `readOnly` esconde os botões de decisão (permissão `view` no portal);
 // `embedded` tira o cabeçalho/fundo de página inteira.
 export function AprovacaoView({ auth, readOnly = false, embedded = false }) {
+  const { t } = useI18n()
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
   const [company, setCompany] = useState('')
@@ -75,7 +77,7 @@ export function AprovacaoView({ auth, readOnly = false, embedded = false }) {
     try {
       const res  = await fetch(`/api/anuncios-aprovacao?${authQuery(auth)}`, { headers: authHeaders(auth) })
       const body = await res.json()
-      if (!res.ok) throw new Error(body.error || 'Erro ao carregar.')
+      if (!res.ok) throw new Error(body.error || t('aprovacao.erroCarregar'))
       setCompany(body.companyName || '')
       setAds(body.ads || [])
       setLps(body.lps || [])
@@ -110,7 +112,7 @@ export function AprovacaoView({ auth, readOnly = false, embedded = false }) {
       <div className={`${embedded ? 'py-8' : 'min-h-screen bg-rl-bg p-6'} flex items-center justify-center`}>
         <div className="glass-card p-8 max-w-md w-full text-center space-y-4">
           <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
-          <h2 className="text-lg font-bold text-rl-text">{embedded ? 'Não foi possível carregar' : 'Link inválido'}</h2>
+          <h2 className="text-lg font-bold text-rl-text">{embedded ? t('aprovacao.naoCarregou') : t('aprovacao.linkInvalido')}</h2>
           <p className="text-sm text-rl-muted">{error}</p>
         </div>
       </div>
@@ -122,15 +124,15 @@ export function AprovacaoView({ auth, readOnly = false, embedded = false }) {
       {itens.length === 0 && (
         <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-12 px-6 text-center space-y-2">
           <Megaphone className="w-8 h-8 text-rl-muted/40 mx-auto" />
-          <p className="text-sm font-semibold text-rl-text">Nada pra aprovar no momento.</p>
-          <p className="text-xs text-rl-muted">Quando o time enviar um criativo ou landing page, aparece aqui.</p>
+          <p className="text-sm font-semibold text-rl-text">{t('aprovacao.vazio')}</p>
+          <p className="text-xs text-rl-muted">{t('aprovacao.vazioDica')}</p>
         </div>
       )}
 
       {pendentes.length > 0 && (
         <section className="space-y-4">
           <h2 className="text-sm font-black text-rl-text uppercase tracking-wide">
-            {readOnly ? 'Aguardando aprovação' : 'Aguardando sua aprovação'}
+            {readOnly ? t('aprovacao.aguardando') : t('aprovacao.aguardandoSua')}
           </h2>
           <PorPasta
             itens={pendentes}
@@ -145,7 +147,7 @@ export function AprovacaoView({ auth, readOnly = false, embedded = false }) {
       {decididos.length > 0 && (
         <section className="space-y-4">
           <h2 className="text-sm font-black text-rl-muted uppercase tracking-wide">
-            Já avaliados
+            {t('aprovacao.jaAvaliados')}
           </h2>
           <PorPasta
             itens={decididos}
@@ -163,7 +165,7 @@ export function AprovacaoView({ auth, readOnly = false, embedded = false }) {
         {pendentes.length > 0 && (
           <span className="inline-flex items-center gap-1.5 bg-rl-gold/10 border border-rl-gold/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-rl-gold">
             <Clock className="w-3 h-3" />
-            {pendentes.length} pendente{pendentes.length !== 1 ? 's' : ''}
+            {t('aprovacao.pendentes', { count: pendentes.length })}
           </span>
         )}
         {body}
@@ -182,7 +184,7 @@ export function AprovacaoView({ auth, readOnly = false, embedded = false }) {
             </div>
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold">
-                Aprovação de Anúncios e Landing Pages
+                {t('aprovacao.titulo')}
               </p>
               <h1 className="text-base font-black text-rl-text leading-tight truncate">{company}</h1>
             </div>
@@ -190,7 +192,7 @@ export function AprovacaoView({ auth, readOnly = false, embedded = false }) {
           {pendentes.length > 0 && (
             <span className="inline-flex items-center gap-1.5 bg-rl-gold/10 border border-rl-gold/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-rl-gold shrink-0">
               <Clock className="w-3 h-3" />
-              {pendentes.length} pendente{pendentes.length !== 1 ? 's' : ''}
+              {t('aprovacao.pendentes', { count: pendentes.length })}
             </span>
           )}
         </div>
@@ -207,12 +209,13 @@ export function AprovacaoView({ auth, readOnly = false, embedded = false }) {
 // a lista segue corrida como sempre; o que não tem pasta (e as LPs) vai em
 // "Outros", no fim.
 function PorPasta({ itens, abertaInicial, renderCard }) {
+  const { t } = useI18n()
   const grupos = agruparPorPasta(itens)
   if (grupos.length === 1 && !grupos[0].pasta) return grupos[0].ads.map(renderCard)
   return grupos.map((g) => (
     <PastaBloco
       key={g.pasta || 'outros'}
-      nome={g.pasta || 'Outros'}
+      nome={g.pasta || t('aprovacao.outros')}
       total={g.ads.length}
       abertaInicial={abertaInicial(grupos.length)}
     >
@@ -222,6 +225,7 @@ function PorPasta({ itens, abertaInicial, renderCard }) {
 }
 
 function PastaBloco({ nome, total, abertaInicial, children }) {
+  const { t } = useI18n()
   const [aberta, setAberta] = useState(abertaInicial)
   const Icone = aberta ? FolderOpen : Folder
   return (
@@ -234,7 +238,7 @@ function PastaBloco({ nome, total, abertaInicial, children }) {
       >
         <Icone className="w-4 h-4 text-rl-purple shrink-0" />
         <span className="text-sm font-bold text-rl-text flex-1 min-w-0 truncate">{nome}</span>
-        <span className="text-xs text-rl-muted shrink-0">{total} {total === 1 ? 'criativo' : 'criativos'}</span>
+        <span className="text-xs text-rl-muted shrink-0">{t('aprovacao.nCriativos', { count: total })}</span>
         <ChevronDown className={`w-4 h-4 text-rl-muted shrink-0 transition-transform ${aberta ? 'rotate-180' : ''}`} />
       </button>
       {aberta && <div className="space-y-4">{children}</div>}
@@ -248,6 +252,7 @@ function PastaBloco({ nome, total, abertaInicial, children }) {
 // alterna entre "caber na tela" e tamanho natural com navegação por
 // arrasto/scroll (funciona com dedo no mobile e trackpad/roda no desktop).
 function Lightbox({ src, alt, onClose }) {
+  const { t } = useI18n()
   const [zoomed, setZoomed] = useState(false)
 
   useEffect(() => {
@@ -281,8 +286,8 @@ function Lightbox({ src, alt, onClose }) {
           type="button"
           onClick={() => setZoomed((z) => !z)}
           className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-white/25 transition-all"
-          title={zoomed ? 'Ajustar à tela' : 'Zoom no tamanho real'}
-          aria-label={zoomed ? 'Ajustar à tela' : 'Zoom no tamanho real'}
+          title={zoomed ? t('aprovacao.ajustarTela') : t('aprovacao.zoomReal')}
+          aria-label={zoomed ? t('aprovacao.ajustarTela') : t('aprovacao.zoomReal')}
         >
           {zoomed ? <ZoomOut className="w-5 h-5" /> : <ZoomIn className="w-5 h-5" />}
         </button>
@@ -290,8 +295,8 @@ function Lightbox({ src, alt, onClose }) {
           type="button"
           onClick={onClose}
           className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-white/25 transition-all"
-          title="Fechar"
-          aria-label="Fechar"
+          title={t('comum.fechar')}
+          aria-label={t('comum.fechar')}
         >
           <X className="w-5 h-5" />
         </button>
@@ -327,6 +332,7 @@ function Lightbox({ src, alt, onClose }) {
 
 // ─── Card de um anúncio ───────────────────────────────────────────────────────
 function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
+  const { t } = useI18n()
   const [mode,       setMode]       = useState(null) // null | 'reprovando'
   const [motivo,     setMotivo]     = useState('')
   const [sugestao,   setSugestao]   = useState('')
@@ -339,8 +345,10 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
   // Criativo com mais de um arquivo (feed + story, cards do carrossel) vira galeria.
   const galeria = !isLp && Array.isArray(ad.arquivos) && ad.arquivos.length > 1
   const tipo = isLp
-    ? { label: 'Landing page', Icon: LayoutTemplate }
-    : TIPO_META[ad.tipo] || { label: ad.tipo || 'Criativo', Icon: Layers }
+    ? { label: t('aprovacao.tipos.lp'), Icon: LayoutTemplate }
+    : TIPO_META[ad.tipo]
+      ? { ...TIPO_META[ad.tipo], label: t(`aprovacao.tipos.${TIPO_META[ad.tipo].label}`) }
+      : { label: ad.tipo || t('aprovacao.criativo'), Icon: Layers }
   const TipoIcon = tipo.Icon
   const st = ad.aprovacao.status
 
@@ -354,7 +362,7 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
         body: JSON.stringify({ ...authBody(auth), adId: ad.id, kind: ad.kind || 'ad', decision, motivo, sugestao }),
       })
       const body = await res.json()
-      if (!res.ok) throw new Error(body.error || 'Erro ao enviar.')
+      if (!res.ok) throw new Error(body.error || t('aprovacao.erroEnviar'))
       onDecided?.()
     } catch (e) {
       setError(e.message)
@@ -370,10 +378,10 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
       <div className="px-5 py-4 flex items-center justify-between gap-3 border-b border-rl-border/60">
         <div className="min-w-0">
           <p className="font-mono text-sm font-bold text-rl-text truncate flex items-center gap-2">
-            {ad.nome || 'Criativo'}
+            {ad.nome || t('aprovacao.criativo')}
             {!isLp && (ad.version || 1) > 1 && (
               <span className="font-sans shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rl-purple/10 text-rl-purple border border-rl-purple/30">
-                Versão {ad.version}
+                {t('aprovacao.versao', { n: ad.version })}
               </span>
             )}
           </p>
@@ -385,11 +393,11 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
         {decided && (
           st === 'aprovado' ? (
             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 shrink-0">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Aprovado
+              <CheckCircle2 className="w-3.5 h-3.5" /> {t('aprovacao.aprovado')}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-300 shrink-0">
-              <XCircle className="w-3.5 h-3.5" /> Reprovado
+              <XCircle className="w-3.5 h-3.5" /> {t('aprovacao.reprovado')}
             </span>
           )
         )}
@@ -398,12 +406,12 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
       {/* Prévia do criativo */}
       <div className="px-5 py-4 space-y-3">
         {galeria && <ArquivosGaleria arquivos={ad.arquivos} nome={ad.nome} onAmpliar={setAmpliado} />}
-        {ampliado && <Lightbox src={ampliado} alt={ad.nome || 'Criativo'} onClose={() => setAmpliado(null)} />}
+        {ampliado && <Lightbox src={ampliado} alt={ad.nome || t('aprovacao.criativo')} onClose={() => setAmpliado(null)} />}
         {!galeria && ad.attachmentUrl && ad.mediaKind === 'image' && (
           <div className="relative w-fit mx-auto max-w-full group">
             <img
               src={ad.attachmentUrl}
-              alt={ad.nome || 'Criativo'}
+              alt={ad.nome || t('aprovacao.criativo')}
               onClick={() => setExpanded(true)}
               className="max-h-[420px] w-auto max-w-full rounded-xl border border-rl-border cursor-zoom-in"
             />
@@ -411,15 +419,15 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
               type="button"
               onClick={() => setExpanded(true)}
               className="absolute top-2 right-2 p-2 rounded-lg bg-black/55 text-white hover:bg-black/75 transition-all"
-              title="Expandir imagem"
-              aria-label="Expandir imagem"
+              title={t('aprovacao.expandirImagem')}
+              aria-label={t('aprovacao.expandirImagem')}
             >
               <Maximize2 className="w-4 h-4" />
             </button>
           </div>
         )}
         {expanded && ad.attachmentUrl && ad.mediaKind === 'image' && (
-          <Lightbox src={ad.attachmentUrl} alt={ad.nome || 'Criativo'} onClose={() => setExpanded(false)} />
+          <Lightbox src={ad.attachmentUrl} alt={ad.nome || t('aprovacao.criativo')} onClose={() => setExpanded(false)} />
         )}
         {!galeria && ad.attachmentUrl && ad.mediaKind === 'video' && (
           <video
@@ -436,7 +444,7 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
             rel="noreferrer"
             className="inline-flex items-center gap-2 text-sm text-rl-purple font-semibold hover:underline"
           >
-            <Paperclip className="w-4 h-4" /> Abrir arquivo ({ad.attachmentName || 'anexo'})
+            <Paperclip className="w-4 h-4" /> {t('aprovacao.abrirArquivoNome', { nome: ad.attachmentName || t('aprovacao.anexo') })}
           </a>
         )}
         {ad.url && (isLp ? (
@@ -446,7 +454,7 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
             rel="noreferrer"
             className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border border-rl-green/40 text-rl-green text-sm font-bold hover:bg-rl-green/10 transition-all"
           >
-            <ExternalLink className="w-4 h-4" /> Abrir landing page
+            <ExternalLink className="w-4 h-4" /> {t('aprovacao.abrirLp')}
           </a>
         ) : (
           <a
@@ -455,12 +463,12 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
             rel="noreferrer"
             className="inline-flex items-center gap-2 text-sm text-rl-purple font-semibold hover:underline"
           >
-            <ExternalLink className="w-4 h-4" /> Ver criativo no link
+            <ExternalLink className="w-4 h-4" /> {t('aprovacao.verNoLink')}
           </a>
         ))}
         {!ad.attachmentUrl && !ad.url && (
           <p className="text-xs text-rl-muted italic">
-            {isLp ? 'Landing page sem link disponível.' : 'Criativo sem prévia disponível.'}
+            {isLp ? t('aprovacao.lpSemLink') : t('aprovacao.semPrevia')}
           </p>
         )}
         {ad.observacao && (
@@ -479,19 +487,19 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
       {decided && st === 'reprovado' && (
         <div className="px-5 pb-4 space-y-2">
           <div className="rounded-xl bg-red-500/10 border border-red-500/30 px-3 py-2.5">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-red-500">Motivo da reprovação</p>
+            <p className="text-[10px] uppercase tracking-wider font-bold text-red-500">{t('aprovacao.motivoReprovacao')}</p>
             <p className="text-sm text-rl-text mt-1 whitespace-pre-wrap">{ad.aprovacao.motivo}</p>
           </div>
           <div className="rounded-xl bg-rl-surface/60 border border-rl-border px-3 py-2.5">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-rl-muted">Como deveria estar</p>
+            <p className="text-[10px] uppercase tracking-wider font-bold text-rl-muted">{t('aprovacao.comoDeveria')}</p>
             <p className="text-sm text-rl-text mt-1 whitespace-pre-wrap">{ad.aprovacao.sugestao}</p>
           </div>
         </div>
       )}
       {decided && ad.aprovacao.decididoEm && (
         <p className="px-5 pb-4 text-[10px] text-rl-muted">
-          {st === 'aprovado' ? 'Aprovado' : 'Reprovado'} em {fmtDateTime(ad.aprovacao.decididoEm)}
-          {ad.aprovacao.enviadoEm && <> · enviado pra aprovação em {fmtDateTime(ad.aprovacao.enviadoEm)}</>}
+          {t(st === 'aprovado' ? 'aprovacao.aprovadoEm' : 'aprovacao.reprovadoEm', { quando: fmtDateTime(ad.aprovacao.decididoEm) })}
+          {ad.aprovacao.enviadoEm && <> · {t('aprovacao.enviadoEm', { quando: fmtDateTime(ad.aprovacao.enviadoEm) })}</>}
         </p>
       )}
 
@@ -506,39 +514,39 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all disabled:opacity-50"
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Aprovar
+                {t('aprovacao.aprovar')}
               </button>
               <button
                 onClick={() => setMode('reprovando')}
                 disabled={submitting}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-300 text-red-600 text-sm font-bold hover:bg-red-50 transition-all disabled:opacity-50"
               >
-                <XCircle className="w-4 h-4" /> Reprovar
+                <XCircle className="w-4 h-4" /> {t('aprovacao.reprovar')}
               </button>
             </div>
           ) : (
             <div className="space-y-3 rounded-xl border border-red-500/30 bg-red-500/5 p-4">
               <div>
                 <label className="text-xs font-bold text-rl-text uppercase tracking-wide mb-1 block">
-                  Por que está reprovado? <span className="text-red-500">*</span>
+                  {t('aprovacao.porQue')} <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={motivo}
                   onChange={(e) => setMotivo(e.target.value)}
                   rows={3}
-                  placeholder="Ex: a cor do fundo não segue a identidade da marca e o preço está desatualizado..."
+                  placeholder={t('aprovacao.porQuePlaceholder')}
                   className="input-field w-full resize-none"
                 />
               </div>
               <div>
                 <label className="text-xs font-bold text-rl-text uppercase tracking-wide mb-1 block">
-                  Como {isLp ? 'a landing page deveria estar pra ser aprovada' : 'o anúncio deveria estar pra ser aprovado'}? <span className="text-red-500">*</span>
+                  {isLp ? t('aprovacao.comoLp') : t('aprovacao.comoAnuncio')} <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={sugestao}
                   onChange={(e) => setSugestao(e.target.value)}
                   rows={3}
-                  placeholder="Ex: usar o fundo azul do manual da marca, preço R$ 199 e o logo no canto superior direito..."
+                  placeholder={t('aprovacao.comoPlaceholder')}
                   className="input-field w-full resize-none"
                 />
               </div>
@@ -549,7 +557,7 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
                   disabled={submitting}
                   className="text-xs px-4 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
                 >
-                  Cancelar
+                  {t('comum.cancelar')}
                 </button>
                 <button
                   onClick={() => decide('reprovado')}
@@ -557,7 +565,7 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
                   className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                  Enviar reprovação
+                  {t('aprovacao.enviarReprovacao')}
                 </button>
               </div>
             </div>
@@ -577,6 +585,7 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
 const FORMATO_LABEL = { feed: 'Feed', story: 'Story' }
 
 function ArquivosGaleria({ arquivos, nome, onAmpliar, compacta = false }) {
+  const { t } = useI18n()
   const carrossel = arquivos.some((a) => a.formato === 'card')
   const altura = compacta ? 'max-h-[160px]' : carrossel ? 'max-h-[280px]' : 'max-h-[380px]'
   return (
@@ -586,7 +595,7 @@ function ArquivosGaleria({ arquivos, nome, onAmpliar, compacta = false }) {
           {a.url && a.mediaKind === 'image' && (
             <img
               src={a.url}
-              alt={`${nome || 'Criativo'} ${i + 1}`}
+              alt={`${nome || t('aprovacao.criativo')} ${i + 1}`}
               onClick={onAmpliar ? () => onAmpliar(a.url) : undefined}
               className={`${altura} w-auto max-w-full rounded-xl border border-rl-border ${onAmpliar ? 'cursor-zoom-in' : ''}`}
             />
@@ -596,11 +605,11 @@ function ArquivosGaleria({ arquivos, nome, onAmpliar, compacta = false }) {
           )}
           {a.url && (a.mediaKind === 'pdf' || a.mediaKind === 'other') && (
             <a href={a.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs text-rl-purple font-semibold hover:underline">
-              <Paperclip className="w-3.5 h-3.5" /> Abrir {a.name || 'arquivo'}
+              <Paperclip className="w-3.5 h-3.5" /> {a.name ? t('aprovacao.abrirNome', { nome: a.name }) : t('aprovacao.abrirArquivo')}
             </a>
           )}
           <figcaption className="text-[10px] font-bold uppercase tracking-wide text-rl-muted text-center">
-            {carrossel ? `Card ${i + 1}` : FORMATO_LABEL[a.formato] || `Arquivo ${i + 1}`}
+            {carrossel ? t('aprovacao.card', { n: i + 1 }) : FORMATO_LABEL[a.formato] || t('aprovacao.arquivoN', { n: i + 1 })}
           </figcaption>
         </figure>
       ))}
@@ -609,6 +618,7 @@ function ArquivosGaleria({ arquivos, nome, onAmpliar, compacta = false }) {
 }
 
 function VersionCompare({ versions }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const sorted = versions.slice().sort((a, b) => (b.version || 0) - (a.version || 0))
 
@@ -620,9 +630,9 @@ function VersionCompare({ versions }) {
         className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-rl-border bg-rl-surface/40 text-xs font-bold text-rl-subtle hover:text-rl-text transition-all"
       >
         <span className="flex items-center gap-1.5">
-          <History className="w-3.5 h-3.5" /> Comparar com {sorted.length === 1 ? 'a versão anterior' : `as ${sorted.length} versões anteriores`}
+          <History className="w-3.5 h-3.5" /> {t('aprovacao.comparar', { count: sorted.length })}
         </span>
-        <span className="text-[10px] text-rl-muted">{open ? 'ocultar' : 'ver'}</span>
+        <span className="text-[10px] text-rl-muted">{open ? t('aprovacao.ocultar') : t('aprovacao.ver')}</span>
       </button>
 
       {open && (
@@ -630,34 +640,34 @@ function VersionCompare({ versions }) {
           {sorted.map((v) => (
             <div key={v.version} className="rounded-xl border border-rl-border bg-rl-surface/30 overflow-hidden">
               <div className="px-3 py-2 flex items-center justify-between gap-2 border-b border-rl-border/60">
-                <span className="text-[11px] font-bold text-rl-text">Versão {v.version}</span>
+                <span className="text-[11px] font-bold text-rl-text">{t('aprovacao.versao', { n: v.version })}</span>
                 {v.aprovacao?.status === 'reprovado' && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300">
-                    <XCircle className="w-3 h-3" /> Reprovado
+                    <XCircle className="w-3 h-3" /> {t('aprovacao.reprovado')}
                   </span>
                 )}
               </div>
               <div className="p-3 space-y-2">
-                {v.arquivos?.length > 1 && <ArquivosGaleria arquivos={v.arquivos} nome={`Versão ${v.version}`} compacta />}
+                {v.arquivos?.length > 1 && <ArquivosGaleria arquivos={v.arquivos} nome={t('aprovacao.versao', { n: v.version })} compacta />}
                 {!(v.arquivos?.length > 1) && v.attachmentUrl && v.mediaKind === 'image' && (
-                  <img src={v.attachmentUrl} alt={`Versão ${v.version}`} className="max-h-[220px] w-auto max-w-full mx-auto rounded-lg border border-rl-border" />
+                  <img src={v.attachmentUrl} alt={t('aprovacao.versao', { n: v.version })} className="max-h-[220px] w-auto max-w-full mx-auto rounded-lg border border-rl-border" />
                 )}
                 {!(v.arquivos?.length > 1) && v.attachmentUrl && v.mediaKind === 'video' && (
                   <video src={v.attachmentUrl} controls playsInline className="max-h-[220px] w-auto max-w-full mx-auto rounded-lg border border-rl-border" />
                 )}
                 {!(v.arquivos?.length > 1) && v.attachmentUrl && (v.mediaKind === 'pdf' || v.mediaKind === 'other') && (
                   <a href={v.attachmentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs text-rl-purple font-semibold hover:underline">
-                    <Paperclip className="w-3.5 h-3.5" /> Abrir arquivo
+                    <Paperclip className="w-3.5 h-3.5" /> {t('aprovacao.abrirArquivo')}
                   </a>
                 )}
                 {!v.attachmentUrl && v.url && (
                   <a href={v.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs text-rl-purple font-semibold hover:underline">
-                    <ExternalLink className="w-3.5 h-3.5" /> Ver criativo no link
+                    <ExternalLink className="w-3.5 h-3.5" /> {t('aprovacao.verNoLink')}
                   </a>
                 )}
                 {v.aprovacao?.status === 'reprovado' && v.aprovacao?.motivo && (
                   <p className="text-[11px] text-rl-muted whitespace-pre-wrap">
-                    <span className="font-semibold text-rl-subtle">Motivo da reprovação:</span> {v.aprovacao.motivo}
+                    <span className="font-semibold text-rl-subtle">{t('aprovacao.motivoReprovacao')}:</span> {v.aprovacao.motivo}
                   </p>
                 )}
               </div>

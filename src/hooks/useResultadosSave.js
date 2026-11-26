@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { idiomaAtual } from '../i18n'
 
 // Salvamento dos formulários públicos de Resultados (/b2c/:token e /b2b/:token).
 //
@@ -52,7 +53,7 @@ export default function useResultadosSave({ endpoint, token, bodyKey, pick, hasO
     try {
       const res = await fetch(cfgRef.current.endpoint, {
         method:  'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Idioma': idiomaAtual() },
         body:    buildBody(),
       })
       if (!res.ok) throw new Error(String(res.status))
@@ -94,7 +95,7 @@ export default function useResultadosSave({ endpoint, token, bodyKey, pick, hasO
       try {
         fetch(cfgRef.current.endpoint, {
           method:    'PATCH',
-          headers:   { 'Content-Type': 'application/json' },
+          headers:   { 'Content-Type': 'application/json', 'X-Idioma': idiomaAtual() },
           body:      buildBody(),
           keepalive: true,
         })

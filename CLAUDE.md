@@ -844,7 +844,12 @@ textos em português restam por arquivo; ao traduzir um arquivo, marque no check
   wireframes de LP.
 - Código que vai para o viewer do Dashboard (`public/dash-teste/vendor/`) não importa `src/i18n`: lê
   `localStorage.rl_lang` (ex.: `src/lib/playbookTextos.js`). O `site-plataforma/index.html` tem mini-i18n próprio.
-- Páginas públicas (sem login, onda 4): `?lang=` → navegador → português, com seletor na página.
+- Páginas públicas (sem login): `?lang=en|pt` no link (fica salvo) → escolha salva no navegador → idioma do navegador →
+  português, por `aplicarIdiomaPublico()` chamado em `<PaginaPublica>` (`src/components/Publico/`), que envolve toda rota
+  de `publicRoutes.jsx` (menos login e reset) e põe o seletor PT | EN (`SeletorIdioma`); `canto="topo"` onde o rodapé é
+  ocupado (B2B/B2C). **Rota pública nova vai dentro de `<PaginaPublica>`.** `fetch` direto às funções manda
+  `'X-Idioma': idiomaAtual()`. Arquivo de `src/` importado por `api/` (`pedidoTipos.js`, `portalModules.js`,
+  `triagemVaga.js`, `copyParaCliente.js`) não importa `src/i18n`: a página traduz por chave.
 - Fora do Vite (regras copiadas para rodar no Node: `cascata.js`, `sprints.js`, `tarefas.js`…) não há
   `import.meta.glob`: os dicionários ficam vazios e `t()` devolve a própria chave, sem quebrar o teste.
 - VertaTask: valor que vem do ClickUp nunca se traduz; a tela usa `rotuloStatus`/`rotuloPrioridade`/

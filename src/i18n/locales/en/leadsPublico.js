@@ -1,0 +1,23 @@
+export default {
+  erroAbrir: 'Couldn’t open this link.',
+  semConexao: 'No connection. Please try again.',
+  periodo: {
+    todos: 'All',
+    hoje: 'Today',
+    d7: '7 days',
+    d30: '30 days',
+  },
+  recebidoEm: 'Received at',
+  leads: { one: 'lead', other: 'leads' },
+  leadsNoFiltro: { one: 'lead in filter', other: 'leads in filter' },
+  buscaPlaceholder: 'Search by name, email, phone…',
+  textoCompleto: 'Full text',
+  textoCompletoDica: 'Show the full text in each cell',
+  larguraPadrao: 'Default width',
+  larguraPadraoDica: 'Reset all columns to the default width',
+  atualizar: 'Refresh',
+  nenhumNoFiltro: 'No leads match this filter.',
+  nenhumAinda: 'No leads yet. They show up here as soon as they arrive.',
+  rodape: 'Drag a column edge to change its width · click a lead to see everything · updated at {hora}',
+  lead: 'Lead',
+}

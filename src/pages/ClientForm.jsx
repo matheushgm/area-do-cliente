@@ -7,59 +7,54 @@ import {
   Package, Users, HelpCircle, ChevronDown, Edit2,
 } from 'lucide-react'
 import VideoGuide from '../components/VideoGuide'
+import { t, useI18n, idiomaAtual } from '../i18n'
+const tFora = t // `t` solto (fora do render): no componente o nome é do hook
 
 // ─── Perguntas de cada módulo ─────────────────────────────────────────────────
-const PRODUTO_QUESTIONS = [
-  { id: 'q1',  emoji: '🎯', label: 'O que seu produto resolve?' },
-  { id: 'q2',  emoji: '⏰', label: 'Por que e em que momento o seu cliente precisa do seu produto/serviço?' },
-  { id: 'q3',  emoji: '✨', label: 'Como é a vida dele depois de usar seu produto/serviço?' },
-  { id: 'q4',  emoji: '🏆', label: 'Por que vou usar seu produto/serviço e não o do concorrente?' },
-  { id: 'q5',  emoji: '🔥', label: 'Por que eu preciso comprar agora?' },
-  { id: 'q6',  emoji: '😔', label: 'Como é a vida sem o seu produto/serviço?' },
-  { id: 'q7',  emoji: '🚧', label: 'Quais são as principais desculpas que os clientes dão para não comprar?' },
-  { id: 'q8',  emoji: '🔄', label: 'Já tentou resolver esse problema de outra forma antes? O que não funcionou?' },
-  { id: 'q9',  emoji: '🤔', label: 'O que faz o cliente desconfiar de produtos como o seu?' },
-  { id: 'q10', emoji: '📊', label: 'Tem cases de clientes com resultado mensurável?' },
-  { id: 'q11', emoji: '⏱️', label: 'Quanto tempo leva para o cliente sentir o primeiro resultado?' },
-  { id: 'q12', emoji: '💬', label: 'O que seus clientes mais elogiam espontaneamente?' },
-  { id: 'q13', emoji: '💡', label: 'O que você faz que nenhum concorrente faz ou consegue copiar facilmente?' },
-  { id: 'q14', emoji: '⚠️', label: 'O que acontece se o cliente esperar mais 3 meses para resolver isso?' },
-  { id: 'q15', emoji: '📅', label: 'Existe alguma sazonalidade ou janela de oportunidade no seu mercado?' },
-  { id: 'q16', emoji: '🛡️', label: 'Você oferece alguma garantia hoje? Se não, o que te impede?' },
-  { id: 'q17', emoji: '🤝', label: 'Se der errado, o que você faz pelo cliente?' },
-]
+// Os textos vêm do i18n (getters: saem no idioma atual na hora da leitura). As perguntas
+// de Produto são as mesmas do módulo interno (namespace `produto`); as de Persona são
+// próprias deste formulário (`formCliente.persona`). Os ids/keys são chaves gravadas.
+const comTextos = (lista, base, chave) => lista.map((q) => Object.defineProperties(q, {
+  label: { get: () => t(`${base}.${q[chave]}.label`), enumerable: true },
+}))
 
-const PERSONA_QUESTIONS = [
-  { key: 'resultado', emoji: '🎯', label: 'Qual é o resultado que seu cliente percebe após usar seu produto ou serviço?',      hint: 'Descreva como é a vida do seu cliente depois que ele usa de fato seu produto / serviço.' },
-  { key: 'acoes',     emoji: '⚡', label: 'O que seu cliente precisa FAZER para alcançar esse resultado?',                    hint: 'Descreva as ações, comportamentos e responsabilidades do cliente no processo.' },
-  { key: 'tempo',     emoji: '⏱️', label: 'Em quanto tempo o cliente consegue alcançar o resultado?',                         hint: 'Tempo para o primeiro resultado visível e para a transformação real.' },
-  { key: 'objecoes',  emoji: '🚧', label: 'Quais são as principais objeções que seu cliente usa para não comprar?',            hint: 'As justificativas e desculpas mais comuns que ele dá.' },
-  { key: 'sonhos',    emoji: '✨', label: 'Quais são os sonhos do seu cliente que sua empresa consegue realizar?',             hint: 'O resultado emocional e de vida que ele deseja.' },
-  { key: 'erros',     emoji: '❌', label: 'Quais erros seu cliente comete que o afastam do resultado desejado?',              hint: 'Erros cometidos antes ou durante o uso do seu produto.' },
-  { key: 'medos',     emoji: '😰', label: 'Quais são os maiores medos do seu cliente?',                                       hint: 'Medos pessoais e profissionais que podem se tornar realidade.' },
-  { key: 'sinais',    emoji: '🔍', label: 'Quais sinais o cliente percebe que indicam que ele tem um problema a resolver?',   hint: 'O que faz com que ele comece a buscar uma solução.' },
-  { key: 'habitos',   emoji: '🔄', label: 'Quais são os hábitos do seu cliente ideal?',                                       hint: 'Hábitos de consumo, comportamento, rotina — dentro e fora do trabalho.' },
-]
+const PRODUTO_QUESTIONS = comTextos([
+  { id: 'q1',  emoji: '🎯' },
+  { id: 'q2',  emoji: '⏰' },
+  { id: 'q3',  emoji: '✨' },
+  { id: 'q4',  emoji: '🏆' },
+  { id: 'q5',  emoji: '🔥' },
+  { id: 'q6',  emoji: '😔' },
+  { id: 'q7',  emoji: '🚧' },
+  { id: 'q8',  emoji: '🔄' },
+  { id: 'q9',  emoji: '🤔' },
+  { id: 'q10', emoji: '📊' },
+  { id: 'q11', emoji: '⏱️' },
+  { id: 'q12', emoji: '💬' },
+  { id: 'q13', emoji: '💡' },
+  { id: 'q14', emoji: '⚠️' },
+  { id: 'q15', emoji: '📅' },
+  { id: 'q16', emoji: '🛡️' },
+  { id: 'q17', emoji: '🤝' },
+], 'produto.perguntas', 'id')
 
-// ─── Questions Help ───────────────────────────────────────────────────────────
-const QUESTIONS_HELP = {
-  q1:  { text: 'Descreva o problema principal que o seu produto ou serviço elimina da vida do cliente. Seja objetivo: qual é a dor, a dificuldade ou o incômodo que existia antes e que o seu produto veio resolver? Evite falar sobre funcionalidades ou características técnicas aqui. Foque no problema real que a pessoa tinha.', example: '"Meu produto resolve a dificuldade de pequenos empresários em controlar o estoque sem perder tempo com planilhas manuais."' },
-  q2:  { text: 'Pense no contexto de vida ou de trabalho do seu cliente. Qual é a situação específica que faz ele perceber que precisa do que você oferece? Existe um gatilho, uma data, uma fase ou um evento que antecede a compra? Quanto mais preciso você for aqui, mais certeiros serão os anúncios.', example: '"Ele percebe que precisa quando começa a perder vendas por falta de controle ou quando vai abrir uma segunda unidade."' },
-  q3:  { text: 'Descreva a transformação. Como o dia a dia do seu cliente muda depois que ele começa a usar o que você vende? O que ele consegue fazer que antes não conseguia? Como ele se sente? Pense na vida ideal que ele conquista, não nas funções do produto.', example: '"Ele consegue ver o estoque em tempo real pelo celular, para de perder vendas e dorme mais tranquilo sabendo que tudo está sob controle."' },
-  q4:  { text: 'Quais são os diferenciais reais que separam você da concorrência? Pense em atendimento, metodologia, resultado, prazo, garantia, exclusividade, experiência ou qualquer fator que faz um cliente que pesquisou as opções escolher você. Seja honesto e específico.', example: '"Somos os únicos que oferecem implementação em 48h com suporte por WhatsApp incluso no plano básico."' },
-  q5:  { text: 'O que cria urgência real na decisão do seu cliente? Pode ser uma janela de oportunidade, um custo crescente de não resolver o problema, uma limitação de vagas ou estoque, uma promoção com prazo ou simplesmente o prejuízo acumulado de adiar. Liste o que você usa ou poderia usar para justificar a compra imediata.', example: '"Cada mês sem controle de estoque significa perda média de R$3.000 em mercadoria não rastreada."' },
-  q6:  { text: 'Descreva a realidade do cliente antes da sua solução. Quais são as frustrações do dia a dia, os riscos que ele corre, as perdas que ele tem? Seja específico sobre as consequências de não resolver esse problema. Essa resposta é muito importante para criar empatia nos anúncios.', example: '"Ele perde tempo recontando estoque manualmente, descobre rupturas tarde demais e perde vendas sem saber exatamente onde está o erro."' },
-  q7:  { text: 'Liste as objeções mais comuns que você ouve no momento da venda: preço, tempo, "vou pensar", "não é o momento certo", "já tentei algo assim antes". Cada objeção que você listar vira uma resposta nos nossos anúncios e nas páginas de vendas.', example: '"É caro", "Minha equipe não vai adotar", "Agora não é o momento".' },
-  q8:  { text: 'Antes de chegar até você, o seu cliente provavelmente tentou outras soluções: planilhas, concorrentes, soluções caseiras, consultores. O que não deu certo? Por quê? Essa informação ajuda a mostrar que você entende a jornada do cliente e que sua solução é diferente do que ele já experimentou.', example: '"Já usou planilha no Excel, mas ninguém atualizava. Já contratou um sistema mais barato, mas o suporte era ruim."' },
-  q9:  { text: 'Existe algum histórico negativo no seu mercado? Promessas que não foram cumpridas por outros players? Mitos, medos ou preconceitos que fazem o cliente hesitar? Conhecendo essa desconfiança, criamos anúncios que antecipam e quebram essas barreiras antes mesmo do primeiro contato.', example: '"Clientes desconfiam porque já viram sistemas que prometem muito e na hora de usar são complicados demais."' },
-  q10: { text: 'Relate resultados reais de clientes, com números sempre que possível. Quanto economizaram? Quanto cresceram? Em quanto tempo? Se tiver depoimentos ou prints de resultados, melhor ainda. Essa é a prova social mais poderosa que existe em anúncios.', example: '"A empresa X reduziu em 40% as perdas de estoque em 3 meses. A empresa Y cresceu 25% nas vendas no primeiro trimestre."' },
-  q11: { text: 'Qual é o "tempo até o primeiro ganho"? Pode ser em horas, dias ou semanas. Esse dado é fundamental para reduzir o medo de comprar, porque ninguém quer esperar meses para ver se valeu a pena. Se tiver marcos intermediários de resultado, descreva-os.', example: '"Em até 48h após a implementação, o gestor já consegue ver o estoque completo em tempo real pelo app."' },
-  q12: { text: 'Pense nos comentários que você mais ouve no pós-venda, nas avaliações, nas mensagens de WhatsApp. O que os clientes falam quando recomendam você para alguém? Essas palavras são ouro para os nossos anúncios porque são a voz real do seu público.', example: '"Facilidade de uso", "Suporte muito rápido", "Finalmente consegui ter controle de verdade".' },
-  q13: { text: 'Aqui buscamos seu diferencial mais profundo: pode ser uma metodologia proprietária, uma combinação única de serviços, uma tecnologia exclusiva, um processo, um time especializado ou até uma posição de mercado difícil de replicar. Seja específico e honesto.', example: '"Somos os únicos com integração nativa ao sistema fiscal do cliente, sem necessidade de customização."' },
-  q14: { text: 'Qual é o custo real da inação? Descreva as consequências concretas de postergar a decisão: prejuízos financeiros, problemas que se agravam, oportunidades perdidas, riscos que aumentam. Essa resposta ajuda a criar urgência verdadeira, sem precisar de pressão falsa.', example: '"Em 3 meses ele terá perdido em média R$9.000 em rupturas não rastreadas e processado mais uma safra com dado errado."' },
-  q15: { text: 'Há épocas do ano em que a demanda pelo seu produto aumenta ou diminui? Existe alguma data, período ou evento que cria uma janela de oportunidade para comprar? Isso influencia diretamente o calendário das campanhas e as mensagens de urgência que usamos.', example: '"O pico de procura é em março, antes do início do segundo semestre. Quem não contrata até fevereiro geralmente espera mais um ano."' },
-  q16: { text: 'Descreva qualquer garantia formal ou informal que você já pratica: devolução do dinheiro, garantia de resultado, período de teste, retrabalho sem custo. Se não oferece nenhuma, explique o que te impede, pois isso pode ser um ponto importante a trabalhar para aumentar a conversão.', example: '"Oferecemos 15 dias de teste gratuito sem cartão de crédito e reembolso total em até 30 dias sem questionamentos."' },
-  q17: { text: 'Descreva seu protocolo real quando algo não sai como esperado. O que você faz concretamente para corrigir, compensar ou resolver a situação? Essa resposta mostra responsabilidade e reduz o medo de comprar, especialmente em clientes que já tiveram experiências ruins no passado.', example: '"Se o resultado não for alcançado no prazo prometido, refazemos a implementação sem custo adicional e acompanhamos até funcionar."' },
+const PERSONA_QUESTIONS = comTextos([
+  { key: 'resultado', emoji: '🎯' },
+  { key: 'acoes',     emoji: '⚡' },
+  { key: 'tempo',     emoji: '⏱️' },
+  { key: 'objecoes',  emoji: '🚧' },
+  { key: 'sonhos',    emoji: '✨' },
+  { key: 'erros',     emoji: '❌' },
+  { key: 'medos',     emoji: '😰' },
+  { key: 'sinais',    emoji: '🔍' },
+  { key: 'habitos',   emoji: '🔄' },
+], 'formCliente.persona', 'key').map((q) => Object.defineProperty(q, 'hint', {
+  get: () => t(`formCliente.persona.${q.key}.hint`), enumerable: true,
+}))
+
+// ─── Ajuda de cada pergunta de Produto ────────────────────────────────────────
+function ajudaDe(id) {
+  return { text: t(`produto.perguntas.${id}.ajuda`), example: t(`produto.perguntas.${id}.exemplo`) }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -128,42 +123,43 @@ function openPDF(htmlBody, docTitle) {
 }
 
 function generateProdutoPDF(companyName, produtosArr) {
-  const infoBox = `<div class="info-box">📋 Este PDF é uma cópia de segurança das suas respostas. As informações também foram salvas automaticamente no sistema.</div>`
+  const infoBox = `<div class="info-box">📋 ${escPDF(t('formCliente.pdf.aviso'))}</div>`
   const blocksHTML = produtosArr.map((p) => {
-    const tipo = p.tipo === 'servico' ? 'Serviço' : 'Produto Físico'
+    const tipo = p.tipo === 'servico' ? t('produto.servico') : t('produto.produtoFisico')
     const qaHTML = PRODUTO_QUESTIONS.map((q) => {
       const ans = (p.answers[q.id] || '').trim()
       if (!ans) return ''
       return `<div class="qa-item"><div class="qa-label">${escPDF(q.emoji)} ${escPDF(q.label)}</div><div class="qa-value">${escPDF(ans)}</div></div>`
     }).join('')
-    return `<div class="block"><div class="block-title">${escPDF(p.nome || 'Produto')} <span style="font-size:11px;font-weight:400;color:#94A3B8;">(${tipo})</span></div>${qaHTML || '<div class="qa-value" style="color:#94A3B8">Nenhuma pergunta respondida.</div>'}</div>`
+    return `<div class="block"><div class="block-title">${escPDF(p.nome || t('formCliente.pdf.produto'))} <span style="font-size:11px;font-weight:400;color:#94A3B8;">(${escPDF(tipo)})</span></div>${qaHTML || `<div class="qa-value" style="color:#94A3B8">${escPDF(t('formCliente.pdf.nenhumaResposta'))}</div>`}</div>`
   }).join('')
-  openPDF(infoBox + blocksHTML, `Produto / Serviço — ${companyName}`)
+  openPDF(infoBox + blocksHTML, t('formCliente.pdf.tituloProduto', { empresa: companyName }))
 }
 
 function generatePersonaPDF(companyName, personasArr) {
-  const infoBox = `<div class="info-box">📋 Este PDF é uma cópia de segurança das suas respostas. As informações também foram salvas automaticamente no sistema.</div>`
+  const infoBox = `<div class="info-box">📋 ${escPDF(t('formCliente.pdf.aviso'))}</div>`
   const blocksHTML = personasArr.map((p) => {
     const qaHTML = PERSONA_QUESTIONS.map((q) => {
       const val = arrToText(p.answers[q.key]).trim()
       if (!val) return ''
       return `<div class="qa-item"><div class="qa-label">${escPDF(q.emoji)} ${escPDF(q.label)}</div><div class="qa-value">${escPDF(val)}</div></div>`
     }).join('')
-    return `<div class="block"><div class="block-title">${escPDF(p.name || 'Persona')}</div>${qaHTML || '<div class="qa-value" style="color:#94A3B8">Nenhuma pergunta respondida.</div>'}</div>`
+    return `<div class="block"><div class="block-title">${escPDF(p.name || t('formCliente.pdf.persona'))}</div>${qaHTML || `<div class="qa-value" style="color:#94A3B8">${escPDF(t('formCliente.pdf.nenhumaResposta'))}</div>`}</div>`
   }).join('')
-  openPDF(infoBox + blocksHTML, `Personas — ${companyName}`)
+  openPDF(infoBox + blocksHTML, t('formCliente.pdf.tituloPersonas', { empresa: companyName }))
 }
 
 // ─── Save status indicator ────────────────────────────────────────────────────
 function SaveBadge({ status }) {
+  const { t } = useI18n()
   if (status === 'saving') return (
     <span className="flex items-center gap-1.5 text-xs text-rl-muted">
-      <Loader2 className="w-3 h-3 animate-spin" /> Salvando...
+      <Loader2 className="w-3 h-3 animate-spin" /> {t('comum.salvando')}
     </span>
   )
   if (status === 'saved') return (
     <span className="flex items-center gap-1.5 text-xs text-rl-green">
-      <CheckCircle2 className="w-3 h-3" /> Salvo
+      <CheckCircle2 className="w-3 h-3" /> {t('comum.salvo')}
     </span>
   )
   return null
@@ -172,6 +168,7 @@ function SaveBadge({ status }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ClientForm() {
   const { token } = useParams()
+  const { t } = useI18n()
 
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState(null)
@@ -202,9 +199,9 @@ export default function ClientForm() {
   useEffect(() => {
     async function load() {
       try {
-        const res  = await fetch(`/api/client-form?token=${encodeURIComponent(token)}`)
+        const res  = await fetch(`/api/client-form?token=${encodeURIComponent(token)}`, { headers: { 'X-Idioma': idiomaAtual() } })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Erro ao carregar formulário.')
+        if (!res.ok) throw new Error(data.error || tFora('formCliente.erroCarregar'))
 
         setCompanyName(data.companyName || '')
 
@@ -246,7 +243,7 @@ export default function ClientForm() {
       try {
         const res = await fetch('/api/client-form', {
           method:  'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Idioma': idiomaAtual() },
           body:    JSON.stringify({ token, module: mod, data: payload }),
         })
         if (!res.ok) throw new Error()
@@ -332,7 +329,7 @@ export default function ClientForm() {
       <div className="min-h-screen bg-rl-dark flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 text-rl-purple animate-spin" />
-          <p className="text-rl-muted text-sm">Carregando formulário...</p>
+          <p className="text-rl-muted text-sm">{t('formCliente.carregando')}</p>
         </div>
       </div>
     )
@@ -343,7 +340,7 @@ export default function ClientForm() {
       <div className="min-h-screen bg-rl-dark flex items-center justify-center p-6">
         <div className="glass-card p-8 max-w-md w-full text-center space-y-4">
           <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
-          <h2 className="text-lg font-bold text-rl-text">Link inválido</h2>
+          <h2 className="text-lg font-bold text-rl-text">{t('formCliente.linkInvalido')}</h2>
           <p className="text-sm text-rl-muted">{error}</p>
         </div>
       </div>
@@ -351,8 +348,8 @@ export default function ClientForm() {
   }
 
   const TABS = [
-    { id: 'produto', label: 'Produto / Serviço', icon: Package, color: 'text-rl-gold' },
-    { id: 'persona', label: 'Personas',           icon: Users,   color: 'text-rl-blue' },
+    { id: 'produto', label: t('formCliente.abaProduto'), icon: Package, color: 'text-rl-gold' },
+    { id: 'persona', label: t('formCliente.abaPersonas'), icon: Users,   color: 'text-rl-blue' },
   ]
 
   const produto = produtos[activeProdIdx]
@@ -364,7 +361,7 @@ export default function ClientForm() {
       <div className="border-b border-rl-border bg-rl-surface/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
-            <p className="text-xs text-rl-muted font-medium uppercase tracking-wider">Formulário de Briefing</p>
+            <p className="text-xs text-rl-muted font-medium uppercase tracking-wider">{t('formCliente.cabecalho')}</p>
             <h1 className="text-lg font-bold text-rl-text">{companyName}</h1>
           </div>
           <SaveBadge status={saveStatus[activeTab === 'produto' ? 'produtos' : 'personas']} />
@@ -375,30 +372,30 @@ export default function ClientForm() {
 
         {/* Instrução */}
         <div className="glass-card p-5 border-l-4 border-rl-purple">
-          <p className="text-sm text-rl-text font-medium mb-1">Como preencher</p>
+          <p className="text-sm text-rl-text font-medium mb-1">{t('formCliente.comoPreencher')}</p>
           <p className="text-sm text-rl-muted leading-relaxed">
-            Preencha as informações abaixo com o máximo de detalhes possível. Quanto mais completas forem as respostas, melhores serão as estratégias desenvolvidas para o seu negócio. As informações são salvas automaticamente conforme você digita.
+            {t('formCliente.comoPreencherTexto')}
           </p>
         </div>
 
         {/* Tabs */}
         <div className="flex gap-2 flex-wrap">
-          {TABS.map((t) => (
+          {TABS.map((tab) => (
             <button
-              key={t.id}
+              key={tab.id}
               onClick={() => {
                 setQuestionError(null)
                 setHelpOpen(false)
-                setActiveTab(t.id)
+                setActiveTab(tab.id)
               }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                activeTab === t.id
+                activeTab === tab.id
                   ? 'bg-gradient-rl text-white border-transparent shadow-glow'
                   : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
               }`}
             >
-              <t.icon className={`w-4 h-4 ${activeTab === t.id ? 'text-white' : t.color}`} />
-              {t.label}
+              <tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-white' : tab.color}`} />
+              {tab.label}
             </button>
           ))}
         </div>
@@ -407,7 +404,7 @@ export default function ClientForm() {
         {activeTab === 'produto' && (
           <div className="space-y-4">
 
-            <VideoGuide videoId="awwUFJhqHOE" label="Como preencher o módulo de Produto / Serviço" />
+            <VideoGuide videoId="awwUFJhqHOE" label={t('produto.video')} />
 
             {/* Sub-tabs de produto */}
             <div className="flex gap-2 flex-wrap">
@@ -428,7 +425,7 @@ export default function ClientForm() {
                         : 'bg-rl-surface text-rl-muted border border-rl-border hover:text-rl-text'
                     }`}
                   >
-                    {p.nome || `Produto ${i + 1}`}
+                    {p.nome || t('produto.nomePadrao', { n: i + 1 })}
                   </button>
                   {produtos.length > 1 && (
                     <button onClick={() => removeProduto(i)} className="p-1 text-rl-muted/50 hover:text-red-400">
@@ -438,27 +435,27 @@ export default function ClientForm() {
                 </div>
               ))}
               <button onClick={addProduto} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-rl-muted hover:text-rl-text border border-dashed border-rl-border hover:border-rl-gold/40 transition-all">
-                <Plus className="w-3 h-3" /> Novo Produto
+                <Plus className="w-3 h-3" /> {t('produto.novoProduto')}
               </button>
             </div>
 
             {/* Nome + Tipo */}
             <div className="glass-card p-5 space-y-4">
               <div>
-                <label className="label-field">Nome do Produto / Serviço</label>
+                <label className="label-field">{t('produto.nome')}</label>
                 <input
                   value={produto.nome}
                   onChange={(e) => updateProdutoField('nome', e.target.value)}
-                  placeholder="Ex: Curso Online de Marketing Digital..."
+                  placeholder={t('produto.nomePlaceholder')}
                   className="input-field"
                 />
               </div>
               <div>
-                <label className="label-field mb-2">Tipo</label>
+                <label className="label-field mb-2">{t('produto.tipo')}</label>
                 <div className="flex gap-3">
                   {[
-                    { value: 'produto', label: 'Produto Físico' },
-                    { value: 'servico', label: 'Serviço' },
+                    { value: 'produto', label: t('produto.produtoFisico') },
+                    { value: 'servico', label: t('produto.servico') },
                   ].map((opt) => (
                     <button
                       key={opt.value}
@@ -492,7 +489,7 @@ export default function ClientForm() {
                   <button
                     onClick={() => { setCurrentProdutoQ(idx); setHelpOpen(false); setQuestionError(null) }}
                     className="shrink-0 p-1.5 text-rl-muted hover:text-rl-text hover:bg-rl-surface/60 rounded-lg transition-all"
-                    title="Editar resposta"
+                    title={t('formCliente.editarResposta')}
                   >
                     <Edit2 className="w-3 h-3" />
                   </button>
@@ -503,7 +500,7 @@ export default function ClientForm() {
             {/* Pergunta ativa — surge abaixo */}
             {currentProdutoQ < PRODUTO_QUESTIONS.length && (() => {
               const q      = PRODUTO_QUESTIONS[currentProdutoQ]
-              const help   = QUESTIONS_HELP[q.id]
+              const help   = ajudaDe(q.id)
               const ans    = produto.answers[q.id] || ''
               const isLast = currentProdutoQ === PRODUTO_QUESTIONS.length - 1
               const pct    = Math.round((currentProdutoQ / PRODUTO_QUESTIONS.length) * 100)
@@ -512,8 +509,8 @@ export default function ClientForm() {
                   {/* Progress */}
                   <div>
                     <div className="flex items-center justify-between text-xs text-rl-muted mb-2">
-                      <span>Pergunta {currentProdutoQ + 1} de {PRODUTO_QUESTIONS.length}</span>
-                      <span>{pct}% concluído</span>
+                      <span>{t('formCliente.perguntaDe', { n: currentProdutoQ + 1, total: PRODUTO_QUESTIONS.length })}</span>
+                      <span>{t('formCliente.concluidoPct', { pct })}</span>
                     </div>
                     <div className="w-full bg-rl-border/30 rounded-full h-1">
                       <div className="bg-gradient-rl h-1 rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -541,7 +538,7 @@ export default function ClientForm() {
                     <div className="bg-rl-blue/5 border border-rl-blue/15 rounded-xl p-4 space-y-2 text-xs text-rl-text/80 leading-relaxed">
                       <p>{help.text}</p>
                       <p className="text-rl-muted italic border-l-2 border-rl-blue/30 pl-3">
-                        <span className="font-semibold text-rl-blue not-italic">Exemplo: </span>
+                        <span className="font-semibold text-rl-blue not-italic">{t('produto.exemplo')}</span>
                         {help.example}
                       </p>
                     </div>
@@ -551,7 +548,7 @@ export default function ClientForm() {
                     autoFocus
                     value={ans}
                     onChange={(e) => { updateProdutoAnswer(q.id, e.target.value); setQuestionError(null) }}
-                    placeholder="Digite sua resposta..."
+                    placeholder={t('produto.respostaPlaceholder')}
                     rows={4}
                     className="input-field resize-none text-sm leading-relaxed"
                   />
@@ -565,7 +562,7 @@ export default function ClientForm() {
                   <div className="flex justify-end">
                     <button
                       onClick={() => {
-                        if (!ans.trim()) { setQuestionError('Responda esta pergunta para avançar.'); return }
+                        if (!ans.trim()) { setQuestionError(t('formCliente.respondaParaAvancar')); return }
                         setQuestionError(null); setHelpOpen(false)
                         const nextProdutos = produtos.map((p, i) =>
                           i === activeProdIdx ? { ...p, answers: { ...p.answers, [q.id]: ans } } : p
@@ -581,7 +578,7 @@ export default function ClientForm() {
                       }}
                       className="flex items-center gap-2 text-sm px-5 py-2.5 rounded-xl font-semibold bg-gradient-rl text-white hover:opacity-90 transition-all"
                     >
-                      {isLast ? <><CheckCircle2 className="w-4 h-4" /> Concluir Produto / Serviço</> : <>Avançar →</>}
+                      {isLast ? <><CheckCircle2 className="w-4 h-4" /> {t('formCliente.concluirProduto')}</> : <>{t('formCliente.avancar')}</>}
                     </button>
                   </div>
                 </div>
@@ -592,8 +589,8 @@ export default function ClientForm() {
             {currentProdutoQ >= PRODUTO_QUESTIONS.length && (
               <div className="glass-card p-6 text-center border border-rl-green/30 bg-rl-green/5">
                 <CheckCircle2 className="w-10 h-10 text-rl-green mx-auto mb-3" />
-                <p className="text-sm font-semibold text-rl-text">Produto / Serviço concluído!</p>
-                <p className="text-xs text-rl-muted mt-1">Você pode editar qualquer resposta clicando no ícone de lápis acima.</p>
+                <p className="text-sm font-semibold text-rl-text">{t('formCliente.produtoConcluido')}</p>
+                <p className="text-xs text-rl-muted mt-1">{t('formCliente.podeEditar')}</p>
               </div>
             )}
 
@@ -604,7 +601,7 @@ export default function ClientForm() {
         {activeTab === 'persona' && (
           <div className="space-y-4">
 
-            <VideoGuide videoId="hpMy2Th9YrA" label="Como preencher o módulo de Personas" />
+            <VideoGuide videoId="hpMy2Th9YrA" label={t('personas.video')} />
 
             {/* Sub-tabs de persona */}
             <div className="flex gap-2 flex-wrap">
@@ -624,7 +621,7 @@ export default function ClientForm() {
                         : 'bg-rl-surface text-rl-muted border border-rl-border hover:text-rl-text'
                     }`}
                   >
-                    {p.name || `Persona ${i + 1}`}
+                    {p.name || t('personas.nomePadrao', { n: i + 1 })}
                   </button>
                   {personas.length > 1 && (
                     <button onClick={() => removePersona(i)} className="p-1 text-rl-muted/50 hover:text-red-400">
@@ -637,17 +634,17 @@ export default function ClientForm() {
                 onClick={addPersona}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-rl-muted hover:text-rl-text border border-dashed border-rl-border hover:border-rl-blue/40 transition-all"
               >
-                <Plus className="w-3 h-3" /> Nova Persona
+                <Plus className="w-3 h-3" /> {t('personas.nova')}
               </button>
             </div>
 
             {/* Nome da persona */}
             <div className="glass-card p-5">
-              <label className="label-field">Nome desta Persona</label>
+              <label className="label-field">{t('formCliente.nomePersona')}</label>
               <input
                 value={persona.name}
                 onChange={(e) => updatePersonaName(e.target.value)}
-                placeholder="Ex: Empreendedor Digital, Gerente de Marketing..."
+                placeholder={t('formCliente.nomePersonaPlaceholder')}
                 className="input-field"
               />
             </div>
@@ -668,7 +665,7 @@ export default function ClientForm() {
                     <button
                       onClick={() => { setCurrentPersonaQ(idx); setHelpOpen(false); setQuestionError(null) }}
                       className="shrink-0 p-1.5 text-rl-muted hover:text-rl-text hover:bg-rl-surface/60 rounded-lg transition-all"
-                      title="Editar resposta"
+                      title={t('formCliente.editarResposta')}
                     >
                       <Edit2 className="w-3 h-3" />
                     </button>
@@ -688,8 +685,8 @@ export default function ClientForm() {
                   {/* Progress */}
                   <div>
                     <div className="flex items-center justify-between text-xs text-rl-muted mb-2">
-                      <span>Pergunta {currentPersonaQ + 1} de {PERSONA_QUESTIONS.length}</span>
-                      <span>{pct}% concluído</span>
+                      <span>{t('formCliente.perguntaDe', { n: currentPersonaQ + 1, total: PERSONA_QUESTIONS.length })}</span>
+                      <span>{t('formCliente.concluidoPct', { pct })}</span>
                     </div>
                     <div className="w-full bg-rl-border/30 rounded-full h-1">
                       <div className="bg-gradient-rl h-1 rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -703,7 +700,7 @@ export default function ClientForm() {
                     autoFocus
                     value={val}
                     onChange={(e) => { updatePersonaAnswer(q.key, e.target.value); setQuestionError(null) }}
-                    placeholder="Digite sua resposta (uma por linha para múltiplas)..."
+                    placeholder={t('formCliente.respostaPersonaPlaceholder')}
                     rows={4}
                     className="input-field resize-none text-sm leading-relaxed"
                   />
@@ -715,7 +712,7 @@ export default function ClientForm() {
                   <div className="flex justify-end">
                     <button
                       onClick={() => {
-                        if (!val.trim()) { setQuestionError('Responda esta pergunta para avançar.'); return }
+                        if (!val.trim()) { setQuestionError(t('formCliente.respondaParaAvancar')); return }
                         setQuestionError(null); setHelpOpen(false)
                         const nextPersonas = personas.map((p, i) =>
                           i === activePerIdx ? { ...p, answers: { ...p.answers, [q.key]: textToArr(val) } } : p
@@ -731,7 +728,7 @@ export default function ClientForm() {
                       }}
                       className="flex items-center gap-2 text-sm px-5 py-2.5 rounded-xl font-semibold bg-gradient-rl text-white hover:opacity-90 transition-all"
                     >
-                      {isLast ? <><CheckCircle2 className="w-4 h-4" /> Concluir Personas</> : <>Avançar →</>}
+                      {isLast ? <><CheckCircle2 className="w-4 h-4" /> {t('formCliente.concluirPersonas')}</> : <>{t('formCliente.avancar')}</>}
                     </button>
                   </div>
                 </div>
@@ -742,8 +739,8 @@ export default function ClientForm() {
             {currentPersonaQ >= PERSONA_QUESTIONS.length && (
               <div className="glass-card p-6 text-center border border-rl-green/30 bg-rl-green/5">
                 <CheckCircle2 className="w-10 h-10 text-rl-green mx-auto mb-3" />
-                <p className="text-sm font-semibold text-rl-text">Personas concluídas!</p>
-                <p className="text-xs text-rl-muted mt-1">Você pode editar qualquer resposta clicando no ícone de lápis acima.</p>
+                <p className="text-sm font-semibold text-rl-text">{t('formCliente.personasConcluidas')}</p>
+                <p className="text-xs text-rl-muted mt-1">{t('formCliente.podeEditar')}</p>
               </div>
             )}
           </div>
@@ -752,7 +749,7 @@ export default function ClientForm() {
         {/* Footer */}
         <div className="pt-4 pb-8 text-center">
           <p className="text-xs text-rl-muted">
-            As informações são salvas automaticamente conforme você preenche.
+            {t('formCliente.rodape')}
           </p>
           <p className="text-xs text-rl-muted/50 mt-1">Revenue Lab © {new Date().getFullYear()}</p>
         </div>

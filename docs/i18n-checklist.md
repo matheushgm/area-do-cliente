@@ -1,6 +1,6 @@
 # Checklist da tradução (português → inglês)
 
-Começou em 09/11/2026. Última atualização: 11/11/2026 (ondas 0 a 3 completas). Como o i18n funciona está no `CLAUDE.md`, seção "Idioma".
+Começou em 09/11/2026. Última atualização: 13/11/2026 (ondas 0 a 4 completas). Como o i18n funciona está no `CLAUDE.md`, seção "Idioma".
 
 ## Como usar
 
@@ -24,10 +24,10 @@ Começou em 09/11/2026. Última atualização: 11/11/2026 (ondas 0 a 3 completas
 | Onda | O quê | Arquivos | Situação | Textos restantes (~) |
 |---|---|---:|---|---:|
 | 0 | Base, shell e UI compartilhada | 19 | ✅ 09/11/2026 | 0 |
-| 1 | Telas internas fora do cliente e do VertaTask | 42 | ✅ 09/11/2026 (falta `roteirosExpress.js`, ver 1.5) | 35 |
+| 1 | Telas internas fora do cliente e do VertaTask | 44 | ✅ 09/11/2026 (Precificação interna em 13/11) | 0 |
 | 2 | VertaTask (tarefas, sprints, atividades; o Chat sai) | 83 | ✅ 09/11/2026 | 0 |
 | 3 | Página do cliente e módulos | 133 | ✅ 11/11/2026 (PDFs de `exportPDF.js` na onda 6) | 0 |
-| 4 | Páginas públicas (portal, formulários, aprovações) | 30 | | 905 |
+| 4 | Páginas públicas (portal, formulários, aprovações) | 33 | ✅ 13/11/2026 | 0 |
 | 5 | Dashboard de Tráfego | 6 | | 838 |
 | 6 | PDFs, mensagens das funções `/api/*`, helpers | 75 | 🟡 PDFs de ROI, metas, Personas e Produto | 996 |
 
@@ -134,13 +134,13 @@ páginas públicas não têm login e seguem a regra da 4.0.
 
 - [x] `src/pages/Atividades15min.jsx`
 - [x] `src/pages/RoteirosExpress.jsx`
-- [ ] `src/lib/roteirosExpress.js` — ~35
+- [x] `src/lib/roteirosExpress.js`
 - [x] `src/pages/FunilCanvas.jsx`
 - [x] `src/pages/CalculadoraROI.jsx`
 - [x] `src/components/ROICalculator.jsx`
 - [x] `src/pages/SitePlataforma.jsx`
-- [ ] `src/pages/FerramentaPrecificacao.jsx` — ~3 (nova em 09/11/2026: iframe de `public/ferramentas/precificacao/index.html`, que precisa de mini-i18n como o do Site da Plataforma)
-- [ ] `public/ferramentas/precificacao/index.html`
+- [x] `src/pages/FerramentaPrecificacao.jsx`
+- [x] `public/ferramentas/precificacao/index.html`
 - [x] `public/ferramentas/site-plataforma/index.html`
 - [x] `src/pages/BancoDeAnuncios.jsx`
 - [x] `src/pages/BancoDeLPs.jsx`
@@ -467,53 +467,67 @@ páginas públicas não têm login e seguem a regra da 4.0.
 
 ### 4.0 Base das páginas públicas
 
-> Sem login, o idioma não vem do perfil. Decidido: `?lang=en` no link → escolha salva no navegador → idioma do
-> navegador → português, com um seletor PT | EN na própria página. As chamadas às funções públicas mandam `X-Idioma`.
+> Sem login, o idioma não vem do perfil: `?lang=en` no link (fica salvo) → escolha salva no navegador → idioma do
+> navegador (só na visita) → português. Feito em 13/11/2026 por `aplicarIdiomaPublico()` (`src/i18n/index.js`), chamado
+> por `<PaginaPublica>` (`src/components/Publico/PaginaPublica.jsx`), que envolve toda rota de `publicRoutes.jsx` (menos
+> login e redefinição de senha) e põe o seletor PT | EN (`src/components/UI/SeletorIdioma.jsx`) no canto inferior
+> esquerdo; em `/b2b` e `/b2c`, `canto="topo"` (a SaveBar ocupa o rodapé). **Rota pública nova entra dentro de
+> `<PaginaPublica>`.** As chamadas às funções públicas mandam `X-Idioma`. Para mandar o link em inglês ao cliente,
+> acrescente `?lang=en`.
+>
+> **13/11/2026: onda completa**, conferida em inglês com a `/api` (vercel dev) em 20 páginas. Continuam em pt:
+> mensagens de erro vindas do servidor (onda 6, ex.: "Link inválido." do `/leads`), geração com IA das ferramentas
+> públicas de Criativos e Roteiros Express (prompts na API), perguntas da vaga (`triagemVaga.js`), e o que o servidor
+> lê de `pedidoTipos.js` (a tarefa do Intake nasce em pt; a página traduz por chave e `locales/pt/pedidoTipos.js` é vazio
+> de propósito, a fonte pt é o próprio arquivo).
 
 ### 4.1 Portal do cliente
 
-- [ ] `src/pages/Portal.jsx` — ~13
-- [ ] `src/components/Portal/PortalModule.jsx` — ~82
-- [ ] `src/components/Portal/PortalResultados.jsx` — ~6
-- [ ] `src/lib/portal.js`
+- [x] `src/pages/Portal.jsx`
+- [x] `src/components/Portal/PortalModule.jsx`
+- [x] `src/components/Portal/PortalResultados.jsx`
+- [x] `src/lib/portal.js`
+- [x] `src/components/Portal/PortalUI.jsx`
 
 ### 4.2 Formulários do cliente
 
-- [ ] `src/pages/ResetPassword.jsx` — ~10
-- [ ] `src/pages/ClientForm.jsx` — ~108
-- [ ] `src/pages/B2CClientForm.jsx` — ~11
-- [ ] `src/pages/B2BClientForm.jsx` — ~10
-- [ ] `src/pages/NPSClientForm.jsx` — ~53
-- [ ] `src/pages/PedidoPublico.jsx` — ~32
-- [ ] `src/lib/pedidoTipos.js` — ~221
-- [ ] `src/lib/printDoc.js` — ~2
+- [x] `src/pages/ResetPassword.jsx`
+- [x] `src/pages/ClientForm.jsx` — ~108
+- [x] `src/pages/B2CClientForm.jsx`
+- [x] `src/pages/B2BClientForm.jsx`
+- [x] `src/pages/NPSClientForm.jsx`
+- [x] `src/lib/npsOpcoes.js` (novo: opções das perguntas 3 a 5 e `rotuloOpcaoNps`, para o formulário e o portal)
+- [x] `src/pages/PedidoPublico.jsx`
+- [x] `src/pages/VagaPublica.jsx` (nova; as perguntas da vaga, em `src/lib/triagemVaga.js`, ficam em pt) — ~32
+- [x] `src/lib/pedidoTipos.js` — ~221 (o arquivo não muda: o servidor monta a tarefa em pt com ele; o inglês fica em `locales/en/pedidoTipos.js`, lido só pela página)
+- [x] `src/lib/printDoc.js` (data, "Gerado em", botão e `lang` do documento)
 
 ### 4.3 Aprovações
 
-- [ ] `src/pages/AprovacaoAnunciosPublico.jsx` — ~33
-- [ ] `src/pages/AprovacaoCopyPublico.jsx` — ~45
-- [ ] `src/pages/RevisaoCopyInterna.jsx`
-- [ ] `src/lib/copyParaCliente.js`
+- [x] `src/pages/AprovacaoAnunciosPublico.jsx`
+- [x] `src/pages/AprovacaoCopyPublico.jsx`
+- [x] `src/pages/RevisaoCopyInterna.jsx`
+- [–] `src/lib/copyParaCliente.js` (a API importa; a copy é dado)
 
 ### 4.4 Ferramentas públicas
 
-- [ ] `src/pages/OfertaMatadoraPublico.jsx` — ~12
-- [ ] `src/pages/MecanismoUnicoPublico.jsx` — ~12
-- [ ] `src/pages/MatrizObjecaoPublico.jsx` — ~15
-- [ ] `src/pages/PrecificacaoPublico.jsx` — ~10
-- [ ] `src/pages/WebinarPublico.jsx` — ~9
-- [ ] `src/pages/CriativosPublico.jsx` — ~68
-- [ ] `src/lib/criativosPublic.js` — ~30
-- [ ] `src/pages/RoteirosExpressPublico.jsx` — ~29
+- [x] `src/pages/OfertaMatadoraPublico.jsx`
+- [x] `src/pages/MecanismoUnicoPublico.jsx`
+- [x] `src/pages/MatrizObjecaoPublico.jsx`
+- [x] `src/pages/PrecificacaoPublico.jsx`
+- [x] `src/pages/WebinarPublico.jsx`
+- [x] `src/pages/CriativosPublico.jsx`
+- [x] `src/lib/criativosPublic.js`
+- [x] `src/pages/RoteirosExpressPublico.jsx`
 
 ### 4.5 Visualizações compartilhadas
 
-- [ ] `src/pages/MeetingMinutePublico.jsx` — ~28
-- [ ] `src/pages/CampanhasPublico.jsx` — ~23
-- [ ] `src/pages/CRMPublico.jsx` — ~11
-- [ ] `src/pages/BancoDadosPublico.jsx` — ~12
-- [ ] `src/pages/BancoDeAnunciosPublico.jsx` — ~12
-- [ ] `src/pages/BancoDeLPsPublico.jsx` — ~8
+- [x] `src/pages/MeetingMinutePublico.jsx` — ~28
+- [x] `src/pages/CampanhasPublico.jsx` — ~23
+- [x] `src/pages/CRMPublico.jsx` — ~11
+- [x] `src/pages/BancoDadosPublico.jsx` — ~12
+- [x] `src/pages/BancoDeAnunciosPublico.jsx`
+- [x] `src/pages/BancoDeLPsPublico.jsx`
 
 ## Onda 5 — Dashboard de Tráfego
 

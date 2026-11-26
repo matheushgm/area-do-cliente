@@ -4,32 +4,34 @@ import {
   FileText, Calendar, Video, Users, ExternalLink, Loader2, AlertTriangle,
   CheckCircle2, Lock, PenLine, ChevronRight,
 } from 'lucide-react'
+import { useI18n, idiomaAtual, localeAtual, t as tFora } from '../i18n'
 
 // Mesmas seções do template original — replicamos aqui (sem importar) pra que
-// a página pública não dependa do bundle do app interno.
+// a página pública não dependa do bundle do app interno. Os títulos vêm do
+// dicionário do módulo interno (`atas.secoes.<id>.titulo`), traduzidos no render.
 const TEMPLATE_SECTIONS = [
-  { id: 'resumo',                title: 'Resumo da reunião' },
-  { id: 'resultados',            title: 'Resultados desde a última reunião' },
-  { id: 'metricas',              title: 'Principais métricas reportadas' },
-  { id: 'pontos_atencao',        title: 'Pontos de atenção / bloqueios' },
-  { id: 'discussoes',            title: 'Principais discussões e decisões' },
-  { id: 'compromissos_cliente',  title: 'Compromissos do cliente' },
-  { id: 'compromissos_agencia',  title: 'Compromissos da agência' },
+  { id: 'resumo' },
+  { id: 'resultados' },
+  { id: 'metricas' },
+  { id: 'pontos_atencao' },
+  { id: 'discussoes' },
+  { id: 'compromissos_cliente' },
+  { id: 'compromissos_agencia' },
 ]
 
 function fmtDateBR(iso) {
   if (!iso) return ''
-  // ISO YYYY-MM-DD ou timestamp — extrai dd/mm/yyyy
+  // ISO YYYY-MM-DD ou timestamp — data curta no idioma da página (UTC, pra não voltar um dia)
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
+  return d.toLocaleDateString(localeAtual(), { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function fmtDateTimeBR(iso) {
   if (!iso) return ''
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleString('pt-BR', {
+  return d.toLocaleString(localeAtual(), {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
@@ -37,6 +39,7 @@ function fmtDateTimeBR(iso) {
 
 export default function MeetingMinutePublico() {
   const { token } = useParams()
+  const { t } = useI18n()
   const [loading, setLoading]     = useState(true)
   const [error,   setError]       = useState(null)
   const [minute,  setMinute]      = useState(null)
@@ -50,9 +53,9 @@ export default function MeetingMinutePublico() {
   useEffect(() => {
     async function load() {
       try {
-        const res  = await fetch(`/api/meeting-minute?token=${encodeURIComponent(token)}`)
+        const res  = await fetch(`/api/meeting-minute?token=${encodeURIComponent(token)}`, { headers: { 'X-Idioma': idiomaAtual() } })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Erro ao carregar.')
+        if (!res.ok) throw new Error(data.error || tFora('ataPublica.erroCarregar'))
         setMinute(data.minute || null)
         setCompany(data.companyName || '')
         setAcks(data.minute?.client_acknowledgements || {})
@@ -90,7 +93,7 @@ export default function MeetingMinutePublico() {
     try {
       await fetch('/api/meeting-minute', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Idioma': idiomaAtual() },
         body: JSON.stringify({ token, acknowledgements: next }),
       })
     } catch (e) {
@@ -101,11 +104,11 @@ export default function MeetingMinutePublico() {
   // ── Signature ──────────────────────────────────────────────────────────
   async function handleSign() {
     if (!signName.trim()) {
-      setSignError('Informe seu nome completo pra assinar.')
+      setSignError(t('ataPublica.informeNome'))
       return
     }
     if (!allChecked) {
-      setSignError('Marque todos os pontos como ciente antes de assinar.')
+      setSignError(t('ataPublica.marqueTodos'))
       return
     }
     setSigning(true)
@@ -113,7 +116,7 @@ export default function MeetingMinutePublico() {
     try {
       const res = await fetch('/api/meeting-minute', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Idioma': idiomaAtual() },
         body: JSON.stringify({
           token,
           acknowledgements: acks,
@@ -121,9 +124,9 @@ export default function MeetingMinutePublico() {
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erro ao assinar.')
+      if (!res.ok) throw new Error(data.error || t('ataPublica.erroAssinar'))
       // Recarrega minute com assinatura
-      const reload = await fetch(`/api/meeting-minute?token=${encodeURIComponent(token)}`)
+      const reload = await fetch(`/api/meeting-minute?token=${encodeURIComponent(token)}`, { headers: { 'X-Idioma': idiomaAtual() } })
       const reloaded = await reload.json()
       if (reload.ok) setMinute(reloaded.minute || null)
     } catch (e) {
@@ -138,7 +141,7 @@ export default function MeetingMinutePublico() {
       <div className="min-h-screen bg-rl-bg flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 text-rl-purple animate-spin" />
-          <p className="text-rl-muted text-sm">Carregando ata...</p>
+          <p className="text-rl-muted text-sm">{t('ataPublica.carregando')}</p>
         </div>
       </div>
     )
@@ -149,8 +152,8 @@ export default function MeetingMinutePublico() {
       <div className="min-h-screen bg-rl-bg flex items-center justify-center p-6">
         <div className="glass-card p-8 max-w-md w-full text-center space-y-4">
           <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
-          <h2 className="text-lg font-bold text-rl-text">Link inválido</h2>
-          <p className="text-sm text-rl-muted">{error || 'Ata não encontrada.'}</p>
+          <h2 className="text-lg font-bold text-rl-text">{t('ataPublica.linkInvalido')}</h2>
+          <p className="text-sm text-rl-muted">{error || t('ataPublica.naoEncontrada')}</p>
         </div>
       </div>
     )
@@ -163,7 +166,7 @@ export default function MeetingMinutePublico() {
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
           <div>
             <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold">
-              Ata de reunião
+              {t('ataPublica.cabecalho')}
             </p>
             <h1 className="text-base font-black text-rl-text leading-tight">
               {company}
@@ -171,12 +174,12 @@ export default function MeetingMinutePublico() {
           </div>
           {isSigned ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-rl-green/10 border border-rl-green/30 text-rl-green text-xs font-bold">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Assinado em {fmtDateTimeBR(minute.client_signature.signedAt)}
+              <CheckCircle2 className="w-3.5 h-3.5" /> {t('ataPublica.assinadoEm', { data: fmtDateTimeBR(minute.client_signature.signedAt) })}
             </div>
           ) : (
             <div className="flex items-center gap-2 text-xs">
               <span className="text-rl-muted font-semibold">{checkedItems}/{totalItems}</span>
-              <span className="text-rl-muted">ciências</span>
+              <span className="text-rl-muted">{t('ataPublica.ciencias')}</span>
               <div className="w-24 h-1.5 rounded-full bg-rl-surface overflow-hidden">
                 <div
                   className="h-full bg-rl-green transition-all"
@@ -208,7 +211,7 @@ export default function MeetingMinutePublico() {
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 text-rl-purple font-semibold hover:underline"
                   >
-                    <Video className="w-3.5 h-3.5" /> Gravação
+                    <Video className="w-3.5 h-3.5" /> {t('ataPublica.gravacao')}
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
@@ -223,9 +226,7 @@ export default function MeetingMinutePublico() {
           </div>
           {!isSigned && (
             <div className="rounded-xl bg-rl-blue/5 border border-rl-blue/30 p-3 text-xs text-rl-text leading-relaxed">
-              <strong>Como funciona:</strong> revise cada bloco e marque como
-              ciente. Quando estiver tudo confirmado, preencha seu nome no
-              rodapé pra assinar a ata. Após assinada, ela fica congelada.
+              <strong>{t('ataPublica.comoFunciona')}</strong> {t('ataPublica.comoFuncionaTexto')}
             </div>
           )}
         </div>
@@ -237,7 +238,7 @@ export default function MeetingMinutePublico() {
             <SectionCard
               key={s.id}
               index={i + 1}
-              title={s.title}
+              title={t(`atas.secoes.${s.id}.titulo`)}
               content={template[s.id]}
               checked={checked}
               onToggle={() => toggleAck(s.id)}
@@ -251,9 +252,9 @@ export default function MeetingMinutePublico() {
           <div className="glass-card p-5 space-y-3">
             <div className="flex items-center gap-2">
               <ChevronRight className="w-4 h-4 text-rl-purple" />
-              <h3 className="text-sm font-black text-rl-text">Próximas ações</h3>
+              <h3 className="text-sm font-black text-rl-text">{t('ataPublica.proximasAcoes')}</h3>
               <span className="text-[10px] text-rl-muted ml-auto">
-                {actions.length} {actions.length === 1 ? 'item' : 'itens'}
+                {t('ataPublica.itens', { count: actions.length })}
               </span>
             </div>
             <ul className="space-y-2">
@@ -281,9 +282,9 @@ export default function MeetingMinutePublico() {
                         <p className="text-sm text-rl-text">{a.title || a.text || a.description || '—'}</p>
                         {(a.owner || a.due_date || a.dueDate) && (
                           <p className="text-[11px] text-rl-muted mt-1">
-                            {a.owner && <span>Responsável: <strong>{a.owner}</strong></span>}
+                            {a.owner && <span>{t('ataPublica.responsavel')} <strong>{a.owner}</strong></span>}
                             {a.owner && (a.due_date || a.dueDate) && <span> · </span>}
-                            {(a.due_date || a.dueDate) && <span>Prazo: {fmtDateBR(a.due_date || a.dueDate)}</span>}
+                            {(a.due_date || a.dueDate) && <span>{t('ataPublica.prazo', { data: fmtDateBR(a.due_date || a.dueDate) })}</span>}
                           </p>
                         )}
                       </div>
@@ -299,7 +300,7 @@ export default function MeetingMinutePublico() {
         {minute.notes && minute.notes.trim() && (
           <div className="glass-card p-5">
             <h3 className="text-[10px] uppercase tracking-wider font-bold text-rl-muted mb-2">
-              Observações
+              {t('ataPublica.observacoes')}
             </h3>
             <p className="text-sm text-rl-text whitespace-pre-wrap leading-relaxed">{minute.notes}</p>
           </div>
@@ -309,12 +310,12 @@ export default function MeetingMinutePublico() {
         {(internalSigs.account_manager || internalSigs.trafego) && (
           <div className="glass-card p-5 space-y-3">
             <h3 className="text-[10px] uppercase tracking-wider font-bold text-rl-muted">
-              Assinaturas da agência
+              {t('ataPublica.assinaturasAgencia')}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
-                { id: 'account_manager', label: 'Account Manager', color: '#7C3AED' },
-                { id: 'trafego',         label: 'Gestor de Tráfego', color: '#2563EB' },
+                { id: 'account_manager', label: t('atas.papeis.account_manager'), color: '#7C3AED' },
+                { id: 'trafego',         label: t('atas.papeis.trafego'), color: '#2563EB' },
               ].map((r) => {
                 const sig = internalSigs[r.id]
                 return (
@@ -333,7 +334,7 @@ export default function MeetingMinutePublico() {
                         <p className="text-[11px] text-rl-muted mt-0.5">{fmtDateTimeBR(sig.signedAt)}</p>
                       </>
                     ) : (
-                      <p className="text-xs text-rl-muted italic">Pendente</p>
+                      <p className="text-xs text-rl-muted italic">{t('ataPublica.pendente')}</p>
                     )}
                   </div>
                 )
@@ -350,35 +351,34 @@ export default function MeetingMinutePublico() {
               : <PenLine className="w-4 h-4 text-rl-purple" />
             }
             <h3 className="text-base font-black text-rl-text">
-              {isSigned ? 'Ata assinada' : 'Sua assinatura'}
+              {isSigned ? t('ataPublica.ataAssinada') : t('ataPublica.suaAssinatura')}
             </h3>
           </div>
 
           {isSigned ? (
             <div className="rounded-xl bg-rl-green/5 border border-rl-green/30 p-4">
               <p className="text-[10px] uppercase tracking-wider font-bold text-rl-muted mb-1">
-                Assinada por
+                {t('ataPublica.assinadaPor')}
               </p>
               <p className="text-lg font-black text-rl-text">{minute.client_signature.name}</p>
               <p className="text-xs text-rl-muted mt-1">
-                Em {fmtDateTimeBR(minute.client_signature.signedAt)}
+                {t('ataPublica.em', { data: fmtDateTimeBR(minute.client_signature.signedAt) })}
               </p>
             </div>
           ) : (
             <>
               <p className="text-xs text-rl-muted leading-relaxed">
-                Confirme abaixo que está ciente de todos os pontos da reunião. Após assinar, a ata
-                ficará congelada — você não conseguirá mais editar as ciências.
+                {t('ataPublica.confirmeTexto')}
               </p>
               <div>
                 <label className="text-xs font-bold text-rl-text uppercase tracking-wide mb-1 block">
-                  Seu nome completo
+                  {t('ataPublica.seuNome')}
                 </label>
                 <input
                   type="text"
                   value={signName}
                   onChange={(e) => setSignName(e.target.value)}
-                  placeholder="Ex: João da Silva"
+                  placeholder={t('ataPublica.nomePlaceholder')}
                   className="input-field w-full"
                 />
               </div>
@@ -393,13 +393,13 @@ export default function MeetingMinutePublico() {
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-black bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {signing
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Assinando...</>
-                  : <><PenLine className="w-4 h-4" /> Assinar ata</>
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('ataPublica.assinando')}</>
+                  : <><PenLine className="w-4 h-4" /> {t('ataPublica.assinar')}</>
                 }
               </button>
               {!allChecked && totalItems > 0 && (
                 <p className="text-[11px] text-rl-muted text-center">
-                  Faltam {totalItems - checkedItems} {totalItems - checkedItems === 1 ? 'item' : 'itens'} pra marcar como ciente antes de assinar.
+                  {t('ataPublica.faltam', { count: totalItems - checkedItems })}
                 </p>
               )}
             </>
@@ -417,6 +417,7 @@ export default function MeetingMinutePublico() {
 
 // ─── Card de seção ─────────────────────────────────────────────────────────
 function SectionCard({ index, title, content, checked, onToggle, disabled }) {
+  const { t } = useI18n()
   return (
     <div
       className={`glass-card p-5 transition-all ${
@@ -441,8 +442,8 @@ function SectionCard({ index, title, content, checked, onToggle, disabled }) {
           } ${disabled ? 'cursor-default' : 'cursor-pointer'}`}
         >
           {checked
-            ? <><CheckCircle2 className="w-3.5 h-3.5" /> Ciente</>
-            : <span>Marcar como ciente</span>
+            ? <><CheckCircle2 className="w-3.5 h-3.5" /> {t('ataPublica.ciente')}</>
+            : <span>{t('ataPublica.marcarCiente')}</span>
           }
         </button>
       </div>

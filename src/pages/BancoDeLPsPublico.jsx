@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { BANCO_FUNIS as FUNILS } from '../lib/constants'
+import { BANCO_FUNIS as FUNILS, rotuloFunil } from '../lib/constants'
+import { useI18n } from '../i18n'
 import { WIREFRAMES } from '../components/Wireframes'
 import { Layout, Loader2, ChevronDown, Zap, ExternalLink, LayoutTemplate, X } from 'lucide-react'
 
@@ -12,6 +13,7 @@ function prettyDomain(url) {
 }
 
 function TemplatePreview({ wireframe, onClose }) {
+  const { t } = useI18n()
   const Component = wireframe.Component
   return (
     <div className="fixed inset-0 z-50 bg-black/80 overflow-y-auto" onClick={onClose}>
@@ -20,12 +22,12 @@ function TemplatePreview({ wireframe, onClose }) {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-lg font-bold text-white">{wireframe.label}</h3>
-              <p className="text-xs text-white/60 mt-0.5">Modelo padrão · estrutura de referência</p>
+              <p className="text-xs text-white/60 mt-0.5">{t('bancosPublicos.lps.modeloSub')}</p>
             </div>
             <button
               onClick={onClose}
               className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
-              aria-label="Fechar"
+              aria-label={t('bancosPublicos.lps.fechar')}
             >
               <X className="w-5 h-5" />
             </button>
@@ -38,6 +40,7 @@ function TemplatePreview({ wireframe, onClose }) {
 }
 
 function LpCard({ lp }) {
+  const { t } = useI18n()
   return (
     <a
       href={lp.url || undefined}
@@ -55,7 +58,7 @@ function LpCard({ lp }) {
         ) : (
           <div className="flex flex-col items-center gap-2 text-gray-400 p-4 text-center">
             <Layout className="w-8 h-8 opacity-40" />
-            <span className="text-[11px] break-all">{lp.url ? prettyDomain(lp.url) : 'Sem preview'}</span>
+            <span className="text-[11px] break-all">{lp.url ? prettyDomain(lp.url) : t('bancosPublicos.lps.semPreview')}</span>
           </div>
         )}
         {lp.url && (
@@ -69,7 +72,7 @@ function LpCard({ lp }) {
 
       <div className="p-3 flex flex-col gap-1.5">
         <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 truncate max-w-full w-fit">
-          {lp.funil}
+          {rotuloFunil(lp.funil)}
         </span>
         {lp.title && (
           <p className="text-xs font-semibold text-gray-800 line-clamp-1">{lp.title}</p>
@@ -87,6 +90,7 @@ function LpCard({ lp }) {
 
 export default function BancoDeLPsPublico() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const { t } = useI18n()
 
   const [lps,         setLps]         = useState([])
   const [loading,     setLoading]     = useState(true)
@@ -128,13 +132,13 @@ export default function BancoDeLPsPublico() {
               <Zap className="w-4 h-4 text-white" />
             </div>
             <div>
-              <p className="font-bold text-gray-900 text-sm leading-none">Revenue Lab</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">Banco de LP</p>
+              <p className="font-bold text-gray-900 text-sm leading-none">{t('bancosPublicos.marca')}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">{t('bancosPublicos.lps.titulo')}</p>
             </div>
           </div>
           {filterFunil !== 'todos' && (
             <span className="text-xs px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200 font-medium">
-              {filterFunil}
+              {rotuloFunil(filterFunil)}
             </span>
           )}
         </div>
@@ -146,8 +150,8 @@ export default function BancoDeLPsPublico() {
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <LayoutTemplate className="w-4 h-4 text-purple-500" />
-            <h2 className="text-sm font-bold text-gray-800">Modelos padrão</h2>
-            <span className="text-xs text-gray-400">estruturas de referência de landing page</span>
+            <h2 className="text-sm font-bold text-gray-800">{t('bancosPublicos.lps.modelosPadrao')}</h2>
+            <span className="text-xs text-gray-400">{t('bancosPublicos.lps.modelosSub')}</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {READY_WIREFRAMES.map((wf) => (
@@ -176,14 +180,14 @@ export default function BancoDeLPsPublico() {
               onChange={(e) => setFilterFunil(e.target.value)}
               className="text-xs border border-gray-200 rounded-xl bg-white px-3 py-2 pr-7 text-gray-700 appearance-none cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 min-w-[180px]"
             >
-              <option value="todos">Todos os funis</option>
-              {FUNILS.map((f) => <option key={f} value={f}>{f}</option>)}
+              <option value="todos">{t('bancosPublicos.todosFunis')}</option>
+              {FUNILS.map((f) => <option key={f} value={f}>{rotuloFunil(f)}</option>)}
             </select>
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
           </div>
 
           <span className="text-xs text-gray-400 ml-auto">
-            {loading ? '...' : `${filtered.length} LP${filtered.length !== 1 ? 's' : ''}`}
+            {loading ? '...' : t('bancosPublicos.lps.contagem', { count: filtered.length })}
           </span>
         </div>
 
@@ -191,12 +195,12 @@ export default function BancoDeLPsPublico() {
         {loading ? (
           <div className="flex items-center justify-center py-20 gap-2 text-gray-400">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span className="text-sm">Carregando...</span>
+            <span className="text-sm">{t('bancosPublicos.carregando')}</span>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
             <Layout className="w-10 h-10 opacity-30" />
-            <p className="text-sm">Nenhuma landing page encontrada com esses filtros</p>
+            <p className="text-sm">{t('bancosPublicos.lps.vazio')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

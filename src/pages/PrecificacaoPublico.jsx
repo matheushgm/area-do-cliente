@@ -5,22 +5,22 @@ import {
 } from 'lucide-react'
 import PrecificacaoCard from '../components/Precificacao/PrecificacaoCard'
 import PrecificacaoItemModal from '../components/Precificacao/PrecificacaoItemModal'
+import { useI18n, idiomaAtual, t as tSolto } from '../i18n'
 
 const EMPTY = { servicos: [], produtos: [], saas: [] }
 
-// Rótulo no singular por aba — usado nos botões, contadores e estados vazios.
-const SINGULAR = { servicos: 'serviço', produtos: 'produto', saas: 'SaaS' }
-const singular = (tab) => SINGULAR[tab] || 'item'
+// Rótulos por aba (botões, contadores e estados vazios): ferramentasPublicas.precificacao.*.<aba>.
 
 function SaveBadge({ status }) {
+  const { t } = useI18n()
   if (status === 'saving') return (
     <span className="flex items-center gap-1.5 text-xs text-rl-muted">
-      <Loader2 className="w-3 h-3 animate-spin" /> Salvando...
+      <Loader2 className="w-3 h-3 animate-spin" /> {t('ferramentasPublicas.salvando')}
     </span>
   )
   if (status === 'saved') return (
     <span className="flex items-center gap-1.5 text-xs text-rl-green">
-      <CheckCircle2 className="w-3 h-3" /> Salvo
+      <CheckCircle2 className="w-3 h-3" /> {t('ferramentasPublicas.salvo')}
     </span>
   )
   return null
@@ -28,6 +28,7 @@ function SaveBadge({ status }) {
 
 export default function PrecificacaoPublico() {
   const { token } = useParams()
+  const { t } = useI18n()
   const [loading, setLoading]       = useState(true)
   const [error,   setError]         = useState(null)
   const [company, setCompany]       = useState('')
@@ -43,9 +44,9 @@ export default function PrecificacaoPublico() {
   useEffect(() => {
     async function load() {
       try {
-        const res  = await fetch(`/api/precificacao-form?token=${encodeURIComponent(token)}`)
+        const res  = await fetch(`/api/precificacao-form?token=${encodeURIComponent(token)}`, { headers: { 'X-Idioma': idiomaAtual() } })
         const body = await res.json()
-        if (!res.ok) throw new Error(body.error || 'Erro ao carregar.')
+        if (!res.ok) throw new Error(body.error || tSolto('ferramentasPublicas.erroCarregar'))
         setCompany(body.companyName || '')
         setData({
           servicos: Array.isArray(body.precificacao?.servicos) ? body.precificacao.servicos : [],
@@ -69,7 +70,7 @@ export default function PrecificacaoPublico() {
       try {
         const res = await fetch('/api/precificacao-form', {
           method:  'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Idioma': idiomaAtual() },
           body:    JSON.stringify({ token, precificacao: next }),
         })
         if (!res.ok) throw new Error()
@@ -106,7 +107,7 @@ export default function PrecificacaoPublico() {
       <div className="min-h-screen bg-rl-bg flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 text-rl-gold animate-spin" />
-          <p className="text-rl-muted text-sm">Carregando...</p>
+          <p className="text-rl-muted text-sm">{t('ferramentasPublicas.carregando')}</p>
         </div>
       </div>
     )
@@ -117,7 +118,7 @@ export default function PrecificacaoPublico() {
       <div className="min-h-screen bg-rl-bg flex items-center justify-center p-6">
         <div className="glass-card p-8 max-w-md w-full text-center space-y-4">
           <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
-          <h2 className="text-lg font-bold text-rl-text">Link inválido</h2>
+          <h2 className="text-lg font-bold text-rl-text">{t('ferramentasPublicas.linkInvalido')}</h2>
           <p className="text-sm text-rl-muted">{error}</p>
         </div>
       </div>
@@ -134,7 +135,7 @@ export default function PrecificacaoPublico() {
               <Calculator className="w-5 h-5 text-rl-gold" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold">Precificação</p>
+              <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold">{t('ferramentasPublicas.precificacao.eyebrow')}</p>
               <h1 className="text-base font-black text-rl-text leading-tight truncate">{company}</h1>
             </div>
           </div>
@@ -145,11 +146,9 @@ export default function PrecificacaoPublico() {
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
         {/* Instrução */}
         <div className="glass-card p-5 border-l-4 border-rl-gold/50">
-          <p className="text-sm text-rl-text font-semibold mb-1">Como preencher</p>
+          <p className="text-sm text-rl-text font-semibold mb-1">{t('ferramentasPublicas.comoPreencher')}</p>
           <p className="text-sm text-rl-muted leading-relaxed">
-            Cadastre cada produto ou serviço com seus custos, impostos e a margem de lucro que você
-            quer ganhar de fato. A ferramenta calcula o preço de venda ideal na hora. Os dados são
-            salvos automaticamente conforme você preenche.
+            {t('ferramentasPublicas.precificacao.instrucao')}
           </p>
         </div>
 
@@ -159,21 +158,21 @@ export default function PrecificacaoPublico() {
             active={tab === 'servicos'}
             onClick={() => setTab('servicos')}
             icon={Briefcase}
-            label="Serviços"
+            label={t('ferramentasPublicas.precificacao.abas.servicos')}
             count={data.servicos?.length || 0}
           />
           <TabButton
             active={tab === 'produtos'}
             onClick={() => setTab('produtos')}
             icon={Package}
-            label="Produtos"
+            label={t('ferramentasPublicas.precificacao.abas.produtos')}
             count={data.produtos?.length || 0}
           />
           <TabButton
             active={tab === 'saas'}
             onClick={() => setTab('saas')}
             icon={Cloud}
-            label="SaaS"
+            label={t('ferramentasPublicas.precificacao.abas.saas')}
             count={data.saas?.length || 0}
           />
         </div>
@@ -181,13 +180,13 @@ export default function PrecificacaoPublico() {
         {/* Botão novo item */}
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-rl-muted">
-            {items.length} {singular(tab)}{items.length !== 1 ? 's' : ''} precificado{items.length !== 1 ? 's' : ''}
+            {t(`ferramentasPublicas.precificacao.contagem.${tab}`, { count: items.length })}
           </p>
           <button
             onClick={() => setEditingItem({})}
             className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
           >
-            <Plus className="w-4 h-4" /> Novo {singular(tab)}
+            <Plus className="w-4 h-4" /> {t(`ferramentasPublicas.precificacao.novo.${tab}`)}
           </button>
         </div>
 
@@ -210,8 +209,8 @@ export default function PrecificacaoPublico() {
 
         {/* Rodapé */}
         <div className="pt-2 pb-8 text-center">
-          <p className="text-xs text-rl-muted">Os dados são salvos automaticamente conforme você preenche.</p>
-          <p className="text-xs text-rl-muted/60 mt-1">Revenue Lab © {new Date().getFullYear()}</p>
+          <p className="text-xs text-rl-muted">{t('ferramentasPublicas.salvoAuto')}</p>
+          <p className="text-xs text-rl-muted/60 mt-1">{t('ferramentasPublicas.copyright', { ano: new Date().getFullYear() })}</p>
         </div>
       </div>
 
@@ -254,26 +253,26 @@ function TabButton({ active, onClick, icon: Icon, label, count }) {
 }
 
 function EmptyState({ mode, onCreate }) {
+  const { t } = useI18n()
   const Icon = mode === 'servicos' ? Briefcase : mode === 'saas' ? Cloud : Package
-  const label = singular(mode)
   return (
     <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-10 px-6 text-center space-y-3">
       <Icon className="w-8 h-8 text-rl-muted/40 mx-auto" />
       <div>
         <p className="text-sm font-semibold text-rl-text">
-          Nenhum {label} precificado ainda.
+          {t(`ferramentasPublicas.precificacao.vazio.${mode}`)}
         </p>
         <p className="text-xs text-rl-muted mt-1 max-w-md mx-auto">
           {mode === 'saas'
-            ? 'Cadastre o primeiro plano pra calcular mensalidade, implantação e LTV considerando custos, impostos e a margem desejada.'
-            : 'Adicione o primeiro item pra ver o preço de venda recomendado considerando custos, impostos e a margem desejada.'}
+            ? t('ferramentasPublicas.precificacao.vazioTextoSaas')
+            : t('ferramentasPublicas.precificacao.vazioTexto')}
         </p>
       </div>
       <button
         onClick={onCreate}
         className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
       >
-        <Plus className="w-4 h-4" /> Adicionar primeiro {label}
+        <Plus className="w-4 h-4" /> {t(`ferramentasPublicas.precificacao.primeiro.${mode}`)}
       </button>
     </div>
   )

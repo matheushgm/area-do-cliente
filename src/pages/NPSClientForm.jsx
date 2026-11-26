@@ -5,6 +5,13 @@ import {
   Rocket, TrendingUp, Award, Loader2, AlertCircle,
   User, Mail, Phone,
 } from 'lucide-react'
+import { useI18n, idiomaAtual } from '../i18n'
+import { NPS_Q3_OPCOES, NPS_Q4_OPCOES, NPS_Q5_OPCOES, rotuloOpcaoNps } from '../lib/npsOpcoes'
+
+// Texto traduzido com marcadores `{nome}` trocados por elementos (negrito etc.).
+function comDestaque(texto, partes) {
+  return texto.split(/\{(\w+)\}/g).map((p, i) => (i % 2 ? <span key={i}>{partes[p] ?? `{${p}}`}</span> : p))
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -16,9 +23,10 @@ const MARCO_ICONS  = [Rocket, TrendingUp, Award, Star]
 const colorFor = (i) => MARCO_COLORS[i % MARCO_COLORS.length]
 const iconFor  = (i) => MARCO_ICONS[i % MARCO_ICONS.length]
 
-const Q3_OPTIONS = ['Ruim', 'Regular', 'Bom', 'Excelente']
-const Q4_OPTIONS = ['Sim, dentro do esperado', 'Parcialmente', 'Não, abaixo do esperado']
-const Q5_OPTIONS = ['Sim, tenho clareza total', 'Às vezes fico com dúvidas', 'Não, sinto falta de mais transparência']
+// Valor gravado em pt; a tela mostra o rótulo do idioma (nps.opcoes.*).
+const Q3_OPTIONS = NPS_Q3_OPCOES
+const Q4_OPTIONS = NPS_Q4_OPCOES
+const Q5_OPTIONS = NPS_Q5_OPCOES
 
 // Color zones for score numbers — no labels shown to the client
 function getScoreZone(n) {
@@ -27,23 +35,24 @@ function getScoreZone(n) {
   return              { bg: '#F0FDF4', border: '#86EFAC', text: '#16A34A' }
 }
 
-function getQ2Label(score) {
-  if (score <= 6) return 'O que fez você dar essa nota? O que precisaria mudar para você se sentir bem atendido?'
-  if (score <= 8) return 'O que está faltando para a nossa parceria ser excelente na sua visão?'
-  return 'O que mais te surpreendeu positivamente na nossa parceria até agora?'
+function getQ2Label(t, score) {
+  if (score <= 6) return t('nps.q2.detrator')
+  if (score <= 8) return t('nps.q2.neutro')
+  return t('nps.q2.promotor')
 }
 
 // ─── Identity Gate ────────────────────────────────────────────────────────────
 
 function IdentityGate({ companyName, onConfirm }) {
+  const { t } = useI18n()
   const [form, setForm] = useState({ name: '', email: '', phone: '' })
   const [errors, setErrors] = useState({})
 
   const validate = () => {
     const e = {}
-    if (!form.name.trim())  e.name  = 'Nome é obrigatório'
-    if (!form.email.trim()) e.email = 'E-mail é obrigatório'
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'E-mail inválido'
+    if (!form.name.trim())  e.name  = t('formNps.erroNome')
+    if (!form.email.trim()) e.email = t('formNps.erroEmail')
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = t('formNps.erroEmailInvalido')
     return e
   }
 
@@ -69,11 +78,12 @@ function IdentityGate({ companyName, onConfirm }) {
           <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
             <User className="w-4 h-4 text-indigo-600" />
           </div>
-          <p className="text-sm font-bold text-gray-900">Antes de começar</p>
+          <p className="text-sm font-bold text-gray-900">{t('formNps.antesDeComecar')}</p>
         </div>
         <p className="text-xs text-gray-500 leading-relaxed ml-11">
-          Informe seus dados para registrar sua avaliação sobre a parceria
-          {companyName ? <> com <strong className="text-gray-700">{companyName}</strong></> : ''}.
+          {companyName
+            ? comDestaque(t('formNps.informeDadosEmpresa'), { empresa: <strong className="text-gray-700">{companyName}</strong> })
+            : t('formNps.informeDados')}
         </p>
       </div>
 
@@ -81,13 +91,13 @@ function IdentityGate({ companyName, onConfirm }) {
         {/* Name */}
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-            Nome completo <span className="text-red-400">*</span>
+            {t('formNps.nomeCompleto')} <span className="text-red-400">*</span>
           </label>
           <div className="relative">
             <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 pointer-events-none" />
             <input
               type="text"
-              placeholder="Seu nome"
+              placeholder={t('formNps.seuNome')}
               autoFocus
               {...field('name')}
               onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
@@ -104,13 +114,13 @@ function IdentityGate({ companyName, onConfirm }) {
         {/* Email */}
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-            E-mail <span className="text-red-400">*</span>
+            {t('formNps.email')} <span className="text-red-400">*</span>
           </label>
           <div className="relative">
             <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 pointer-events-none" />
             <input
               type="email"
-              placeholder="seu@email.com"
+              placeholder={t('formNps.emailPlaceholder')}
               {...field('email')}
               onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
               className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-sm text-gray-800 placeholder-gray-400 outline-none transition-all ${
@@ -126,13 +136,13 @@ function IdentityGate({ companyName, onConfirm }) {
         {/* Phone (optional) */}
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-            Telefone <span className="text-gray-400 font-normal normal-case">(opcional)</span>
+            {t('formNps.telefone')} <span className="text-gray-400 font-normal normal-case">{t('formNps.opcional')}</span>
           </label>
           <div className="relative">
             <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 pointer-events-none" />
             <input
               type="tel"
-              placeholder="(00) 00000-0000"
+              placeholder={t('formNps.telefonePlaceholder')}
               {...field('phone')}
               onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
               className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder-gray-400 outline-none transition-all focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
@@ -145,7 +155,7 @@ function IdentityGate({ companyName, onConfirm }) {
           className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 active:scale-[0.98] mt-2"
           style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)' }}
         >
-          Continuar para a avaliação <ChevronRight className="w-4 h-4" />
+          {t('formNps.continuar')} <ChevronRight className="w-4 h-4" />
         </button>
       </div>
     </div>
@@ -155,6 +165,7 @@ function IdentityGate({ companyName, onConfirm }) {
 // ─── Score Grid ───────────────────────────────────────────────────────────────
 
 function ScoreGrid({ value, onChange }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-11 gap-1.5">
@@ -178,13 +189,13 @@ function ScoreGrid({ value, onChange }) {
         })}
       </div>
       <div className="flex justify-between text-xs text-gray-400 px-0.5">
-        <span>← Muito improvável</span>
-        <span>Muito provável →</span>
+        <span>{t('formNps.muitoImprovavel')}</span>
+        <span>{t('formNps.muitoProvavel')}</span>
       </div>
       <div className="h-6 flex items-center justify-center">
         {value !== null && (
           <p className="text-sm text-gray-600 font-medium">
-            Nota <strong className="text-gray-800">{value}</strong> selecionada
+            {comDestaque(t('formNps.notaSelecionada'), { nota: <strong className="text-gray-800">{value}</strong> })}
           </p>
         )}
       </div>
@@ -219,11 +230,12 @@ function RadioOpt({ label, selected, onClick }) {
 // ─── NPS Form ─────────────────────────────────────────────────────────────────
 
 function NPSForm({ accent, onSubmit }) {
+  const { t } = useI18n()
   const [step, setStep]     = useState(0)
   const [form, setForm]     = useState({ score: null, q2: '', q3: '', q4: '', q5: '', q6: '' })
   const [saving, setSaving] = useState(false)
 
-  const STEP_LABELS = ['Sua nota', 'Sua opinião', 'Avaliações', 'Comentários']
+  const STEP_LABELS = [0, 1, 2, 3].map((i) => t(`formNps.passos.${i}`))
   const TOTAL       = STEP_LABELS.length
 
   const handleSubmit = async () => {
@@ -249,7 +261,7 @@ function NPSForm({ accent, onSubmit }) {
           ))}
         </div>
         <p className="text-xs text-gray-400 font-medium">
-          Etapa {step + 1} de {TOTAL} — <span className="text-gray-600 font-semibold">{STEP_LABELS[step]}</span>
+          {t('formNps.etapa', { n: step + 1, total: TOTAL })} <span className="text-gray-600 font-semibold">{STEP_LABELS[step]}</span>
         </p>
       </div>
 
@@ -257,7 +269,7 @@ function NPSForm({ accent, onSubmit }) {
       {step === 0 && (
         <div className="space-y-6">
           <p className="text-base font-semibold text-gray-800 leading-snug">
-            Em uma escala de 0 a 10, qual a probabilidade de você indicar a Revenue Lab para outro empresário?
+            {t('formNps.q1')}
           </p>
           <ScoreGrid value={form.score} onChange={(n) => setForm(f => ({ ...f, score: n }))} />
           <div className="flex justify-end">
@@ -267,7 +279,7 @@ function NPSForm({ accent, onSubmit }) {
               className="flex items-center gap-2 px-7 py-3 rounded-xl text-sm font-semibold text-white shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ background: accent }}
             >
-              Próximo <ChevronRight className="w-4 h-4" />
+              {t('formNps.proximo')} <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -278,17 +290,17 @@ function NPSForm({ accent, onSubmit }) {
         <div className="space-y-4">
           {form.score !== null && (
             <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-xs font-semibold text-gray-600">
-              Nota selecionada: <strong className="ml-1 text-gray-800">{form.score}</strong>
+              {t('formNps.notaEscolhida')} <strong className="ml-1 text-gray-800">{form.score}</strong>
             </span>
           )}
           <div>
             <p className="text-base font-semibold text-gray-800 leading-snug mb-3">
-              {getQ2Label(form.score)}
+              {getQ2Label(t, form.score)}
             </p>
             <textarea
               value={form.q2}
               onChange={(e) => setForm(f => ({ ...f, q2: e.target.value }))}
-              placeholder="Escreva sua resposta aqui..."
+              placeholder={t('formNps.respostaPlaceholder')}
               rows={5}
               autoFocus
               className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder-gray-400 outline-none resize-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all leading-relaxed"
@@ -296,7 +308,7 @@ function NPSForm({ accent, onSubmit }) {
           </div>
           <div className="flex justify-between items-center pt-1">
             <button onClick={() => setStep(0)} className="text-sm text-gray-400 hover:text-gray-700 flex items-center gap-1.5 transition-colors">
-              <RotateCcw className="w-3.5 h-3.5" /> Voltar
+              <RotateCcw className="w-3.5 h-3.5" /> {t('formNps.voltar')}
             </button>
             <button
               onClick={() => setStep(2)}
@@ -304,7 +316,7 @@ function NPSForm({ accent, onSubmit }) {
               className="flex items-center gap-2 px-7 py-3 rounded-xl text-sm font-semibold text-white shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ background: accent }}
             >
-              Próximo <ChevronRight className="w-4 h-4" />
+              {t('formNps.proximo')} <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -315,37 +327,37 @@ function NPSForm({ accent, onSubmit }) {
         <div className="space-y-7">
           <div className="space-y-3">
             <p className="text-base font-semibold text-gray-800 leading-snug">
-              Como você avalia a comunicação e o atendimento da equipe?
+              {t('formNps.q3')}
             </p>
             <div className="space-y-2">
               {Q3_OPTIONS.map((o) => (
-                <RadioOpt key={o} label={o} selected={form.q3 === o} onClick={() => setForm(f => ({ ...f, q3: o }))} />
+                <RadioOpt key={o} label={rotuloOpcaoNps(o)} selected={form.q3 === o} onClick={() => setForm(f => ({ ...f, q3: o }))} />
               ))}
             </div>
           </div>
           <div className="space-y-3">
             <p className="text-base font-semibold text-gray-800 leading-snug">
-              Os resultados das campanhas estão dentro do que foi combinado no início?
+              {t('formNps.q4')}
             </p>
             <div className="space-y-2">
               {Q4_OPTIONS.map((o) => (
-                <RadioOpt key={o} label={o} selected={form.q4 === o} onClick={() => setForm(f => ({ ...f, q4: o }))} />
+                <RadioOpt key={o} label={rotuloOpcaoNps(o)} selected={form.q4 === o} onClick={() => setForm(f => ({ ...f, q4: o }))} />
               ))}
             </div>
           </div>
           <div className="space-y-3">
             <p className="text-base font-semibold text-gray-800 leading-snug">
-              Você sente que entende o que está sendo feito e por quê?
+              {t('formNps.q5')}
             </p>
             <div className="space-y-2">
               {Q5_OPTIONS.map((o) => (
-                <RadioOpt key={o} label={o} selected={form.q5 === o} onClick={() => setForm(f => ({ ...f, q5: o }))} />
+                <RadioOpt key={o} label={rotuloOpcaoNps(o)} selected={form.q5 === o} onClick={() => setForm(f => ({ ...f, q5: o }))} />
               ))}
             </div>
           </div>
           <div className="flex justify-between items-center">
             <button onClick={() => setStep(1)} className="text-sm text-gray-400 hover:text-gray-700 flex items-center gap-1.5 transition-colors">
-              <RotateCcw className="w-3.5 h-3.5" /> Voltar
+              <RotateCcw className="w-3.5 h-3.5" /> {t('formNps.voltar')}
             </button>
             <button
               onClick={() => setStep(3)}
@@ -353,7 +365,7 @@ function NPSForm({ accent, onSubmit }) {
               className="flex items-center gap-2 px-7 py-3 rounded-xl text-sm font-semibold text-white shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ background: accent }}
             >
-              Próximo <ChevronRight className="w-4 h-4" />
+              {t('formNps.proximo')} <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -364,13 +376,13 @@ function NPSForm({ accent, onSubmit }) {
         <div className="space-y-4">
           <div>
             <p className="text-base font-semibold text-gray-800 leading-snug mb-1">
-              Tem algo que você gostaria que a gente soubesse e que não perguntamos aqui?
+              {t('formNps.q6')}
             </p>
-            <p className="text-sm text-gray-400 mb-3">Campo opcional — fique à vontade para comentar.</p>
+            <p className="text-sm text-gray-400 mb-3">{t('formNps.q6Dica')}</p>
             <textarea
               value={form.q6}
               onChange={(e) => setForm(f => ({ ...f, q6: e.target.value }))}
-              placeholder="Seus comentários são muito bem-vindos..."
+              placeholder={t('formNps.q6Placeholder')}
               rows={5}
               autoFocus
               className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder-gray-400 outline-none resize-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all leading-relaxed"
@@ -378,7 +390,7 @@ function NPSForm({ accent, onSubmit }) {
           </div>
           <div className="flex justify-between items-center pt-1">
             <button onClick={() => setStep(2)} className="text-sm text-gray-400 hover:text-gray-700 flex items-center gap-1.5 transition-colors">
-              <RotateCcw className="w-3.5 h-3.5" /> Voltar
+              <RotateCcw className="w-3.5 h-3.5" /> {t('formNps.voltar')}
             </button>
             <button
               onClick={handleSubmit}
@@ -387,8 +399,8 @@ function NPSForm({ accent, onSubmit }) {
               style={{ background: accent }}
             >
               {saving
-                ? <><Loader2 className="w-4 h-4 animate-spin" /> Salvando...</>
-                : <><Send className="w-4 h-4" /> Enviar resposta</>
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('formNps.salvando')}</>
+                : <><Send className="w-4 h-4" /> {t('formNps.enviar')}</>
               }
             </button>
           </div>
@@ -405,6 +417,7 @@ export default function NPSClientForm() {
   const { token } = useParams()
   const [searchParams] = useSearchParams()
   const targetMarcoId = searchParams.get('marco')
+  const { t } = useI18n()
 
   const [loading, setLoading]           = useState(true)
   const [error, setError]               = useState(null)
@@ -427,9 +440,9 @@ export default function NPSClientForm() {
   useEffect(() => {
     async function load() {
       try {
-        const res  = await fetch(`/api/nps?token=${encodeURIComponent(token)}`)
+        const res  = await fetch(`/api/nps?token=${encodeURIComponent(token)}`, { headers: { 'X-Idioma': idiomaAtual() } })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Erro ao carregar.')
+        if (!res.ok) throw new Error(data.error || t('formNps.erroCarregar'))
         setCompanyName(data.companyName)
         const lista = data.marcos || []
         setMarcos(lista)
@@ -457,11 +470,11 @@ export default function NPSClientForm() {
 
     const res  = await fetch('/api/nps', {
       method:  'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Idioma': idiomaAtual() },
       body:    JSON.stringify({ token, marcoId, data: payload }),
     })
     const body = await res.json()
-    if (!res.ok) throw new Error(body.error || 'Erro ao salvar.')
+    if (!res.ok) throw new Error(body.error || t('formNps.erroSalvar'))
 
     // Mark as submitted this session
     setSubmittedMarcos(prev => new Set([...prev, marcoId]))
@@ -496,7 +509,7 @@ export default function NPSClientForm() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 [color-scheme:light]">
         <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-8 max-w-sm w-full text-center">
           <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
-          <p className="text-gray-700 font-semibold mb-1">Link inválido</p>
+          <p className="text-gray-700 font-semibold mb-1">{t('formNps.linkInvalido')}</p>
           <p className="text-sm text-gray-500">{error}</p>
         </div>
       </div>
@@ -513,12 +526,12 @@ export default function NPSClientForm() {
             <Star className="w-7 h-7 text-white" />
           </div>
           <p className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-2">Revenue Lab</p>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Pesquisa de Satisfação</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('formNps.titulo')}</h1>
           {companyName && (
             <p className="text-sm text-gray-500 leading-relaxed max-w-sm mx-auto">
               {targetMarco
-                ? <>Gostaríamos da sua avaliação sobre o marco <strong className="text-gray-700">{targetMarco.label}</strong> da parceria com <strong className="text-gray-700">{companyName}</strong>.</>
-                : <>Sua opinião sobre a parceria com <strong className="text-gray-700">{companyName}</strong> é muito importante para nós.</>
+                ? comDestaque(t('formNps.introMarco'), { marco: <strong className="text-gray-700">{targetMarco.label}</strong>, empresa: <strong className="text-gray-700">{companyName}</strong> })
+                : comDestaque(t('formNps.intro'), { empresa: <strong className="text-gray-700">{companyName}</strong> })
               }
             </p>
           )}
@@ -550,17 +563,17 @@ export default function NPSClientForm() {
                   <CheckCircle2 className="w-8 h-8 text-green-500" />
                 </div>
                 <h2 className="text-xl font-bold text-gray-900 mb-2">
-                  {targetMarcoId ? 'Resposta registrada!' : 'Muito obrigado!'}
+                  {targetMarcoId ? t('formNps.respostaRegistrada') : t('formNps.muitoObrigado')}
                 </h2>
                 <p className="text-sm text-gray-500 leading-relaxed max-w-xs mx-auto">
                   {targetMarcoId
-                    ? 'Seu feedback foi registrado com sucesso. Obrigado por avaliar nossa parceria!'
-                    : 'Todas as suas respostas foram registradas. Seu feedback é fundamental para continuarmos evoluindo.'
+                    ? t('formNps.feedbackMarco')
+                    : t('formNps.feedbackTodos')
                   }
                 </p>
                 {identity.name && (
                   <p className="text-xs text-gray-400 mt-3">
-                    Avaliação de <strong className="text-gray-600">{identity.name}</strong>
+                    {comDestaque(t('formNps.avaliacaoDe'), { nome: <strong className="text-gray-600">{identity.name}</strong> })}
                   </p>
                 )}
               </div>
@@ -571,7 +584,7 @@ export default function NPSClientForm() {
               <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-4 flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
                 <p className="text-sm font-medium text-green-700">
-                  Resposta do <strong>{marcos.find(m => m.id === justSubmitted)?.label}</strong> registrada com sucesso!
+                  {comDestaque(t('formNps.marcoRegistrado'), { marco: <strong>{marcos.find(m => m.id === justSubmitted)?.label}</strong> })}
                 </p>
               </div>
             )}
@@ -582,10 +595,9 @@ export default function NPSClientForm() {
                 <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-4">
                   <Star className="w-8 h-8 text-gray-300" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Nada por aqui no momento</h2>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">{t('formNps.nadaAgora')}</h2>
                 <p className="text-sm text-gray-500 leading-relaxed max-w-xs mx-auto">
-                  Não há nenhuma pesquisa aberta para você responder agora. Assim que houver, a
-                  gente avisa.
+                  {t('formNps.nadaAgoraTexto')}
                 </p>
               </div>
             )}
@@ -629,8 +641,8 @@ export default function NPSClientForm() {
                           className="text-[11px] font-bold uppercase tracking-wider mb-0.5"
                           style={{ color: done ? '#16A34A' : color }}
                         >
-                          Marco {String(i + 1).padStart(2, '0')}
-                          {done ? ' · Concluído' : ''}
+                          {t('formNps.marco', { n: String(i + 1).padStart(2, '0') })}
+                          {done ? t('formNps.concluido') : ''}
                         </p>
                         <p className="text-sm font-semibold text-gray-900 truncate">{marco.label}</p>
                         {marco.descricao && <p className="text-xs text-gray-400">{marco.descricao}</p>}
@@ -649,7 +661,7 @@ export default function NPSClientForm() {
                         className="shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 shadow-sm"
                         style={{ background: color }}
                       >
-                        Responder
+                        {t('formNps.responder')}
                       </button>
                     )}
                   </div>
@@ -669,7 +681,7 @@ export default function NPSClientForm() {
                     <div className="px-6 py-4 border-t border-green-50">
                       <p className="text-xs text-green-600 font-medium flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4" />
-                        Sua avaliação deste marco foi registrada. Obrigado!
+                        {t('formNps.marcoObrigado')}
                       </p>
                     </div>
                   )}
@@ -681,7 +693,7 @@ export default function NPSClientForm() {
 
         {/* Footer */}
         <p className="text-center text-xs text-gray-400 pb-6">
-          Revenue Lab · Seus dados são usados somente para melhorar a qualidade da nossa parceria.
+          {t('formNps.rodape')}
         </p>
 
       </div>

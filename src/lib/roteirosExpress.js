@@ -1,5 +1,9 @@
 // Definições compartilhadas da ferramenta "Roteiros Express" — usadas tanto pela
 // página pública (wizard) quanto pela página interna (geração + respostas).
+// Perguntas e prompts ficam em português: os rótulos montam o briefing da IA. Na tela,
+// as perguntas são traduzidas por roteiros.perguntas.<id>; as mensagens de erro abaixo,
+// por roteirosPublico.*.
+import { t, idiomaAtual } from '../i18n'
 
 // Token do link público de compartilhamento.
 // DEVE ser igual ao usado na edge function api/roteiros-express.js.
@@ -103,11 +107,11 @@ export function splitScripts(fullText) {
 export async function postRoteiro(action, payload = {}) {
   const res = await fetch('/api/roteiros-express', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'X-Idioma': idiomaAtual() },
     body: JSON.stringify({ token: PUBLIC_TOKEN, action, ...payload }),
   })
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data?.error || `Erro ${res.status}`)
+  if (!res.ok) throw new Error(data?.error || t('roteirosPublico.erroStatus', { status: res.status }))
   return data
 }
 
@@ -115,14 +119,14 @@ export async function postRoteiro(action, payload = {}) {
 export async function streamRoteiro(action, payload, onChunk) {
   const res = await fetch('/api/roteiros-express', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'X-Idioma': idiomaAtual() },
     body: JSON.stringify({ token: PUBLIC_TOKEN, action, ...payload }),
   })
   const ct = res.headers.get('content-type') || ''
   if (!ct.includes('event-stream')) {
     let data
-    try { data = await res.json() } catch { throw new Error(`Erro ${res.status}`) }
-    throw new Error(data?.error || `Erro ${res.status}`)
+    try { data = await res.json() } catch { throw new Error(t('roteirosPublico.erroStatus', { status: res.status })) }
+    throw new Error(data?.error || t('roteirosPublico.erroStatus', { status: res.status }))
   }
 
   const reader = res.body.getReader()
@@ -141,13 +145,13 @@ export async function streamRoteiro(action, payload, onChunk) {
       if (!raw || raw === '[DONE]') continue
       let event
       try { event = JSON.parse(raw) } catch { continue }
-      if (event.type === 'error') throw new Error(event.error?.message || 'Erro no streaming da IA.')
+      if (event.type === 'error') throw new Error(event.error?.message || t('roteirosPublico.erroStreaming'))
       if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta' && event.delta?.text) {
         fullText += event.delta.text
         onChunk(fullText.replace(/—/g, '-'))
       }
     }
   }
-  if (!fullText) throw new Error('A IA retornou uma resposta vazia. Tente novamente.')
+  if (!fullText) throw new Error(t('roteirosPublico.respostaVazia'))
   return fullText
 }

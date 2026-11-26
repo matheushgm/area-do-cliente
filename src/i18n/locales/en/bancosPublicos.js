@@ -1,0 +1,26 @@
+export default {
+  marca: 'Revenue Lab',
+  carregando: 'Loading...',
+  todosFunis: 'All funnels',
+  anuncios: {
+    titulo: 'Ad Library',
+    anuncio: 'Ad',
+    visualizar: 'View',
+    baixar: 'Download file',
+    video: 'Video',
+    estatico: 'Static',
+    todos: 'All',
+    contagem: { one: '{count} ad', other: '{count} ads' },
+    vazio: 'No ads found with these filters',
+  },
+  lps: {
+    titulo: 'LP Library',
+    semPreview: 'No preview',
+    modelosPadrao: 'Standard templates',
+    modelosSub: 'reference landing page structures',
+    modeloSub: 'Standard template · reference structure',
+    fechar: 'Close',
+    contagem: { one: '{count} LP', other: '{count} LPs' },
+    vazio: 'No landing pages found with these filters',
+  },
+}

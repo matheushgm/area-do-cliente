@@ -3,8 +3,12 @@
 // CriativosModule. A geração acontece sem login, validada por token HMAC + senha
 // na edge function api/criativos-public.js (as prompts vivem no servidor).
 
+import { t, idiomaAtual } from '../i18n'
+
 // ─── Tipos de criativo (ADIG / Laboratório de Anúncios) ───────────────────────
 // Mantido em sincronia com AD_TYPES em api/criativos-public.js (server valida os ids).
+// `label` e `desc` ficam em português (referência do servidor); na tela use
+// rotuloTipoAnuncio(id) / descTipoAnuncio(id), que seguem o idioma (`criativosPublico.tipos`).
 export const AD_TYPES = [
   { id: 'clickbait', label: 'Clickbait', emoji: '🎣', desc: 'Título altamente intrigante relacionado ao público-alvo' },
   { id: 'sensacao', label: 'Sensação', emoji: '⚡', desc: 'Criação de sensações fortes para envolver o público' },
@@ -26,6 +30,14 @@ export const AD_TYPES = [
   { id: 'explicacao', label: 'Explicação', emoji: '📋', desc: 'Explicação detalhada, educativa do produto/serviço' },
 ]
 
+const AD_TYPES_BY_ID = Object.fromEntries(AD_TYPES.map((a) => [a.id, a]))
+export function rotuloTipoAnuncio(id) {
+  return AD_TYPES_BY_ID[id] ? t(`criativosPublico.tipos.${id}.rotulo`) : id
+}
+export function descTipoAnuncio(id) {
+  return AD_TYPES_BY_ID[id] ? t(`criativosPublico.tipos.${id}.desc`) : ''
+}
+
 // ─── Cliente público (sem login) → /api/criativos-public ──────────────────────
 
 // Credenciais: { projectId, token, email, password } (link público) ou
@@ -34,7 +46,7 @@ function splitAuth(payload) {
   const { portal, ...rest } = payload
   return {
     body: rest,
-    headers: { 'content-type': 'application/json', ...(portal ? { Authorization: `Bearer ${portal}` } : {}) },
+    headers: { 'content-type': 'application/json', 'X-Idioma': idiomaAtual(), ...(portal ? { Authorization: `Bearer ${portal}` } : {}) },
   }
 }
 
@@ -47,7 +59,7 @@ export async function postCriativo(action, payload = {}) {
     body: JSON.stringify({ action, ...body }),
   })
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data?.error || `Erro ${res.status}`)
+  if (!res.ok) throw new Error(data?.error || t('criativosPublico.erroStatus', { status: res.status }))
   return data
 }
 
@@ -63,8 +75,8 @@ export async function streamCriativo(action, payload, onChunk, signal) {
   const ct = res.headers.get('content-type') || ''
   if (!ct.includes('event-stream')) {
     let data
-    try { data = await res.json() } catch { throw new Error(`Erro ${res.status}`) }
-    throw new Error(data?.error || `Erro ${res.status}`)
+    try { data = await res.json() } catch { throw new Error(t('criativosPublico.erroStatus', { status: res.status })) }
+    throw new Error(data?.error || t('criativosPublico.erroStatus', { status: res.status }))
   }
 
   const reader = res.body.getReader()
@@ -83,13 +95,13 @@ export async function streamCriativo(action, payload, onChunk, signal) {
       if (!raw || raw === '[DONE]') continue
       let event
       try { event = JSON.parse(raw) } catch { continue }
-      if (event.type === 'error') throw new Error(event.error?.message || 'Erro no streaming da IA.')
+      if (event.type === 'error') throw new Error(event.error?.message || t('criativosPublico.erroStreaming'))
       if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta' && event.delta?.text) {
         fullText += event.delta.text
         onChunk(fullText.replace(/—/g, '-'))
       }
     }
   }
-  if (!fullText) throw new Error('A IA retornou uma resposta vazia. Tente novamente.')
+  if (!fullText) throw new Error(t('criativosPublico.respostaVazia'))
   return fullText
 }

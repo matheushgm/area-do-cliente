@@ -3,23 +3,26 @@ import { useParams } from 'react-router-dom'
 import {
   ShieldQuestion, Plus, Trash2, Loader2, AlertTriangle, CheckCircle2,
 } from 'lucide-react'
+import { useI18n, idiomaAtual, t as tSolto } from '../i18n'
 
-const COLUMNS = [
-  { id: 'tipo',      label: 'Tipo de objeção',          placeholder: 'Ex: "Está caro"' },
-  { id: 'antecipar', label: 'Como antecipar a objeção',  placeholder: 'Ex: mostrar ROI antes do preço' },
-  { id: 'causa',     label: 'Causa provável',           placeholder: 'Ex: não enxergou o valor' },
-  { id: 'resposta',  label: 'Resposta para a objeção',   placeholder: 'Ex: "Quanto custa NÃO resolver?"' },
-]
+// Os ids são as chaves gravadas em cada linha da matriz: não mudam. Rótulo e exemplo
+// vêm de ferramentasPublicas.matriz.colunas.<id>.
+const COLUMNS = ['tipo', 'antecipar', 'causa', 'resposta'].map((id) => ({
+  id,
+  label: `ferramentasPublicas.matriz.colunas.${id}.label`,
+  placeholder: `ferramentasPublicas.matriz.colunas.${id}.placeholder`,
+}))
 
 function SaveBadge({ status }) {
+  const { t } = useI18n()
   if (status === 'saving') return (
     <span className="flex items-center gap-1.5 text-xs text-rl-muted">
-      <Loader2 className="w-3 h-3 animate-spin" /> Salvando...
+      <Loader2 className="w-3 h-3 animate-spin" /> {t('ferramentasPublicas.salvando')}
     </span>
   )
   if (status === 'saved') return (
     <span className="flex items-center gap-1.5 text-xs text-rl-green">
-      <CheckCircle2 className="w-3 h-3" /> Salvo
+      <CheckCircle2 className="w-3 h-3" /> {t('ferramentasPublicas.salvo')}
     </span>
   )
   return null
@@ -27,6 +30,7 @@ function SaveBadge({ status }) {
 
 export default function MatrizObjecaoPublico() {
   const { token } = useParams()
+  const { t } = useI18n()
   const [loading, setLoading]     = useState(true)
   const [error,   setError]       = useState(null)
   const [company, setCompany]     = useState('')
@@ -38,9 +42,9 @@ export default function MatrizObjecaoPublico() {
   useEffect(() => {
     async function load() {
       try {
-        const res  = await fetch(`/api/matriz-objecao?token=${encodeURIComponent(token)}`)
+        const res  = await fetch(`/api/matriz-objecao?token=${encodeURIComponent(token)}`, { headers: { 'X-Idioma': idiomaAtual() } })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Erro ao carregar.')
+        if (!res.ok) throw new Error(data.error || tSolto('ferramentasPublicas.erroCarregar'))
         setCompany(data.companyName || '')
         const loaded = Array.isArray(data.matriz?.rows) ? data.matriz.rows : []
         setRows(loaded.length ? loaded : [blankRow()])
@@ -65,7 +69,7 @@ export default function MatrizObjecaoPublico() {
       try {
         const res = await fetch('/api/matriz-objecao', {
           method:  'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Idioma': idiomaAtual() },
           body:    JSON.stringify({ token, matriz: { rows: next } }),
         })
         if (!res.ok) throw new Error()
@@ -90,7 +94,7 @@ export default function MatrizObjecaoPublico() {
       <div className="min-h-screen bg-rl-bg flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 text-rl-purple animate-spin" />
-          <p className="text-rl-muted text-sm">Carregando...</p>
+          <p className="text-rl-muted text-sm">{t('ferramentasPublicas.carregando')}</p>
         </div>
       </div>
     )
@@ -101,7 +105,7 @@ export default function MatrizObjecaoPublico() {
       <div className="min-h-screen bg-rl-bg flex items-center justify-center p-6">
         <div className="glass-card p-8 max-w-md w-full text-center space-y-4">
           <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
-          <h2 className="text-lg font-bold text-rl-text">Link inválido</h2>
+          <h2 className="text-lg font-bold text-rl-text">{t('ferramentasPublicas.linkInvalido')}</h2>
           <p className="text-sm text-rl-muted">{error}</p>
         </div>
       </div>
@@ -118,7 +122,7 @@ export default function MatrizObjecaoPublico() {
               <ShieldQuestion className="w-5 h-5 text-rl-purple" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold">Matriz de objeção</p>
+              <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold">{t('ferramentasPublicas.matriz.eyebrow')}</p>
               <h1 className="text-base font-black text-rl-text leading-tight truncate">{company}</h1>
             </div>
           </div>
@@ -129,10 +133,9 @@ export default function MatrizObjecaoPublico() {
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
         {/* Instrução */}
         <div className="glass-card p-5 border-l-4 border-rl-purple/50">
-          <p className="text-sm text-rl-text font-semibold mb-1">Como preencher</p>
+          <p className="text-sm text-rl-text font-semibold mb-1">{t('ferramentasPublicas.comoPreencher')}</p>
           <p className="text-sm text-rl-muted leading-relaxed">
-            Liste as principais objeções que aparecem nas suas vendas. Pra cada uma, descreva como
-            antecipá-la, a causa provável e a melhor resposta. Os dados são salvos automaticamente.
+            {t('ferramentasPublicas.matriz.instrucao')}
           </p>
         </div>
 
@@ -144,7 +147,7 @@ export default function MatrizObjecaoPublico() {
                 <tr className="bg-rl-surface/60 border-b border-rl-border">
                   {COLUMNS.map((c) => (
                     <th key={c.id} className="text-left px-3 py-2.5 min-w-[200px]">
-                      <span className="text-[11px] font-black uppercase tracking-wider text-rl-text">{c.label}</span>
+                      <span className="text-[11px] font-black uppercase tracking-wider text-rl-text">{t(c.label)}</span>
                     </th>
                   ))}
                   <th className="w-10 px-2" />
@@ -159,7 +162,7 @@ export default function MatrizObjecaoPublico() {
                           value={row[c.id] || ''}
                           onChange={(e) => updateCell(row.id, c.id, e.target.value)}
                           rows={2}
-                          placeholder={c.placeholder}
+                          placeholder={t(c.placeholder)}
                           className="input-field w-full resize-y text-sm min-h-[48px]"
                         />
                       </td>
@@ -168,7 +171,7 @@ export default function MatrizObjecaoPublico() {
                       <button
                         onClick={() => removeRow(row.id)}
                         className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
-                        title="Remover linha"
+                        title={t('ferramentasPublicas.matriz.removerLinha')}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -183,15 +186,15 @@ export default function MatrizObjecaoPublico() {
               onClick={addRow}
               className="w-full flex items-center justify-center gap-1.5 text-sm font-semibold px-3 py-2.5 rounded-xl border border-dashed border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all"
             >
-              <Plus className="w-4 h-4" /> Adicionar objeção
+              <Plus className="w-4 h-4" /> {t('ferramentasPublicas.matriz.adicionar')}
             </button>
           </div>
         </div>
 
         {/* Rodapé */}
         <div className="pt-2 pb-8 text-center">
-          <p className="text-xs text-rl-muted">Os dados são salvos automaticamente conforme você preenche.</p>
-          <p className="text-xs text-rl-muted/60 mt-1">Revenue Lab © {new Date().getFullYear()}</p>
+          <p className="text-xs text-rl-muted">{t('ferramentasPublicas.salvoAuto')}</p>
+          <p className="text-xs text-rl-muted/60 mt-1">{t('ferramentasPublicas.copyright', { ano: new Date().getFullYear() })}</p>
         </div>
       </div>
     </div>

@@ -54,4 +54,9 @@ export default {
     secao: 'Produtos & Serviços',
     cliente: 'Cliente',
   },
+  doc: {
+    geradoEm: 'Gerado em {data}',
+    salvarPdf: '🖨️ Salvar como PDF',
+    permitaPopups: 'Permita pop-ups para exportar o PDF.',
+  },
 }

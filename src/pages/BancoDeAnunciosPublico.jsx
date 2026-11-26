@@ -2,10 +2,12 @@ import { downloadUrl } from '../lib/utils'
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { BANCO_FUNIS as FUNILS } from '../lib/constants'
+import { BANCO_FUNIS as FUNILS, rotuloFunil } from '../lib/constants'
+import { useI18n } from '../i18n'
 import { Library, Loader2, Film, Image, ChevronDown, Zap, Download, Maximize2 } from 'lucide-react'
 
 function AdCard({ ad }) {
+  const { t } = useI18n()
   function handleDownload() {
     const ext  = ad.url.split('.').pop().split('?')[0] || (ad.type === 'video' ? 'mp4' : 'jpg')
     const name = (ad.title || `anuncio-${ad.id.slice(0, 8)}`).replace(/\s+/g, '-') + '.' + ext
@@ -25,7 +27,7 @@ function AdCard({ ad }) {
         ) : (
           <img
             src={ad.url}
-            alt={ad.title || 'Anúncio'}
+            alt={ad.title || t('bancosPublicos.anuncios.anuncio')}
             className="w-full h-full object-cover"
           />
         )}
@@ -36,14 +38,14 @@ function AdCard({ ad }) {
             href={ad.url}
             target="_blank"
             rel="noopener noreferrer"
-            title="Visualizar"
+            title={t('bancosPublicos.anuncios.visualizar')}
             className="p-1.5 rounded-lg bg-black/60 text-white hover:bg-purple-600/80 transition-colors"
           >
             <Maximize2 className="w-3.5 h-3.5" />
           </a>
           <button
             onClick={handleDownload}
-            title="Baixar arquivo"
+            title={t('bancosPublicos.anuncios.baixar')}
             className="p-1.5 rounded-lg bg-black/60 text-white hover:bg-blue-600/80 transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
@@ -58,10 +60,10 @@ function AdCard({ ad }) {
               ? 'bg-purple-100 text-purple-600'
               : 'bg-blue-100 text-blue-600'
           }`}>
-            {ad.type === 'video' ? 'Vídeo' : 'Estático'}
+            {ad.type === 'video' ? t('bancosPublicos.anuncios.video') : t('bancosPublicos.anuncios.estatico')}
           </span>
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 truncate max-w-[200px]">
-            {ad.funil}
+            {rotuloFunil(ad.funil)}
           </span>
         </div>
         {ad.title && (
@@ -77,6 +79,7 @@ function AdCard({ ad }) {
 
 export default function BancoDeAnunciosPublico() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const { t } = useI18n()
 
   const [ads,         setAds]         = useState([])
   const [loading,     setLoading]     = useState(true)
@@ -111,8 +114,8 @@ export default function BancoDeAnunciosPublico() {
   })
 
   const activeLabel = [
-    filterType  !== 'todos' ? (filterType === 'video' ? 'Vídeo' : 'Estático') : null,
-    filterFunil !== 'todos' ? filterFunil : null,
+    filterType  !== 'todos' ? (filterType === 'video' ? t('bancosPublicos.anuncios.video') : t('bancosPublicos.anuncios.estatico')) : null,
+    filterFunil !== 'todos' ? rotuloFunil(filterFunil) : null,
   ].filter(Boolean).join(' · ')
 
   return (
@@ -126,8 +129,8 @@ export default function BancoDeAnunciosPublico() {
               <Zap className="w-4 h-4 text-white" />
             </div>
             <div>
-              <p className="font-bold text-gray-900 text-sm leading-none">Revenue Lab</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">Banco de Anúncios</p>
+              <p className="font-bold text-gray-900 text-sm leading-none">{t('bancosPublicos.marca')}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">{t('bancosPublicos.anuncios.titulo')}</p>
             </div>
           </div>
           {activeLabel && (
@@ -145,9 +148,9 @@ export default function BancoDeAnunciosPublico() {
           {/* Type pills */}
           <div className="flex gap-1 p-1 bg-white rounded-xl border border-gray-200 shadow-sm">
             {[
-              { id: 'todos',    label: 'Todos',    Icon: Library },
-              { id: 'video',    label: 'Vídeo',    Icon: Film },
-              { id: 'estatico', label: 'Estático', Icon: Image },
+              { id: 'todos',    label: t('bancosPublicos.anuncios.todos'),    Icon: Library },
+              { id: 'video',    label: t('bancosPublicos.anuncios.video'),    Icon: Film },
+              { id: 'estatico', label: t('bancosPublicos.anuncios.estatico'), Icon: Image },
             ].map(({ id, label, Icon }) => (
               <button
                 key={id}
@@ -171,14 +174,14 @@ export default function BancoDeAnunciosPublico() {
               onChange={(e) => setFilterFunil(e.target.value)}
               className="text-xs border border-gray-200 rounded-xl bg-white px-3 py-2 pr-7 text-gray-700 appearance-none cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 min-w-[180px]"
             >
-              <option value="todos">Todos os funis</option>
-              {FUNILS.map((f) => <option key={f} value={f}>{f}</option>)}
+              <option value="todos">{t('bancosPublicos.todosFunis')}</option>
+              {FUNILS.map((f) => <option key={f} value={f}>{rotuloFunil(f)}</option>)}
             </select>
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
           </div>
 
           <span className="text-xs text-gray-400 ml-auto">
-            {loading ? '...' : `${filtered.length} anúncio${filtered.length !== 1 ? 's' : ''}`}
+            {loading ? '...' : t('bancosPublicos.anuncios.contagem', { count: filtered.length })}
           </span>
         </div>
 
@@ -186,12 +189,12 @@ export default function BancoDeAnunciosPublico() {
         {loading ? (
           <div className="flex items-center justify-center py-20 gap-2 text-gray-400">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span className="text-sm">Carregando...</span>
+            <span className="text-sm">{t('bancosPublicos.carregando')}</span>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
             <Library className="w-10 h-10 opacity-30" />
-            <p className="text-sm">Nenhum anúncio encontrado com esses filtros</p>
+            <p className="text-sm">{t('bancosPublicos.anuncios.vazio')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
