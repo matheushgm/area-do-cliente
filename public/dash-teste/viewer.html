@@ -3612,6 +3612,7 @@ function paceViewHTML(channels, P) {
 // e o drill de 30 dias mostrava como ativo o que já estava desligado.
 // O canal `meta_status` traz o status de AGORA (1 registro por entidade,
 // atualizado a cada rodada do sync); a linha só é usada como último recurso.
+const CONFERIDO_JANELA_MS = 7 * 3600 * 1000
 function buildStatusSnap(rows) {
   const snap = {}
   ;(rows || []).forEach(r => {
@@ -3631,6 +3632,24 @@ function buildStatusSnap(rows) {
     // Índice por nome só vale quando o nome é ÚNICO na conta: o Ads Manager
     // permite duas campanhas/conjuntos com o mesmo nome e status diferentes.
     if (e.nome) { const bag = a._byName[lvl]; bag[e.nome] = (e.nome in bag) ? null : e }
+  })
+  // "Conferido em" de cada entidade. Desde a migration 149 o banco só regrava a
+  // linha que não mudou uma vez a cada 6 h (em rodízio), então o carimbo dela pode
+  // estar até ~6 h atrás da última rodada, que é o maior carimbo da conta. Linha
+  // com carimbo a até 7 h desse máximo veio nas rodadas recentes: conferida na
+  // última. Mais velha que isso (entidade que saiu do Meta, rodada perdida) fica
+  // com o próprio carimbo, para não passar por atual.
+  Object.values(snap).forEach(a => {
+    let max = 0
+    for (const lvl of ['campanha', 'conjunto', 'anuncio'])
+      for (const e of Object.values(a[lvl])) { const t = Date.parse(e.ts); if (t > max) max = t }
+    if (!max) return
+    const maxTs = new Date(max).toISOString()
+    for (const lvl of ['campanha', 'conjunto', 'anuncio'])
+      for (const e of Object.values(a[lvl])) {
+        const t = Date.parse(e.ts)
+        e.conferido = t && max - t <= CONFERIDO_JANELA_MS ? maxTs : e.ts
+      }
   })
   return snap
 }
@@ -3688,7 +3707,7 @@ function lastKnownStatus(rows, key) {
 // Explica a tag: quando a veiculação difere do botão, diz o porquê (agendamento
 // terminado, ainda não começou, nada ativo embaixo).
 function snapTitle(e) {
-  const quando = `Conferido em ${snapWhen(e.ts)}.`
+  const quando = `Conferido em ${snapWhen(e.conferido || e.ts)}.`
   if (e.botao && e.status !== e.botao) {
     const motivo = e.status === 'ENCERRADO'
         ? `Ligada na conta, mas o agendamento terminou${e.sched ? ' (' + e.sched + ')' : ''}. Não está veiculando.`

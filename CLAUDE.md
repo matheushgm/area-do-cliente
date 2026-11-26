@@ -633,6 +633,16 @@ linhas de cada conta), que importa a cópia `public/dash-teste/vendor/dashCache.
   `dash_keywords_limpar(p_account, p_keys, p_depois, p_lote)`, que recebe as chaves coletadas no corpo do POST e
   apaga em lotes de 4 mil (cursor `p_depois`; numa chamada só a NectarCRM, 32 mil chaves, passava dos 8 s do
   `authenticator`). Medido: 2ª e 3ª coletas com 0 regravadas. Conta não coletada não é limpa.
+  **`meta_status` (migration 149, aplicada em 26/11 depois da rodada das 19:11 UTC):** o coletor carimba `"Atualizado em"` em
+  cada linha, então o gatilho da 146 não pulava nada (rodada de 26/11 17:44 UTC: ~4.200 das 4.643 linhas regravadas
+  eram do status, só com o carimbo diferente). O carimbo não pode sumir: o maior da conta é o "🕒 Atualizado em", o
+  "Leitura de…" de "Anúncios ativos" e o aviso de 36 h (`ADS_STALE_MS`); o saldo não cobre todas as contas. O gatilho
+  `trg_dash_insights_status_carimbo` descarta a linha igual a não ser pelo carimbo, salvo no turno dela (1 hora em 6,
+  pelo hash do `row_key`) ou com carimbo de mais de 6 h: ~1/6 das regravações, e o maior carimbo de cada conta segue
+  sendo o da última rodada. No viewer, `buildStatusSnap` põe em cada entidade `conferido` = o maior carimbo da conta
+  quando o dela está a até 7 h dele (senão o próprio, para entidade que saiu do Meta não passar por atual), e o
+  "Conferido em" do status usa esse campo. A instância (Micro, 1 GB) já usava swap 18 min depois de reiniciar em
+  26/11: a `dash_insights` (563 MB) não cabe no cache, então ler menos dela é o próximo passo.
 - **Página do cliente:** a lista de TODAS as contas (`dash_accounts_public`) só é lida quando o
   seletor "+ vincular conta" abre (`carregarTodasContas` do `useDashboardData`); os canais das
   contas do projeto vêm de 1 linha por conta e canal no `dash_daily` (opção `canais`, só a seção
