@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import {
   Menu, RefreshCw, TrendingUp, TrendingDown, Gauge, Bot, ArrowUpRight,
-  ZapOff, Rocket, History, AlertTriangle, User, Palette, MousePointerClick, Loader2,
+  ZapOff, Rocket, History, AlertTriangle, User, Palette, MousePointerClick, Loader2, Info,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useI18n } from '../i18n'
@@ -15,7 +15,7 @@ import {
   somaDias, mapaDeContas, linhasValidas, fundoSemConversao, janelaCpl, cplPorProjeto,
   acimaDoCpl, escalaveis, MIN_CONV_ESCALA, orcamentoVigente, paceDosProjetos,
   abaixoDoPace, acimaDoPace, PACE_MIN, PACE_MAX, alteracoes,
-  precisamDeCriativo, landingPagesAbaixo, TAXA_LP_MIN, MIN_VISITAS_LP,
+  precisamDeCriativo, MOTIVOS_CRIATIVO, landingPagesAbaixo, TAXA_LP_MIN, MIN_VISITAS_LP,
 } from '../lib/inicial'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -89,7 +89,51 @@ function Segmento({ tom, opcoes, valor, onChange }) {
   )
 }
 
-function Bloco({ tom, Icon, rotulo, numero, unidade, descricao, controle, children, className = '' }) {
+// Ícone "i" ao lado do rótulo do bloco: abre a explicação da regra. Fecha no clique
+// fora e no Esc.
+function InfoRegra({ tom, titulo, itens, rodape, rotuloBotao }) {
+  const [aberto, setAberto] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!aberto) return undefined
+    const fora = (e) => { if (ref.current && !ref.current.contains(e.target)) setAberto(false) }
+    const esc = (e) => { if (e.key === 'Escape') setAberto(false) }
+    document.addEventListener('mousedown', fora)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', fora); document.removeEventListener('keydown', esc) }
+  }, [aberto])
+  const c = TONS[tom]
+  return (
+    <span ref={ref} className="relative inline-flex">
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-label={rotuloBotao}
+        aria-expanded={aberto}
+        title={rotuloBotao}
+        className={`grid place-items-center w-5 h-5 rounded-full border transition hover:scale-105 ${c.chip}`}
+      >
+        <Info className="w-3 h-3" />
+      </button>
+      {aberto && (
+        <span role="dialog" className="absolute left-0 top-7 z-30 w-[min(360px,80vw)] rounded-2xl border border-white/10 bg-[#141416]/95 p-4 text-left normal-case tracking-normal text-neutral-200 shadow-2xl backdrop-blur">
+          <span className="block text-xs font-semibold text-white">{titulo}</span>
+          <span className="mt-2.5 block space-y-2.5">
+            {itens.map((it) => (
+              <span key={it.nome} className="block">
+                <span className="block text-[12px] font-medium text-white">{it.nome}</span>
+                <span className="block text-[11px] leading-relaxed text-neutral-400">{it.regra}</span>
+              </span>
+            ))}
+          </span>
+          {rodape && <span className="mt-3 block border-t border-white/10 pt-2.5 text-[11px] leading-relaxed text-neutral-500">{rodape}</span>}
+        </span>
+      )}
+    </span>
+  )
+}
+
+function Bloco({ tom, Icon, rotulo, numero, unidade, descricao, controle, children, info, className = '' }) {
   const c = TONS[tom]
   return (
     <section className={`relative flex flex-col min-w-0 rounded-[28px] p-5 sm:p-6 min-h-0 ${c.card} ${className}`}>
@@ -99,7 +143,10 @@ function Bloco({ tom, Icon, rotulo, numero, unidade, descricao, controle, childr
         </span>
         {controle}
       </div>
-      <p className={`mt-6 text-[11px] font-medium uppercase tracking-[0.14em] ${c.eyebrow}`}>{rotulo}</p>
+      <div className="mt-6 flex items-center gap-2">
+        <p className={`text-[11px] font-medium uppercase tracking-[0.14em] ${c.eyebrow}`}>{rotulo}</p>
+        {info}
+      </div>
       {numero != null && (
         <p className="mt-1 flex items-baseline gap-2">
           <span className="text-4xl font-semibold tracking-tight tabular-nums">{numero}</span>
@@ -635,6 +682,15 @@ function BlocoCriativos({ sugestoes, loading, erro, churn, t, nomeProjeto, abrir
       tom="violeta"
       Icon={Palette}
       rotulo={t('inicial.criativos.rotulo')}
+      info={(
+        <InfoRegra
+          tom="violeta"
+          rotuloBotao={t('inicial.criativos.info.botao')}
+          titulo={t('inicial.criativos.info.titulo')}
+          rodape={t('inicial.criativos.info.rodape')}
+          itens={MOTIVOS_CRIATIVO.map((m) => ({ nome: t(ROTULO_MOTIVO[m]), regra: t(`inicial.criativos.info.${m}`) }))}
+        />
+      )}
       numero={vazio ? null : lista.length}
       unidade={t('inicial.cpl.clientes', { count: lista.length })}
       descricao={t('inicial.criativos.descricao')}

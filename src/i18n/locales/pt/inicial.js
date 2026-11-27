@@ -44,6 +44,16 @@ export default {
     vazio: 'Nenhuma conta com sugestão de criativo pendente.',
     carregando: 'Lendo os anúncios dos últimos 20 dias...',
     sugestoes: { one: 'sugestão', other: 'sugestões' },
+    info: {
+      botao: 'Quando uma conta entra aqui',
+      titulo: 'Quando uma conta entra aqui',
+      ctr_baixo: 'Campanha de meio ou fundo com CTR do link abaixo de 0,5%, depois de R$ 50 gastos e 2 mil impressões em 7 dias.',
+      saturacao: 'Campanha de fundo com frequência de 3,5 ou mais e CTR 10% menor que nos 7 dias anteriores: o público já viu demais os mesmos anúncios.',
+      poucos_criativos: 'Campanha de fundo com menos de 3 anúncios ativos e R$ 30 ou mais de gasto. O playbook pede 3 criativos novos por semana no fundo.',
+      topo_gancho: 'Vídeo de topo com taxa de gancho (3 s ÷ impressões) abaixo de 30%, com 3+ dias, R$ 35 gastos e 2 mil impressões.',
+      ad_trocar: 'O anúncio devia sair (sem conversão, custo alto ou gancho fraco), mas é o último ativo do conjunto e a campanha não tem outro conjunto melhor para receber a verba: primeiro sobe um substituto, depois pausa.',
+      rodape: 'São as regras do motor do playbook, as mesmas da Central de Otimizações. Sugestão aceita ou recusada lá sai daqui.',
+    },
     motivos: {
       ctr_baixo: 'CTR baixo',
       saturacao: 'Saturação',

@@ -44,6 +44,16 @@ export default {
     vazio: 'No account with a pending creative suggestion.',
     carregando: 'Reading the last 20 days of ads...',
     sugestoes: { one: 'suggestion', other: 'suggestions' },
+    info: {
+      botao: 'When an account shows up here',
+      titulo: 'When an account shows up here',
+      ctr_baixo: 'Middle or bottom-funnel campaign with link CTR below 0.5% after R$ 50 spent and 2k impressions in 7 days.',
+      saturacao: 'Bottom-funnel campaign with frequency of 3.5 or more and CTR 10% lower than the previous 7 days: the audience has seen the same ads too often.',
+      poucos_criativos: 'Bottom-funnel campaign with fewer than 3 active ads and R$ 30 or more spent. The playbook asks for 3 new bottom-funnel creatives a week.',
+      topo_gancho: 'Top-funnel video with hook rate (3 s ÷ impressions) below 30%, after 3+ days, R$ 35 spent and 2k impressions.',
+      ad_trocar: 'The ad should go (no conversions, high cost or weak hook) but it is the last active one in its ad set and the campaign has no better ad set to take the budget: upload a replacement first, then pause it.',
+      rodape: 'These are the playbook engine rules, the same as the Optimization Hub. A suggestion accepted or declined there leaves this list.',
+    },
     motivos: {
       ctr_baixo: 'Low CTR',
       saturacao: 'Saturation',
