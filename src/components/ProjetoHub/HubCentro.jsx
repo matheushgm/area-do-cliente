@@ -257,7 +257,7 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
   return (
     <div className="space-y-4">
       {tab === 'resumo' ? (
-        <ResumoHub dash={dash} timeline={hub.timeline} sugestoesPendentes={sugestoesPendentes.length} onAbrirSugestoes={() => onAbrirTab('sugestoes')}
+        <ResumoHub project={project} onNavigate={onNavigate} dash={dash} timeline={hub.timeline} sugestoesPendentes={sugestoesPendentes.length} onAbrirSugestoes={() => onAbrirTab('sugestoes')}
           onAbrirTab={(id) => (id === 'resultados' ? onNavigate('trafego') : onAbrirTab(id))} />
       ) : tab === 'tarefas' ? (
         <Suspense fallback={<div className="flex items-center justify-center gap-2 py-20 text-sm text-rl-muted"><Loader2 className="w-4 h-4 animate-spin" /> {t('hub.carregandoTarefas')}</div>}>

@@ -315,6 +315,7 @@ páginas públicas não têm login e seguem a regra da 4.0.
 - [x] `src/components/ProjetoHub/HubInformacoes.jsx`
 - [x] `src/components/ProjetoHub/MenuCliente.jsx`
 - [x] `src/components/ProjetoHub/ModulosMenu.jsx`
+- [x] `src/components/ProjetoHub/ResumoCliente.jsx`
 - [x] `src/components/ProjetoHub/NovaTarefaClickUpModal.jsx`
 - [x] `src/components/ProjetoHub/RegistroModal.jsx`
 - [x] `src/components/ProjetoHub/ResumoHub.jsx`

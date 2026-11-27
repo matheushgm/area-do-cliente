@@ -8,6 +8,7 @@ import { addDays } from '../../lib/dashboardData'
 import { fmtDiaMes as fmtBR } from '../../lib/vertatask'
 import { hojeISO } from '../../lib/atividadesCarga'
 import { useI18n, localeAtual } from '../../i18n'
+import ResumoCliente from './ResumoCliente'
 
 const fmtMoney = (n) => (n == null ? '—' : 'R$ ' + n.toLocaleString(localeAtual(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
 const fmtInt = (n) => Math.round(n ?? 0).toLocaleString(localeAtual())
@@ -54,7 +55,7 @@ function Secao({ icon: Icon, titulo, sub, children }) {
   )
 }
 
-export default function ResumoHub({ dash, timeline, sugestoesPendentes, onAbrirSugestoes, onAbrirTab }) {
+export default function ResumoHub({ project, dash, timeline, sugestoesPendentes, onAbrirSugestoes, onAbrirTab, onNavigate }) {
   const { t, lang } = useI18n()
   const rawDash = dash.raw
   const raw = useMemo(() => rawDash || { meta: [], google: [] }, [rawDash])
@@ -86,6 +87,8 @@ export default function ResumoHub({ dash, timeline, sugestoesPendentes, onAbrirS
 
   return (
     <div className="space-y-4">
+      {project && <ResumoCliente project={project} onNavigate={onNavigate} />}
+
       {/* KPIs */}
       <div>
         <div className="flex items-center justify-between px-1 mb-2">

@@ -56,8 +56,12 @@ const project = {
     { id: 'of2', nome: 'Troca do colchão velho', resultadoSonho: 'Dormir sem dor nas costas' },
   ],
   ofertaData: { id: 'of1', nome: 'Feirão', principal: true },
+  services: ['Gestão de Meta Ads', 'Gestão de Google Ads', 'Criação de Roteiros de Criativos', 'Criação de Landing Page'],
+  servicesData: { criacao_roteiros: { imagemQty: '6', videoQty: '4' }, landing_page: { qty: '2' } },
+  clientSince: '2026-03-02',
+  roiCalc: { mediaOrcamento: 4500, custoMarketing: 3002, ticketMedio: 1800, qtdCompras: 1, margemBruta: 35, roiDesejado: 50, taxaLead2MQL: 40, taxaMQL2SQL: 50, taxaSQL2Venda: 20 },
   roiResult: { ok: true },
-  campaignPlan: { totalBudget: 4500, channels: [{ name: 'Meta Ads' }, { name: 'Google Ads' }] },
+  campaignPlan: { totalBudget: 4500, orcamentoTotal: 4500, accounts: [{ name: 'Conta Principal', orcamentoTotal: 4500, valorJaUsado: 0, channels: [{ name: 'Meta Ads', percentage: 70 }, { name: 'Google Ads', percentage: 30 }] }], channels: [{ name: 'Meta Ads' }, { name: 'Google Ads' }] },
   // Datas em semanas diferentes e uma pasta, pra Central mostrar os blocos Mês › Semana › Pasta.
   debriefing: { ads: [
     { id: 1, nome: 'AD001', status: 'finalizado', createdAt: '2026-10-06', url: 'https://drive.google.com/file/d/ad001' },

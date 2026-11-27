@@ -2021,6 +2021,12 @@ Atas) foi removida em 2026-10-26 a pedido do Matheus. Abaixo de `xl` as colunas 
   nessa aba; sair dela limpa esses parâmetros. Para não haver dois scrolls na mesma região, nessa aba a área vai do
   ponto onde começa até o fim da tela (`useAlturaAteOFim`, margem de 24 px) e a coluna esquerda fica `sticky` com
   rolagem própria (`travarRolagem` no `ClientProfile`, que guarda a aba aberta): a página não rola.
+- **Resumo do cliente** (`ResumoCliente.jsx`, topo da Visão geral, 2026-11-27, pedido do Matheus): produtos
+  contratados (`services` + entregáveis de `servicesData`), MRR (assessoria) ou valor único (aceleração; "parcelado"
+  se `contract_payment_type = 'mensal'`), cliente desde (`client_since`, senão `contract_date`), investimento em mídia
+  e parâmetros + metas da Calculadora de ROI principal (`roiCalc`, metas por `calcularResultadoRoi`), distribuição da
+  verba pelos canais da 1ª conta do Planejamento de Campanhas (`%` × orçamento do plano; avisa se o ROI diverge) e as
+  observações do projeto, editáveis ali (`updateProject({ observacoes })`, o mesmo campo da coluna esquerda).
 - **Sugestões do playbook** (`src/lib/playbookSugestoes.js`, puro): regras do Roadmap Ads e
   dos guardrails aplicadas aos últimos 7 dias do `dash_insights` (via `useDashboardData`
   com `projectId` e `dias: 16`) vs. os 7 anteriores, por conta vinculada. **Toda regra de
