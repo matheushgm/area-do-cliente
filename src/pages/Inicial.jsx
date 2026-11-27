@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import {
   Menu, RefreshCw, TrendingUp, TrendingDown, Gauge, Bot, ArrowUpRight,
-  ZapOff, Rocket, History, AlertTriangle, User, Palette, MousePointerClick, Loader2, Info,
+  ZapOff, Rocket, History, AlertTriangle, User, Palette, MousePointerClick, Loader2, Info, Activity, ArrowDownRight, ArrowRight,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useI18n } from '../i18n'
@@ -15,7 +15,7 @@ import {
   somaDias, mapaDeContas, linhasValidas, fundoSemConversao, janelaCpl, cplPorProjeto,
   acimaDoCpl, escalaveis, MIN_CONV_ESCALA, orcamentoVigente, paceDosProjetos,
   abaixoDoPace, acimaDoPace, PACE_MIN, PACE_MAX, alteracoes,
-  precisamDeCriativo, MOTIVOS_CRIATIVO, landingPagesAbaixo, TAXA_LP_MIN, MIN_VISITAS_LP,
+  precisamDeCriativo, MOTIVOS_CRIATIVO, tendencia3d, landingPagesAbaixo, TAXA_LP_MIN, MIN_VISITAS_LP,
 } from '../lib/inicial'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -36,14 +36,14 @@ function CanalLogo({ canal, className = 'w-4 h-4' }) {
 const pct = (r) => `${Math.round(r * 100)}%`
 
 // ─── Peças do bento ─────────────────────────────────────────────────────────
-// `tom`: 'ciano' | 'verde' | 'amarelo' | 'grafite'. Os cartões coloridos usam
+// `tom`: 'vermelho' | 'verde' | 'violeta' | 'amarelo' | 'grafite'. Os cartões coloridos usam
 // texto claro (ou escuro, no amarelo) e linhas translúcidas da mesma cor.
 const TONS = {
-  ciano: {
-    card: 'bg-[#0E9FC4] text-white shadow-[0_20px_60px_-25px_rgba(14,159,196,0.7)]',
-    chip: 'bg-white/15 border-white/25', eyebrow: 'text-cyan-50/85', sub: 'text-cyan-50/85',
-    linha: 'bg-white/10 hover:bg-white/[.16] border-white/10', fraco: 'text-cyan-50/75',
-    seg: 'bg-black/15 border-white/20', segOn: 'bg-white text-[#0B6F8A]', segOff: 'text-cyan-50/85 hover:text-white',
+  vermelho: {
+    card: 'bg-[#DC3F45] text-white shadow-[0_20px_60px_-25px_rgba(220,63,69,0.75)]',
+    chip: 'bg-white/15 border-white/25', eyebrow: 'text-red-50/85', sub: 'text-red-50/85',
+    linha: 'bg-white/10 hover:bg-white/[.16] border-white/10', fraco: 'text-red-50/75',
+    seg: 'bg-black/15 border-white/20', segOn: 'bg-white text-[#A4252B]', segOff: 'text-red-50/85 hover:text-white',
   },
   verde: {
     card: 'bg-[#1F8A5B] text-white shadow-[0_20px_60px_-25px_rgba(31,138,91,0.7)]',
@@ -93,7 +93,15 @@ function Segmento({ tom, opcoes, valor, onChange }) {
 // fora e no Esc.
 function InfoRegra({ tom, titulo, itens, rodape, rotuloBotao }) {
   const [aberto, setAberto] = useState(false)
+  const [paraEsquerda, setParaEsquerda] = useState(false)
   const ref = useRef(null)
+  const caixa = useRef(null)
+  // Perto da borda direita da tela a caixa abre para a esquerda do ícone.
+  useLayoutEffect(() => {
+    if (!aberto || !caixa.current || !ref.current) return
+    const largura = caixa.current.offsetWidth
+    setParaEsquerda(ref.current.getBoundingClientRect().left + largura > window.innerWidth - 12)
+  }, [aberto])
   useEffect(() => {
     if (!aberto) return undefined
     const fora = (e) => { if (ref.current && !ref.current.contains(e.target)) setAberto(false) }
@@ -116,7 +124,7 @@ function InfoRegra({ tom, titulo, itens, rodape, rotuloBotao }) {
         <Info className="w-3 h-3" />
       </button>
       {aberto && (
-        <span role="dialog" className="absolute left-0 top-7 z-30 w-[min(360px,80vw)] rounded-2xl border border-white/10 bg-[#141416]/95 p-4 text-left normal-case tracking-normal text-neutral-200 shadow-2xl backdrop-blur">
+        <span ref={caixa} role="dialog" className={`absolute ${paraEsquerda ? 'right-0' : 'left-0'} top-7 z-30 w-[min(360px,80vw)] rounded-2xl border border-white/10 bg-[#141416]/95 p-4 text-left normal-case tracking-normal text-neutral-200 shadow-2xl backdrop-blur`}>
           <span className="block text-xs font-semibold text-white">{titulo}</span>
           <span className="mt-2.5 block space-y-2.5">
             {itens.map((it) => (
@@ -182,6 +190,7 @@ export default function Inicial() {
   const [diasFundo, setDiasFundo] = useState(3)
   const [janela, setJanela] = useState('7d')
   const [janelaLp, setJanelaLp] = useState('14d')
+  const [filtroTend, setFiltroTend] = useState('todas')
   const [quemAlt, setQuemAlt] = useState('agentes')
   const [periodoAlt, setPeriodoAlt] = useState(7)
   const [limiteAlt, setLimiteAlt] = useState(50)
@@ -217,6 +226,8 @@ export default function Inicial() {
   const cpl = useMemo(() => base ? cplPorProjeto(base.linhas, { ...jan, contas: base.contas, metas: base.metas }) : [], [base, jan])
   const acima = useMemo(() => acimaDoCpl(cpl), [cpl])
   const escala = useMemo(() => escalaveis(cpl), [cpl])
+  const tend = useMemo(() => base ? tendencia3d(base.linhas, { hoje: dados.hoje, contas: base.contas, metas: base.metas }) : [], [base, dados])
+  const tendFiltrada = useMemo(() => (filtroTend === 'todas' ? tend : tend.filter((x) => x.tendencia === filtroTend)), [tend, filtroTend])
   const janLp = useMemo(() => dados ? janelaCpl(janelaLp, dados.hoje) : null, [janelaLp, dados])
   const lps = useMemo(() => base ? landingPagesAbaixo(base.linhas, { ...janLp, contas: base.contas }) : [], [base, janLp])
   const churnSet = useMemo(() => new Set([...projetos].filter(([, p]) => p.churn).map(([id]) => id)), [projetos])
@@ -240,6 +251,15 @@ export default function Inicial() {
   const abrirCliente = (id) => id && navigate(pathCliente(id))
   const abrirDash = (conta, canal) => navigate(`/dashboard?cliente=${encodeURIComponent(conta)}&canal=${canal}`)
 
+  // Ícone "i" de cada bloco: o que mostra, como calculamos e o que fazer, em linguagem de leigo.
+  const ajuda = (bloco, tom, vars = {}) => (
+    <InfoRegra
+      tom={tom}
+      rotuloBotao={t('inicial.ajuda.botao')}
+      titulo={t(`inicial.ajuda.${bloco}.titulo`)}
+      itens={['mostra', 'calculo', 'fazer'].map((k) => ({ nome: t(`inicial.ajuda.${k}`), regra: t(`inicial.ajuda.${bloco}.${k}`, vars) }))}
+    />
+  )
   const comum = { t, nomeProjeto, abrirCliente, navigate }
   const ontem = dados ? somaDias(dados.hoje, -1) : null
   const deFundo = dados ? somaDias(dados.hoje, -diasFundo) : null
@@ -298,12 +318,34 @@ export default function Inicial() {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* ── Tendência dos últimos 3 dias (a mesma do Dashboard) ── */}
+              <Bloco
+                tom="grafite"
+                Icon={Activity}
+                rotulo={t('inicial.tend.rotulo')}
+                info={ajuda('tend', 'grafite')}
+                numero={tendFiltrada.length}
+                unidade={t('inicial.fundo.contas', { count: tendFiltrada.length })}
+                descricao={t('inicial.tend.descricao', { de: dataCurta(somaDias(dados.hoje, -3)), ate: dataCurta(ontem) })}
+                controle={(
+                  <Segmento tom="grafite" valor={filtroTend} onChange={setFiltroTend}
+                    opcoes={[
+                      { v: 'todas', l: t('inicial.tend.todas') },
+                      { v: 'queda', l: `${t('inicial.tend.queda')} ${tend.filter((x) => x.tendencia === 'queda').length}` },
+                      { v: 'alta', l: `${t('inicial.tend.alta')} ${tend.filter((x) => x.tendencia === 'alta').length}` },
+                    ]} />
+                )}
+              >
+                <TabelaTendencia linhas={tendFiltrada} t={t} locale={locale} brl={brl} nomeProjeto={nomeProjeto} abrirDash={abrirDash} />
+              </Bloco>
+
               {/* ── Linha 1: fundo sem conversão · acima do CPL · podem escalar ── */}
               <div className="grid gap-4 lg:grid-cols-3">
                 <Bloco
-                  tom="ciano"
+                  tom="vermelho"
                   Icon={ZapOff}
                   rotulo={t('inicial.fundo.rotulo')}
+                  info={ajuda('fundo', 'vermelho')}
                   numero={fundo.length}
                   unidade={t('inicial.fundo.contas', { count: fundo.length })}
                   descricao={diasFundo === 1
@@ -311,7 +353,7 @@ export default function Inicial() {
                     : t('inicial.fundo.descricao', { de: dataCurta(deFundo), ate: dataCurta(ontem) })}
                   controle={(
                     <Segmento
-                      tom="ciano"
+                      tom="vermelho"
                       valor={diasFundo}
                       onChange={setDiasFundo}
                       opcoes={[{ v: 3, l: t('inicial.janelas.d3') }, { v: 2, l: t('inicial.janelas.d2') }, { v: 1, l: t('inicial.janelas.d1') }]}
@@ -319,7 +361,7 @@ export default function Inicial() {
                   )}
                 >
                   <Lista
-                    tom="ciano"
+                    tom="vermelho"
                     vazio={t('inicial.fundo.vazio')}
                     itens={fundo}
                     render={(f) => {
@@ -330,12 +372,12 @@ export default function Inicial() {
                             type="button"
                             onClick={() => abrirDash(f.conta, f.canal)}
                             title={t('inicial.fundo.abrirDash')}
-                            className={`w-full text-left flex items-center gap-3 rounded-2xl border px-3 py-2.5 transition ${TONS.ciano.linha}`}
+                            className={`w-full text-left flex items-center gap-3 rounded-2xl border px-3 py-2.5 transition ${TONS.vermelho.linha}`}
                           >
                             <span className="grid place-items-center w-7 h-7 rounded-full bg-white shrink-0"><CanalLogo canal={f.canal} className="w-3.5 h-3.5" /></span>
                             <span className="min-w-0 flex-1">
                               <span className="block text-sm font-medium truncate">{nomeCli || f.conta}</span>
-                              <span className="block text-[11px] text-cyan-50/75 truncate">
+                              <span className="block text-[11px] text-red-50/75 truncate">
                                 {nomeCli && nomeCli !== f.conta ? `${f.conta} · ` : ''}
                                 {f.campanhas[0]?.nome}
                                 {f.campanhas.length > 1 && ` ${t('inicial.fundo.maisCampanhas', { n: f.campanhas.length - 1 })}`}
@@ -343,7 +385,7 @@ export default function Inicial() {
                             </span>
                             <span className="text-right shrink-0 max-w-[42%]">
                               <span className="block text-sm font-semibold tabular-nums">{brl(f.gasto)}</span>
-                              <span className="block text-[10px] text-cyan-50/75 truncate">
+                              <span className="block text-[10px] text-red-50/75 truncate">
                                 {f.ultimaConversao
                                   ? t('inicial.fundo.ultima', { data: dataCurta(f.ultimaConversao) })
                                   : t('inicial.fundo.nunca', { data: dataCurta(base.primeiroDia) })}
@@ -360,6 +402,7 @@ export default function Inicial() {
                   tom="grafite"
                   Icon={TrendingUp}
                   rotulo={t('inicial.cpl.rotuloAcima')}
+                  info={ajuda('acimaCpl', 'grafite')}
                   numero={acima.length}
                   unidade={t('inicial.cpl.clientes', { count: acima.length })}
                   descricao={t('inicial.cpl.descAcima', { de: dataCurta(jan.de), ate: dataCurta(jan.ate) })}
@@ -394,6 +437,7 @@ export default function Inicial() {
                   tom="verde"
                   Icon={Rocket}
                   rotulo={t('inicial.cpl.rotuloEscala')}
+                  info={ajuda('escala', 'verde', { min: MIN_CONV_ESCALA })}
                   numero={escala.length}
                   unidade={t('inicial.cpl.clientes', { count: escala.length })}
                   descricao={t('inicial.cpl.descEscala', { min: MIN_CONV_ESCALA })}
@@ -438,6 +482,7 @@ export default function Inicial() {
                   tom="grafite"
                   Icon={MousePointerClick}
                   rotulo={t('inicial.lp.rotulo')}
+                  info={ajuda('lp', 'grafite', { p: TAXA_LP_MIN, min: MIN_VISITAS_LP })}
                   numero={lps.length}
                   unidade={t('inicial.fundo.contas', { count: lps.length })}
                   descricao={t('inicial.lp.descricao', { p: TAXA_LP_MIN, min: MIN_VISITAS_LP, de: dataCurta(janLp.de), ate: dataCurta(janLp.ate) })}
@@ -479,6 +524,7 @@ export default function Inicial() {
                 tom="grafite"
                 Icon={History}
                 rotulo={t('inicial.alteracoes.rotulo')}
+                  info={ajuda('alteracoes', 'grafite')}
                 numero={alts.length}
                 unidade={t('inicial.alteracoes.unidade', { count: alts.length })}
                 controle={(
@@ -571,6 +617,7 @@ export default function Inicial() {
                   tom="amarelo"
                   Icon={TrendingDown}
                   rotulo={t('inicial.pace.rotuloAbaixo')}
+                  info={ajuda('paceAbaixo', 'amarelo', { p: pct(PACE_MIN) })}
                   numero={paceAbaixo.length}
                   unidade={t('inicial.cpl.clientes', { count: paceAbaixo.length })}
                   descricao={t('inicial.pace.descAbaixo', { p: pct(PACE_MIN) })}
@@ -582,6 +629,7 @@ export default function Inicial() {
                   tom="grafite"
                   Icon={Gauge}
                   rotulo={t('inicial.pace.rotuloAcima')}
+                  info={ajuda('paceAcima', 'grafite', { p: pct(PACE_MAX) })}
                   numero={paceAcima.length}
                   unidade={t('inicial.cpl.clientes', { count: paceAcima.length })}
                   descricao={t('inicial.pace.descAcima', { p: pct(PACE_MAX) })}
@@ -688,7 +736,10 @@ function BlocoCriativos({ sugestoes, loading, erro, churn, t, nomeProjeto, abrir
           rotuloBotao={t('inicial.criativos.info.botao')}
           titulo={t('inicial.criativos.info.titulo')}
           rodape={t('inicial.criativos.info.rodape')}
-          itens={MOTIVOS_CRIATIVO.map((m) => ({ nome: t(ROTULO_MOTIVO[m]), regra: t(`inicial.criativos.info.${m}`) }))}
+          itens={[
+            { nome: t('inicial.ajuda.mostra'), regra: t('inicial.criativos.info.mostra') },
+            ...MOTIVOS_CRIATIVO.map((m) => ({ nome: t(ROTULO_MOTIVO[m]), regra: t(`inicial.criativos.info.${m}`) })),
+          ]}
         />
       )}
       numero={vazio ? null : lista.length}
@@ -737,5 +788,78 @@ function BlocoCriativos({ sugestoes, loading, erro, churn, t, nomeProjeto, abrir
         />
       )}
     </Bloco>
+  )
+}
+
+// ─── Tabela de tendência ────────────────────────────────────────────────────
+const SELO_TEND = {
+  queda: { cls: 'bg-rose-500/15 text-rose-300', Icon: ArrowDownRight, chave: 'inicial.tend.queda' },
+  alta: { cls: 'bg-emerald-400/15 text-emerald-300', Icon: ArrowUpRight, chave: 'inicial.tend.alta' },
+  estavel: { cls: 'bg-white/[.06] text-neutral-300', Icon: ArrowRight, chave: 'inicial.tend.estavel' },
+}
+
+function TabelaTendencia({ linhas, t, locale, brl, nomeProjeto, abrirDash }) {
+  if (!linhas.length) {
+    return <p className="rounded-2xl border border-dashed border-white/15 px-4 py-6 text-center text-xs text-neutral-400">{t('inicial.tend.vazio')}</p>
+  }
+  const int = (v) => Math.round(v).toLocaleString(locale)
+  return (
+    <div className="overflow-auto -mx-1 max-h-[420px] inicial-scroll">
+      <table className="w-full min-w-[760px] text-left text-[13px]">
+        <thead className="sticky top-0 z-10 bg-[#161618]">
+          <tr className="text-[10px] uppercase tracking-[0.12em] text-neutral-500">
+            <th className="px-3 py-2 font-medium">{t('inicial.tend.conta')}</th>
+            <th className="px-3 py-2 font-medium text-right">{t('inicial.tend.conv3')}</th>
+            <th className="px-3 py-2 font-medium text-right">{t('inicial.tend.cpl3')}</th>
+            <th className="px-3 py-2 font-medium text-right">{t('inicial.tend.alvo')}</th>
+            <th className="px-3 py-2 font-medium">{t('inicial.tend.tendencia')}</th>
+            <th className="px-3 py-2 font-medium text-right">{t('inicial.tend.previsao')}</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/[.06]">
+          {linhas.map((x) => {
+            const nomeCli = nomeProjeto(x.projectId)
+            const selo = SELO_TEND[x.tendencia]
+            const maior = Math.max(1, ...x.t1vals)
+            const acimaAlvo = x.alvo != null && (x.cpl3 == null ? x.gasto3 > x.alvo : x.cpl3 > x.alvo)
+            return (
+              <tr key={x.chave} onClick={() => abrirDash(x.conta, x.canal)} className="cursor-pointer hover:bg-white/[.03]" title={t('inicial.fundo.abrirDash')}>
+                <td className="px-3 py-2.5">
+                  <span className="flex items-center gap-2.5 min-w-0">
+                    <span className="grid place-items-center w-6 h-6 rounded-full bg-white shrink-0"><CanalLogo canal={x.canal} className="w-3 h-3" /></span>
+                    <span className="min-w-0">
+                      <span className="block font-medium text-neutral-100 truncate max-w-[260px]">{x.conta}</span>
+                      {nomeCli && nomeCli !== x.conta && <span className="block text-[11px] text-neutral-500 truncate max-w-[260px]">{nomeCli}</span>}
+                    </span>
+                  </span>
+                </td>
+                <td className="px-3 py-2.5 text-right">
+                  <span className="inline-flex items-center gap-2.5">
+                    <span className="flex items-end gap-0.5 h-5" aria-hidden="true">
+                      {x.t1vals.map((v, i) => (
+                        <span key={i} className={`w-1.5 rounded-sm ${x.tendencia === 'queda' ? 'bg-rose-400/70' : x.tendencia === 'alta' ? 'bg-emerald-400/70' : 'bg-neutral-400/60'}`} style={{ height: `${Math.max(8, (v / maior) * 100)}%` }} />
+                      ))}
+                    </span>
+                    <span className="font-semibold tabular-nums text-neutral-100">{int(x.conv3)}</span>
+                  </span>
+                  <span className="block text-[10px] text-neutral-500 tabular-nums">{t('inicial.tend.antes', { n: int(x.conv0) })}</span>
+                </td>
+                <td className={`px-3 py-2.5 text-right tabular-nums font-medium ${x.alvo == null ? 'text-neutral-200' : acimaAlvo ? 'text-rose-300' : 'text-emerald-300'}`}>
+                  {x.cpl3 != null ? brl(x.cpl3, 2) : '-'}
+                </td>
+                <td className="px-3 py-2.5 text-right tabular-nums text-neutral-400">{x.alvo != null ? brl(x.alvo, 2) : '-'}</td>
+                <td className="px-3 py-2.5">
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${selo.cls}`}>
+                    <selo.Icon className="w-3 h-3" />{t(selo.chave)}
+                    {x.conv0 > 0 && (x.tendencia !== 'queda' || x.pct < 0) && <span className="tabular-nums opacity-80">{x.pct > 0 ? '+' : ''}{Math.round(x.pct)}%</span>}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5 text-right tabular-nums text-neutral-200">{int(x.previsaoMes)}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
   )
 }

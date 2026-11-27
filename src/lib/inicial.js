@@ -317,3 +317,55 @@ export function landingPagesAbaixo(linhas, { de, ate, contas }) {
   }
   return out.sort((x, y) => x.taxa - y.taxa || y.visitas - x.visitas)
 }
+
+// ─── Tendência dos últimos 3 dias ───────────────────────────────────────────
+// A mesma "Tend. 3d" do Dashboard de Tráfego (buildStats em dashboardData.js), por
+// canal + conta e com todas as campanhas: conversões dos 3 últimos dias fechados
+// (t1) contra os 3 anteriores (t0). Queda = caindo dia após dia ou -25% ou mais;
+// Alta = mais de +20%. Mudou lá, mude aqui.
+// Previsão do mês = conversões do mês até ontem + média diária dos 3 dias × dias que faltam.
+export function tendencia3d(linhas, { hoje, contas, metas }) {
+  const ontem = somaDias(hoje, -1)
+  const t1 = [somaDias(ontem, -2), somaDias(ontem, -1), ontem]
+  const t0 = [somaDias(ontem, -5), somaDias(ontem, -4), somaDias(ontem, -3)]
+  const iniMes = inicioDoMes(hoje)
+  const restantes = diasEntre(hoje, fimDoMes(hoje)) + 1 // hoje incluído
+  const acc = new Map()
+  for (const r of linhas) {
+    if (r.day < t0[0] || r.day > ontem) {
+      if (!(r.day >= iniMes && r.day <= ontem)) continue
+    }
+    const chave = r.channel + '|' + r.account
+    const a = acc.get(chave) || { chave, canal: r.channel, conta: r.account, dias: new Map(), mesConv: 0 }
+    if (r.day >= iniMes && r.day <= ontem) a.mesConv += n(r.conv)
+    if (r.day >= t0[0] && r.day <= ontem) {
+      const d = a.dias.get(r.day) || { conv: 0, gasto: 0 }
+      d.conv += n(r.conv); d.gasto += n(r.spend)
+      a.dias.set(r.day, d)
+    }
+    acc.set(chave, a)
+  }
+  const ORDEM = { queda: 0, estavel: 1, alta: 2 }
+  const out = []
+  for (const a of acc.values()) {
+    const dia = (d) => a.dias.get(d) || { conv: 0, gasto: 0 }
+    const t1vals = t1.map((d) => dia(d).conv)
+    const conv3 = t1vals.reduce((s, v) => s + v, 0)
+    const gasto3 = t1.reduce((s, d) => s + dia(d).gasto, 0)
+    const conv0 = t0.reduce((s, d) => s + dia(d).conv, 0)
+    const gasto0 = t0.reduce((s, d) => s + dia(d).gasto, 0)
+    if (gasto3 + gasto0 <= 0) continue // conta parada nos 6 dias
+    const pct = conv0 > 0 ? ((conv3 - conv0) / conv0) * 100 : (conv3 > 0 ? 100 : 0)
+    const caindo = (t1vals[2] < t1vals[1] && t1vals[1] < t1vals[0]) || pct <= -25
+    const tendencia = caindo ? 'queda' : pct > 20 ? 'alta' : 'estavel'
+    const projectId = contas.get(a.conta?.trim())?.projectId || null
+    out.push({
+      chave: a.chave, canal: a.canal, conta: a.conta, projectId,
+      conv3, gasto3, conv0, pct, t1vals, tendencia,
+      cpl3: conv3 > 0 ? gasto3 / conv3 : null,
+      alvo: projectId ? metas.get(projectId) ?? null : null,
+      previsaoMes: a.mesConv + (conv3 / 3) * restantes,
+    })
+  }
+  return out.sort((x, y) => ORDEM[x.tendencia] - ORDEM[y.tendencia] || y.gasto3 - x.gasto3)
+}

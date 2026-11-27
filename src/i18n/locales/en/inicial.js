@@ -12,6 +12,78 @@ export default {
   janelas: { d3: '3 days', d2: '2 days', d1: 'Yesterday', s7: '7 days', s14: '14 days', mes: 'Month' },
   periodo: '{de} to {ate}',
 
+  tend: {
+    rotulo: 'Last 3 days trend',
+    descricao: 'Conversions and CPL from {de} to {ate}, against the 3 days before, and where the month lands at this pace.',
+    todas: 'All',
+    queda: 'Down',
+    alta: 'Up',
+    estavel: 'Stable',
+    conta: 'Account',
+    conv3: 'Conversions 3d',
+    cpl3: 'CPL 3d',
+    alvo: 'Target CPL',
+    tendencia: 'Trend',
+    previsao: 'Month forecast',
+    antes: '{n} in the 3 days before',
+    vazio: 'No account with this trend.',
+  },
+
+  ajuda: {
+    botao: 'About this block',
+    mostra: 'What it shows',
+    calculo: 'How we calculate it',
+    fazer: 'What to do',
+    tend: {
+      titulo: 'Last 3 days trend',
+      mostra: 'How each ad account did over the last 3 full days, compared with the 3 days before, and how many conversions (contacts, leads, sales) the month should close with at this pace.',
+      calculo: 'We add up conversions and spend for the 3 days and divide one by the other to get the CPL (cost per conversion). The trend is the same as the Dashboard: Down when conversions drop day after day or fall 25% or more; Up when they rise more than 20%. The forecast adds what already came in this month to the 3-day daily average times the days left. The small bars are the 3 days, oldest to yesterday.',
+      fazer: 'Start with accounts going down with the CPL in red (above target). Click the row to open the account in the Dashboard.',
+    },
+    fundo: {
+      titulo: 'Bottom funnel, no conversions',
+      mostra: 'Accounts where bottom-funnel campaigns (the ones that ask for contact: form, WhatsApp, purchase) spent money and brought no conversion.',
+      calculo: 'We only look at campaigns with FUNDO in the name. An account shows up when it spent and had zero conversions in the chosen days (3, 2 or just yesterday). Today is left out because it is not over yet. Other campaigns in the account may have converted, which is why the Dashboard sometimes shows conversions.',
+      fazer: 'Open the account and check the ad, page, form and tracking (pixel), in that order. Click the row to open it in the Dashboard.',
+    },
+    acimaCpl: {
+      titulo: 'Above target CPL',
+      mostra: 'Clients paying more per contact than the agreed target.',
+      calculo: 'CPL is cost per conversion: spend divided by the number of conversions. We compare it with the target CPL in the client ROI Calculator. Top-of-funnel campaigns (reach and video) are left out because they are not meant to generate contacts. The percentage is how far above target it is.',
+      fazer: 'Open the client and find the ads and ad sets pushing cost up. If the target is unrealistic for the account, review the target.',
+    },
+    escala: {
+      titulo: 'Ready to scale',
+      mostra: 'Clients where each contact costs less than the target: a sign that more budget can bring more contacts.',
+      calculo: 'Same CPL as the block next to it, but below target and with at least {min} conversions in the period, so luck is not mistaken for results. "Pace" shows how much of the monthly budget the client should spend at the current rate.',
+      fazer: 'Check the pace before raising budget: above 100% the budget will already be exceeded and the increase must be agreed with the client. Raise at most 20% at a time.',
+    },
+    lp: {
+      titulo: 'Test the landing page',
+      mostra: 'Accounts where many people reach the page and few become contacts. The ad brings the visit; the page does not convert.',
+      calculo: 'Conversion rate = conversions ÷ visits. On Meta, visits are landing page views; on Google, clicks. An account shows up below {p}% with at least {min} visits in the period. Top-of-funnel and WhatsApp campaigns are left out.',
+      fazer: 'Test a new version of the page (headline, offer, shorter form) and check that the form and pixel record conversions.',
+    },
+    alteracoes: {
+      titulo: 'Account changes',
+      mostra: 'What was changed in the accounts from the Optimization Hub suggestions: paused ads, ad set budget moved, campaign budget cut.',
+      calculo: 'These are suggestions marked as executed, with the record of what was done in the account (before and after). Agents shows only what the automatic traffic manager did; Everyone includes the team.',
+      fazer: 'Check that the changes make sense. The yellow notice leads to risky changes waiting for your approval.',
+    },
+    paceAbaixo: {
+      titulo: 'Below pace',
+      mostra: 'Clients that, at the current rate, will end the month spending less than the agreed budget.',
+      calculo: 'We add what was spent through yesterday to the last 3 days average daily spend times the days left. If that is below {p} of the budget, the client shows up here. The budget comes from the Campaign Plan or, without one, the ROI Calculator. The mark on the bar is how much should have been spent by yesterday.',
+      fazer: 'Check for balance, spending limit, paused campaign or low daily budget. The row shows how much would need to be spent per day to close the month.',
+    },
+    paceAcima: {
+      titulo: 'Above pace',
+      mostra: 'Clients that, at the current rate, will spend more than the monthly budget.',
+      calculo: 'Same math as the block next to it: spend through yesterday plus the last 3 days average times the days left. A client shows up above {p} of the budget. A very high number usually means an outdated budget in the records.',
+      fazer: 'Lower the daily budget, or agree the new amount with the client and update the budget in the Campaign Plan.',
+    },
+  },
+
   fundo: {
     rotulo: 'Bottom funnel, no conversions',
     contas: { one: 'account', other: 'accounts' },
@@ -47,6 +119,7 @@ export default {
     info: {
       botao: 'When an account shows up here',
       titulo: 'When an account shows up here',
+      mostra: 'Clients that need new ads according to the traffic playbook rules. Below, the reasons an account shows up here.',
       ctr_baixo: 'Middle or bottom-funnel campaign with link CTR below 0.5% after R$ 50 spent and 2k impressions in 7 days.',
       saturacao: 'Bottom-funnel campaign with frequency of 3.5 or more and CTR 10% lower than the previous 7 days: the audience has seen the same ads too often.',
       poucos_criativos: 'Bottom-funnel campaign with fewer than 3 active ads and R$ 30 or more spent. The playbook asks for 3 new bottom-funnel creatives a week.',

@@ -128,7 +128,12 @@ referências (bento escuro, cartões ciano/verde/amarelo/grafite). Tela em `src/
 `src/hooks/useInicial.js` (lê direto do Supabase com o token do usuário), regras puras em `src/lib/inicial.js`.
 Toda janela termina **ontem** (o dia de hoje é parcial e faria quase toda conta parecer sem conversão).
 
-- **Fundo sem conversão** (3 dias / 2 dias / ontem): por canal + conta, campanhas com `FUNDO`/`BOFU` no nome
+- **Tendência dos últimos 3 dias** (tabela no topo, filtro Todas / Queda / Alta): por canal + conta, todas as
+  campanhas, a mesma "Tend. 3d" do Dashboard (`buildStats`): 3 últimos dias fechados contra os 3 anteriores; Queda =
+  caindo dia após dia ou -25% ou mais, Alta = +20% ou mais. Colunas: conversões 3d (com as 3 barrinhas), CPL 3d em
+  vermelho/verde contra o CPL alvo, tendência e previsão do mês (conversões do mês até ontem + média dos 3 dias ×
+  dias que faltam). `tendencia3d` em `src/lib/inicial.js`: mudou a regra no Dashboard, mude aqui.
+- **Fundo sem conversão** (cartão vermelho; 3 dias / 2 dias / ontem): por canal + conta, campanhas com `FUNDO`/`BOFU` no nome
   (`ehFundo`) que gastaram na janela e somaram 0 conversões. Clique abre a conta no Dashboard.
 - **Acima do CPL alvo / Podem escalar** (7 dias / 14 dias / mês): por projeto, somando as contas vinculadas e
   tirando as campanhas de topo (`classifyFunnel`), contra o `cpl_target` da Calculadora de ROI. Escalar exige
@@ -147,6 +152,8 @@ Toda janela termina **ontem** (o dia de hoje é parcial e faria quase toda conta
   Calculadora de ROI como orçamento do mês (mesma ordem da rotina de Checagem de orçamento). Previsto =
   gasto até ontem + média dos últimos 3 dias × dias restantes; abaixo de 90% ou acima de 110% do orçamento
   entra no quadrante. Projeto sem conta vinculada visível fica de fora.
+- Todo bloco tem o ícone "i" (`InfoRegra`) com o que mostra, como calculamos e o que fazer, escrito para leigo
+  (`inicial.ajuda.*` no dicionário); no de criativos, os cinco motivos. A caixa abre para a esquerda perto da borda.
 - Conta oculta (`dashboard_accounts.hidden`) e projeto em churn não entram em nenhum quadrante.
 - Sem login: `/dev/inicial` (só em DEV) lê a fixture gitignored `src/dev/fixtures/inicial.json`, no formato de
   `dados` do hook (`planoDe`/`roiDe` como listas de pares, `projetosDev` e `criativosDev` = sugestões pendentes).

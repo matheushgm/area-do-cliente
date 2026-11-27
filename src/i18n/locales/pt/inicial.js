@@ -12,6 +12,78 @@ export default {
   janelas: { d3: '3 dias', d2: '2 dias', d1: 'Ontem', s7: '7 dias', s14: '14 dias', mes: 'Mês' },
   periodo: '{de} a {ate}',
 
+  tend: {
+    rotulo: 'Tendência dos últimos 3 dias',
+    descricao: 'Conversões e CPL de {de} a {ate}, contra os 3 dias anteriores, e onde o mês fecha nesse ritmo.',
+    todas: 'Todas',
+    queda: 'Queda',
+    alta: 'Alta',
+    estavel: 'Estável',
+    conta: 'Conta',
+    conv3: 'Conversões 3d',
+    cpl3: 'CPL 3d',
+    alvo: 'CPL alvo',
+    tendencia: 'Tendência',
+    previsao: 'Previsão do mês',
+    antes: '{n} nos 3 dias antes',
+    vazio: 'Nenhuma conta nessa tendência.',
+  },
+
+  ajuda: {
+    botao: 'Entender este bloco',
+    mostra: 'O que mostra',
+    calculo: 'Como calculamos',
+    fazer: 'O que fazer',
+    tend: {
+      titulo: 'Tendência dos últimos 3 dias',
+      mostra: 'Como cada conta de anúncio foi nos últimos 3 dias completos, comparada aos 3 dias anteriores, e quantas conversões (contatos, leads, vendas) o mês deve fechar se continuar assim.',
+      calculo: 'Somamos conversões e gasto dos 3 dias e dividimos um pelo outro para ter o CPL (quanto custou cada conversão). A tendência é a mesma do Dashboard: Queda quando as conversões caem dia após dia ou recuam 25% ou mais; Alta quando sobem mais de 20%. A previsão soma o que já entrou no mês com a média desses 3 dias vezes os dias que faltam. As barrinhas são os 3 dias, do mais antigo ao de ontem.',
+      fazer: 'Comece pelas contas em queda com o CPL em vermelho (acima da meta). Clique na linha para abrir a conta no Dashboard.',
+    },
+    fundo: {
+      titulo: 'Fundo sem conversão',
+      mostra: 'Contas em que as campanhas de fundo de funil (as que pedem o contato: formulário, WhatsApp, compra) gastaram dinheiro e não trouxeram nenhuma conversão.',
+      calculo: 'Olhamos só as campanhas com FUNDO no nome. Entra a conta que gastou e teve zero conversões nos dias escolhidos (3, 2 ou só ontem). O dia de hoje não conta porque ainda não acabou. Outras campanhas da conta podem ter convertido: por isso o Dashboard às vezes mostra conversão.',
+      fazer: 'Abrir a conta e conferir anúncio, página, formulário e o rastreamento (pixel), nessa ordem. Clique na linha para abrir no Dashboard.',
+    },
+    acimaCpl: {
+      titulo: 'Acima do CPL alvo',
+      mostra: 'Clientes pagando mais por cada contato do que a meta combinada.',
+      calculo: 'CPL é o custo por conversão: gasto dividido pelo número de conversões. Comparamos com o CPL alvo da Calculadora de ROI do cliente. Campanhas de topo (alcance e vídeo) ficam de fora, porque não existem para gerar contato. A porcentagem é quanto está acima da meta.',
+      fazer: 'Abrir o cliente e achar os anúncios e conjuntos que puxam o custo para cima. Com meta muito baixa para a realidade da conta, vale rever a meta.',
+    },
+    escala: {
+      titulo: 'Podem escalar',
+      mostra: 'Clientes em que cada contato está saindo mais barato que a meta: sinal de que dá para investir mais e trazer mais contatos.',
+      calculo: 'Mesmo CPL do bloco ao lado, só que abaixo do alvo e com pelo menos {min} conversões no período, para não confundir sorte com resultado. O "pace" mostra quanto do orçamento do mês o cliente deve gastar no ritmo atual.',
+      fazer: 'Antes de subir verba, olhe o pace: acima de 100% o orçamento já vai estourar e o aumento precisa ser combinado com o cliente. Suba no máximo 20% por vez.',
+    },
+    lp: {
+      titulo: 'Testar landing page',
+      mostra: 'Contas em que muita gente chega na página e pouca gente vira contato. O anúncio traz a visita, a página não converte.',
+      calculo: 'Taxa de conversão = conversões ÷ visitas. No Meta as visitas são as visualizações da página de destino; no Google, os cliques. Entra quem fica abaixo de {p}% com pelo menos {min} visitas no período. Campanhas de topo e de WhatsApp ficam de fora.',
+      fazer: 'Testar uma versão nova da página (título, oferta, formulário mais curto) e conferir se o formulário e o pixel registram as conversões.',
+    },
+    alteracoes: {
+      titulo: 'Alterações nas contas',
+      mostra: 'O que foi mudado nas contas a partir das sugestões da Central de Otimizações: anúncio pausado, verba de conjunto ajustada, orçamento de campanha reduzido.',
+      calculo: 'São as sugestões marcadas como executadas, com o registro do que foi feito na conta (o antes e o depois). Agentes mostra só o que o gestor de tráfego automático fez; Todos inclui o time.',
+      fazer: 'Conferir se as mudanças fazem sentido. O aviso amarelo leva às mudanças arriscadas que esperam a sua aprovação.',
+    },
+    paceAbaixo: {
+      titulo: 'Abaixo do pace',
+      mostra: 'Clientes que, no ritmo atual, vão terminar o mês gastando menos do que o orçamento combinado.',
+      calculo: 'Somamos o que já foi gasto até ontem com a média de gasto dos últimos 3 dias vezes os dias que faltam. Se o resultado for menor que {p} do orçamento, o cliente entra aqui. O orçamento vem do Planejamento de Campanhas ou, sem ele, da Calculadora de ROI. A marca na barra é quanto já devia ter sido gasto até ontem.',
+      fazer: 'Ver se é saldo, limite de gasto, campanha pausada ou verba diária baixa. A linha mostra quanto precisaria gastar por dia para fechar o mês.',
+    },
+    paceAcima: {
+      titulo: 'Acima do pace',
+      mostra: 'Clientes que, no ritmo atual, vão gastar mais do que o orçamento do mês.',
+      calculo: 'A mesma conta do bloco ao lado: gasto até ontem mais a média dos últimos 3 dias vezes os dias que faltam. Entra quem passa de {p} do orçamento. Número muito alto costuma ser orçamento desatualizado no cadastro.',
+      fazer: 'Reduzir a verba diária ou combinar o novo valor com o cliente e atualizar o orçamento no Planejamento de Campanhas.',
+    },
+  },
+
   fundo: {
     rotulo: 'Fundo sem conversão',
     contas: { one: 'conta', other: 'contas' },
@@ -47,6 +119,7 @@ export default {
     info: {
       botao: 'Quando uma conta entra aqui',
       titulo: 'Quando uma conta entra aqui',
+      mostra: 'Clientes que precisam de anúncios novos, segundo as regras do playbook de tráfego. Abaixo, os motivos que colocam uma conta aqui.',
       ctr_baixo: 'Campanha de meio ou fundo com CTR do link abaixo de 0,5%, depois de R$ 50 gastos e 2 mil impressões em 7 dias.',
       saturacao: 'Campanha de fundo com frequência de 3,5 ou mais e CTR 10% menor que nos 7 dias anteriores: o público já viu demais os mesmos anúncios.',
       poucos_criativos: 'Campanha de fundo com menos de 3 anúncios ativos e R$ 30 ou mais de gasto. O playbook pede 3 criativos novos por semana no fundo.',
