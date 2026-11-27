@@ -147,9 +147,9 @@ function InfoRegra({ tom, titulo, itens, rodape, rotuloBotao }) {
   )
 }
 
-// Cor de destaque dos cartões brancos (tom 'grafite'): o ícone, o rótulo e um ornamento no
-// canto (brilho suave, arcos finos e um filete no topo) ganham a cor do assunto do bloco. Os
-// cartões coloridos não usam. As classes ficam escritas por extenso para o Tailwind achar.
+// Cor de destaque dos cartões brancos (tom 'grafite'): o ícone e o rótulo ganham a cor do
+// assunto do bloco. Os cartões coloridos não usam. As classes ficam escritas por extenso para o
+// Tailwind achar. `rgb` ficou para quem quiser usar a cor em estilo inline.
 const ACENTOS = {
   rosa: { rgb: '244,63,94', chip: 'bg-rose-50 border-rose-100 text-rose-600 dark:bg-rose-500/10 dark:border-rose-400/20 dark:text-rose-300', rotulo: 'text-rose-600 dark:text-rose-300' },
   azul: { rgb: '42,37,240', chip: 'bg-indigo-50 border-indigo-100 text-[#2A25F0] dark:bg-indigo-500/10 dark:border-indigo-400/20 dark:text-indigo-300', rotulo: 'text-[#2A25F0] dark:text-indigo-300' },
@@ -158,34 +158,13 @@ const ACENTOS = {
   laranja: { rgb: '249,115,22', chip: 'bg-orange-50 border-orange-100 text-orange-600 dark:bg-orange-500/10 dark:border-orange-400/20 dark:text-orange-300', rotulo: 'text-orange-600 dark:text-orange-300' },
 }
 
-function Ornamento({ rgb }) {
-  const cor = (a) => `rgba(${rgb},${a})`
-  return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-[28px]">
-      {/* brilho no canto */}
-      <div className="absolute inset-0" style={{ background: `radial-gradient(520px circle at 100% 0%, ${cor(0.13)}, transparent 55%)` }} />
-      {/* arcos concêntricos, sumindo para dentro do cartão */}
-      <svg className="absolute -right-24 -top-24 w-80 h-80" viewBox="0 0 200 200" fill="none">
-        {[34, 52, 70, 88].map((r, i) => (
-          <circle key={r} cx="100" cy="100" r={r} stroke={cor(0.22 - i * 0.045)} strokeWidth="0.6" />
-        ))}
-        <circle cx="100" cy="100" r="34" fill={cor(0.05)} />
-      </svg>
-      {/* filete de luz no topo */}
-      <div className="absolute top-0 left-10 right-10 h-px" style={{ background: `linear-gradient(90deg, transparent, ${cor(0.55)}, transparent)` }} />
-    </div>
-  )
-}
-
 function Bloco({ tom, Icon, rotulo, numero, unidade, descricao, controle, children, info, acento, className = '' }) {
   const c = TONS[tom]
   const a = tom === 'grafite' && acento ? ACENTOS[acento] : null
   return (
     <section
       className={`relative flex flex-col min-w-0 rounded-[28px] p-5 sm:p-6 min-h-0 ${c.card} ${className}`}
-      style={a ? { boxShadow: `0 1px 2px rgba(16,24,40,0.04), 0 22px 48px -30px rgba(${a.rgb},0.45)` } : undefined}
     >
-      {a && <Ornamento rgb={a.rgb} />}
       <div className="relative flex flex-col flex-1 min-h-0">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <span className={`grid place-items-center w-10 h-10 rounded-full border ${a ? a.chip : c.chip}`}>
@@ -219,7 +198,7 @@ function Lista({ tom, vazio, itens, render, max = 'max-h-[340px]' }) {
 }
 
 function Esqueleto({ className = '' }) {
-  return <div className={`rounded-[28px] bg-neutral-100 border border-neutral-200 dark:bg-white/[.05] dark:border-white/[.06] animate-pulse ${className}`} />
+  return <div className={`rounded-[28px] bg-white/[.07] border border-white/10 animate-pulse ${className}`} />
 }
 
 // ─── Página ─────────────────────────────────────────────────────────────────
@@ -308,10 +287,13 @@ export default function Inicial() {
   const deFundo = dados ? somaDias(dados.hoje, -diasFundo) : null
 
   return (
-    <div className="flex-1 min-w-0 flex flex-col overflow-x-clip bg-white dark:bg-[#0A0A0B] text-neutral-900 dark:text-neutral-100">
+    <div
+      className="flex-1 min-w-0 flex flex-col overflow-x-clip bg-[#020027] text-white"
+      style={{ backgroundImage: 'radial-gradient(1100px 520px at 12% -8%, rgba(42,37,240,0.38), transparent 62%), radial-gradient(900px 480px at 100% 0%, rgba(53,49,254,0.16), transparent 60%)' }}
+    >
       {/* Top bar mobile */}
-      <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-neutral-200 dark:border-white/10 bg-white/90 dark:bg-[#0A0A0B]/90 backdrop-blur-xl">
-        <button onClick={openSidebar} aria-label={t('inicial.abrirMenu')} className="p-2 rounded-lg text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10 transition-all">
+      <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-white/10 bg-[#020027]/90 backdrop-blur-xl">
+        <button onClick={openSidebar} aria-label={t('inicial.abrirMenu')} className="p-2 rounded-lg text-indigo-100/70 hover:text-white hover:bg-white/10 transition-all">
           <Menu className="w-5 h-5" />
         </button>
         <span className="font-semibold text-sm">{t('inicial.titulo')}</span>
@@ -324,10 +306,10 @@ export default function Inicial() {
           {/* Cabeçalho */}
           <header className="flex flex-wrap items-end justify-between gap-4 mb-6">
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">{t('inicial.rotulo')}</p>
-              <h1 className="mt-1 text-3xl font-semibold tracking-tight">{t('inicial.titulo')}</h1>
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-indigo-200/70">{t('inicial.rotulo')}</p>
+              <h1 className="mt-1 text-3xl font-semibold tracking-tight text-white">{t('inicial.titulo')}</h1>
               {dados && (
-                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                <p className="mt-1 text-xs text-indigo-100/60">
                   {t('inicial.dadosAte', { data: dataCurta(ontem) })}
                   {atualizadoEm && <> · {t('inicial.atualizadoAs', { hora: atualizadoEm.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) })}</>}
                 </p>
@@ -337,7 +319,7 @@ export default function Inicial() {
               type="button"
               onClick={recarregar}
               disabled={loading}
-              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-800/80 px-3.5 py-2 text-xs font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-700 dark:hover:border-white/20 transition disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3.5 py-2 text-xs font-medium text-white hover:bg-white/15 hover:border-white/25 transition disabled:opacity-60"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               {t('inicial.atualizar')}
