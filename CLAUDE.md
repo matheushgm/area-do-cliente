@@ -153,7 +153,7 @@ Toda janela termina **ontem** (o dia de hoje é parcial e faria quase toda conta
   gasto até ontem + média dos últimos 3 dias × dias restantes; abaixo de 90% ou acima de 110% do orçamento
   entra no quadrante. Projeto sem conta vinculada visível fica de fora.
 - Todo bloco tem o ícone "i" (`InfoRegra`) com o que mostra, como calculamos e o que fazer, escrito para leigo
-  (`inicial.ajuda.*` no dicionário); no de criativos, os cinco motivos. A caixa abre para a esquerda perto da borda.
+  (`inicial.ajuda.*` no dicionário); no de criativos, os cinco motivos. A caixa anda para a esquerda o necessário para caber na tela (no celular mede pela área visível).
 - Conta oculta (`dashboard_accounts.hidden`) e projeto em churn não entram em nenhum quadrante.
 - Sem login: `/dev/inicial` (só em DEV) lê a fixture gitignored `src/dev/fixtures/inicial.json`, no formato de
   `dados` do hook (`planoDe`/`roiDe` como listas de pares, `projetosDev` e `criativosDev` = sugestões pendentes).

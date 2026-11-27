@@ -93,14 +93,18 @@ function Segmento({ tom, opcoes, valor, onChange }) {
 // fora e no Esc.
 function InfoRegra({ tom, titulo, itens, rodape, rotuloBotao }) {
   const [aberto, setAberto] = useState(false)
-  const [paraEsquerda, setParaEsquerda] = useState(false)
+  const [desloca, setDesloca] = useState(0)
   const ref = useRef(null)
   const caixa = useRef(null)
-  // Perto da borda direita da tela a caixa abre para a esquerda do ícone.
+  // A caixa nasce alinhada ao ícone e anda para a esquerda o necessário para caber
+  // na tela (perto da borda direita, e no celular), sem passar da borda esquerda.
   useLayoutEffect(() => {
     if (!aberto || !caixa.current || !ref.current) return
-    const largura = caixa.current.offsetWidth
-    setParaEsquerda(ref.current.getBoundingClientRect().left + largura > window.innerWidth - 12)
+    const x = ref.current.getBoundingClientRect().left
+    // No celular a própria caixa alarga o layout (innerWidth cresce): vale a área visível.
+    const tela = Math.min(window.innerWidth, window.visualViewport?.width || Infinity, document.documentElement.clientWidth)
+    const alvo = Math.max(8, Math.min(x, tela - 8 - caixa.current.offsetWidth))
+    setDesloca(alvo - x)
   }, [aberto])
   useEffect(() => {
     if (!aberto) return undefined
@@ -124,7 +128,7 @@ function InfoRegra({ tom, titulo, itens, rodape, rotuloBotao }) {
         <Info className="w-3 h-3" />
       </button>
       {aberto && (
-        <span ref={caixa} role="dialog" className={`absolute ${paraEsquerda ? 'right-0' : 'left-0'} top-7 z-30 w-[min(360px,80vw)] rounded-2xl border border-white/10 bg-[#141416]/95 p-4 text-left normal-case tracking-normal text-neutral-200 shadow-2xl backdrop-blur`}>
+        <span ref={caixa} role="dialog" style={{ left: desloca }} className={`absolute top-7 z-30 w-[min(360px,80vw)] rounded-2xl border border-white/10 bg-[#141416]/95 p-4 text-left normal-case tracking-normal text-neutral-200 shadow-2xl backdrop-blur`}>
           <span className="block text-xs font-semibold text-white">{titulo}</span>
           <span className="mt-2.5 block space-y-2.5">
             {itens.map((it) => (
@@ -265,7 +269,7 @@ export default function Inicial() {
   const deFundo = dados ? somaDias(dados.hoje, -diasFundo) : null
 
   return (
-    <div className="flex-1 min-w-0 flex flex-col bg-[#0A0A0B] text-neutral-100">
+    <div className="flex-1 min-w-0 flex flex-col overflow-x-clip bg-[#0A0A0B] text-neutral-100">
       {/* Top bar mobile */}
       <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-white/10 bg-[#0A0A0B]/90 backdrop-blur-xl">
         <button onClick={openSidebar} aria-label={t('inicial.abrirMenu')} className="p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10 transition-all">
