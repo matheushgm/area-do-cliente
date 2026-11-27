@@ -38,6 +38,29 @@ export default {
     pace: 'pace {p}',
   },
 
+  criativos: {
+    rotulo: 'Need new creatives',
+    descricao: 'Pending playbook suggestions in the Optimization Hub that call for a new creative.',
+    vazio: 'No account with a pending creative suggestion.',
+    carregando: 'Reading the last 20 days of ads...',
+    sugestoes: { one: 'suggestion', other: 'suggestions' },
+    motivos: {
+      ctr_baixo: 'Low CTR',
+      saturacao: 'Saturation',
+      poucos_criativos: 'Few bottom-funnel creatives',
+      topo_gancho: 'Weak top-funnel hook',
+      ad_trocar: 'Replace last ad',
+    },
+  },
+
+  lp: {
+    rotulo: 'Test the landing page',
+    descricao: 'Page converting below {p}% from {de} to {ate}, with {min}+ visits. Meta: conversions ÷ landing page views. Google: conversions ÷ clicks. Top funnel excluded.',
+    vazio: 'No page below 5% with enough volume in this period.',
+    linhaMeta: '{c} conv. from {v} visits',
+    linhaGoogle: '{c} conv. from {v} clicks',
+  },
+
   alteracoes: {
     rotulo: 'Account changes',
     agentes: 'Agents',

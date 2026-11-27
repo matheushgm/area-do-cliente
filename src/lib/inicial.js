@@ -242,3 +242,78 @@ export function alteracoes(rows = []) {
     }
   })
 }
+
+// ─── Precisam de criativos ──────────────────────────────────────────────────
+// Sugestões pendentes do playbook (as mesmas da Central de Otimizações, geradas por
+// gerarSugestoesProjeto) do tipo "Subir Criativo": CTR baixo, saturação, poucos
+// criativos no fundo, gancho fraco no topo e troca do último anúncio do conjunto.
+// A chave é "regra:entidade", com o prefixo "conta|" quando o projeto tem várias contas.
+export const MOTIVOS_CRIATIVO = ['ctr_baixo', 'saturacao', 'poucos_criativos', 'topo_gancho', 'ad_trocar']
+export function motivoDaChave(chave) {
+  const semConta = String(chave || '').split('|').pop()
+  return semConta.split(':')[1] || null
+}
+
+export function precisamDeCriativo(sugestoes = [], { churn = new Set() } = {}) {
+  const porProjeto = new Map()
+  for (const s of sugestoes) {
+    if (s.tipo !== 'Subir Criativo' || !s.projectId || churn.has(s.projectId)) continue
+    const g = porProjeto.get(s.projectId) || { projectId: s.projectId, total: 0, motivos: new Map(), contas: new Set(), canais: new Set(), campanhas: [], urgente: false }
+    g.total += 1
+    const m = motivoDaChave(s.chave) || 'outro'
+    g.motivos.set(m, (g.motivos.get(m) || 0) + 1)
+    if (s.conta) g.contas.add(s.conta)
+    if (s.canal) g.canais.add(s.canal)
+    const camp = s.caminho?.campanha
+    if (camp && !g.campanhas.includes(camp)) g.campanhas.push(camp)
+    if (s.prioridade === 'urgente' || s.prioridade === 'alta') g.urgente = true
+    porProjeto.set(s.projectId, g)
+  }
+  return [...porProjeto.values()]
+    .map((g) => ({ ...g, motivos: [...g.motivos.entries()].sort((a, b) => b[1] - a[1]), contas: [...g.contas], canais: [...g.canais].sort() }))
+    .sort((a, b) => Number(b.urgente) - Number(a.urgente) || b.total - a.total)
+}
+
+// ─── Precisam de teste de landing page ──────────────────────────────────────
+// Taxa de conversão da página abaixo de TAXA_LP_MIN, por canal + conta, sem as
+// campanhas de topo. Meta: conversões da campanha ÷ visualizações da página de
+// destino, só nas campanhas que levam para site (com visualização de página);
+// WhatsApp, formulário instantâneo e perfil ficam de fora sozinhos. Google:
+// conversões ÷ cliques, a mesma taxa da regra de landing page do playbook. Precisa
+// de volume mínimo (MIN_VISITAS_LP visitas ou cliques) para a taxa valer.
+export const TAXA_LP_MIN = 5
+export const MIN_VISITAS_LP = 100
+
+export function landingPagesAbaixo(linhas, { de, ate, contas }) {
+  const acc = new Map()
+  for (const r of linhas) {
+    if (r.day < de || r.day > ate) continue
+    if (classifyFunnel(r.campaign) === 'topo') continue
+    const visitas = r.channel === 'meta' ? n(r.lpv) : n(r.clicks)
+    if (visitas <= 0) continue
+    const chave = r.channel + '|' + r.account
+    const a = acc.get(chave) || { chave, canal: r.channel, conta: r.account, visitas: 0, conv: 0, gasto: 0, campanhas: new Map() }
+    a.visitas += visitas; a.conv += n(r.conv); a.gasto += n(r.spend)
+    const c = a.campanhas.get(r.campaign) || { nome: r.campaign, visitas: 0, conv: 0 }
+    c.visitas += visitas; c.conv += n(r.conv)
+    a.campanhas.set(r.campaign, c)
+    acc.set(chave, a)
+  }
+  const out = []
+  for (const a of acc.values()) {
+    if (a.visitas < MIN_VISITAS_LP) continue
+    const taxa = (a.conv / a.visitas) * 100
+    if (taxa >= TAXA_LP_MIN) continue
+    // Campanha que mais puxa a taxa para baixo: a de mais visitas abaixo do mínimo.
+    const piores = [...a.campanhas.values()]
+      .map((c) => ({ ...c, taxa: c.visitas > 0 ? (c.conv / c.visitas) * 100 : null }))
+      .filter((c) => c.taxa != null && c.taxa < TAXA_LP_MIN)
+      .sort((x, y) => y.visitas - x.visitas)
+    out.push({
+      chave: a.chave, canal: a.canal, conta: a.conta,
+      projectId: contas.get(a.conta?.trim())?.projectId || null,
+      visitas: a.visitas, conv: a.conv, gasto: a.gasto, taxa, piores,
+    })
+  }
+  return out.sort((x, y) => x.taxa - y.taxa || y.visitas - x.visitas)
+}

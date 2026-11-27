@@ -38,6 +38,29 @@ export default {
     pace: 'pace {p}',
   },
 
+  criativos: {
+    rotulo: 'Precisam de criativos',
+    descricao: 'Sugestões do playbook pendentes na Central de Otimizações que pedem criativo novo.',
+    vazio: 'Nenhuma conta com sugestão de criativo pendente.',
+    carregando: 'Lendo os anúncios dos últimos 20 dias...',
+    sugestoes: { one: 'sugestão', other: 'sugestões' },
+    motivos: {
+      ctr_baixo: 'CTR baixo',
+      saturacao: 'Saturação',
+      poucos_criativos: 'Poucos criativos no fundo',
+      topo_gancho: 'Gancho fraco no topo',
+      ad_trocar: 'Trocar último anúncio',
+    },
+  },
+
+  lp: {
+    rotulo: 'Testar landing page',
+    descricao: 'Página convertendo abaixo de {p}% de {de} a {ate}, com {min}+ visitas. Meta: conversões ÷ visualizações da página. Google: conversões ÷ cliques. Sem topo.',
+    vazio: 'Nenhuma página abaixo de 5% com volume no período.',
+    linhaMeta: '{c} conv. em {v} visitas',
+    linhaGoogle: '{c} conv. em {v} cliques',
+  },
+
   alteracoes: {
     rotulo: 'Alterações nas contas',
     agentes: 'Agentes',

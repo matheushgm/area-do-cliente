@@ -133,6 +133,14 @@ Toda janela termina **ontem** (o dia de hoje é parcial e faria quase toda conta
 - **Acima do CPL alvo / Podem escalar** (7 dias / 14 dias / mês): por projeto, somando as contas vinculadas e
   tirando as campanhas de topo (`classifyFunnel`), contra o `cpl_target` da Calculadora de ROI. Escalar exige
   CPL abaixo da meta e pelo menos `MIN_CONV_ESCALA` (3) conversões; a linha mostra o pace do projeto.
+- **Precisam de criativos:** as sugestões pendentes do playbook do tipo "Subir Criativo" (CTR baixo, saturação,
+  poucos criativos no fundo, gancho fraco no topo, trocar o último anúncio do conjunto), lidas pelo mesmo
+  `useSugestoesGlobais` da Central de Otimizações (20 dias por anúncio, cache local compartilhado). O componente
+  `CriativosAoVivo` carrega à parte para não segurar os outros blocos.
+- **Testar landing page** (7 dias / 14 dias / mês): por canal + conta, sem topo, taxa abaixo de `TAXA_LP_MIN` (5%)
+  com pelo menos `MIN_VISITAS_LP` (100) visitas. Meta = conversões ÷ visualizações da página de destino (só
+  campanhas com visualização de página, então WhatsApp e formulário ficam de fora); Google = conversões ÷ cliques.
+  Não há URL da página nos dados, por isso a linha cita a campanha com mais visitas abaixo de 5%.
 - **Alterações nas contas:** `projeto_sugestoes` com `execucao_status = 'executada'` (30 dias), com o texto do
   `execucao_log.agente.acoes`; filtro Agentes/Todos e Hoje/7/30 dias; botão para o Crítico das Otimizações.
 - **Pace:** orçamento = Planejamento de Campanhas (1ª conta) quando o período dele vale hoje, senão a
@@ -141,7 +149,7 @@ Toda janela termina **ontem** (o dia de hoje é parcial e faria quase toda conta
   entra no quadrante. Projeto sem conta vinculada visível fica de fora.
 - Conta oculta (`dashboard_accounts.hidden`) e projeto em churn não entram em nenhum quadrante.
 - Sem login: `/dev/inicial` (só em DEV) lê a fixture gitignored `src/dev/fixtures/inicial.json`, no formato de
-  `dados` do hook (`planoDe`/`roiDe` como listas de pares e `projetosDev`).
+  `dados` do hook (`planoDe`/`roiDe` como listas de pares, `projetosDev` e `criativosDev` = sugestões pendentes).
 
 #### Deep-link das seções do cliente
 

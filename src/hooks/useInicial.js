@@ -11,7 +11,7 @@ import { hojeSP, somaDias, inicioDoMes } from '../lib/inicial'
 // conta as linhas e pede as páginas em paralelo.
 
 const PAGINA = 1000
-const COLS_DASH = 'channel,account,day,campaign,spend,conv'
+const COLS_DASH = 'channel,account,day,campaign,spend,conv,clicks,lpv'
 
 async function lerDashDaily(desde) {
   const base = () => supabase.from('dash_daily').select(COLS_DASH, { count: 'exact' }).gte('day', desde)

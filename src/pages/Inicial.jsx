@@ -2,17 +2,20 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import {
   Menu, RefreshCw, TrendingUp, TrendingDown, Gauge, Bot, ArrowUpRight,
-  ZapOff, Rocket, History, AlertTriangle, User,
+  ZapOff, Rocket, History, AlertTriangle, User, Palette, MousePointerClick, Loader2,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useI18n } from '../i18n'
 import { useInicial } from '../hooks/useInicial'
+import { useDashboardData } from '../hooks/useDashboardData'
+import { useSugestoesGlobais } from '../hooks/useSugestoesGlobais'
 import { cliente as pathCliente } from '../routes/paths'
 import { fmtCurrency } from '../lib/utils'
 import {
   somaDias, mapaDeContas, linhasValidas, fundoSemConversao, janelaCpl, cplPorProjeto,
   acimaDoCpl, escalaveis, MIN_CONV_ESCALA, orcamentoVigente, paceDosProjetos,
   abaixoDoPace, acimaDoPace, PACE_MIN, PACE_MAX, alteracoes,
+  precisamDeCriativo, landingPagesAbaixo, TAXA_LP_MIN, MIN_VISITAS_LP,
 } from '../lib/inicial'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -53,6 +56,12 @@ const TONS = {
     chip: 'bg-yellow-950/10 border-yellow-950/15', eyebrow: 'text-yellow-950/70', sub: 'text-yellow-950/75',
     linha: 'bg-yellow-950/[.07] hover:bg-yellow-950/[.12] border-yellow-950/10', fraco: 'text-yellow-950/65',
     seg: 'bg-yellow-950/10 border-yellow-950/15', segOn: 'bg-yellow-950 text-yellow-50', segOff: 'text-yellow-950/70 hover:text-yellow-950',
+  },
+  violeta: {
+    card: 'bg-[#5B4FD6] text-white shadow-[0_20px_60px_-25px_rgba(91,79,214,0.75)]',
+    chip: 'bg-white/15 border-white/25', eyebrow: 'text-indigo-50/85', sub: 'text-indigo-50/85',
+    linha: 'bg-white/10 hover:bg-white/[.16] border-white/10', fraco: 'text-indigo-50/75',
+    seg: 'bg-black/15 border-white/20', segOn: 'bg-white text-[#3F35A8]', segOff: 'text-indigo-50/85 hover:text-white',
   },
   grafite: {
     card: 'bg-gradient-to-br from-white/[.09] to-white/[.03] text-neutral-100 border border-white/10 backdrop-blur',
@@ -125,6 +134,7 @@ export default function Inicial() {
 
   const [diasFundo, setDiasFundo] = useState(3)
   const [janela, setJanela] = useState('7d')
+  const [janelaLp, setJanelaLp] = useState('14d')
   const [quemAlt, setQuemAlt] = useState('agentes')
   const [periodoAlt, setPeriodoAlt] = useState(7)
   const [limiteAlt, setLimiteAlt] = useState(50)
@@ -160,6 +170,9 @@ export default function Inicial() {
   const cpl = useMemo(() => base ? cplPorProjeto(base.linhas, { ...jan, contas: base.contas, metas: base.metas }) : [], [base, jan])
   const acima = useMemo(() => acimaDoCpl(cpl), [cpl])
   const escala = useMemo(() => escalaveis(cpl), [cpl])
+  const janLp = useMemo(() => dados ? janelaCpl(janelaLp, dados.hoje) : null, [janelaLp, dados])
+  const lps = useMemo(() => base ? landingPagesAbaixo(base.linhas, { ...janLp, contas: base.contas }) : [], [base, janLp])
+  const churnSet = useMemo(() => new Set([...projetos].filter(([, p]) => p.churn).map(([id]) => id)), [projetos])
   const paceAbaixo = useMemo(() => base ? abaixoDoPace(base.pace) : [], [base])
   const paceAcima = useMemo(() => base ? acimaDoPace(base.pace) : [], [base])
 
@@ -180,6 +193,7 @@ export default function Inicial() {
   const abrirCliente = (id) => id && navigate(pathCliente(id))
   const abrirDash = (conta, canal) => navigate(`/dashboard?cliente=${encodeURIComponent(conta)}&canal=${canal}`)
 
+  const comum = { t, nomeProjeto, abrirCliente, navigate }
   const ontem = dados ? somaDias(dados.hoje, -1) : null
   const deFundo = dados ? somaDias(dados.hoje, -diasFundo) : null
 
@@ -368,7 +382,52 @@ export default function Inicial() {
                 </Bloco>
               </div>
 
-              {/* ── Linha 2: alterações nas contas ── */}
+              {/* ── Linha 2: precisam de criativos · precisam de teste de LP ── */}
+              <div className="grid gap-4 lg:grid-cols-2">
+                {dados.criativosDev
+                  ? <BlocoCriativos sugestoes={dados.criativosDev} loading={false} churn={churnSet} {...comum} />
+                  : <CriativosAoVivo churn={churnSet} {...comum} />}
+                <Bloco
+                  tom="grafite"
+                  Icon={MousePointerClick}
+                  rotulo={t('inicial.lp.rotulo')}
+                  numero={lps.length}
+                  unidade={t('inicial.fundo.contas', { count: lps.length })}
+                  descricao={t('inicial.lp.descricao', { p: TAXA_LP_MIN, min: MIN_VISITAS_LP, de: dataCurta(janLp.de), ate: dataCurta(janLp.ate) })}
+                  controle={<SeletorJanela tom="grafite" valor={janelaLp} onChange={setJanelaLp} t={t} />}
+                >
+                  <Lista
+                    tom="grafite"
+                    vazio={t('inicial.lp.vazio')}
+                    itens={lps}
+                    render={(l) => {
+                      const nomeCli = nomeProjeto(l.projectId)
+                      const pior = l.piores[0]
+                      return (
+                        <li key={l.chave}>
+                          <button type="button" onClick={() => abrirDash(l.conta, l.canal)} title={t('inicial.fundo.abrirDash')}
+                            className={`w-full text-left flex items-center gap-3 rounded-2xl border px-3 py-2.5 transition ${TONS.grafite.linha}`}>
+                            <span className="grid place-items-center w-7 h-7 rounded-full bg-white shrink-0"><CanalLogo canal={l.canal} className="w-3.5 h-3.5" /></span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-medium truncate">{nomeCli || l.conta}</span>
+                              <span className="block text-[11px] text-neutral-400 truncate">
+                                {nomeCli && nomeCli !== l.conta ? `${l.conta} · ` : ''}
+                                {t(l.canal === 'meta' ? 'inicial.lp.linhaMeta' : 'inicial.lp.linhaGoogle', { v: Math.round(l.visitas).toLocaleString(locale), c: Math.round(l.conv).toLocaleString(locale) })}
+                                {pior && l.piores.length > 0 && ` · ${pior.nome}`}
+                              </span>
+                            </span>
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${l.taxa < TAXA_LP_MIN / 2 ? 'bg-rose-500/15 text-rose-300' : 'bg-amber-400/15 text-amber-300'}`}>
+                              {l.taxa.toLocaleString(locale, { maximumFractionDigits: 1, minimumFractionDigits: 1 })}%
+                            </span>
+                          </button>
+                        </li>
+                      )
+                    }}
+                  />
+                </Bloco>
+              </div>
+
+              {/* ── Linha 3: alterações nas contas ── */}
               <Bloco
                 tom="grafite"
                 Icon={History}
@@ -459,7 +518,7 @@ export default function Inicial() {
                 )}
               </Bloco>
 
-              {/* ── Linha 3: pace abaixo · pace acima ── */}
+              {/* ── Linha 4: pace abaixo · pace acima ── */}
               <div className="grid gap-4 lg:grid-cols-2">
                 <Bloco
                   tom="amarelo"
@@ -547,5 +606,80 @@ function LinhaPace({ p, tom, nome, onClick, t, brl, acima = false }) {
         </span>
       </button>
     </li>
+  )
+}
+
+// ─── Precisam de criativos ──────────────────────────────────────────────────
+// Lê as sugestões pendentes do playbook pelo mesmo hook da Central de Otimizações
+// (20 dias de dados por anúncio, no cache local compartilhado com o /otimizacoes).
+// Fica num componente à parte para os outros blocos não esperarem essa leitura.
+function CriativosAoVivo(props) {
+  const dash = useDashboardData({ source: 'api', dias: 20, status: true })
+  const sg = useSugestoesGlobais(dash)
+  return <BlocoCriativos sugestoes={sg.pendentes} loading={sg.loading} erro={sg.erro} {...props} />
+}
+
+const ROTULO_MOTIVO = {
+  ctr_baixo: 'inicial.criativos.motivos.ctr_baixo',
+  saturacao: 'inicial.criativos.motivos.saturacao',
+  poucos_criativos: 'inicial.criativos.motivos.poucos_criativos',
+  topo_gancho: 'inicial.criativos.motivos.topo_gancho',
+  ad_trocar: 'inicial.criativos.motivos.ad_trocar',
+}
+
+function BlocoCriativos({ sugestoes, loading, erro, churn, t, nomeProjeto, abrirCliente, navigate }) {
+  const lista = useMemo(() => precisamDeCriativo(sugestoes || [], { churn }), [sugestoes, churn])
+  const vazio = loading && !lista.length
+  return (
+    <Bloco
+      tom="violeta"
+      Icon={Palette}
+      rotulo={t('inicial.criativos.rotulo')}
+      numero={vazio ? null : lista.length}
+      unidade={t('inicial.cpl.clientes', { count: lista.length })}
+      descricao={t('inicial.criativos.descricao')}
+      controle={(
+        <button type="button" onClick={() => navigate('/otimizacoes')}
+          className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] font-medium hover:bg-white/20 transition">
+          {t('inicial.alteracoes.abrirCentral')}<ArrowUpRight className="w-3 h-3" />
+        </button>
+      )}
+    >
+      {vazio ? (
+        <p className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-white/20 px-4 py-6 text-xs text-indigo-50/80">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />{t('inicial.criativos.carregando')}
+        </p>
+      ) : erro && !lista.length ? (
+        <p className="rounded-2xl border border-dashed border-white/20 px-4 py-6 text-center text-xs text-indigo-50/80">{t('inicial.erro', { msg: erro })}</p>
+      ) : (
+        <Lista
+          tom="violeta"
+          vazio={t('inicial.criativos.vazio')}
+          itens={lista}
+          render={(g) => (
+            <li key={g.projectId}>
+              <button type="button" onClick={() => abrirCliente(g.projectId)}
+                className={`w-full text-left flex items-center gap-3 rounded-2xl border px-3 py-2.5 transition ${TONS.violeta.linha}`}>
+                <Canais canais={g.canais} claro />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium truncate">{nomeProjeto(g.projectId) || g.contas[0] || '-'}</span>
+                  <span className="mt-1 flex flex-wrap gap-1">
+                    {g.motivos.map(([m, n]) => (
+                      <span key={m} className="rounded-full bg-white/15 px-1.5 py-px text-[10px] text-indigo-50">
+                        {ROTULO_MOTIVO[m] ? t(ROTULO_MOTIVO[m]) : m}{n > 1 ? ` ×${n}` : ''}
+                      </span>
+                    ))}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className="block text-sm font-semibold tabular-nums">{g.total}</span>
+                  <span className="block text-[10px] text-indigo-50/75">{t('inicial.criativos.sugestoes', { count: g.total })}</span>
+                </span>
+              </button>
+            </li>
+          )}
+        />
+      )}
+    </Bloco>
   )
 }
