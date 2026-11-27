@@ -30,11 +30,14 @@ function cliente({ url, key }) {
   // estourar o statement timeout (57014) ou voltar 5xx. Foi o que travou o motor em 24/11 às
   // 18h e em 25/11 às 08h14 (SP). Espera e tenta de novo em vez de derrubar o cálculo.
   const ESPERAS = [3000, 8000, 20000, 40000]
-  async function pagina(caminho, de) {
+  // `corpo` presente = chamada de RPC (POST, resposta inteira, sem paginar).
+  async function pagina(caminho, de, corpo) {
     for (let tentativa = 0; ; tentativa++) {
       let r, erro
       try {
-        r = await fetch(base + caminho, { headers: { ...headers, Range: `${de}-${de + 999}`, 'Range-Unit': 'items' } })
+        r = corpo === undefined
+          ? await fetch(base + caminho, { headers: { ...headers, Range: `${de}-${de + 999}`, 'Range-Unit': 'items' } })
+          : await fetch(base + caminho, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) })
         if (r.ok) return r.json()
         erro = `${r.status} ${(await r.text()).slice(0, 300)}`
       } catch (e) {
@@ -54,7 +57,8 @@ function cliente({ url, key }) {
       if (lote.length < 1000) return out
     }
   }
-  return { todas }
+  const rpc = (nome, corpo = {}) => pagina(`rpc/${nome}`, 0, corpo)
+  return { todas, rpc }
 }
 
 // Igual ao toCSV de /api/dash-data + parseCSV do front: todo valor vira texto aparado.
@@ -84,7 +88,8 @@ export async function calcularOtimizacoes({ url, key }) {
   const [metaRaw, googleRaw, statusRaw, contasRows, projRows, cplRows, decisoes, projetos] = await Promise.all([
     lerCanal('meta'),
     lerCanal('google'),
-    sb.todas('dash_insights?channel=eq.meta_status&select=data&order=row_key.asc').then((r) => r.map((x) => x.data)),
+    // Só o orçamento de campanhas/conjuntos (migration 150), não o snapshot inteiro de status.
+    sb.rpc('dash_orcamentos_meta').then((r) => (Array.isArray(r) ? r : [])),
     sb.todas('dashboard_accounts_public?select=account_name,project_id,squad_id,clickup_folder_id,hidden'),
     sb.todas('dashboard_projects_public?select=id,company_name,squad_name,clickup_folder_id'),
     sb.todas('cpl_targets_public?select=company_name,cpl_target,cac_target,mql_target,metrica_formulario'),

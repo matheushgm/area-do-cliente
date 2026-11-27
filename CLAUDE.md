@@ -709,6 +709,16 @@ linhas de cada conta), que importa a cópia `public/dash-teste/vendor/dashCache.
   quando o dela está a até 7 h dele (senão o próprio, para entidade que saiu do Meta não passar por atual), e o
   "Conferido em" do status usa esse campo. A instância (Micro, 1 GB) já usava swap 18 min depois de reiniciar em
   26/11: a `dash_insights` (563 MB) não cabe no cache, então ler menos dela é o próximo passo.
+  **Leitura espalhada (migration 150, 27/11):** com o saldo de Disk IO já em 99%, sobravam ~400 MB de swap e picos de
+  timeout com 5 a 6 páginas em paralelo. Os dados estavam espalhados: o `meta_status` (2,6 MB) ocupava 5.209 páginas
+  (41 MB lidos) e os 20 dias da Meta, 10.228 (80 MB). A 150 (a) cria a RPC `dash_orcamentos_meta(p_contas)`, que
+  devolve só campanha/conjunto com orçamento (1.564 linhas, 186 kB) com os campos de `orcamentosDoStatus`: o
+  `useDashboardData({ status: true })` e o `scripts/otimizacoes_pendentes.mjs` leem por ela em vez do snapshot inteiro
+  (~200 leituras/dia; motor conferido idêntico: 51 pendentes e 177 vigentes); (b) põe `fillfactor = 85` e a tabela foi
+  reescrita com `CLUSTER ... USING dash_insights_channel_day_rowkey_idx` (1,5 min com a tabela travada; rodar fora do
+  minuto 17). Depois: status em 542 páginas (4,3 MB), 20 dias da Meta em 5.271 (41 MB). O fillfactor deixa o UPDATE
+  do coletor na mesma página (HOT), então a ordem se mantém; se a dispersão voltar (conferir com
+  `count(distinct (ctid::text::point)[0])` por canal), rodar o CLUSTER de novo.
 - **Página do cliente:** a lista de TODAS as contas (`dash_accounts_public`) só é lida quando o
   seletor "+ vincular conta" abre (`carregarTodasContas` do `useDashboardData`); os canais das
   contas do projeto vêm de 1 linha por conta e canal no `dash_daily` (opção `canais`, só a seção
@@ -2050,7 +2060,7 @@ Atas) foi removida em 2026-10-26 a pedido do Matheus. Abaixo de `xl` as colunas 
   dividindo o gasto ficam cada um abaixo de 2× a meta. Fora: campanha com 1 conjunto ativo, CBO e conjunto
   já em `conj_desligar`. ABO/CBO e a verba diária vêm do snapshot `meta_status` (`orcamentosDoStatus` →
   parâmetro `orcamentos` de `gerarSugestoes*`, `metaStatus` em `gerarSugestoesProjeto`): o
-  `useDashboardData({ status: true })` lê o snapshot em segundo plano (`dash.metaStatus`; ligado na home,
+  `useDashboardData({ status: true })` lê o orçamento do snapshot em segundo plano, pela RPC `dash_orcamentos_meta` (migration 150) (`dash.metaStatus`; ligado na home,
   em /otimizacoes e na página do cliente) e o viewer monta o mapa do `state.statusSnap` da conta. Sem
   snapshot, só campanha com ABO no nome entra (e o cartão sai sem os valores em reais). A sugestão leva
   `remanejar: { de, para, valor, pct }` no payload; fica fora de `REGRA_AUTOMATICA` (`manual`).

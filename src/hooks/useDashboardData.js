@@ -79,8 +79,8 @@ async function loadSheets(source = 'sheets', { accountNames = null, dias = null 
 //   canais    (só com 'api' + projectId) preenche `accountChannels` das contas do
 //             projeto; a lista de TODAS as contas (seletor "+ vincular conta") só vem
 //             com carregarTodasContas(). Só a seção Resultados de Tráfego usa os dois.
-//   status    (só com 'api') também lê o snapshot `meta_status` (orçamento ABO/CBO e
-//             verba diária de AGORA por campanha/conjunto) em `metaStatus`. Chega depois
+//   status    (só com 'api') também lê, pela RPC `dash_orcamentos_meta`, o orçamento ABO/CBO e a
+//             verba diária de AGORA por campanha/conjunto (do snapshot `meta_status`) em `metaStatus`. Chega depois
 //             das linhas, sem segurar o loading; null até chegar. Usado pelas Otimizações
 //             (regra de remanejar verba entre conjuntos).
 export function useDashboardData({ source = 'sheets', projectId = null, dias = null, linhas = true, canais = false, status = false } = {}) {
@@ -178,11 +178,13 @@ export function useDashboardData({ source = 'sheets', projectId = null, dias = n
     let vivo = true
     ;(async () => {
       try {
-        const p = new URLSearchParams({ channel: 'meta_status' })
-        if (contasDoStatus !== '*') contasDoStatus.split('\u0001').forEach(a => p.append('account', a))
-        const r = await fetch('/api/dash-data?' + p.toString(), { headers: { Authorization: `Bearer ${(await sessionToken()) || ''}` } })
-        if (!r.ok) throw new Error('HTTP ' + r.status)
-        const rows = parseCSV(await r.text())
+        // Só as campanhas/conjuntos com orçamento (RPC da migration 150), não o snapshot
+        // inteiro: o motor lê apenas isso (orcamentosDoStatus). ~1,5 mil linhas contra 7,7 mil.
+        const { data, error } = await supabase.rpc('dash_orcamentos_meta', {
+          p_contas: contasDoStatus === '*' ? null : contasDoStatus.split('\u0001'),
+        })
+        if (error) throw new Error(error.message)
+        const rows = Array.isArray(data) ? data : []
         if (vivo && mounted.current) setMetaStatus(rows)
       } catch (e) {
         console.warn('Status Meta (orçamento) não carregou:', e.message)
