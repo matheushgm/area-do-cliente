@@ -1,5 +1,6 @@
 export default {
   internalTool: 'Internal Tool',
+  inicial: 'Home',
   clientes: 'Clients',
   dashboard: 'Dashboard',
   secoes: {

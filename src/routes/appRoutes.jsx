@@ -9,6 +9,9 @@ import AppLayout from './AppLayout'
 // gravados na coluna `link` das notificações (NotificationCenter navega pra lá
 // sem passar por nenhum código nosso) — esses ganham redirect.
 
+// ── Inicial (página de entrada) ─────────────────────────────
+const Inicial = lazy(() => import('../pages/Inicial'))
+
 // ── Clientes ───────────────────────────────────────────────
 const Dashboard = lazy(() => import('../pages/Dashboard'))
 const NewOnboarding = lazy(() => import('../pages/NewOnboarding'))
@@ -53,6 +56,7 @@ const DevGantt = lazy(() => import('../pages/DevGantt'))
 const DevSprints = lazy(() => import('../pages/DevSprints'))
 const DevTestesAB = lazy(() => import('../pages/DevTestesAB'))
 const DevHoras = lazy(() => import('../pages/DevHoras'))
+const DevInicial = lazy(() => import('../pages/DevInicial'))
 
 export const appRoutes = [
   // Páginas com a sidebar global: o AppLayout monta a AppSidebar uma vez e
@@ -60,6 +64,7 @@ export const appRoutes = [
   // /cliente/:id, /cliente/novo) tem navegação própria.
   <Route key="shell" element={<RequireAuth><AppLayout /></RequireAuth>}>
     <Route key="home" path="/" element={<Dashboard />} />
+    <Route key="inicial" path="/inicial" element={<Inicial />} />
 
     <Route key="tarefas" path="/tarefas" element={<Tarefas />} />
     <Route key="otimizacoes" path="/otimizacoes" element={<Otimizacoes />} />
@@ -116,6 +121,7 @@ export const appRoutes = [
   ...(import.meta.env.DEV
     ? [
         <Route key="dev-hub" path="/dev/hub" element={<DevHub />} />,
+        <Route key="dev-inicial" path="/dev/inicial" element={<DevInicial />} />,
         <Route key="dev-editor" path="/dev/editor" element={<DevEditor />} />,
         <Route key="dev-lista" path="/dev/lista" element={<DevLista />} />,
         <Route key="dev-templates" path="/dev/templates" element={<DevTemplates />} />,

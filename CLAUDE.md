@@ -93,6 +93,7 @@ passar por código nosso); essas ganham redirect em `legacyRedirects.jsx`.
 
 | Rota | Página | Observação |
 |---|---|---|
+| `/inicial` | `Inicial` | página de entrada (1º item da sidebar; login e OAuth caem aqui): pendências do dia num bento escuro, ver "Página Inicial" |
 | `/` | `Dashboard` | lista de clientes; o filtro mora na URL (`/?lista=novos\|churn`); `/?visao=crescimento[&mes=yyyy-mm&aba=novos\|churn]` troca a lista pela tela de crescimento da base (`CrescimentoView`) |
 | `/cliente/novo` | `NewOnboarding` | criação de projeto |
 | `/cliente/:id/:secao?` | `ProjectDetail` → `ClientProfile` | sem seção = hub |
@@ -119,6 +120,28 @@ tokens, um por valor original, para o claro continuar idêntico.
 estourava a tela. Mantenha o `min-w-0`. Desde 2026-10-26 ele não tem mais `max-w-[1800px]`: a página
 ocupa a tela toda em monitores grandes. A coluna esquerda do `ClientProfile` tem 340px entre `xl` e
 `2xl`, 380px acima e 420px a partir de 2200px; a central ocupa o resto.
+
+#### Página Inicial (`/inicial`, 2026-11-27)
+
+Página de entrada da operação, pedida pelo Matheus no visual da referência `cool-dashboard` do Banco de
+referências (bento escuro, cartões ciano/verde/amarelo/grafite). Tela em `src/pages/Inicial.jsx`, dados em
+`src/hooks/useInicial.js` (lê direto do Supabase com o token do usuário), regras puras em `src/lib/inicial.js`.
+Toda janela termina **ontem** (o dia de hoje é parcial e faria quase toda conta parecer sem conversão).
+
+- **Fundo sem conversão** (3 dias / 2 dias / ontem): por canal + conta, campanhas com `FUNDO`/`BOFU` no nome
+  (`ehFundo`) que gastaram na janela e somaram 0 conversões. Clique abre a conta no Dashboard.
+- **Acima do CPL alvo / Podem escalar** (7 dias / 14 dias / mês): por projeto, somando as contas vinculadas e
+  tirando as campanhas de topo (`classifyFunnel`), contra o `cpl_target` da Calculadora de ROI. Escalar exige
+  CPL abaixo da meta e pelo menos `MIN_CONV_ESCALA` (3) conversões; a linha mostra o pace do projeto.
+- **Alterações nas contas:** `projeto_sugestoes` com `execucao_status = 'executada'` (30 dias), com o texto do
+  `execucao_log.agente.acoes`; filtro Agentes/Todos e Hoje/7/30 dias; botão para o Crítico das Otimizações.
+- **Pace:** orçamento = Planejamento de Campanhas (1ª conta) quando o período dele vale hoje, senão a
+  Calculadora de ROI como orçamento do mês (mesma ordem da rotina de Checagem de orçamento). Previsto =
+  gasto até ontem + média dos últimos 3 dias × dias restantes; abaixo de 90% ou acima de 110% do orçamento
+  entra no quadrante. Projeto sem conta vinculada visível fica de fora.
+- Conta oculta (`dashboard_accounts.hidden`) e projeto em churn não entram em nenhum quadrante.
+- Sem login: `/dev/inicial` (só em DEV) lê a fixture gitignored `src/dev/fixtures/inicial.json`, no formato de
+  `dados` do hook (`planoDe`/`roiDe` como listas de pares e `projetosDev`).
 
 #### Deep-link das seções do cliente
 

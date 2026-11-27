@@ -43,7 +43,7 @@ export default function Login() {
     const result = await login(email, password)
     setLoading(false)
     if (result.ok) {
-      navigate('/')
+      navigate('/inicial')
     } else {
       setError(result.error)
       setShake(true)

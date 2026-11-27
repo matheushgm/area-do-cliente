@@ -24,11 +24,11 @@ export function RequireAdmin({ children }) {
   return user.role === 'admin' ? children : <Navigate to="/" replace />
 }
 
-// Quem já está logado não vê a tela de login — vai direto pro Dashboard.
+// Quem já está logado não vê a tela de login: vai direto para a Inicial.
 export function RedirectIfAuthed({ children }) {
   const { user, loadingAuth } = useApp()
   if (loadingAuth) return null
-  return user ? <Navigate to="/" replace /> : children
+  return user ? <Navigate to="/inicial" replace /> : children
 }
 
 export function RequireSquadsAccess({ children }) {

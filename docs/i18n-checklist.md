@@ -680,6 +680,7 @@ páginas públicas não têm login e seguem a regra da 4.0.
 - [ ] `src/pages/Contratacao.jsx` (1)
 - [ ] `src/pages/ListaPublica.jsx` (3)
 - [ ] `src/pages/TestesAB.jsx` (1)
+- [x] `src/pages/Inicial.jsx` (nasceu traduzida, namespace `inicial`, 27/11/2026)
 
 ## Regras para traduzir
 

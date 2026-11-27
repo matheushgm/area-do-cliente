@@ -8,7 +8,7 @@ import { canViewSquadsReport } from '../lib/utils'
 import MencoesSino from './MencoesSino'
 import { baseProjectsOf, sidebarCounts } from '../lib/dashboardCounts'
 import { Sparkles,
-  Layers,
+  Layers, Home,
   LogOut, Cloud, Loader2,
   X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, BarChart3, DollarSign,
   Sun, Moon, Clapperboard, Timer, Layout, PanelLeftClose, PanelLeftOpen, Waypoints, Users2,
@@ -62,6 +62,8 @@ export function useSidebarCollapsed() {
 // própria página de Clientes (Dashboard.jsx), ao lado de "Onboarding (90d)".
 // O Dashboard é rota normal e convive no mesmo bloco.
 const NAV_ITEMS = [
+  // Inicial: a página de entrada da operação (pendências do dia e alterações nas contas).
+  { id: 'inicial',   label: 'sidebar.inicial', Icon: Home,         type: 'route', to: '/inicial' },
   { id: 'all',       label: 'sidebar.clientes', Icon: Layers,       type: 'filter' },
   { id: 'dashboard', label: 'sidebar.dashboard', Icon: BarChart3,    type: 'route', to: '/dashboard', badge: 'API' },
 ]

@@ -577,3 +577,6 @@ html:not(.dark) .fx {
    usa essas cores. */
 .viz { --viz-1: 42 120 214; --viz-2: 235 104 52; --viz-3: 27 175 122; }
 .dark .viz { --viz-1: 57 135 229; --viz-2: 217 89 38; --viz-3: 25 158 112; }
+
+/* Inicial (src/pages/Inicial.jsx): rolagem fina nas listas dos cartões do bento. */
+.inicial-scroll { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.28) transparent; }
