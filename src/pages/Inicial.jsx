@@ -147,28 +147,65 @@ function InfoRegra({ tom, titulo, itens, rodape, rotuloBotao }) {
   )
 }
 
-function Bloco({ tom, Icon, rotulo, numero, unidade, descricao, controle, children, info, className = '' }) {
-  const c = TONS[tom]
+// Cor de destaque dos cartões brancos (tom 'grafite'): o ícone, o rótulo e um ornamento no
+// canto (brilho suave, arcos finos e um filete no topo) ganham a cor do assunto do bloco. Os
+// cartões coloridos não usam. As classes ficam escritas por extenso para o Tailwind achar.
+const ACENTOS = {
+  rosa: { rgb: '244,63,94', chip: 'bg-rose-50 border-rose-100 text-rose-600 dark:bg-rose-500/10 dark:border-rose-400/20 dark:text-rose-300', rotulo: 'text-rose-600 dark:text-rose-300' },
+  azul: { rgb: '42,37,240', chip: 'bg-indigo-50 border-indigo-100 text-[#2A25F0] dark:bg-indigo-500/10 dark:border-indigo-400/20 dark:text-indigo-300', rotulo: 'text-[#2A25F0] dark:text-indigo-300' },
+  ceu: { rgb: '14,165,233', chip: 'bg-sky-50 border-sky-100 text-sky-600 dark:bg-sky-500/10 dark:border-sky-400/20 dark:text-sky-300', rotulo: 'text-sky-600 dark:text-sky-300' },
+  turquesa: { rgb: '13,148,136', chip: 'bg-teal-50 border-teal-100 text-teal-600 dark:bg-teal-500/10 dark:border-teal-400/20 dark:text-teal-300', rotulo: 'text-teal-600 dark:text-teal-300' },
+  laranja: { rgb: '249,115,22', chip: 'bg-orange-50 border-orange-100 text-orange-600 dark:bg-orange-500/10 dark:border-orange-400/20 dark:text-orange-300', rotulo: 'text-orange-600 dark:text-orange-300' },
+}
+
+function Ornamento({ rgb }) {
+  const cor = (a) => `rgba(${rgb},${a})`
   return (
-    <section className={`relative flex flex-col min-w-0 rounded-[28px] p-5 sm:p-6 min-h-0 ${c.card} ${className}`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <span className={`grid place-items-center w-10 h-10 rounded-full border ${c.chip}`}>
-          <Icon className="w-[18px] h-[18px]" />
-        </span>
-        {controle}
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-[28px]">
+      {/* brilho no canto */}
+      <div className="absolute inset-0" style={{ background: `radial-gradient(520px circle at 100% 0%, ${cor(0.13)}, transparent 55%)` }} />
+      {/* arcos concêntricos, sumindo para dentro do cartão */}
+      <svg className="absolute -right-24 -top-24 w-80 h-80" viewBox="0 0 200 200" fill="none">
+        {[34, 52, 70, 88].map((r, i) => (
+          <circle key={r} cx="100" cy="100" r={r} stroke={cor(0.22 - i * 0.045)} strokeWidth="0.6" />
+        ))}
+        <circle cx="100" cy="100" r="34" fill={cor(0.05)} />
+      </svg>
+      {/* filete de luz no topo */}
+      <div className="absolute top-0 left-10 right-10 h-px" style={{ background: `linear-gradient(90deg, transparent, ${cor(0.55)}, transparent)` }} />
+    </div>
+  )
+}
+
+function Bloco({ tom, Icon, rotulo, numero, unidade, descricao, controle, children, info, acento, className = '' }) {
+  const c = TONS[tom]
+  const a = tom === 'grafite' && acento ? ACENTOS[acento] : null
+  return (
+    <section
+      className={`relative flex flex-col min-w-0 rounded-[28px] p-5 sm:p-6 min-h-0 ${c.card} ${className}`}
+      style={a ? { boxShadow: `0 1px 2px rgba(16,24,40,0.04), 0 22px 48px -30px rgba(${a.rgb},0.45)` } : undefined}
+    >
+      {a && <Ornamento rgb={a.rgb} />}
+      <div className="relative flex flex-col flex-1 min-h-0">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <span className={`grid place-items-center w-10 h-10 rounded-full border ${a ? a.chip : c.chip}`}>
+            <Icon className="w-[18px] h-[18px]" />
+          </span>
+          {controle}
+        </div>
+        <div className="mt-6 flex items-center gap-2">
+          <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${a ? a.rotulo : c.eyebrow}`}>{rotulo}</p>
+          {info}
+        </div>
+        {numero != null && (
+          <p className="mt-1 flex items-baseline gap-2">
+            <span className="text-4xl font-semibold tracking-tight tabular-nums">{numero}</span>
+            {unidade && <span className={`text-sm ${c.sub}`}>{unidade}</span>}
+          </p>
+        )}
+        {descricao && <p className={`mt-1.5 text-xs leading-relaxed ${c.sub}`}>{descricao}</p>}
+        <div className="mt-4 flex-1 min-h-0">{children}</div>
       </div>
-      <div className="mt-6 flex items-center gap-2">
-        <p className={`text-[11px] font-medium uppercase tracking-[0.14em] ${c.eyebrow}`}>{rotulo}</p>
-        {info}
-      </div>
-      {numero != null && (
-        <p className="mt-1 flex items-baseline gap-2">
-          <span className="text-4xl font-semibold tracking-tight tabular-nums">{numero}</span>
-          {unidade && <span className={`text-sm ${c.sub}`}>{unidade}</span>}
-        </p>
-      )}
-      {descricao && <p className={`mt-1.5 text-xs leading-relaxed ${c.sub}`}>{descricao}</p>}
-      <div className="mt-4 flex-1 min-h-0">{children}</div>
     </section>
   )
 }
@@ -386,6 +423,7 @@ export default function Inicial() {
                 <Bloco
                   tom="grafite"
                   Icon={TrendingUp}
+                  acento="rosa"
                   rotulo={t('inicial.cpl.rotuloAcima')}
                   info={ajuda('acimaCpl', 'grafite')}
                   numero={acima.length}
@@ -463,7 +501,8 @@ export default function Inicial() {
               <Bloco
                 tom="grafite"
                 Icon={Activity}
-                rotulo={t('inicial.tend.rotulo')}
+                acento="azul"
+                  rotulo={t('inicial.tend.rotulo')}
                 info={ajuda('tend', 'grafite')}
                 numero={tendFiltrada.length}
                 unidade={t('inicial.fundo.contas', { count: tendFiltrada.length })}
@@ -488,6 +527,7 @@ export default function Inicial() {
                 <Bloco
                   tom="grafite"
                   Icon={MousePointerClick}
+                  acento="ceu"
                   rotulo={t('inicial.lp.rotulo')}
                   info={ajuda('lp', 'grafite', { p: TAXA_LP_MIN, min: MIN_VISITAS_LP })}
                   numero={lps.length}
@@ -530,7 +570,8 @@ export default function Inicial() {
               <Bloco
                 tom="grafite"
                 Icon={History}
-                rotulo={t('inicial.alteracoes.rotulo')}
+                acento="turquesa"
+                  rotulo={t('inicial.alteracoes.rotulo')}
                   info={ajuda('alteracoes', 'grafite')}
                 numero={alts.length}
                 unidade={t('inicial.alteracoes.unidade', { count: alts.length })}
@@ -635,6 +676,7 @@ export default function Inicial() {
                 <Bloco
                   tom="grafite"
                   Icon={Gauge}
+                  acento="laranja"
                   rotulo={t('inicial.pace.rotuloAcima')}
                   info={ajuda('paceAcima', 'grafite', { p: pct(PACE_MAX) })}
                   numero={paceAcima.length}
