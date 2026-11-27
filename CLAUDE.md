@@ -123,13 +123,13 @@ ocupa a tela toda em monitores grandes. A coluna esquerda do `ClientProfile` tem
 
 #### Página Inicial (`/`, 2026-11-27)
 
-Página de entrada da operação, no bento da referência `cool-dashboard` do Banco de referências, com fundo
-branco (pedido do Matheus em 27/11: o escuro destoava do app); cartões vermelho/verde/roxo/amarelo e neutros
-brancos com borda. Cada cartão branco tem uma cor de destaque (`acento` do `Bloco`, mapa `ACENTOS`: rosa no
-acima do CPL, azul Verta na tendência, céu na LP, turquesa nas alterações, laranja no acima do pace) no ícone,
-no rótulo, na sombra e num ornamento no canto (`Ornamento`: brilho, arcos finos e filete no topo). No tema escuro do app volta o vidro grafite (`dark:`). Ordem: fundo sem conversão, acima do
-CPL e podem escalar no topo (3 colunas só a partir de 1440 px, abaixo 2 com o verde na linha inteira), depois
-tendência, criativos e LP, alterações e pace. Tela em `src/pages/Inicial.jsx`, dados em
+Página de entrada da operação, no bento da referência `cool-dashboard` do Banco de referências, sobre o
+navy da Verta (`#020027`, com brilho do azul `#2A25F0` no alto; pedido do Matheus em 27/11). Cartões
+vermelho/verde/roxo/amarelo e brancos limpos; cada branco tem a cor do assunto só no ícone e no rótulo (`acento`
+do `Bloco`, mapa `ACENTOS`: rosa no acima do CPL, azul na tendência, céu na LP, turquesa nas alterações,
+laranja no acima do pace). No tema escuro do app os brancos viram o vidro grafite (`dark:`). Ordem: fundo sem
+conversão, acima do CPL e podem escalar no topo (3 colunas só a partir de 1440 px, abaixo 2 com o verde na linha
+inteira), depois tendência, criativos e LP, alterações e pace. Tela em `src/pages/Inicial.jsx`, dados em
 `src/hooks/useInicial.js` (lê direto do Supabase com o token do usuário), regras puras em `src/lib/inicial.js`.
 Toda janela termina **ontem** (o dia de hoje é parcial e faria quase toda conta parecer sem conversão).
 
