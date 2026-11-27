@@ -123,8 +123,11 @@ ocupa a tela toda em monitores grandes. A coluna esquerda do `ClientProfile` tem
 
 #### Página Inicial (`/`, 2026-11-27)
 
-Página de entrada da operação, pedida pelo Matheus no visual da referência `cool-dashboard` do Banco de
-referências (bento escuro, cartões ciano/verde/amarelo/grafite). Tela em `src/pages/Inicial.jsx`, dados em
+Página de entrada da operação, no bento da referência `cool-dashboard` do Banco de referências, com fundo
+branco (pedido do Matheus em 27/11: o escuro destoava do app); cartões vermelho/verde/roxo/amarelo e neutros
+brancos com borda. No tema escuro do app volta o vidro grafite (`dark:`). Ordem: fundo sem conversão, acima do
+CPL e podem escalar no topo (3 colunas só a partir de 1440 px, abaixo 2 com o verde na linha inteira), depois
+tendência, criativos e LP, alterações e pace. Tela em `src/pages/Inicial.jsx`, dados em
 `src/hooks/useInicial.js` (lê direto do Supabase com o token do usuário), regras puras em `src/lib/inicial.js`.
 Toda janela termina **ontem** (o dia de hoje é parcial e faria quase toda conta parecer sem conversão).
 

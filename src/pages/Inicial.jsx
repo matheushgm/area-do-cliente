@@ -63,12 +63,14 @@ const TONS = {
     linha: 'bg-white/10 hover:bg-white/[.16] border-white/10', fraco: 'text-indigo-50/75',
     seg: 'bg-black/15 border-white/20', segOn: 'bg-white text-[#3F35A8]', segOff: 'text-indigo-50/85 hover:text-white',
   },
+  // Neutro: cartão branco com borda no tema claro; no escuro, o vidro grafite da referência.
   grafite: {
-    card: 'bg-gradient-to-br from-white/[.09] to-white/[.03] text-neutral-100 border border-white/10 backdrop-blur',
-    chip: 'bg-white/[.06] border-white/10', eyebrow: 'text-neutral-400', sub: 'text-neutral-400',
-    linha: 'bg-white/[.04] hover:bg-white/[.08] border-white/[.06]', fraco: 'text-neutral-400',
-    seg: 'bg-black/30 border-white/10', segOn: 'bg-neutral-100 text-neutral-900', segOff: 'text-neutral-400 hover:text-neutral-100',
+    card: 'bg-white text-neutral-900 border border-neutral-200 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_16px_40px_-24px_rgba(16,24,40,0.18)] dark:bg-transparent dark:bg-gradient-to-br dark:from-white/[.09] dark:to-white/[.03] dark:text-neutral-100 dark:border-white/10 dark:shadow-none dark:backdrop-blur',
+    chip: 'bg-neutral-50 border-neutral-200 text-neutral-700 dark:bg-white/[.06] dark:border-white/10 dark:text-neutral-100', eyebrow: 'text-neutral-500 dark:text-neutral-400', sub: 'text-neutral-500 dark:text-neutral-400',
+    linha: 'bg-neutral-50 hover:bg-neutral-100 border-neutral-200/80 dark:bg-white/[.04] dark:hover:bg-white/[.08] dark:border-white/[.06]', fraco: 'text-neutral-500 dark:text-neutral-400',
+    seg: 'bg-neutral-100 border-neutral-200 dark:bg-black/30 dark:border-white/10', segOn: 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900', segOff: 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100',
   },
+
 }
 
 function Segmento({ tom, opcoes, valor, onChange }) {
@@ -174,13 +176,13 @@ function Bloco({ tom, Icon, rotulo, numero, unidade, descricao, controle, childr
 function Lista({ tom, vazio, itens, render, max = 'max-h-[340px]' }) {
   const c = TONS[tom]
   if (!itens.length) {
-    return <p className={`rounded-2xl border border-dashed px-4 py-6 text-center text-xs ${c.fraco} ${tom === 'amarelo' ? 'border-yellow-950/20' : 'border-white/20'}`}>{vazio}</p>
+    return <p className={`rounded-2xl border border-dashed px-4 py-6 text-center text-xs ${c.fraco} ${tom === 'amarelo' ? 'border-yellow-950/20' : tom === 'grafite' ? 'border-neutral-300 dark:border-white/20' : 'border-white/20'}`}>{vazio}</p>
   }
   return <ul className={`space-y-1.5 overflow-y-auto pr-1 -mr-1 ${max} inicial-scroll`}>{itens.map(render)}</ul>
 }
 
 function Esqueleto({ className = '' }) {
-  return <div className={`rounded-[28px] bg-white/[.05] border border-white/[.06] animate-pulse ${className}`} />
+  return <div className={`rounded-[28px] bg-neutral-100 border border-neutral-200 dark:bg-white/[.05] dark:border-white/[.06] animate-pulse ${className}`} />
 }
 
 // ─── Página ─────────────────────────────────────────────────────────────────
@@ -269,10 +271,10 @@ export default function Inicial() {
   const deFundo = dados ? somaDias(dados.hoje, -diasFundo) : null
 
   return (
-    <div className="flex-1 min-w-0 flex flex-col overflow-x-clip bg-[#0A0A0B] text-neutral-100">
+    <div className="flex-1 min-w-0 flex flex-col overflow-x-clip bg-white dark:bg-[#0A0A0B] text-neutral-900 dark:text-neutral-100">
       {/* Top bar mobile */}
-      <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-white/10 bg-[#0A0A0B]/90 backdrop-blur-xl">
-        <button onClick={openSidebar} aria-label={t('inicial.abrirMenu')} className="p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10 transition-all">
+      <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-neutral-200 dark:border-white/10 bg-white/90 dark:bg-[#0A0A0B]/90 backdrop-blur-xl">
+        <button onClick={openSidebar} aria-label={t('inicial.abrirMenu')} className="p-2 rounded-lg text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10 transition-all">
           <Menu className="w-5 h-5" />
         </button>
         <span className="font-semibold text-sm">{t('inicial.titulo')}</span>
@@ -280,16 +282,15 @@ export default function Inicial() {
 
       <div
         className="relative flex-1 px-4 sm:px-6 lg:px-8 py-6 lg:py-8"
-        style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px)', backgroundSize: '18px 18px' }}
       >
         <div className="mx-auto max-w-[1500px]">
           {/* Cabeçalho */}
           <header className="flex flex-wrap items-end justify-between gap-4 mb-6">
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-400">{t('inicial.rotulo')}</p>
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">{t('inicial.rotulo')}</p>
               <h1 className="mt-1 text-3xl font-semibold tracking-tight">{t('inicial.titulo')}</h1>
               {dados && (
-                <p className="mt-1 text-xs text-neutral-400">
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                   {t('inicial.dadosAte', { data: dataCurta(ontem) })}
                   {atualizadoEm && <> · {t('inicial.atualizadoAs', { hora: atualizadoEm.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) })}</>}
                 </p>
@@ -299,7 +300,7 @@ export default function Inicial() {
               type="button"
               onClick={recarregar}
               disabled={loading}
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-neutral-800/80 px-3.5 py-2 text-xs font-medium text-neutral-100 hover:bg-neutral-700 hover:border-white/20 transition disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-800/80 px-3.5 py-2 text-xs font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-700 dark:hover:border-white/20 transition disabled:opacity-60"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               {t('inicial.atualizar')}
@@ -307,7 +308,7 @@ export default function Inicial() {
           </header>
 
           {error && (
-            <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 dark:border-red-400/30 bg-red-50 dark:bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-200">
               <AlertTriangle className="w-4 h-4" />
               <span className="flex-1">{t('inicial.erro', { msg: error })}</span>
               <button onClick={recarregar} className="rounded-full bg-red-400/20 px-3 py-1 text-xs hover:bg-red-400/30">{t('inicial.tentarDeNovo')}</button>
@@ -317,34 +318,14 @@ export default function Inicial() {
           {!dados ? (
             <div className="grid gap-4 lg:grid-cols-3">
               <Esqueleto className="h-[420px]" /><Esqueleto className="h-[420px]" /><Esqueleto className="h-[420px]" />
-              <Esqueleto className="h-[320px] lg:col-span-3" />
+              <Esqueleto className="h-[360px] lg:col-span-3" />
               <Esqueleto className="h-[360px] lg:col-span-1" /><Esqueleto className="h-[360px] lg:col-span-2" />
             </div>
           ) : (
             <div className="space-y-4">
-              {/* ── Tendência dos últimos 3 dias (a mesma do Dashboard) ── */}
-              <Bloco
-                tom="grafite"
-                Icon={Activity}
-                rotulo={t('inicial.tend.rotulo')}
-                info={ajuda('tend', 'grafite')}
-                numero={tendFiltrada.length}
-                unidade={t('inicial.fundo.contas', { count: tendFiltrada.length })}
-                descricao={t('inicial.tend.descricao', { de: dataCurta(somaDias(dados.hoje, -3)), ate: dataCurta(ontem) })}
-                controle={(
-                  <Segmento tom="grafite" valor={filtroTend} onChange={setFiltroTend}
-                    opcoes={[
-                      { v: 'todas', l: t('inicial.tend.todas') },
-                      { v: 'queda', l: `${t('inicial.tend.queda')} ${tend.filter((x) => x.tendencia === 'queda').length}` },
-                      { v: 'alta', l: `${t('inicial.tend.alta')} ${tend.filter((x) => x.tendencia === 'alta').length}` },
-                    ]} />
-                )}
-              >
-                <TabelaTendencia linhas={tendFiltrada} t={t} locale={locale} brl={brl} nomeProjeto={nomeProjeto} abrirDash={abrirDash} />
-              </Bloco>
-
-              {/* ── Linha 1: fundo sem conversão · acima do CPL · podem escalar ── */}
-              <div className="grid gap-4 lg:grid-cols-3">
+              {/* ── Linha 1: fundo sem conversão · acima do CPL · podem escalar ──
+                  3 colunas só a partir de 1440 px: com a sidebar aberta, abaixo disso os nomes cortavam. */}
+              <div className="grid gap-4 md:grid-cols-2 min-[1440px]:grid-cols-3">
                 <Bloco
                   tom="vermelho"
                   Icon={ZapOff}
@@ -422,13 +403,13 @@ export default function Inicial() {
                           <Canais canais={p.canais} />
                           <span className="min-w-0 flex-1">
                             <span className="block text-sm font-medium truncate">{nomeProjeto(p.projectId) || '-'}</span>
-                            <span className="block text-[11px] text-neutral-400 truncate">
+                            <span className="block text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
                               {p.cpl != null
                                 ? `${t('inicial.cpl.linha', { cpl: brl(p.cpl, 2), alvo: brl(p.alvo, 2) })} · ${t('inicial.cpl.detalhe', { conv: Math.round(p.conv), gasto: brl(p.gasto) })}`
                                 : t('inicial.cpl.semConv', { gasto: brl(p.gasto) })}
                             </span>
                           </span>
-                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${p.razao == null || p.razao >= 1.5 ? 'bg-rose-500/15 text-rose-300' : 'bg-amber-400/15 text-amber-300'}`}>
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${p.razao == null || p.razao >= 1.5 ? 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300' : 'bg-amber-50 dark:bg-amber-400/15 text-amber-700 dark:text-amber-300'}`}>
                             {p.razao == null ? '∞' : `+${Math.round((p.razao - 1) * 100)}%`}
                           </span>
                         </button>
@@ -438,6 +419,7 @@ export default function Inicial() {
                 </Bloco>
 
                 <Bloco
+                  className="md:col-span-2 min-[1440px]:col-span-1"
                   tom="verde"
                   Icon={Rocket}
                   rotulo={t('inicial.cpl.rotuloEscala')}
@@ -477,7 +459,28 @@ export default function Inicial() {
                 </Bloco>
               </div>
 
-              {/* ── Linha 2: precisam de criativos · precisam de teste de LP ── */}
+              {/* ── Linha 2: tendência dos últimos 3 dias (a mesma do Dashboard) ── */}
+              <Bloco
+                tom="grafite"
+                Icon={Activity}
+                rotulo={t('inicial.tend.rotulo')}
+                info={ajuda('tend', 'grafite')}
+                numero={tendFiltrada.length}
+                unidade={t('inicial.fundo.contas', { count: tendFiltrada.length })}
+                descricao={t('inicial.tend.descricao', { de: dataCurta(somaDias(dados.hoje, -3)), ate: dataCurta(ontem) })}
+                controle={(
+                  <Segmento tom="grafite" valor={filtroTend} onChange={setFiltroTend}
+                    opcoes={[
+                      { v: 'todas', l: t('inicial.tend.todas') },
+                      { v: 'queda', l: `${t('inicial.tend.queda')} ${tend.filter((x) => x.tendencia === 'queda').length}` },
+                      { v: 'alta', l: `${t('inicial.tend.alta')} ${tend.filter((x) => x.tendencia === 'alta').length}` },
+                    ]} />
+                )}
+              >
+                <TabelaTendencia linhas={tendFiltrada} t={t} locale={locale} brl={brl} nomeProjeto={nomeProjeto} abrirDash={abrirDash} />
+              </Bloco>
+
+              {/* ── Linha 3: precisam de criativos · precisam de teste de LP ── */}
               <div className="grid gap-4 lg:grid-cols-2">
                 {dados.criativosDev
                   ? <BlocoCriativos sugestoes={dados.criativosDev} loading={false} churn={churnSet} {...comum} />
@@ -503,16 +506,16 @@ export default function Inicial() {
                         <li key={l.chave}>
                           <button type="button" onClick={() => abrirDash(l.conta, l.canal)} title={t('inicial.fundo.abrirDash')}
                             className={`w-full text-left flex items-center gap-3 rounded-2xl border px-3 py-2.5 transition ${TONS.grafite.linha}`}>
-                            <span className="grid place-items-center w-7 h-7 rounded-full bg-white shrink-0"><CanalLogo canal={l.canal} className="w-3.5 h-3.5" /></span>
+                            <span className="grid place-items-center w-7 h-7 rounded-full bg-white border border-neutral-200 dark:border-transparent shrink-0"><CanalLogo canal={l.canal} className="w-3.5 h-3.5" /></span>
                             <span className="min-w-0 flex-1">
                               <span className="block text-sm font-medium truncate">{nomeCli || l.conta}</span>
-                              <span className="block text-[11px] text-neutral-400 truncate">
+                              <span className="block text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
                                 {nomeCli && nomeCli !== l.conta ? `${l.conta} · ` : ''}
                                 {t(l.canal === 'meta' ? 'inicial.lp.linhaMeta' : 'inicial.lp.linhaGoogle', { v: Math.round(l.visitas).toLocaleString(locale), c: Math.round(l.conv).toLocaleString(locale) })}
                                 {pior && l.piores.length > 0 && ` · ${pior.nome}`}
                               </span>
                             </span>
-                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${l.taxa < TAXA_LP_MIN / 2 ? 'bg-rose-500/15 text-rose-300' : 'bg-amber-400/15 text-amber-300'}`}>
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${l.taxa < TAXA_LP_MIN / 2 ? 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300' : 'bg-amber-50 dark:bg-amber-400/15 text-amber-700 dark:text-amber-300'}`}>
                               {l.taxa.toLocaleString(locale, { maximumFractionDigits: 1, minimumFractionDigits: 1 })}%
                             </span>
                           </button>
@@ -523,7 +526,7 @@ export default function Inicial() {
                 </Bloco>
               </div>
 
-              {/* ── Linha 3: alterações nas contas ── */}
+              {/* ── Linha 4: alterações nas contas ── */}
               <Bloco
                 tom="grafite"
                 Icon={History}
@@ -537,7 +540,7 @@ export default function Inicial() {
                       <button
                         type="button"
                         onClick={() => navigate('/otimizacoes')}
-                        className="inline-flex items-center gap-1 rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-1 text-[11px] font-medium text-amber-200 hover:bg-amber-400/20 transition"
+                        className="inline-flex items-center gap-1 rounded-full border border-amber-200 dark:border-amber-300/30 bg-amber-50 dark:bg-amber-400/10 px-2.5 py-1 text-[11px] font-medium text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-400/20 transition"
                       >
                         <AlertTriangle className="w-3 h-3" />
                         {t('inicial.alteracoes.criticas', { count: dados.criticas })}
@@ -552,11 +555,11 @@ export default function Inicial() {
                 )}
               >
                 {alts.length === 0 ? (
-                  <p className="rounded-2xl border border-dashed border-white/15 px-4 py-6 text-center text-xs text-neutral-400">{t('inicial.alteracoes.vazio')}</p>
+                  <p className="rounded-2xl border border-dashed border-neutral-300 dark:border-white/15 px-4 py-6 text-center text-xs text-neutral-500 dark:text-neutral-400">{t('inicial.alteracoes.vazio')}</p>
                 ) : (
                   <div className="overflow-auto -mx-1 max-h-[460px] inicial-scroll">
                     <table className="w-full min-w-[860px] text-left text-[13px]">
-                      <thead className="sticky top-0 z-10 bg-[#161618]">
+                      <thead className="sticky top-0 z-10 bg-white dark:bg-[#161618]">
                         <tr className="text-[10px] uppercase tracking-[0.12em] text-neutral-500">
                           <th className="px-3 py-2 font-medium w-[110px]">{t('inicial.alteracoes.quando')}</th>
                           <th className="px-3 py-2 font-medium w-[190px]">{t('inicial.alteracoes.cliente')}</th>
@@ -565,17 +568,17 @@ export default function Inicial() {
                           <th className="px-3 py-2 font-medium w-[170px]">{t('inicial.alteracoes.quem')}</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/[.06]">
+                      <tbody className="divide-y divide-neutral-100 dark:divide-white/[.06]">
                         {alts.slice(0, limiteAlt).map((a) => {
                           const quando = new Date(a.quando)
                           return (
-                            <tr key={a.id} className="align-top hover:bg-white/[.03]">
-                              <td className="px-3 py-2.5 text-neutral-400 tabular-nums whitespace-nowrap">
+                            <tr key={a.id} className="align-top hover:bg-neutral-50 dark:hover:bg-white/[.03]">
+                              <td className="px-3 py-2.5 text-neutral-500 dark:text-neutral-400 tabular-nums whitespace-nowrap">
                                 {quando.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })}
-                                <span className="text-neutral-600"> · {quando.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</span>
+                                <span className="text-neutral-400 dark:text-neutral-600"> · {quando.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</span>
                               </td>
                               <td className="px-3 py-2.5">
-                                <button type="button" onClick={() => abrirCliente(a.projectId)} className="text-left font-medium text-neutral-100 hover:underline underline-offset-2 line-clamp-1">
+                                <button type="button" onClick={() => abrirCliente(a.projectId)} className="text-left font-medium text-neutral-900 dark:text-neutral-100 hover:underline underline-offset-2 line-clamp-1">
                                   {nomeProjeto(a.projectId) || a.conta || '-'}
                                 </button>
                               </td>
@@ -583,18 +586,18 @@ export default function Inicial() {
                                 <span className="flex items-start gap-2 min-w-0">
                                   <CanalLogo canal={a.canal} className="w-3.5 h-3.5 mt-0.5" />
                                   <span className="min-w-0">
-                                    <span className="block text-neutral-300 truncate max-w-[210px]" title={a.campanha || ''}>{a.campanha || a.conta || '-'}</span>
+                                    <span className="block text-neutral-600 dark:text-neutral-300 truncate max-w-[210px]" title={a.campanha || ''}>{a.campanha || a.conta || '-'}</span>
                                     {a.alvo && a.alvo !== a.campanha && <span className="block text-[11px] text-neutral-500 truncate max-w-[210px]" title={a.alvo}>{a.alvo}</span>}
                                   </span>
                                 </span>
                               </td>
-                              <td className="px-3 py-2.5 text-neutral-200">
+                              <td className="px-3 py-2.5 text-neutral-700 dark:text-neutral-200">
                                 <ul className="space-y-0.5">
                                   {a.acoes.map((x, i) => <li key={i} className="leading-snug">{x}</li>)}
                                 </ul>
                               </td>
                               <td className="px-3 py-2.5">
-                                <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] ${a.agente ? 'bg-sky-400/10 text-sky-200' : 'bg-white/[.06] text-neutral-300'}`}>
+                                <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] ${a.agente ? 'bg-sky-50 dark:bg-sky-400/10 text-sky-700 dark:text-sky-200' : 'bg-neutral-100 dark:bg-white/[.06] text-neutral-600 dark:text-neutral-300'}`}>
                                   {a.agente ? <Bot className="w-3 h-3" /> : <User className="w-3 h-3" />}
                                   <span className="truncate max-w-[130px]">{a.quem.replace(/\s*\(agente\)\s*/i, '') || '-'}</span>
                                 </span>
@@ -606,7 +609,7 @@ export default function Inicial() {
                     </table>
                     {alts.length > limiteAlt && (
                       <div className="pt-3 text-center">
-                        <button type="button" onClick={() => setLimiteAlt((l) => l + 100)} className="rounded-full border border-white/10 bg-neutral-800/80 px-3 py-1.5 text-xs text-neutral-200 hover:bg-neutral-700">
+                        <button type="button" onClick={() => setLimiteAlt((l) => l + 100)} className="rounded-full border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-800/80 px-3 py-1.5 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700">
                           {t('inicial.alteracoes.mostrarMais', { n: alts.length - limiteAlt })}
                         </button>
                       </div>
@@ -615,7 +618,7 @@ export default function Inicial() {
                 )}
               </Bloco>
 
-              {/* ── Linha 4: pace abaixo · pace acima ── */}
+              {/* ── Linha 5: pace abaixo · pace acima ── */}
               <div className="grid gap-4 lg:grid-cols-2">
                 <Bloco
                   tom="amarelo"
@@ -661,7 +664,7 @@ function Canais({ canais, claro = false }) {
   return (
     <span className="flex -space-x-1.5 shrink-0 w-10">
       {(canais.length ? canais : ['meta']).map((c) => (
-        <span key={c} className={`grid place-items-center w-7 h-7 rounded-full ${claro ? 'bg-white' : 'bg-white ring-2 ring-[#151517]'}`}>
+        <span key={c} className={`grid place-items-center w-7 h-7 rounded-full ${claro ? 'bg-white' : 'bg-white ring-2 ring-neutral-50 border border-neutral-200 dark:border-transparent dark:ring-[#151517]'}`}>
           <CanalLogo canal={c} className="w-3.5 h-3.5" />
         </span>
       ))}
@@ -695,13 +698,13 @@ function LinhaPace({ p, tom, nome, onClick, t, brl, acima = false }) {
             </span>
           </span>
           <span className="text-right shrink-0">
-            <span className={`block text-sm font-semibold tabular-nums ${amarelo ? '' : 'text-orange-300'}`}>{t('inicial.pace.previsto', { p: pct(p.razao) })}</span>
+            <span className={`block text-sm font-semibold tabular-nums ${amarelo ? '' : 'text-orange-600 dark:text-orange-300'}`}>{t('inicial.pace.previsto', { p: pct(p.razao) })}</span>
             <span className={`block text-[10px] ${c.fraco}`}>{p.fonte === 'plano' ? t('inicial.pace.fontePlano') : t('inicial.pace.fonteRoi')}</span>
           </span>
         </span>
-        <span className={`relative mt-2.5 block h-1.5 rounded-full ${amarelo ? 'bg-yellow-950/15' : 'bg-white/10'}`} title={t('inicial.pace.esperado', { v: brl(p.esperado) })}>
+        <span className={`relative mt-2.5 block h-1.5 rounded-full ${amarelo ? 'bg-yellow-950/15' : 'bg-neutral-200 dark:bg-white/10'}`} title={t('inicial.pace.esperado', { v: brl(p.esperado) })}>
           <span className={`absolute inset-y-0 left-0 rounded-full ${amarelo ? 'bg-yellow-950/80' : 'bg-orange-400'}`} style={{ width: `${cheio}%` }} />
-          <span className={`absolute -top-1 h-3.5 w-0.5 rounded ${amarelo ? 'bg-yellow-950' : 'bg-white'}`} style={{ left: `calc(${marca}% - 1px)` }} />
+          <span className={`absolute -top-1 h-3.5 w-0.5 rounded ${amarelo ? 'bg-yellow-950' : 'bg-neutral-900 dark:bg-white'}`} style={{ left: `calc(${marca}% - 1px)` }} />
         </span>
       </button>
     </li>
@@ -797,20 +800,20 @@ function BlocoCriativos({ sugestoes, loading, erro, churn, t, nomeProjeto, abrir
 
 // ─── Tabela de tendência ────────────────────────────────────────────────────
 const SELO_TEND = {
-  queda: { cls: 'bg-rose-500/15 text-rose-300', Icon: ArrowDownRight, chave: 'inicial.tend.queda' },
-  alta: { cls: 'bg-emerald-400/15 text-emerald-300', Icon: ArrowUpRight, chave: 'inicial.tend.alta' },
-  estavel: { cls: 'bg-white/[.06] text-neutral-300', Icon: ArrowRight, chave: 'inicial.tend.estavel' },
+  queda: { cls: 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300', Icon: ArrowDownRight, chave: 'inicial.tend.queda' },
+  alta: { cls: 'bg-emerald-50 dark:bg-emerald-400/15 text-emerald-600 dark:text-emerald-300', Icon: ArrowUpRight, chave: 'inicial.tend.alta' },
+  estavel: { cls: 'bg-neutral-100 dark:bg-white/[.06] text-neutral-600 dark:text-neutral-300', Icon: ArrowRight, chave: 'inicial.tend.estavel' },
 }
 
 function TabelaTendencia({ linhas, t, locale, brl, nomeProjeto, abrirDash }) {
   if (!linhas.length) {
-    return <p className="rounded-2xl border border-dashed border-white/15 px-4 py-6 text-center text-xs text-neutral-400">{t('inicial.tend.vazio')}</p>
+    return <p className="rounded-2xl border border-dashed border-neutral-300 dark:border-white/15 px-4 py-6 text-center text-xs text-neutral-500 dark:text-neutral-400">{t('inicial.tend.vazio')}</p>
   }
   const int = (v) => Math.round(v).toLocaleString(locale)
   return (
     <div className="overflow-auto -mx-1 max-h-[420px] inicial-scroll">
       <table className="w-full min-w-[760px] text-left text-[13px]">
-        <thead className="sticky top-0 z-10 bg-[#161618]">
+        <thead className="sticky top-0 z-10 bg-white dark:bg-[#161618]">
           <tr className="text-[10px] uppercase tracking-[0.12em] text-neutral-500">
             <th className="px-3 py-2 font-medium">{t('inicial.tend.conta')}</th>
             <th className="px-3 py-2 font-medium text-right">{t('inicial.tend.conv3')}</th>
@@ -820,19 +823,19 @@ function TabelaTendencia({ linhas, t, locale, brl, nomeProjeto, abrirDash }) {
             <th className="px-3 py-2 font-medium text-right">{t('inicial.tend.previsao')}</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-white/[.06]">
+        <tbody className="divide-y divide-neutral-100 dark:divide-white/[.06]">
           {linhas.map((x) => {
             const nomeCli = nomeProjeto(x.projectId)
             const selo = SELO_TEND[x.tendencia]
             const maior = Math.max(1, ...x.t1vals)
             const acimaAlvo = x.alvo != null && (x.cpl3 == null ? x.gasto3 > x.alvo : x.cpl3 > x.alvo)
             return (
-              <tr key={x.chave} onClick={() => abrirDash(x.conta, x.canal)} className="cursor-pointer hover:bg-white/[.03]" title={t('inicial.fundo.abrirDash')}>
+              <tr key={x.chave} onClick={() => abrirDash(x.conta, x.canal)} className="cursor-pointer hover:bg-neutral-50 dark:hover:bg-white/[.03]" title={t('inicial.fundo.abrirDash')}>
                 <td className="px-3 py-2.5">
                   <span className="flex items-center gap-2.5 min-w-0">
-                    <span className="grid place-items-center w-6 h-6 rounded-full bg-white shrink-0"><CanalLogo canal={x.canal} className="w-3 h-3" /></span>
+                    <span className="grid place-items-center w-6 h-6 rounded-full bg-white border border-neutral-200 dark:border-transparent shrink-0"><CanalLogo canal={x.canal} className="w-3 h-3" /></span>
                     <span className="min-w-0">
-                      <span className="block font-medium text-neutral-100 truncate max-w-[260px]">{x.conta}</span>
+                      <span className="block font-medium text-neutral-900 dark:text-neutral-100 truncate max-w-[260px]">{x.conta}</span>
                       {nomeCli && nomeCli !== x.conta && <span className="block text-[11px] text-neutral-500 truncate max-w-[260px]">{nomeCli}</span>}
                     </span>
                   </span>
@@ -844,21 +847,21 @@ function TabelaTendencia({ linhas, t, locale, brl, nomeProjeto, abrirDash }) {
                         <span key={i} className={`w-1.5 rounded-sm ${x.tendencia === 'queda' ? 'bg-rose-400/70' : x.tendencia === 'alta' ? 'bg-emerald-400/70' : 'bg-neutral-400/60'}`} style={{ height: `${Math.max(8, (v / maior) * 100)}%` }} />
                       ))}
                     </span>
-                    <span className="font-semibold tabular-nums text-neutral-100">{int(x.conv3)}</span>
+                    <span className="font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">{int(x.conv3)}</span>
                   </span>
                   <span className="block text-[10px] text-neutral-500 tabular-nums">{t('inicial.tend.antes', { n: int(x.conv0) })}</span>
                 </td>
-                <td className={`px-3 py-2.5 text-right tabular-nums font-medium ${x.alvo == null ? 'text-neutral-200' : acimaAlvo ? 'text-rose-300' : 'text-emerald-300'}`}>
+                <td className={`px-3 py-2.5 text-right tabular-nums font-medium ${x.alvo == null ? 'text-neutral-700 dark:text-neutral-200' : acimaAlvo ? 'text-rose-600 dark:text-rose-300' : 'text-emerald-600 dark:text-emerald-300'}`}>
                   {x.cpl3 != null ? brl(x.cpl3, 2) : '-'}
                 </td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-neutral-400">{x.alvo != null ? brl(x.alvo, 2) : '-'}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums text-neutral-500 dark:text-neutral-400">{x.alvo != null ? brl(x.alvo, 2) : '-'}</td>
                 <td className="px-3 py-2.5">
                   <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${selo.cls}`}>
                     <selo.Icon className="w-3 h-3" />{t(selo.chave)}
                     {x.conv0 > 0 && (x.tendencia !== 'queda' || x.pct < 0) && <span className="tabular-nums opacity-80">{x.pct > 0 ? '+' : ''}{Math.round(x.pct)}%</span>}
                   </span>
                 </td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-neutral-200">{int(x.previsaoMes)}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums text-neutral-700 dark:text-neutral-200">{int(x.previsaoMes)}</td>
               </tr>
             )
           })}
