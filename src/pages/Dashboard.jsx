@@ -731,7 +731,7 @@ export default function Dashboard() {
   const { openSidebar } = useOutletContext()
   const dash = useDashboardData({ source: 'api', dias: 20, status: true })
   const [deleteTarget, setDeleteTarget] = useState(null)
-  // O filtro mora na URL (`/?lista=`) para sobreviver a refresh e poder ser
+  // O filtro mora na URL (`/clientes?lista=`) para sobreviver a refresh e poder ser
   // linkado — a AppSidebar lê o mesmo parâmetro em vez de receber por prop.
   const [searchParams, setSearchParams] = useSearchParams()
   // Tela de crescimento da base: mesma rota, `?visao=crescimento&mes=yyyy-mm&aba=novos|churn`.
@@ -842,7 +842,7 @@ export default function Dashboard() {
   const filtrosAtivos = [squadFilter, riskFilter, momentoFilter, bizFilter].filter(v => v !== 'all').length + (listaAtalho ? 1 : 0)
   function limparFiltros() {
     setSquadFilter('all'); setRiskFilter('all'); setMomentoFilter('all'); setBizFilter('all')
-    if (listaAtalho) navigate('/', { replace: true })
+    if (listaAtalho) navigate('/clientes', { replace: true })
   }
 
   const pageTitle = (() => {
@@ -1053,7 +1053,7 @@ const _now      = new Date()
                 ativo={filter === 'novos'}
                 count={counts.novos}
                 title={t('home.filtros.novosDica', { dias: NEW_CLIENT_WINDOW_DAYS })}
-                onClick={() => navigate(filter === 'novos' ? '/' : '/?lista=novos', { replace: true })}
+                onClick={() => navigate(filter === 'novos' ? '/clientes' : '/clientes?lista=novos', { replace: true })}
               />
               <FiltroAtalho
                 icone={TrendingDown}
@@ -1061,7 +1061,7 @@ const _now      = new Date()
                 ativo={filter === 'churn'}
                 count={counts.churn}
                 title={t('home.filtros.churnDica')}
-                onClick={() => navigate(filter === 'churn' ? '/' : '/?lista=churn', { replace: true })}
+                onClick={() => navigate(filter === 'churn' ? '/clientes' : '/clientes?lista=churn', { replace: true })}
               />
 
               {filtrosAtivos > 0 && (

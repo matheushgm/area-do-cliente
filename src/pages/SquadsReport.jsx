@@ -558,7 +558,7 @@ export default function SquadsReport() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/clientes')}
               className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
             >
               <ArrowLeft className="w-4 h-4" />

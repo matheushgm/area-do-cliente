@@ -28,7 +28,7 @@ export function RequireAdmin({ children }) {
 export function RedirectIfAuthed({ children }) {
   const { user, loadingAuth } = useApp()
   if (loadingAuth) return null
-  return user ? <Navigate to="/inicial" replace /> : children
+  return user ? <Navigate to="/" replace /> : children
 }
 
 export function RequireSquadsAccess({ children }) {

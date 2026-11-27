@@ -528,7 +528,7 @@ export default function NewOnboarding() {
 
   function prev() {
     if (step > 0) { setStep(step - 1); setErrors({}) }
-    else navigate('/')
+    else navigate('/clientes')
   }
 
   // ── Completion screen ────────────────────────────────────────────────────────
@@ -551,7 +551,7 @@ export default function NewOnboarding() {
           </p>
 
           <div className="flex gap-3 justify-center">
-            <button onClick={() => navigate('/')} className="btn-ghost flex items-center gap-2">
+            <button onClick={() => navigate('/clientes')} className="btn-ghost flex items-center gap-2">
               <ArrowLeft className="w-4 h-4" /> {t('onboarding.dashboard')}
             </button>
             {createdId && (

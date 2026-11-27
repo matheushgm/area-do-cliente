@@ -1,7 +1,7 @@
 import { lazy } from 'react'
 import { Route, Navigate } from 'react-router-dom'
 import { RequireAuth, RequireAdmin, RequireSquadsAccess } from './guards'
-import { RedirectProjetoLegado, RedirectComQuery, RedirectChat, RedirectAtividades } from './legacyRedirects'
+import { RedirectProjetoLegado, RedirectComQuery, RedirectChat, RedirectAtividades, RaizOuClientesLegado } from './legacyRedirects'
 import AppLayout from './AppLayout'
 
 // Rotas que exigem login. Diferente das públicas, estas podem ser renomeadas
@@ -63,8 +63,11 @@ export const appRoutes = [
   // renderiza a página no <Outlet>. Quem não está aqui (login, públicas,
   // /cliente/:id, /cliente/novo) tem navegação própria.
   <Route key="shell" element={<RequireAuth><AppLayout /></RequireAuth>}>
-    <Route key="home" path="/" element={<Dashboard />} />
-    <Route key="inicial" path="/inicial" element={<Inicial />} />
+    {/* Página inicial de todo mundo (2026-11-27): a Inicial. A lista de clientes mora em
+        /clientes; links antigos `/?lista=` e `/?visao=` são levados para lá. */}
+    <Route key="home" path="/" element={<RaizOuClientesLegado><Inicial /></RaizOuClientesLegado>} />
+    <Route key="clientes" path="/clientes" element={<Dashboard />} />
+    <Route key="inicial" path="/inicial" element={<RedirectComQuery to="/" />} />
 
     <Route key="tarefas" path="/tarefas" element={<Tarefas />} />
     <Route key="otimizacoes" path="/otimizacoes" element={<Otimizacoes />} />

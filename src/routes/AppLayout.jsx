@@ -7,7 +7,7 @@ import OtimizacoesBridge from '../components/OtimizacoesBridge'
 // Rotas que usam o tema Fynix. `useMatches`/`handle` seria mais elegante, mas
 // exige o data router (createBrowserRouter) — este app usa <BrowserRouter>.
 // Precisa ser predicado, e não lista: `/cliente/:id` é dinâmico.
-const usaFx = (pathname) => pathname === '/' || pathname.startsWith('/cliente/')
+const usaFx = (pathname) => pathname === '/clientes' || pathname.startsWith('/cliente/')
 
 // Shell das páginas internas: monta a AppSidebar UMA vez em vez das 12 cópias
 // que cada página mantinha.

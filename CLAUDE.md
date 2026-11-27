@@ -93,8 +93,8 @@ passar por código nosso); essas ganham redirect em `legacyRedirects.jsx`.
 
 | Rota | Página | Observação |
 |---|---|---|
-| `/inicial` | `Inicial` | página de entrada (1º item da sidebar; login e OAuth caem aqui): pendências do dia num bento escuro, ver "Página Inicial" |
-| `/` | `Dashboard` | lista de clientes; o filtro mora na URL (`/?lista=novos\|churn`); `/?visao=crescimento[&mes=yyyy-mm&aba=novos\|churn]` troca a lista pela tela de crescimento da base (`CrescimentoView`) |
+| `/` | `Inicial` | página inicial de todo mundo desde 2026-11-27 (1º item da sidebar; login cai aqui): pendências do dia num bento escuro, ver "Página Inicial". `/?lista=` e `/?visao=` antigos vão para `/clientes` (`RaizOuClientesLegado`); `/inicial` redireciona para `/` |
+| `/clientes` | `Dashboard` | lista de clientes; o filtro mora na URL (`/clientes?lista=novos\|churn`); `/clientes?visao=crescimento[&mes=yyyy-mm&aba=novos\|churn]` troca a lista pela tela de crescimento da base (`CrescimentoView`) |
 | `/cliente/novo` | `NewOnboarding` | criação de projeto |
 | `/cliente/:id/:secao?` | `ProjectDetail` → `ClientProfile` | sem seção = hub |
 | `/tarefas` `/atividades` `/atividades-15min` `/chat` | — | operação |
@@ -121,7 +121,7 @@ estourava a tela. Mantenha o `min-w-0`. Desde 2026-10-26 ele não tem mais `max-
 ocupa a tela toda em monitores grandes. A coluna esquerda do `ClientProfile` tem 340px entre `xl` e
 `2xl`, 380px acima e 420px a partir de 2200px; a central ocupa o resto.
 
-#### Página Inicial (`/inicial`, 2026-11-27)
+#### Página Inicial (`/`, 2026-11-27)
 
 Página de entrada da operação, pedida pelo Matheus no visual da referência `cool-dashboard` do Banco de
 referências (bento escuro, cartões ciano/verde/amarelo/grafite). Tela em `src/pages/Inicial.jsx`, dados em

@@ -56,14 +56,14 @@ export function useSidebarCollapsed() {
   return [collapsed, setCollapsed]
 }
 
-// Bloco do topo. "Clientes" é um "filtro" da lista (link `/?lista=`), então
+// Bloco do topo. "Clientes" é um "filtro" da lista (link `/clientes?lista=`), então
 // sobrevive a um refresh e dá para abrir em outra aba. "Novos Clientes" e
 // "Churn" saíram daqui em 2026-10-18: viraram botões de filtro na toolbar da
 // própria página de Clientes (Dashboard.jsx), ao lado de "Onboarding (90d)".
 // O Dashboard é rota normal e convive no mesmo bloco.
 const NAV_ITEMS = [
   // Inicial: a página de entrada da operação (pendências do dia e alterações nas contas).
-  { id: 'inicial',   label: 'sidebar.inicial', Icon: Home,         type: 'route', to: '/inicial' },
+  { id: 'inicial',   label: 'sidebar.inicial', Icon: Home,         type: 'route', to: '/' },
   { id: 'all',       label: 'sidebar.clientes', Icon: Layers,       type: 'filter' },
   { id: 'dashboard', label: 'sidebar.dashboard', Icon: BarChart3,    type: 'route', to: '/dashboard', badge: 'API' },
 ]
@@ -311,7 +311,7 @@ function SidebarContent({
         {(user?.restrito ? [] : NAV_ITEMS).map(({ id, label: chave, Icon, type, to }) => {
           const label = t(chave)
           const ativo = type === 'filter'
-            ? filter === id && location.pathname === '/'
+            ? filter === id && location.pathname === '/clientes'
             : location.pathname === to
           return (
             <button
@@ -428,7 +428,7 @@ function SidebarContent({
           const isFiltro = type === 'filter'
           const count = isFiltro ? (counts?.[id] ?? 0) : 0
           const active = isFiltro
-            ? filter === id && location.pathname === '/'
+            ? filter === id && location.pathname === '/clientes'
             : location.pathname === to
           return (
             <button
@@ -618,7 +618,7 @@ function SidebarContent({
   )
 }
 
-// A sidebar não recebe mais estado por prop: lê o filtro da URL (`/?lista=`) e
+// A sidebar não recebe mais estado por prop: lê o filtro da URL (`/clientes?lista=`) e
 // calcula os contadores do próprio AppContext. Antes isso vinha do Dashboard,
 // e nas outras 11 páginas chegava vazio — os números apareciam zerados.
 export default function AppSidebar({ open, onClose }) {
@@ -636,9 +636,10 @@ export default function AppSidebar({ open, onClose }) {
   )
   const sections = useMemo(() => navItemsFor(user, t), [user, t])
 
-  // `replace` para que alternar filtro não encha o histórico de voltas.
+  // `replace` (só dentro da lista) para que alternar filtro não encha o histórico de
+  // voltas; vindo de outra tela, empilha, e o Voltar do navegador volta para ela.
   const handleNav = (id) => {
-    navigate(id === 'all' ? '/' : `/?lista=${id}`, { replace: true })
+    navigate(id === 'all' ? '/clientes' : `/clientes?lista=${id}`, { replace: location.pathname === '/clientes' })
     onClose()
   }
 

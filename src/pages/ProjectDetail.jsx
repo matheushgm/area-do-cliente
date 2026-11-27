@@ -80,7 +80,7 @@ export default function ProjectDetail() {
       <div className="flex-1 min-w-0 flex items-center justify-center">
         <div className="text-center">
           <p className="text-rl-muted text-lg">{t('cliente.naoEncontrado')}</p>
-          <button onClick={() => navigate('/')} className="btn-primary mt-4">
+          <button onClick={() => navigate('/clientes')} className="btn-primary mt-4">
             {t('cliente.voltarDashboard')}
           </button>
         </div>
@@ -98,7 +98,7 @@ export default function ProjectDetail() {
           project={project}
           section={section}
           onSectionChange={handleSectionChange}
-          onVoltar={() => navigate('/')}
+          onVoltar={() => navigate('/clientes')}
           onAbrirMenu={openSidebar}
         />
       </div>

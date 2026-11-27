@@ -1125,8 +1125,7 @@ export function AppProvider({ children }) {
   const loginWithGoogle = useCallback(async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      // Volta direto na Inicial; se a URL não estiver liberada no Supabase, ele cai na Site URL.
-      options: { redirectTo: `${window.location.origin}/inicial` },
+      options: { redirectTo: window.location.origin },
     });
     if (error) return { ok: false, error: error.message };
     return { ok: true };

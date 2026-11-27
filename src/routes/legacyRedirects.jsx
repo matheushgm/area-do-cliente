@@ -32,6 +32,16 @@ export function RedirectAtividades() {
   return <Navigate to={`/tarefas?${p.toString()}${hash}`} replace />
 }
 
+// `/` virou a Inicial (2026-11-27) e a lista de clientes foi para `/clientes`. Link antigo
+// da lista (`/?lista=novos|churn`, `/?visao=crescimento&...`) vai para `/clientes` com a
+// mesma querystring; `/` sem esses parâmetros mostra a Inicial (children).
+export function RaizOuClientesLegado({ children }) {
+  const { search, hash } = useLocation()
+  const p = new URLSearchParams(search)
+  if (p.has('lista') || p.has('visao')) return <Navigate to={`/clientes${search}${hash}`} replace />
+  return children
+}
+
 // Redirect simples que preserva querystring e hash.
 export function RedirectComQuery({ to }) {
   const { search, hash } = useLocation()
